@@ -28,7 +28,10 @@
     "docker:compose:dev": "pnpm --filter backend docker:compose:dev",
     "start": "pnpm --filter backend start",
     "quality": "pnpm format:check && pnpm lint && pnpm test",
-    "quality:fix": "pnpm format && pnpm lint:fix"
+    "quality:fix": "pnpm format && pnpm lint:fix",
+    "cli:release:patch": "pnpm --filter cli release:patch",
+    "cli:release:minor": "pnpm --filter cli release:minor",
+    "cli:release:major": "pnpm --filter cli release:major"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
