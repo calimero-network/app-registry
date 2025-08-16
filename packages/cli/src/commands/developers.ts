@@ -74,7 +74,7 @@ export const developersCommand = new Command('developers')
           if (options.proofs) {
             try {
               proofs = JSON.parse(options.proofs);
-            } catch (e) {
+            } catch {
               spinner.fail('Invalid proofs JSON format');
               console.error(chalk.red('Proofs must be a valid JSON array'));
               process.exit(1);
