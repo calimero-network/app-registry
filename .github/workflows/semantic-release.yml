@@ -6,62 +6,66 @@ on:
       - main
 
 jobs:
-  semantic-release:
+  detect-changes:
     runs-on: ubuntu-latest
+    outputs:
+      cli-changed: ${{ steps.detect.outputs.cli-changed }}
+      lib-changed: ${{ steps.detect.outputs.lib-changed }}
+      backend-changed: ${{ steps.detect.outputs.backend-changed }}
+      frontend-changed: ${{ steps.detect.outputs.frontend-changed }}
+      monorepo-changed: ${{ steps.detect.outputs.monorepo-changed }}
+      release-type: ${{ steps.detect.outputs.release-type }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Full history for change detection
 
+      - name: Detect package changes
+        id: detect
+        run: |
+          ./scripts/detect-changes.sh HEAD
+
+  semantic-release:
+    needs: detect-changes
+    runs-on: ubuntu-latest
+    if: needs.detect-changes.outputs.cli-changed == 'true' || needs.detect-changes.outputs.lib-changed == 'true' || needs.detect-changes.outputs.backend-changed == 'true' || needs.detect-changes.outputs.frontend-changed == 'true' || needs.detect-changes.outputs.monorepo-changed == 'true'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '18'
+          cache: 'npm'
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v2
         with:
           version: 8
 
-      - name: Get pnpm store directory
-        shell: bash
-        run: |
-          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
-
-      - name: Setup pnpm cache
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
-
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build all packages
-        run: pnpm build
-
-      - name: Test all packages
-        run: pnpm test
-
-      - name: Setup npm authentication
+      - name: Build and test all packages
         run: |
-          echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
-          npm config set @xilos:registry https://registry.npmjs.org/
+          pnpm build
+          pnpm test
 
       # CLI Package Release (DRY RUN)
       - name: Release CLI Package (DRY RUN)
-        if: contains(github.event.head_commit.message, 'fix(cli)') || contains(github.event.head_commit.message, 'feat(cli)') || contains(github.event.head_commit.message, 'chore(cli)')
+        if: needs.detect-changes.outputs.cli-changed == 'true'
         run: |
           cd packages/cli
-          echo "🔍 CLI Release DRY RUN - Would trigger for: ${{ github.event.head_commit.message }}"
-          echo "📦 Would publish to npm: @xilos/ssapp-registry-cli"
+          echo "🚀 CLI Release DRY RUN"
+          echo "📦 Package: @xilos/ssapp-registry-cli"
+          echo "🎯 Release type: ${{ needs.detect-changes.outputs.release-type }}"
           echo "🏷️  Would create tag: cli-v*"
           echo "📝 Would create GitHub release"
+          echo "📊 Changes detected since last CLI release"
           # npx semantic-release --dry-run
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -70,42 +74,63 @@ jobs:
 
       # Client Library Release (DRY RUN)
       - name: Release Client Library (DRY RUN)
-        if: contains(github.event.head_commit.message, 'fix(lib)') || contains(github.event.head_commit.message, 'feat(lib)') || contains(github.event.head_commit.message, 'chore(lib)')
+        if: needs.detect-changes.outputs.lib-changed == 'true'
         run: |
           cd packages/client-library
-          echo "🔍 Client Library Release DRY RUN - Would trigger for: ${{ github.event.head_commit.message }}"
-          echo "📦 Would publish to npm: @ssapp-registry/client"
+          echo "🚀 Client Library Release DRY RUN"
+          echo "📦 Package: @ssapp-registry/client"
+          echo "🎯 Release type: ${{ needs.detect-changes.outputs.release-type }}"
           echo "🏷️  Would create tag: lib-v*"
           echo "📝 Would create GitHub release"
+          echo "📊 Changes detected since last Client Library release"
           # npx semantic-release --dry-run
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           NODE_ENV: production
 
-      # Backend Release (Docker only, no npm)
-      - name: Release Backend
-        if: contains(github.event.head_commit.message, 'fix(be)') || contains(github.event.head_commit.message, 'feat(be)') || contains(github.event.head_commit.message, 'chore(be)')
+      # Backend Release (DRY RUN)
+      - name: Release Backend (DRY RUN)
+        if: needs.detect-changes.outputs.backend-changed == 'true'
         run: |
-          echo "Backend release triggered - Docker images will be built and pushed"
-          # Docker release logic will be added here when ready
+          cd packages/backend
+          echo "🚀 Backend Release DRY RUN"
+          echo "📦 Package: @ssapp-registry/backend"
+          echo "🎯 Release type: ${{ needs.detect-changes.outputs.release-type }}"
+          echo "🏷️  Would create tag: backend-v*"
+          echo "📝 Would create GitHub release"
+          echo "📊 Changes detected since last Backend release"
+          # npx semantic-release --dry-run
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_ENV: production
 
-      # Frontend Release (Build artifacts only, no npm)
-      - name: Release Frontend
-        if: contains(github.event.head_commit.message, 'fix(fe)') || contains(github.event.head_commit.message, 'feat(fe)') || contains(github.event.head_commit.message, 'chore(fe)')
+      # Frontend Release (DRY RUN)
+      - name: Release Frontend (DRY RUN)
+        if: needs.detect-changes.outputs.frontend-changed == 'true'
         run: |
-          echo "Frontend release triggered - Build artifacts will be created"
-          # Frontend release logic will be added here when ready
+          cd packages/frontend
+          echo "🚀 Frontend Release DRY RUN"
+          echo "📦 Package: @ssapp-registry/frontend"
+          echo "🎯 Release type: ${{ needs.detect-changes.outputs.release-type }}"
+          echo "🏷️  Would create tag: frontend-v*"
+          echo "📝 Would create GitHub release"
+          echo "📊 Changes detected since last Frontend release"
+          # npx semantic-release --dry-run
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_ENV: production
 
-      # Monorepo-wide Release (all packages)
-      - name: Release All Packages
-        if: contains(github.event.head_commit.message, 'fix:') || contains(github.event.head_commit.message, 'feat:') || contains(github.event.head_commit.message, 'chore:') && !contains(github.event.head_commit.message, '(cli)') && !contains(github.event.head_commit.message, '(lib)') && !contains(github.event.head_commit.message, '(be)') && !contains(github.event.head_commit.message, '(fe)')
+      # Monorepo-wide Release (DRY RUN)
+      - name: Release All Packages (DRY RUN)
+        if: needs.detect-changes.outputs.monorepo-changed == 'true'
         run: |
-          echo "Monorepo-wide release triggered - all packages will be released"
+          echo "🚀 Monorepo-wide Release DRY RUN"
+          echo "🎯 Release type: ${{ needs.detect-changes.outputs.release-type }}"
+          echo "📦 Would release all packages with coordinated versioning"
+          echo "🏷️  Would create tags for all packages"
+          echo "📝 Would create GitHub releases for all packages"
+          echo "📊 Monorepo-wide changes detected"
           # Monorepo release logic will be added here when ready
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
