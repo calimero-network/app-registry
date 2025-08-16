@@ -29,7 +29,7 @@ FROM base AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
-ENV PORT=8080
+ENV PORT=3000
 ENV HOST=0.0.0.0
 
 RUN addgroup --system --gid 1001 nodejs
@@ -44,10 +44,10 @@ COPY --from=builder /app/api.yml ./api.yml
 # Create a non-root user to run the app
 USER nodejs
 
-EXPOSE 8080
+EXPOSE 3000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:8080/healthz', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"
+  CMD node -e "require('http').get('http://localhost:3000/healthz', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"
 
 CMD ["node", "src/server.js"]

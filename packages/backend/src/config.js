@@ -11,7 +11,7 @@ module.exports = {
   cors: {
     origin: process.env.CORS_ORIGIN
       ? process.env.CORS_ORIGIN.split(',')
-      : ['http://localhost:3000', 'https://registry.example.com'],
+      : ['https://calimero-network.github.io', 'http://localhost:5173'],
   },
   cdn: {
     headers: {

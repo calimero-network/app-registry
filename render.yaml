@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: app-registry-backend
+    env: docker
+    plan: free
+    dockerfilePath: packages/backend/Dockerfile
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: CORS_ORIGIN
+        value: https://calimero-network.github.io,http://localhost:5173
