@@ -2,10 +2,10 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { Search, Package, ExternalLink } from 'lucide-react';
-import { appsApi } from '../lib/api';
+import { getApps } from '../lib/api';
 import type { AppSummary } from '../types/api';
 
-export function AppsPage() {
+export default function AppsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [developerFilter, setDeveloperFilter] = useState('');
 
@@ -15,11 +15,11 @@ export function AppsPage() {
     error,
   } = useQuery({
     queryKey: ['apps', { dev: developerFilter, name: searchTerm }],
-    queryFn: () => appsApi.getApps({ dev: developerFilter, name: searchTerm }),
+    queryFn: () => getApps({ dev: developerFilter, name: searchTerm }),
   });
 
   const filteredApps = apps.filter(
-    app =>
+    (app: AppSummary) =>
       app.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       app.alias?.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -95,7 +95,7 @@ export function AppsPage() {
         </div>
       ) : (
         <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'>
-          {filteredApps.map(app => (
+          {filteredApps.map((app: AppSummary) => (
             <AppCard key={`${app.developer_pubkey}/${app.name}`} app={app} />
           ))}
         </div>
@@ -106,29 +106,35 @@ export function AppsPage() {
 
 function AppCard({ app }: { app: AppSummary }) {
   return (
-    <Link
-      to={`/apps/${app.developer_pubkey}/${app.name}`}
-      className='card p-6 hover:shadow-md transition-shadow duration-200'
-    >
-      <div className='flex items-start justify-between'>
-        <div className='flex-1'>
-          <h3 className='text-lg font-semibold text-gray-900 mb-1'>
-            {app.name}
-          </h3>
+    <div className='card p-6 hover:shadow-md transition-shadow'>
+      <div className='flex items-start justify-between mb-4'>
+        <div>
+          <h3 className='text-lg font-semibold text-gray-900'>{app.name}</h3>
           {app.alias && (
-            <p className='text-sm text-gray-500 mb-2'>{app.alias}</p>
+            <p className='text-sm text-gray-500'>Alias: {app.alias}</p>
           )}
-          <p className='text-xs text-gray-400 font-mono mb-3'>
-            {app.developer_pubkey.slice(0, 16)}...
-          </p>
-          <div className='flex items-center text-sm text-gray-600'>
-            <span className='bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs'>
-              v{app.latest_version}
-            </span>
-          </div>
         </div>
-        <ExternalLink className='h-4 w-4 text-gray-400' />
+        <Package className='w-5 h-5 text-gray-400' />
       </div>
-    </Link>
+      <div className='space-y-2 mb-4'>
+        <p className='text-sm text-gray-600'>
+          <span className='font-medium'>Developer:</span>{' '}
+          <span className='font-mono text-xs'>
+            {app.developer_pubkey.substring(0, 12)}...
+          </span>
+        </p>
+        <p className='text-sm text-gray-600'>
+          <span className='font-medium'>Latest Version:</span>{' '}
+          {app.latest_version}
+        </p>
+      </div>
+      <Link
+        to={`/apps/${app.developer_pubkey}/${app.name}`}
+        className='inline-flex items-center text-sm font-medium text-primary-600 hover:text-primary-700'
+      >
+        View Details
+        <ExternalLink className='w-4 h-4 ml-1' />
+      </Link>
+    </div>
   );
 }

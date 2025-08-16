@@ -1,10 +1,10 @@
 import { Routes, Route } from 'react-router-dom';
 import { Layout } from './components/Layout';
-import { HomePage } from './pages/HomePage';
-import { AppsPage } from './pages/AppsPage';
-import { AppDetailPage } from './pages/AppDetailPage';
-import { DevelopersPage } from './pages/DevelopersPage';
-import { DeveloperDetailPage } from './pages/DeveloperDetailPage';
+import HomePage from './pages/HomePage';
+import AppsPage from './pages/AppsPage';
+import AppDetailPage from './pages/AppDetailPage';
+import DevelopersPage from './pages/DevelopersPage';
+import DeveloperDetailPage from './pages/DeveloperDetailPage';
 
 function App() {
   return (
