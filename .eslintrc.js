@@ -28,4 +28,10 @@ module.exports = {
       },
     },
   ],
+  ignorePatterns: [
+    '.github/workflows/*.yml',
+    'node_modules/',
+    'dist/',
+    'coverage/',
+  ],
 };
