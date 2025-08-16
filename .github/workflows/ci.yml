@@ -154,7 +154,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           file: ./packages/backend/Dockerfile
@@ -187,7 +187,7 @@ jobs:
 
       - name: Push to Docker Hub (Backend)
         if: steps.docker-hub.outputs.has_credentials == 'true'
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           file: ./packages/backend/Dockerfile
