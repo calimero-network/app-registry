@@ -17,7 +17,7 @@ jobs:
       release-type: ${{ steps.detect.outputs.release-type }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0 # Full history for change detection
 
@@ -32,7 +32,7 @@ jobs:
     if: needs.detect-changes.outputs.cli-changed == 'true' || needs.detect-changes.outputs.lib-changed == 'true' || needs.detect-changes.outputs.backend-changed == 'true' || needs.detect-changes.outputs.frontend-changed == 'true' || needs.detect-changes.outputs.monorepo-changed == 'true'
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
