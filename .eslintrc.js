@@ -1,4 +1,5 @@
 module.exports = {
+  root: true,
   env: {
     node: true,
     es2021: true,
@@ -17,5 +18,14 @@ module.exports = {
     'object-shorthand': 'error',
     'prefer-template': 'error',
   },
-  ignorePatterns: ['node_modules/', 'dist/', 'coverage/'],
+  overrides: [
+    {
+      files: ['packages/backend/**/*.js'],
+      extends: ['eslint:recommended', 'prettier'],
+      rules: {
+        'no-console': 'warn',
+        'no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+      },
+    },
+  ],
 };

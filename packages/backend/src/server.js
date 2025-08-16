@@ -16,29 +16,31 @@ const config = require('./config');
 async function buildServer() {
   const server = fastify({
     logger: {
-      level: process.env.LOG_LEVEL || 'info'
-    }
+      level: process.env.LOG_LEVEL || 'info',
+    },
   });
 
   // Register CORS
   await server.register(cors, {
     origin: config.cors.origin,
-    credentials: true
+    credentials: true,
   });
 
   // Register Swagger
   const yaml = require('js-yaml');
-  const openapiSpec = yaml.load(fs.readFileSync(path.join(__dirname, '../api.yml'), 'utf8'));
+  const openapiSpec = yaml.load(
+    fs.readFileSync(path.join(__dirname, '../api.yml'), 'utf8')
+  );
   await server.register(swagger, {
-    openapi: openapiSpec
+    openapi: openapiSpec,
   });
 
   await server.register(swaggerUi, {
     routePrefix: '/docs',
     uiConfig: {
       docExpansion: 'full',
-      deepLinking: false
-    }
+      deepLinking: false,
+    },
   });
 
   // Health endpoint
@@ -62,7 +64,9 @@ async function start() {
 
     await server.listen({ port, host });
     server.log.info(`Server listening on ${host}:${port}`);
-    server.log.info(`API documentation available at http://${host}:${port}/docs`);
+    server.log.info(
+      `API documentation available at http://${host}:${port}/docs`
+    );
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error('Error starting server:', err);
@@ -74,4 +78,4 @@ if (require.main === module) {
   start();
 }
 
-module.exports = { buildServer }; 
+module.exports = { buildServer };

@@ -10,18 +10,18 @@ function canonicalizeJSON(obj) {
   if (typeof obj === 'string') return JSON.stringify(obj);
   if (typeof obj === 'number') return obj.toString();
   if (typeof obj === 'boolean') return obj.toString();
-  
+
   if (Array.isArray(obj)) {
-    return '[' + obj.map(canonicalizeJSON).join(',') + ']';
+    return `[${obj.map(canonicalizeJSON).join(',')}]`;
   }
-  
+
   if (typeof obj === 'object') {
     const keys = Object.keys(obj).sort();
-    return '{' + keys.map(key => 
-      JSON.stringify(key) + ':' + canonicalizeJSON(obj[key])
-    ).join(',') + '}';
+    return `{${keys
+      .map(key => `${JSON.stringify(key)}:${canonicalizeJSON(obj[key])}`)
+      .join(',')}}`;
   }
-  
+
   throw new Error('Unsupported type for canonicalization');
 }
 
@@ -45,7 +45,8 @@ function verifySignature(publicKey, signature, data) {
       decodedPubKey = multibase.decode(publicKey);
     } catch {
       // Try as base58 - use a simple base58 decoder
-      const base58Chars = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+      const base58Chars =
+        '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
       let decoded = 0n;
       for (let i = 0; i < publicKey.length; i++) {
         const char = publicKey[i];
@@ -55,7 +56,7 @@ function verifySignature(publicKey, signature, data) {
         }
         decoded = decoded * 58n + BigInt(charIndex);
       }
-      
+
       // Convert to bytes
       const bytes = [];
       while (decoded > 0n) {
@@ -64,13 +65,14 @@ function verifySignature(publicKey, signature, data) {
       }
       decodedPubKey = Buffer.from(bytes);
     }
-    
+
     // Decode signature from base64
     const decodedSig = Buffer.from(signature, 'base64');
-    
+
     // Convert data to Buffer if it's a string
-    const dataBuffer = typeof data === 'string' ? Buffer.from(data, 'utf8') : data;
-    
+    const dataBuffer =
+      typeof data === 'string' ? Buffer.from(data, 'utf8') : data;
+
     return ed25519.verify(decodedSig, dataBuffer, decodedPubKey);
   } catch (error) {
     // eslint-disable-next-line no-console
@@ -83,25 +85,29 @@ function verifySignature(publicKey, signature, data) {
  * Verify manifest signature
  */
 function verifyManifest(manifest) {
-  if (!manifest.signature || !manifest.signature.sig || !manifest.signature.alg) {
+  if (
+    !manifest.signature ||
+    !manifest.signature.sig ||
+    !manifest.signature.alg
+  ) {
     throw new Error('Missing signature information');
   }
-  
+
   if (manifest.signature.alg !== 'Ed25519') {
     throw new Error('Unsupported signature algorithm');
   }
-  
+
   const manifestWithoutSignature = removeSignature(manifest);
   const canonicalized = canonicalizeJSON(manifestWithoutSignature);
-  
+
   const publicKey = manifest.app.developer_pubkey;
   const signature = manifest.signature.sig;
-  
+
   const isValid = verifySignature(publicKey, signature, canonicalized);
   if (!isValid) {
     throw new Error('Invalid signature');
   }
-  
+
   return true;
 }
 
@@ -109,7 +115,8 @@ function verifyManifest(manifest) {
  * Validate semver format
  */
 function validateSemver(semver) {
-  const semverRegex = /^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$/;
+  const semverRegex =
+    /^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$/;
   return semverRegex.test(semver);
 }
 
@@ -123,7 +130,8 @@ function validatePublicKey(pubkey) {
   } catch {
     // Try base58
     try {
-      const base58Chars = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+      const base58Chars =
+        '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
       for (let i = 0; i < pubkey.length; i++) {
         if (base58Chars.indexOf(pubkey[i]) === -1) {
           return false;
@@ -142,5 +150,5 @@ module.exports = {
   verifySignature,
   verifyManifest,
   validateSemver,
-  validatePublicKey
-}; 
+  validatePublicKey,
+};

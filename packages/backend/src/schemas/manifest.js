@@ -1,10 +1,20 @@
 const manifestSchema = {
   type: 'object',
-  required: ['manifest_version', 'app', 'version', 'supported_chains', 'permissions', 'artifacts', 'metadata', 'distribution', 'signature'],
+  required: [
+    'manifest_version',
+    'app',
+    'version',
+    'supported_chains',
+    'permissions',
+    'artifacts',
+    'metadata',
+    'distribution',
+    'signature',
+  ],
   properties: {
     manifest_version: {
       type: 'string',
-      pattern: '^[0-9]+\\.[0-9]+$'
+      pattern: '^[0-9]+\\.[0-9]+$',
     },
     app: {
       type: 'object',
@@ -13,21 +23,21 @@ const manifestSchema = {
         name: {
           type: 'string',
           minLength: 1,
-          maxLength: 100
+          maxLength: 100,
         },
         developer_pubkey: {
           type: 'string',
-          minLength: 1
+          minLength: 1,
         },
         id: {
           type: 'string',
-          pattern: '^[a-zA-Z0-9_-]+$'
+          pattern: '^[a-zA-Z0-9_-]+$',
         },
         alias: {
           type: 'string',
-          pattern: '^[a-zA-Z0-9.-]+$'
-        }
-      }
+          pattern: '^[a-zA-Z0-9.-]+$',
+        },
+      },
     },
     version: {
       type: 'object',
@@ -35,16 +45,17 @@ const manifestSchema = {
       properties: {
         semver: {
           type: 'string',
-          pattern: '^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z\\.-]+)?(\\+[0-9A-Za-z\\.-]+)?$'
-        }
-      }
+          pattern:
+            '^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z\\.-]+)?(\\+[0-9A-Za-z\\.-]+)?$',
+        },
+      },
     },
     supported_chains: {
       type: 'array',
       items: {
-        type: 'string'
+        type: 'string',
       },
-      minItems: 1
+      minItems: 1,
     },
     permissions: {
       type: 'array',
@@ -53,14 +64,14 @@ const manifestSchema = {
         required: ['cap', 'bytes'],
         properties: {
           cap: {
-            type: 'string'
+            type: 'string',
           },
           bytes: {
             type: 'integer',
-            minimum: 0
-          }
-        }
-      }
+            minimum: 0,
+          },
+        },
+      },
     },
     artifacts: {
       type: 'array',
@@ -70,36 +81,36 @@ const manifestSchema = {
         properties: {
           type: {
             type: 'string',
-            enum: ['wasm']
+            enum: ['wasm'],
           },
           target: {
-            type: 'string'
+            type: 'string',
           },
           cid: {
             type: 'string',
-            pattern: '^Qm[1-9A-HJ-NP-Za-km-z]{44}$|^bafy[a-z2-7]{55}$'
+            pattern: '^Qm[1-9A-HJ-NP-Za-km-z]{44}$|^bafy[a-z2-7]{55}$',
           },
           size: {
             type: 'integer',
-            minimum: 1
+            minimum: 1,
           },
           mirrors: {
             type: 'array',
             items: {
               type: 'string',
-              format: 'uri'
-            }
-          }
-        }
+              format: 'uri',
+            },
+          },
+        },
       },
-      minItems: 1
+      minItems: 1,
     },
     metadata: {
-      type: 'object'
+      type: 'object',
     },
     distribution: {
       type: 'string',
-      enum: ['ipfs']
+      enum: ['ipfs'],
     },
     signature: {
       type: 'object',
@@ -107,18 +118,18 @@ const manifestSchema = {
       properties: {
         alg: {
           type: 'string',
-          enum: ['Ed25519']
+          enum: ['Ed25519'],
         },
         sig: {
-          type: 'string'
+          type: 'string',
         },
         signed_at: {
           type: 'string',
-          format: 'date-time'
-        }
-      }
-    }
-  }
+          format: 'date-time',
+        },
+      },
+    },
+  },
 };
 
-module.exports = manifestSchema; 
+module.exports = manifestSchema;

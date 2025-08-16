@@ -40,30 +40,34 @@ pnpm start
 
 ## Environment Variables
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `PORT` | `8080` | Server port |
-| `HOST` | `0.0.0.0` | Server host |
-| `LOG_LEVEL` | `info` | Logging level |
-| `CORS_ORIGIN` | `http://localhost:3000,https://registry.example.com` | CORS origins |
-| `IPFS_GATEWAYS` | Multiple gateways | IPFS gateway URLs |
+| Variable        | Default                                              | Description       |
+| --------------- | ---------------------------------------------------- | ----------------- |
+| `PORT`          | `8080`                                               | Server port       |
+| `HOST`          | `0.0.0.0`                                            | Server host       |
+| `LOG_LEVEL`     | `info`                                               | Logging level     |
+| `CORS_ORIGIN`   | `http://localhost:3000,https://registry.example.com` | CORS origins      |
+| `IPFS_GATEWAYS` | Multiple gateways                                    | IPFS gateway URLs |
 
 ## API Endpoints
 
 ### Health Check
+
 - `GET /healthz` - Returns `{status: "ok"}`
 
 ### Apps
+
 - `GET /apps` - List apps (with optional filtering)
 - `GET /apps/{pubkey}/{app_name}` - List app versions
 - `GET /apps/{pubkey}/{app_name}/{semver}` - Get specific version manifest
 - `POST /apps` - Register new app version
 
 ### Developers
+
 - `GET /developers/{pubkey}` - Get developer profile
 - `POST /developers` - Register developer profile
 
 ### Attestations
+
 - `GET /attestations/{pubkey}/{app_name}/{semver}` - Get registry attestations
 - `POST /attestations` - Create attestation
 
@@ -101,6 +105,7 @@ pnpm docker:compose:dev
 This project includes GitHub Actions workflows for continuous integration and deployment:
 
 ### CI Pipeline (`.github/workflows/ci.yml`)
+
 - Runs on every push and pull request
 - Tests against Node.js 18.x and 20.x
 - Runs linting and security audits
@@ -108,12 +113,15 @@ This project includes GitHub Actions workflows for continuous integration and de
 - Uploads build artifacts
 
 ### Deployment Pipeline (`.github/workflows/deploy.yml`)
+
 - Triggers on version tags (e.g., `v1.0.0`)
 - Deploys to production environment
 - Includes health checks and notifications
 
 ### Required Secrets
+
 Set up the following secrets in your GitHub repository:
+
 - `SNYK_TOKEN`: For security scanning
 - `DOCKER_USERNAME`: Docker Hub username
 - `DOCKER_PASSWORD`: Docker Hub password
@@ -204,4 +212,4 @@ packages/
 
 ## License
 
-MIT 
+MIT

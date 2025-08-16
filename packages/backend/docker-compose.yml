@@ -6,7 +6,7 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "8080:8080"
+      - '8080:8080'
     environment:
       - NODE_ENV=production
       - PORT=8080
@@ -15,7 +15,13 @@ services:
       - CORS_ORIGIN=http://localhost:3000,https://registry.example.com
       - IPFS_GATEWAYS=https://ipfs.io/ipfs/,https://gateway.pinata.cloud/ipfs/,https://cloudflare-ipfs.com/ipfs/
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:8080/healthz', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"]
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "require('http').get('http://localhost:8080/healthz', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })",
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -28,7 +34,7 @@ services:
       dockerfile: Dockerfile
       target: builder
     ports:
-      - "8081:8080"
+      - '8081:8080'
     environment:
       - NODE_ENV=development
       - PORT=8080
@@ -39,6 +45,6 @@ services:
     volumes:
       - ./src:/app/src
       - ./api.yml:/app/api.yml
-    command: ["npm", "run", "dev"]
+    command: ['npm', 'run', 'dev']
     profiles:
-      - dev 
+      - dev

@@ -1,9 +1,8 @@
-const { 
-  canonicalizeJSON, 
-  verifySignature, 
-  verifyManifest, 
-  validateSemver, 
-  validatePublicKey 
+const {
+  canonicalizeJSON,
+  verifyManifest,
+  validateSemver,
+  validatePublicKey,
 } = require('../src/lib/verify');
 
 describe('Verification library', () => {
@@ -11,12 +10,12 @@ describe('Verification library', () => {
     const input = {
       c: 3,
       a: 1,
-      b: 2
+      b: 2,
     };
-    
+
     const expected = '{"a":1,"b":2,"c":3}';
     const result = canonicalizeJSON(input);
-    
+
     expect(result).toBe(expected);
   });
 
@@ -49,28 +48,30 @@ describe('Verification library', () => {
         name: 'test',
         developer_pubkey: '11111111111111111111111111111111',
         id: 'test',
-        alias: 'test'
+        alias: 'test',
       },
       version: {
-        semver: '1.0.0'
+        semver: '1.0.0',
       },
       supported_chains: ['test'],
       permissions: [],
-      artifacts: [{
-        type: 'wasm',
-        target: 'test',
-        cid: 'QmTest',
-        size: 100
-      }],
+      artifacts: [
+        {
+          type: 'wasm',
+          target: 'test',
+          cid: 'QmTest',
+          size: 100,
+        },
+      ],
       metadata: {},
       distribution: 'ipfs',
       signature: {
         alg: 'Ed25519',
         sig: 'invalid-signature',
-        signed_at: new Date().toISOString()
-      }
+        signed_at: new Date().toISOString(),
+      },
     };
-    
+
     expect(() => verifyManifest(invalidManifest)).toThrow();
   });
-}); 
+});

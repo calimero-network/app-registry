@@ -9,21 +9,41 @@
     "test": "pnpm --filter backend test",
     "lint": "pnpm --filter backend lint",
     "lint:fix": "pnpm --filter backend lint:fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "type-check": "pnpm --filter backend type-check",
     "clean": "pnpm --recursive clean",
     "docker:build": "pnpm --filter backend docker:build",
     "docker:compose": "pnpm --filter backend docker:compose",
     "docker:compose:dev": "pnpm --filter backend docker:compose:dev",
-    "start": "pnpm --filter backend start"
+    "start": "pnpm --filter backend start",
+    "quality": "pnpm format:check && pnpm lint && pnpm test",
+    "quality:fix": "pnpm format && pnpm lint:fix"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
     "typescript": "^5.0.0",
     "prettier": "^3.0.0",
-    "eslint": "^8.55.0"
+    "eslint": "^8.55.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "eslint-config-prettier": "^9.0.0",
+    "eslint-plugin-prettier": "^5.0.0",
+    "husky": "^8.0.0",
+    "lint-staged": "^15.0.0"
   },
   "engines": {
     "node": ">=18.0.0",
     "pnpm": ">=8.0.0"
   },
-  "packageManager": "pnpm@8.15.0"
-} 
+  "packageManager": "pnpm@8.15.0",
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md,yml,yaml}": [
+      "prettier --write"
+    ]
+  }
+}

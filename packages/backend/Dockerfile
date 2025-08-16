@@ -8,15 +8,15 @@ RUN apk add --no-cache libc6-compat python3 make g++
 WORKDIR /app
 
 # Install dependencies based on the preferred package manager
-COPY package.json package-lock.json* ./
-RUN npm ci --only=production
+COPY package.json ./
+RUN npm install --only=production
 
 # Rebuild the source code only when needed
 FROM base AS builder
 WORKDIR /app
 RUN apk add --no-cache libc6-compat python3 make g++
-COPY package.json package-lock.json* ./
-RUN npm ci
+COPY package.json ./
+RUN npm install
 COPY . .
 
 # Production image, copy all the files and run the app
@@ -45,4 +45,4 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD node -e "require('http').get('http://localhost:8080/healthz', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"
 
-CMD ["node", "src/server.js"] 
+CMD ["node", "src/server.js"]
