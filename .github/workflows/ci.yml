@@ -58,11 +58,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8.15.0
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20.x'
-          cache: 'npm'
+          cache: 'pnpm'
 
       - name: Install dependencies
         run: pnpm install
@@ -86,11 +91,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8.15.0
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20.x'
-          cache: 'npm'
+          cache: 'pnpm'
 
       - name: Install dependencies
         run: pnpm install
@@ -108,7 +118,7 @@ jobs:
           mkdir -p dist
           cp -r packages/backend/src dist/
           cp packages/backend/package*.json dist/
-          cp packages/backend/api.yml dist/
+          cp api.yml dist/
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
@@ -138,7 +148,8 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
-          context: ./packages/backend
+          context: .
+          file: ./packages/backend/Dockerfile
           push: true
           tags: |
             ${{ secrets.DOCKER_USERNAME }}/ssapp-registry-backend:latest

@@ -39,8 +39,7 @@ jobs:
 
       - name: Build Docker image
         run: |
-          cd packages/backend
-          docker build -t ssapp-registry-backend:${{ github.ref_name }} .
+          docker build -f packages/backend/Dockerfile -t ssapp-registry-backend:${{ github.ref_name }} .
           docker tag ssapp-registry-backend:${{ github.ref_name }} ssapp-registry-backend:latest
 
       - name: Deploy to production

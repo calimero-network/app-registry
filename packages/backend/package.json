@@ -14,7 +14,7 @@
     "lint:fix": "eslint src/ tests/ --fix",
     "type-check": "echo 'No TypeScript files to check'",
     "clean": "rm -rf node_modules dist coverage",
-    "docker:build": "docker build -t ssapp-registry-backend .",
+    "docker:build": "docker build -f packages/backend/Dockerfile -t ssapp-registry-backend .",
     "docker:run": "docker run -p 8080:8080 ssapp-registry-backend",
     "docker:compose": "docker-compose up -d",
     "docker:compose:dev": "docker-compose --profile dev up -d"

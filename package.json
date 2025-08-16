@@ -13,7 +13,7 @@
     "format:check": "prettier --check .",
     "type-check": "pnpm --filter backend type-check",
     "clean": "pnpm --recursive clean",
-    "docker:build": "pnpm --filter backend docker:build",
+    "docker:build": "docker build -f packages/backend/Dockerfile -t ssapp-registry-backend .",
     "docker:compose": "pnpm --filter backend docker:compose",
     "docker:compose:dev": "pnpm --filter backend docker:compose:dev",
     "start": "pnpm --filter backend start",

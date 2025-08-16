@@ -62,8 +62,7 @@ jobs:
 
       - name: Build Docker image
         run: |
-          cd packages/backend
-          docker build -t ssapp-registry-backend:test .
+          docker build -f packages/backend/Dockerfile -t ssapp-registry-backend:test .
           echo "✅ Docker build successful"
 
       - name: Test Docker container

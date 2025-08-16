@@ -44,7 +44,7 @@ services:
       - IPFS_GATEWAYS=https://ipfs.io/ipfs/,https://gateway.pinata.cloud/ipfs/,https://cloudflare-ipfs.com/ipfs/
     volumes:
       - ./src:/app/src
-      - ./api.yml:/app/api.yml
+      - ../../api.yml:/app/api.yml
     command: ['npm', 'run', 'dev']
     profiles:
       - dev
