@@ -167,17 +167,14 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/backend:latest
           build-args: BUILDKIT_INLINE_CACHE=1
 
-      - name: Build and push CLI Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: ./packages/cli/Dockerfile
-          platforms: linux/amd64
-          push: true
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/cli:${{ github.sha }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/cli:latest
-          build-args: BUILDKIT_INLINE_CACHE=1
+      # Publish CLI package to npm (if on main branch)
+      - name: Publish CLI to npm
+        if: github.ref == 'refs/heads/main'
+        run: |
+          cd packages/cli
+          npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       # Optional: Push to Docker Hub if credentials are provided
       - name: Check Docker Hub credentials
@@ -207,17 +204,4 @@ jobs:
           tags: |
             ${{ secrets.DOCKER_USERNAME }}/ssapp-registry-backend:${{ github.sha }}
             ${{ secrets.DOCKER_USERNAME }}/ssapp-registry-backend:latest
-          build-args: BUILDKIT_INLINE_CACHE=1
-
-      - name: Push to Docker Hub (CLI)
-        if: steps.docker-hub.outputs.has_credentials == 'true'
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: ./packages/cli/Dockerfile
-          platforms: linux/amd64
-          push: true
-          tags: |
-            ${{ secrets.DOCKER_USERNAME }}/ssapp-registry-cli:${{ github.sha }}
-            ${{ secrets.DOCKER_USERNAME }}/ssapp-registry-cli:latest
           build-args: BUILDKIT_INLINE_CACHE=1
