@@ -1,215 +1,160 @@
-# SSApp Registry Monorepo
+# SSApp Registry Backend
 
-A monorepo containing the SSApp registry backend built with Node.js and Fastify, implementing the OpenAPI 3.0 specification for SSApp management.
+A production-ready SSApp registry backend built with Node.js and Fastify, featuring OpenAPI 3.0 specification, JCS canonicalization, Ed25519 signature verification, and IPFS integration.
 
-## Features
-
-- **OpenAPI 3.0 Integration**: Full API documentation with Swagger UI
-- **JCS Canonicalization**: JSON Canonicalization Scheme for deterministic signing
-- **Ed25519 Verification**: Cryptographic signature verification
-- **IPFS Integration**: WASM artifact storage on IPFS
-- **SemVer Support**: Semantic versioning with immutability guarantees
-- **CORS & CDN Headers**: Production-ready caching and cross-origin support
-
-## Quick Start
+## 🚀 Quick Start
 
 ### Prerequisites
 
-- Node.js 18.0.0 or higher
-- npm or yarn
+- Node.js 18+
+- pnpm 8+
+- Docker (optional)
 
-### Installation
+### Local Development
 
 ```bash
+# Install dependencies
 pnpm install
-```
 
-### Development
-
-```bash
+# Start development server
 pnpm dev
-```
 
-The server will start on `http://localhost:8080` with API documentation available at `/docs`.
-
-### Production
-
-```bash
-pnpm start
-```
-
-## Environment Variables
-
-| Variable        | Default                                              | Description       |
-| --------------- | ---------------------------------------------------- | ----------------- |
-| `PORT`          | `8080`                                               | Server port       |
-| `HOST`          | `0.0.0.0`                                            | Server host       |
-| `LOG_LEVEL`     | `info`                                               | Logging level     |
-| `CORS_ORIGIN`   | `http://localhost:3000,https://registry.example.com` | CORS origins      |
-| `IPFS_GATEWAYS` | Multiple gateways                                    | IPFS gateway URLs |
-
-## API Endpoints
-
-### Health Check
-
-- `GET /healthz` - Returns `{status: "ok"}`
-
-### Apps
-
-- `GET /apps` - List apps (with optional filtering)
-- `GET /apps/{pubkey}/{app_name}` - List app versions
-- `GET /apps/{pubkey}/{app_name}/{semver}` - Get specific version manifest
-- `POST /apps` - Register new app version
-
-### Developers
-
-- `GET /developers/{pubkey}` - Get developer profile
-- `POST /developers` - Register developer profile
-
-### Attestations
-
-- `GET /attestations/{pubkey}/{app_name}/{semver}` - Get registry attestations
-- `POST /attestations` - Create attestation
-
-## Testing
-
-```bash
 # Run tests
 pnpm test
 
 # Run linting
 pnpm lint
 
-# Fix linting issues
-pnpm lint:fix
+# Check formatting
+pnpm format:check
 ```
 
-## Docker
+### Docker
 
 ```bash
-# Build Docker image
+# Build image
 pnpm docker:build
 
-# Run Docker container
+# Run container
 pnpm docker:run
 
-# Run with Docker Compose (production)
+# Or use Docker Compose
 pnpm docker:compose
-
-# Run with Docker Compose (development)
-pnpm docker:compose:dev
 ```
 
-## CI/CD
+## 📦 Docker Images
 
-This project includes GitHub Actions workflows for continuous integration and deployment:
+Docker images are automatically built and published to **GitHub Container Registry**:
 
-### CI Pipeline (`.github/workflows/ci.yml`)
+```bash
+# Pull the latest image
+docker pull ghcr.io/calimero-network/app-registry/ssapp-registry-backend:latest
 
-- Runs on every push and pull request
-- Tests against Node.js 18.x and 20.x
-- Runs linting and security audits
-- Builds Docker images
-- Uploads build artifacts
-
-### Deployment Pipeline (`.github/workflows/deploy.yml`)
-
-- Triggers on version tags (e.g., `v1.0.0`)
-- Deploys to production environment
-- Includes health checks and notifications
-
-### Required Secrets
-
-Set up the following secrets in your GitHub repository:
-
-- `SNYK_TOKEN`: For security scanning
-- `DOCKER_USERNAME`: Docker Hub username
-- `DOCKER_PASSWORD`: Docker Hub password
-
-## Manifest Schema
-
-The app manifest follows this structure:
-
-```json
-{
-  "manifest_version": "1.0",
-  "app": {
-    "name": "app-name",
-    "developer_pubkey": "ed25519-pubkey",
-    "id": "app-id",
-    "alias": "com.example.app"
-  },
-  "version": {
-    "semver": "1.0.0"
-  },
-  "supported_chains": ["chain1", "chain2"],
-  "permissions": [
-    {
-      "cap": "permission-name",
-      "bytes": 1024
-    }
-  ],
-  "artifacts": [
-    {
-      "type": "wasm",
-      "target": "wasm32-unknown-unknown",
-      "cid": "Qm...",
-      "size": 1024,
-      "mirrors": ["https://..."]
-    }
-  ],
-  "metadata": {},
-  "distribution": "ipfs",
-  "signature": {
-    "alg": "Ed25519",
-    "sig": "base64-signature",
-    "signed_at": "2023-01-01T00:00:00Z"
-  }
-}
+# Run with specific version
+docker run -p 8080:8080 ghcr.io/calimero-network/app-registry/ssapp-registry-backend:latest
 ```
 
-## Identity Format
+## 🔧 Configuration
 
-Apps are identified using the format: `ssapp:<ed25519-pubkey>/<app_name>`
+### Environment Variables
 
-## Security
+- `PORT`: Server port (default: 8080)
+- `HOST`: Server host (default: 0.0.0.0)
+- `NODE_ENV`: Environment (development/production)
 
-- All manifests must be signed with Ed25519
-- Signatures are verified against JCS-canonicalized JSON
-- SemVer immutability is enforced (same pubkey/name/semver must have same artifact CIDs)
-- Public keys are validated for proper format (base58 or multibase)
+### IPFS Gateways
 
-## Development
+Configured IPFS gateways for artifact storage:
+
+- `https://ipfs.io/ipfs/`
+- `https://gateway.pinata.cloud/ipfs/`
+- `https://cloudflare-ipfs.com/ipfs/`
+
+## 🛡️ Security Features
+
+- **JCS Canonicalization**: Deterministic JSON serialization
+- **Ed25519 Signatures**: Cryptographic verification of manifests
+- **SemVer Immutability**: Same (pubkey, name, semver) = same artifact CIDs
+- **Automated Security Scanning**: Snyk integration for vulnerability detection
+
+## 📚 API Documentation
+
+- **OpenAPI 3.0**: Full API specification in `api.yml`
+- **Interactive Docs**: Available at `/docs` when server is running
+- **Health Check**: `/healthz` endpoint for monitoring
+
+## 🏗️ Architecture
+
+### Core Components
+
+- **Fastify Server**: High-performance web framework
+- **OpenAPI Integration**: Automatic validation and documentation
+- **JCS Library**: JSON Canonicalization Scheme implementation
+- **Ed25519 Verification**: Cryptographic signature validation
+- **IPFS Integration**: Decentralized artifact storage
 
 ### Project Structure
 
 ```
-packages/
-└── backend/
-    ├── src/
-    │   ├── server.js          # Main server file
-    │   ├── config.js          # Configuration
-    │   ├── lib/
-    │   │   └── verify.js      # JCS + Ed25519 verification
-    │   ├── schemas/
-    │   │   └── manifest.js    # JSON schema for manifests
-    │   └── routes/
-    │       ├── apps.js        # App endpoints
-    │       ├── developers.js  # Developer endpoints
-    │       └── attestations.js # Attestation endpoints
-    ├── tests/                 # Test files
-    ├── Dockerfile            # Docker configuration
-    ├── docker-compose.yml    # Docker Compose configuration
-    └── package.json          # Backend dependencies
+packages/backend/
+├── src/
+│   ├── server.js          # Main server setup
+│   ├── config.js          # Configuration management
+│   ├── lib/verify.js      # JCS + Ed25519 verification
+│   ├── schemas/           # JSON schemas
+│   └── routes/            # API endpoints
+├── tests/                 # Test suite
+└── Dockerfile            # Container configuration
 ```
 
-### Adding New Endpoints
+## 🚀 CI/CD Pipeline
 
-1. Create route file in `packages/backend/src/routes/`
-2. Register in `packages/backend/src/server.js`
-3. Add tests in `packages/backend/tests/`
-4. Update OpenAPI spec if needed
+### Automated Workflows
 
-## License
+- **Tests**: Jest test suite with coverage
+- **Linting**: ESLint + Prettier code quality
+- **Security**: Snyk vulnerability scanning
+- **Docker**: Automated image building and publishing
+- **Deployment**: Production deployment on version tags
 
-MIT
+### Quality Gates
+
+- ✅ All tests must pass
+- ✅ No linting errors
+- ✅ Code formatting compliance
+- ✅ Security scan clean
+- ✅ Docker build successful
+
+## 🔍 Monitoring
+
+### Health Endpoints
+
+- `GET /healthz`: Basic health check
+- `GET /docs`: API documentation
+- `GET /apps`: List available applications
+
+### Logging
+
+- Structured JSON logging
+- Request/response tracking
+- Error handling with context
+
+## 📄 License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Run quality checks: `pnpm quality`
+5. Submit a pull request
+
+## 📞 Support
+
+For questions or issues:
+
+- Create an issue on GitHub
+- Check the API documentation at `/docs`
+- Review the test suite for usage examples
