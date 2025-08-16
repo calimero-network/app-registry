@@ -1,19 +1,10 @@
 import { readFileSync, writeFileSync } from 'fs';
-import { createHash } from 'crypto';
-import { join } from 'path';
 
-export async function uploadToIPFS(
-  filePath: string,
-  gatewayUrl: string
-): Promise<string> {
+export async function uploadToIPFS(filePath: string): Promise<string> {
   try {
-    // Read the file
-    const fileBuffer = readFileSync(filePath);
-
     // For now, we'll simulate IPFS upload since public gateways require authentication
     // In production, you'd use a service like Pinata, Infura, or your own IPFS node
 
-    // Simulate CID generation (this is just for demo purposes)
     // Use a hardcoded valid CID for demo
     const simulatedCid = 'QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG';
 
@@ -30,8 +21,7 @@ export async function uploadToIPFS(
 
 export async function downloadFromIPFS(
   cid: string,
-  outputPath?: string,
-  gatewayUrl: string = 'https://ipfs.infura.io:5001/api/v0'
+  outputPath?: string
 ): Promise<string> {
   try {
     // For demo purposes, we'll simulate IPFS download

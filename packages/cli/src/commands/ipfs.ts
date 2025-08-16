@@ -8,16 +8,11 @@ export const ipfsCommand = new Command('ipfs')
     new Command('upload')
       .description('Upload a file to IPFS')
       .argument('<file>', 'Path to the file to upload')
-      .option(
-        '-g, --gateway <url>',
-        'IPFS gateway URL',
-        'https://ipfs.infura.io:5001/api/v0'
-      )
-      .action(async (file, options) => {
+      .action(async file => {
         const s = spinner('Uploading to IPFS...').start();
 
         try {
-          const cid = await uploadToIPFS(file, options.gateway);
+          const cid = await uploadToIPFS(file);
           s.succeed(`File uploaded successfully!`);
           console.log(`CID: ${cid}`);
           console.log(`Gateway URL: https://ipfs.io/ipfs/${cid}`);
@@ -36,20 +31,11 @@ export const ipfsCommand = new Command('ipfs')
       .description('Download a file from IPFS')
       .argument('<cid>', 'IPFS CID to download')
       .argument('[output]', 'Output file path (optional)')
-      .option(
-        '-g, --gateway <url>',
-        'IPFS gateway URL',
-        'https://ipfs.infura.io:5001/api/v0'
-      )
-      .action(async (cid, output, options) => {
+      .action(async (cid, output) => {
         const s = spinner('Downloading from IPFS...').start();
 
         try {
-          const outputPath = await downloadFromIPFS(
-            cid,
-            output,
-            options.gateway
-          );
+          const outputPath = await downloadFromIPFS(cid, output);
           s.succeed(`File downloaded successfully!`);
           console.log(`Saved to: ${outputPath}`);
           console.log(`Gateway URL: https://ipfs.io/ipfs/${cid}`);
