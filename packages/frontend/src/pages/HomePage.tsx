@@ -1,7 +1,22 @@
 import { Link } from 'react-router-dom';
 import { Package, Shield, Zap } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 
 export default function HomePage() {
+  const { data: stats, isLoading: statsLoading } = useQuery({
+    queryKey: ['stats'],
+    queryFn: async () => {
+      const response = await fetch('/api/stats');
+      if (!response.ok) {
+        throw new Error('Failed to fetch statistics');
+      }
+      return response.json();
+    },
+  });
+
+  const publishedApps = stats?.publishedApps || 0;
+  const activeDevelopers = stats?.activeDevelopers || 0;
+  const totalDownloads = stats?.totalDownloads || 0;
   return (
     <div className='container mx-auto px-4 py-8'>
       {/* Hero Section */}
@@ -77,15 +92,21 @@ export default function HomePage() {
         </h2>
         <div className='grid md:grid-cols-3 gap-8 text-center'>
           <div>
-            <div className='text-3xl font-bold text-primary-600 mb-2'>0</div>
+            <div className='text-3xl font-bold text-primary-600 mb-2'>
+              {statsLoading ? '...' : publishedApps}
+            </div>
             <div className='text-gray-600'>Published Apps</div>
           </div>
           <div>
-            <div className='text-3xl font-bold text-primary-600 mb-2'>0</div>
+            <div className='text-3xl font-bold text-primary-600 mb-2'>
+              {statsLoading ? '...' : activeDevelopers}
+            </div>
             <div className='text-gray-600'>Active Developers</div>
           </div>
           <div>
-            <div className='text-3xl font-bold text-primary-600 mb-2'>0</div>
+            <div className='text-3xl font-bold text-primary-600 mb-2'>
+              {statsLoading ? '...' : totalDownloads}
+            </div>
             <div className='text-gray-600'>Total Downloads</div>
           </div>
         </div>

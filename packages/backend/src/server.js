@@ -48,6 +48,28 @@ async function buildServer() {
     return { status: 'ok' };
   });
 
+  // Statistics endpoint
+  server.get('/stats', async (_request, _reply) => {
+    // Get apps data from the apps route
+    const apps = require('./routes/apps');
+    const appsData = apps.getAppsData ? apps.getAppsData() : [];
+
+    // Calculate statistics
+    const publishedApps = appsData.length;
+    const activeDevelopers = new Set(appsData.map(app => app.developer_pubkey))
+      .size;
+    const totalDownloads = appsData.reduce(
+      (sum, app) => sum + (app.downloads || 0),
+      0
+    );
+
+    return {
+      publishedApps,
+      activeDevelopers,
+      totalDownloads,
+    };
+  });
+
   // Register routes
   await server.register(appsRoutes, { prefix: '/apps' });
   await server.register(developersRoutes, { prefix: '/developers' });

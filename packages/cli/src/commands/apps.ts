@@ -37,9 +37,9 @@ export const appsCommand = new Command('apps')
             ['Name', 'Developer', 'Latest Version', 'Latest CID', 'Alias'],
             ...apps.map(app => [
               app.name,
-              app.developer_pubkey.substring(0, 12) + '...',
-              app.latest_version,
-              app.latest_cid.substring(0, 12) + '...',
+              app.developer_pubkey?.substring(0, 12) + '...' || 'Unknown',
+              app.latest_version || 'Unknown',
+              app.latest_cid?.substring(0, 12) + '...' || 'N/A',
               app.alias || '-',
             ]),
           ];

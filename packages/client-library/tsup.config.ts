@@ -10,4 +10,9 @@ export default defineConfig({
   treeshake: true,
   minify: false,
   external: ['axios'],
+  outExtension({ format }) {
+    return {
+      js: format === 'esm' ? '.mjs' : '.js',
+    };
+  },
 });
