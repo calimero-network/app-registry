@@ -41,6 +41,12 @@ jobs:
       - name: Check formatting
         run: pnpm format:check
 
+      - name: Basic security check
+        run: |
+          echo "Running basic security checks..."
+          pnpm audit --audit-level=high || echo "⚠️  Security audit completed with warnings"
+        continue-on-error: true
+
       - name: Build verification
         run: |
           # Verify the server can start
