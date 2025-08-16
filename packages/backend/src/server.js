@@ -10,10 +10,8 @@ const appsRoutes = require('./routes/apps');
 const developersRoutes = require('./routes/developers');
 const attestationsRoutes = require('./routes/attestations');
 
-// Shared data store
-const sharedData = {
-  developers: new Map(),
-};
+// Global data store for sharing between routes
+global.developersStore = new Map();
 
 // Import config
 const config = require('./config');
@@ -75,12 +73,9 @@ async function buildServer() {
     };
   });
 
-  // Register routes with shared data
-  await server.register(appsRoutes, { prefix: '/apps', sharedData });
-  await server.register(developersRoutes, {
-    prefix: '/developers',
-    sharedData,
-  });
+  // Register routes
+  await server.register(appsRoutes, { prefix: '/apps' });
+  await server.register(developersRoutes, { prefix: '/developers' });
   await server.register(attestationsRoutes, { prefix: '/attestations' });
 
   return server;

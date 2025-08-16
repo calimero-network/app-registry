@@ -1,17 +1,12 @@
 const { validatePublicKey } = require('../lib/verify');
 const config = require('../config');
 
-// In-memory storage for demo (replace with database in production)
-let developers;
-
 // Function to get developers data for statistics
 function getDevelopersData() {
-  return Array.from(developers.values());
+  return Array.from(global.developersStore.values());
 }
 
-async function routes(fastify, options) {
-  // Use shared data if provided, otherwise create new Map
-  developers = options.sharedData?.developers || new Map();
+async function routes(fastify, _options) {
   // GET /developers/{pubkey} - Get developer profile
   fastify.get(
     '/:pubkey',
@@ -53,7 +48,7 @@ async function routes(fastify, options) {
         return reply.code(400).send({ error: 'Invalid public key' });
       }
 
-      const developer = developers.get(pubkey);
+      const developer = global.developersStore.get(pubkey);
 
       if (!developer) {
         return reply.code(404).send({ error: 'Developer not found' });
@@ -108,7 +103,7 @@ async function routes(fastify, options) {
         proofs,
       };
 
-      developers.set(pubkey, developer);
+      global.developersStore.set(pubkey, developer);
 
       reply.code(201).send({
         message: 'Developer profile registered successfully',
@@ -120,4 +115,3 @@ async function routes(fastify, options) {
 
 module.exports = routes;
 module.exports.getDevelopersData = getDevelopersData;
-module.exports.developers = developers;

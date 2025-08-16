@@ -17,7 +17,7 @@ function getAppsData() {
   return Array.from(apps.values());
 }
 
-async function routes(fastify, options) {
+async function routes(fastify, _options) {
   // GET /apps - List apps
   fastify.get(
     '/',
@@ -68,8 +68,8 @@ async function routes(fastify, options) {
       }
 
       // Enrich results with developer information
-      // Access developers data through shared data
-      const developersData = options.sharedData?.developers || new Map();
+      // Access developers data through global store
+      const developersData = global.developersStore;
 
       const enrichedResults = results.map(app => {
         const developer = developersData.get(app.developer_pubkey);
