@@ -1,6 +1,6 @@
-# SSApp Registry Backend
+# SSApp Registry Monorepo
 
-A minimal SSApp registry backend built with Node.js and Fastify, implementing the OpenAPI 3.0 specification for SSApp management.
+A monorepo containing the SSApp registry backend built with Node.js and Fastify, implementing the OpenAPI 3.0 specification for SSApp management.
 
 ## Features
 
@@ -21,13 +21,13 @@ A minimal SSApp registry backend built with Node.js and Fastify, implementing th
 ### Installation
 
 ```bash
-npm install
+pnpm install
 ```
 
 ### Development
 
 ```bash
-npm run dev
+pnpm dev
 ```
 
 The server will start on `http://localhost:8080` with API documentation available at `/docs`.
@@ -35,7 +35,7 @@ The server will start on `http://localhost:8080` with API documentation availabl
 ### Production
 
 ```bash
-npm start
+pnpm start
 ```
 
 ## Environment Variables
@@ -71,29 +71,29 @@ npm start
 
 ```bash
 # Run tests
-npm test
+pnpm test
 
 # Run linting
-npm run lint
+pnpm lint
 
 # Fix linting issues
-npm run lint:fix
+pnpm lint:fix
 ```
 
 ## Docker
 
 ```bash
 # Build Docker image
-npm run docker:build
+pnpm docker:build
 
 # Run Docker container
-npm run docker:run
+pnpm docker:run
 
 # Run with Docker Compose (production)
-npm run docker:compose
+pnpm docker:compose
 
 # Run with Docker Compose (development)
-npm run docker:compose:dev
+pnpm docker:compose:dev
 ```
 
 ## CI/CD
@@ -176,24 +176,30 @@ Apps are identified using the format: `ssapp:<ed25519-pubkey>/<app_name>`
 ### Project Structure
 
 ```
-src/
-├── server.js          # Main server file
-├── config.js          # Configuration
-├── lib/
-│   └── verify.js      # JCS + Ed25519 verification
-├── schemas/
-│   └── manifest.js    # JSON schema for manifests
-└── routes/
-    ├── apps.js        # App endpoints
-    ├── developers.js  # Developer endpoints
-    └── attestations.js # Attestation endpoints
+packages/
+└── backend/
+    ├── src/
+    │   ├── server.js          # Main server file
+    │   ├── config.js          # Configuration
+    │   ├── lib/
+    │   │   └── verify.js      # JCS + Ed25519 verification
+    │   ├── schemas/
+    │   │   └── manifest.js    # JSON schema for manifests
+    │   └── routes/
+    │       ├── apps.js        # App endpoints
+    │       ├── developers.js  # Developer endpoints
+    │       └── attestations.js # Attestation endpoints
+    ├── tests/                 # Test files
+    ├── Dockerfile            # Docker configuration
+    ├── docker-compose.yml    # Docker Compose configuration
+    └── package.json          # Backend dependencies
 ```
 
 ### Adding New Endpoints
 
-1. Create route file in `src/routes/`
-2. Register in `src/server.js`
-3. Add tests in `tests/`
+1. Create route file in `packages/backend/src/routes/`
+2. Register in `packages/backend/src/server.js`
+3. Add tests in `packages/backend/tests/`
 4. Update OpenAPI spec if needed
 
 ## License

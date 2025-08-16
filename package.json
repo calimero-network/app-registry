@@ -1,38 +1,29 @@
 {
-  "name": "ssapp-registry-backend",
+  "name": "ssapp-registry-monorepo",
   "version": "1.0.0",
-  "description": "Minimal SSApp registry backend",
-  "main": "src/server.js",
+  "description": "SSApp Registry - Backend Monorepo",
+  "private": true,
   "scripts": {
-    "start": "node src/server.js",
-    "dev": "nodemon src/server.js",
-    "test": "jest",
-    "lint": "eslint src/",
-    "lint:fix": "eslint src/ --fix",
-    "docker:build": "docker build -t ssapp-registry-backend .",
-    "docker:run": "docker run -p 8080:8080 ssapp-registry-backend",
-    "docker:compose": "docker-compose up -d",
-    "docker:compose:dev": "docker-compose --profile dev up -d"
-  },
-  "dependencies": {
-    "fastify": "^4.24.3",
-    "@fastify/cors": "^8.4.0",
-    "@fastify/swagger": "^8.12.0",
-    "@fastify/swagger-ui": "^2.1.0",
-    "ed25519-supercop": "^1.2.0",
-    "multibase": "^4.0.6",
-    "multiformats": "^12.0.1",
-    "ajv": "^8.12.0",
-    "ajv-formats": "^2.1.1",
-    "js-yaml": "^4.1.0"
+    "dev": "pnpm --filter backend dev",
+    "build": "pnpm --filter backend build",
+    "test": "pnpm --filter backend test",
+    "lint": "pnpm --filter backend lint",
+    "lint:fix": "pnpm --filter backend lint:fix",
+    "clean": "pnpm --recursive clean",
+    "docker:build": "pnpm --filter backend docker:build",
+    "docker:compose": "pnpm --filter backend docker:compose",
+    "docker:compose:dev": "pnpm --filter backend docker:compose:dev",
+    "start": "pnpm --filter backend start"
   },
   "devDependencies": {
-    "nodemon": "^3.0.2",
-    "jest": "^29.7.0",
-    "eslint": "^8.55.0",
-    "supertest": "^6.3.3"
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0",
+    "prettier": "^3.0.0",
+    "eslint": "^8.55.0"
   },
   "engines": {
-    "node": ">=18.0.0"
-  }
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
+  },
+  "packageManager": "pnpm@8.15.0"
 } 

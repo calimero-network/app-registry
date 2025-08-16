@@ -18,20 +18,25 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
     
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v2
+      with:
+        version: 8.15.0
+    
     - name: Setup Node.js ${{ matrix.node-version }}
       uses: actions/setup-node@v4
       with:
         node-version: ${{ matrix.node-version }}
-        cache: 'npm'
+        cache: 'pnpm'
     
     - name: Install dependencies
-      run: npm ci
+      run: pnpm install
     
     - name: Run linting
-      run: npm run lint
+      run: pnpm lint
     
     - name: Run tests
-      run: npm test
+      run: pnpm test
     
     - name: Upload coverage reports
       uses: codecov/codecov-action@v3
@@ -57,10 +62,10 @@ jobs:
         cache: 'npm'
     
     - name: Install dependencies
-      run: npm ci
+      run: pnpm install
     
     - name: Run security audit
-      run: npm audit --audit-level=moderate
+      run: pnpm audit --audit-level=moderate
     
     - name: Run Snyk security scan
       uses: snyk/actions/node@master
@@ -85,12 +90,12 @@ jobs:
         cache: 'npm'
     
     - name: Install dependencies
-      run: npm ci
+      run: pnpm install
     
     - name: Build verification
       run: |
         # Verify the server can start
-        timeout 10s npm start || true
+        timeout 10s pnpm start || true
         # Check if health endpoint responds
         sleep 2
         curl -f http://localhost:8080/healthz || echo "Health check failed but build verification completed"
@@ -98,10 +103,9 @@ jobs:
     - name: Create build artifact
       run: |
         mkdir -p dist
-        cp -r src dist/
-        cp package*.json dist/
-        cp README.md dist/
-        cp api.yml dist/
+        cp -r packages/backend/src dist/
+        cp packages/backend/package*.json dist/
+        cp packages/backend/api.yml dist/
     
     - name: Upload build artifact
       uses: actions/upload-artifact@v4
@@ -131,7 +135,7 @@ jobs:
     - name: Build and push Docker image
       uses: docker/build-push-action@v5
       with:
-        context: .
+        context: ./packages/backend
         push: true
         tags: |
           ${{ secrets.DOCKER_USERNAME }}/ssapp-registry-backend:latest
