@@ -4,6 +4,7 @@ import { appsCommand } from './commands/apps.js';
 import { developersCommand } from './commands/developers.js';
 import { attestationsCommand } from './commands/attestations.js';
 import { healthCommand } from './commands/health.js';
+import { ipfsCommand } from './commands/ipfs.js';
 
 const program = new Command();
 
@@ -27,6 +28,7 @@ program.addCommand(appsCommand);
 program.addCommand(developersCommand);
 program.addCommand(attestationsCommand);
 program.addCommand(healthCommand);
+program.addCommand(ipfsCommand);
 
 // Global error handler
 program.exitOverride();

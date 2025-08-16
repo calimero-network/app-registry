@@ -3,6 +3,7 @@ const {
   validatePublicKey,
   verifyManifest,
 } = require('../lib/verify');
+const { verifyIPFSFile, getIPFSFileSize } = require('../lib/ipfs');
 const manifestSchema = require('../schemas/manifest');
 const config = require('../config');
 
@@ -284,6 +285,24 @@ async function routes(fastify, _options) {
 
       const appKey = `${pubkey}/${name}`;
       const manifestKey = `${appKey}/${semver}`;
+
+      // Verify IPFS artifacts exist
+      for (const artifact of manifest.artifacts) {
+        const exists = await verifyIPFSFile(artifact.cid);
+        if (!exists) {
+          return reply.code(400).send({
+            error: `Artifact with CID ${artifact.cid} not found on IPFS`,
+          });
+        }
+
+        // Verify file size matches
+        const actualSize = await getIPFSFileSize(artifact.cid);
+        if (actualSize !== null && actualSize !== artifact.size) {
+          return reply.code(400).send({
+            error: `File size mismatch for CID ${artifact.cid}. Expected: ${artifact.size}, Actual: ${actualSize}`,
+          });
+        }
+      }
 
       // Check for version conflicts
       const existingManifest = manifests.get(manifestKey);
