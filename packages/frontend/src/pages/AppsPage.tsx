@@ -119,9 +119,18 @@ function AppCard({ app }: { app: AppSummary }) {
       <div className='space-y-2 mb-4'>
         <p className='text-sm text-gray-600'>
           <span className='font-medium'>Developer:</span>{' '}
-          <span className='font-mono text-xs'>
-            {app.developer_pubkey.substring(0, 12)}...
-          </span>
+          {app.developer ? (
+            <Link
+              to={`/developers/${app.developer.pubkey}`}
+              className='text-primary-600 hover:text-primary-700 font-medium'
+            >
+              {app.developer.display_name}
+            </Link>
+          ) : (
+            <span className='font-mono text-xs'>
+              {app.developer_pubkey.substring(0, 12)}...
+            </span>
+          )}
         </p>
         <p className='text-sm text-gray-600'>
           <span className='font-medium'>Latest Version:</span>{' '}

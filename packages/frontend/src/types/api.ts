@@ -3,6 +3,11 @@ export interface AppSummary {
   developer_pubkey: string;
   latest_version: string;
   alias?: string;
+  developer?: {
+    display_name: string;
+    website?: string;
+    pubkey: string;
+  };
 }
 
 export interface VersionInfo {
