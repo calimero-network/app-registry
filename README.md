@@ -1,175 +1,327 @@
-# SSApp Registry
+# SSApp Registry Monorepo
 
-A production-ready SSApp registry with backend API and modern frontend UI. Built with Node.js/Fastify backend and React/TypeScript frontend, featuring OpenAPI 3.0 specification, JCS canonicalization, Ed25519 signature verification, and IPFS integration.
+A comprehensive monorepo for the SSApp (Smart Contract Application) Registry system, featuring a backend API, frontend web application, client library, and CLI tool.
+
+## 🏗️ Monorepo Structure
+
+```
+registry/
+├── packages/
+│   ├── backend/          # Fastify-based API server
+│   ├── frontend/         # React + TypeScript web app
+│   ├── client-library/   # TypeScript client library
+│   └── cli/             # Command-line interface tool
+├── scripts/             # Build and utility scripts
+├── .github/             # GitHub Actions workflows
+└── docs/               # Documentation
+```
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 
-- Node.js 18+
-- pnpm 8+
-- Docker (optional)
+- **Node.js** 18+
+- **pnpm** 8+ (recommended package manager)
+- **Git**
 
-### Local Development
+### Installation
+
+```bash
+# Clone the repository
+git clone https://github.com/calimero-network/app-registry.git
+cd app-registry
+
+# Install dependencies
+pnpm install
+
+# Build all packages
+pnpm build
+
+# Start development servers
+pnpm dev:all
+```
+
+## 📦 Packages
+
+| Package                                     | Description                   | Tech Stack               | Status              |
+| ------------------------------------------- | ----------------------------- | ------------------------ | ------------------- |
+| [Backend](./packages/backend)               | API server for SSApp registry | Fastify, Node.js         | ✅ Production Ready |
+| [Frontend](./packages/frontend)             | Web interface for registry    | React, TypeScript, Vite  | ✅ Production Ready |
+| [Client Library](./packages/client-library) | TypeScript client for API     | TypeScript, Axios        | ✅ Production Ready |
+| [CLI](./packages/cli)                       | Command-line interface        | TypeScript, Commander.js | ✅ Production Ready |
+
+## 🛠️ Development Workflow
+
+### Available Scripts
 
 ```bash
 # Install dependencies
 pnpm install
 
-# Start backend development server
-pnpm dev
+# Build all packages
+pnpm build
 
-# Start frontend development server
-pnpm dev:frontend
-
-# Start both backend and frontend
-pnpm dev:all
-
-# Run tests
+# Run tests across all packages
 pnpm test
 
-# Run linting
+# Run linting across all packages
 pnpm lint
 
-# Check formatting
-pnpm format:check
+# Format code with Prettier
+pnpm format
+
+# Check code quality (lint + test + format)
+pnpm quality
+
+# Fix code quality issues
+pnpm quality:fix
+
+# Start development servers
+pnpm dev:all
+
+# Start specific package in dev mode
+pnpm --filter backend dev
+pnpm --filter frontend dev
 ```
 
-### Docker
+### Package-Specific Commands
 
 ```bash
-# Build image
-pnpm docker:build
+# Backend
+pnpm --filter backend start
+pnpm --filter backend test
+pnpm --filter backend lint
 
-# Run container
-pnpm docker:run
+# Frontend
+pnpm --filter frontend dev
+pnpm --filter frontend build
+pnpm --filter frontend test
 
-# Or use Docker Compose
-pnpm docker:compose
+# Client Library
+pnpm --filter client-library build
+pnpm --filter client-library test
+
+# CLI
+pnpm --filter cli build
+pnpm --filter cli test
 ```
 
-## 📦 Docker Images
+## 🧪 Testing
 
-Docker images are automatically built and published to **GitHub Container Registry**:
+### Test Coverage
+
+- **Backend**: Jest for unit and integration tests
+- **Frontend**: Vitest + React Testing Library
+- **Client Library**: Vitest for unit tests
+- **CLI**: Vitest for unit tests
+
+### Running Tests
 
 ```bash
-# Pull the latest image
-docker pull ghcr.io/calimero-network/app-registry/ssapp-registry-backend:latest
+# Run all tests
+pnpm test
 
-# Run with specific version
-docker run -p 8080:8080 ghcr.io/calimero-network/app-registry/ssapp-registry-backend:latest
+# Run tests with coverage
+pnpm test:coverage
+
+# Run tests in watch mode
+pnpm test:watch
+
+# Run tests for specific package
+pnpm --filter backend test
+pnpm --filter frontend test
 ```
+
+## 🔍 Code Quality
+
+### Quality Standards
+
+- **ESLint**: Code linting with TypeScript support
+- **Prettier**: Code formatting
+- **Husky**: Git hooks for pre-commit validation
+- **lint-staged**: Run linters on staged files only
+
+### Quality Commands
+
+```bash
+# Check code quality
+pnpm quality
+
+# Fix quality issues
+pnpm quality:fix
+
+# Format code
+pnpm format
+
+# Lint code
+pnpm lint
+
+# Lint with auto-fix
+pnpm lint:fix
+```
+
+### Pre-commit Hooks
+
+The repository uses Husky to ensure code quality:
+
+- **Pre-commit**: Runs linting and formatting on staged files
+- **Pre-push**: Runs tests to ensure nothing is broken
+
+## 🚀 CI/CD Pipeline
+
+### GitHub Actions Workflows
+
+| Workflow             | Trigger                   | Purpose                                   |
+| -------------------- | ------------------------- | ----------------------------------------- |
+| **CI/CD Pipeline**   | Push to main/develop, PRs | Build, test, security scan, Docker images |
+| **Semantic Release** | Push to main              | Automated versioning and releases         |
+| **Basic CI**         | Push to main/develop, PRs | CI without external secrets               |
+
+### Automated Features
+
+- ✅ **Automated Testing**: All packages tested on every push
+- ✅ **Security Scanning**: Snyk vulnerability scanning
+- ✅ **Docker Builds**: Automated Docker image creation
+- ✅ **Semantic Versioning**: Automated releases based on conventional commits
+- ✅ **Package Publishing**: CLI and client library published to npm
+
+### Release Strategy
+
+- **Independent Versioning**: Each package has its own version
+- **Automated Detection**: Only packages with changes get new versions
+- **Conventional Commits**: Automatic release type detection
+- **Dry-Run Mode**: Safe testing without actual releases
+
+## 📚 Documentation
+
+### Core Documentation
+
+- [**API Specification**](./api.yml) - OpenAPI 3.0 specification
+- [**Versioning Strategy**](./VERSIONING.md) - Package versioning approach
+- [**Commit Conventions**](./COMMIT_CONVENTIONS.md) - Conventional commits guide
+- [**Automated Releases**](./AUTOMATED_RELEASES.md) - Release automation system
+
+### Package Documentation
+
+- [**Backend**](./packages/backend/README.md) - API server documentation
+- [**Frontend**](./packages/frontend/README.md) - Web application documentation
+- [**Client Library**](./packages/client-library/README.md) - TypeScript client docs
+- [**CLI**](./packages/cli/README.md) - Command-line tool documentation
 
 ## 🔧 Configuration
 
 ### Environment Variables
 
-- `PORT`: Server port (default: 8080)
-- `HOST`: Server host (default: 0.0.0.0)
-- `NODE_ENV`: Environment (development/production)
+```bash
+# Backend
+NODE_ENV=development
+PORT=3000
+IPFS_GATEWAY=https://ipfs.io/ipfs/
+CORS_ORIGIN=http://localhost:5173
 
-### IPFS Gateways
+# Frontend
+VITE_API_URL=http://localhost:3000
+VITE_IPFS_GATEWAY=https://ipfs.io/ipfs/
 
-Configured IPFS gateways for artifact storage:
-
-- `https://ipfs.io/ipfs/`
-- `https://gateway.pinata.cloud/ipfs/`
-- `https://cloudflare-ipfs.com/ipfs/`
-
-## 🛡️ Security Features
-
-- **JCS Canonicalization**: Deterministic JSON serialization
-- **Ed25519 Signatures**: Cryptographic verification of manifests
-- **SemVer Immutability**: Same (pubkey, name, semver) = same artifact CIDs
-- **Automated Security Scanning**: Snyk integration for vulnerability detection
-
-## 📚 API Documentation
-
-- **OpenAPI 3.0**: Full API specification in `api.yml`
-- **Interactive Docs**: Available at `/docs` when server is running
-- **Health Check**: `/healthz` endpoint for monitoring
-
-## 🏗️ Architecture
-
-### Core Components
-
-- **Fastify Server**: High-performance web framework
-- **OpenAPI Integration**: Automatic validation and documentation
-- **JCS Library**: JSON Canonicalization Scheme implementation
-- **Ed25519 Verification**: Cryptographic signature validation
-- **IPFS Integration**: Decentralized artifact storage
-
-### Project Structure
-
-```
-packages/
-├── backend/              # Fastify API server
-│   ├── src/
-│   │   ├── server.js     # Main server setup
-│   │   ├── config.js     # Configuration management
-│   │   ├── lib/verify.js # JCS + Ed25519 verification
-│   │   ├── schemas/      # JSON schemas
-│   │   └── routes/       # API endpoints
-│   ├── tests/            # Test suite
-│   └── Dockerfile        # Container configuration
-└── frontend/             # React application
-    ├── src/
-    │   ├── components/   # Reusable UI components
-    │   ├── pages/        # Page components
-    │   ├── lib/          # API client and utilities
-    │   ├── types/        # TypeScript definitions
-    │   └── App.tsx       # Main app component
-    └── dist/             # Built assets
+# CI/CD
+GITHUB_TOKEN=your_github_token
+NPM_TOKEN=your_npm_token
+DOCKER_USERNAME=your_docker_username
 ```
 
-## 🚀 CI/CD Pipeline
+### Development Setup
 
-### Automated Workflows
+```bash
+# Copy environment files
+cp packages/backend/.env.example packages/backend/.env
+cp packages/frontend/.env.example packages/frontend/.env
 
-- **Tests**: Jest test suite with coverage
-- **Linting**: ESLint + Prettier code quality
-- **Security**: Snyk vulnerability scanning
-- **Docker**: Automated image building and publishing
-- **Deployment**: Production deployment on version tags
+# Configure your environment variables
+# Edit the .env files with your specific values
+```
 
-### Quality Gates
+## 🐳 Docker
 
-- ✅ All tests must pass
-- ✅ No linting errors
-- ✅ Code formatting compliance
-- ✅ Security scan clean
-- ✅ Docker build successful
+### Available Images
 
-## 🔍 Monitoring
+- **Backend**: `ssapp-registry/backend:latest`
+- **Frontend**: `ssapp-registry/frontend:latest`
 
-### Health Endpoints
+### Running with Docker
 
-- `GET /healthz`: Basic health check
-- `GET /docs`: API documentation
-- `GET /apps`: List available applications
+```bash
+# Build all images
+docker-compose build
 
-### Logging
+# Start all services
+docker-compose up
 
-- Structured JSON logging
-- Request/response tracking
-- Error handling with context
-
-## 📄 License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
+# Start specific service
+docker-compose up backend
+docker-compose up frontend
+```
 
 ## 🤝 Contributing
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Run quality checks: `pnpm quality`
-5. Submit a pull request
+### Development Process
 
-## 📞 Support
+1. **Fork** the repository
+2. **Create** a feature branch: `git checkout -b feature/amazing-feature`
+3. **Make** your changes following the coding standards
+4. **Test** your changes: `pnpm quality`
+5. **Commit** using conventional commits: `git commit -m "feat: add amazing feature"`
+6. **Push** to your branch: `git push origin feature/amazing-feature`
+7. **Create** a Pull Request
 
-For questions or issues:
+### Code Standards
 
-- Create an issue on GitHub
-- Check the API documentation at `/docs`
-- Review the test suite for usage examples
+- Follow the existing code style
+- Write tests for new features
+- Update documentation as needed
+- Use conventional commits
+- Ensure all quality checks pass
+
+### Commit Message Format
+
+```
+type(scope): description
+
+[optional body]
+
+[optional footer]
+```
+
+Examples:
+
+- `feat(cli): add new command for listing apps`
+- `fix(backend): resolve authentication issue`
+- `docs(frontend): update installation guide`
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🆘 Support
+
+### Getting Help
+
+- **Issues**: Create an issue on GitHub
+- **Discussions**: Use GitHub Discussions for questions
+- **Documentation**: Check package-specific READMEs
+
+### Common Issues
+
+- **Build failures**: Run `pnpm clean && pnpm install`
+- **Test failures**: Ensure all dependencies are installed
+- **Linting errors**: Run `pnpm quality:fix`
+
+## 🔗 Links
+
+- **Repository**: https://github.com/calimero-network/app-registry
+- **Issues**: https://github.com/calimero-network/app-registry/issues
+- **Discussions**: https://github.com/calimero-network/app-registry/discussions
+- **Releases**: https://github.com/calimero-network/app-registry/releases
+
+---
+
+**Built with ❤️ by the Calimero Network team**
