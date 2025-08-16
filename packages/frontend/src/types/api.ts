@@ -1,65 +1,65 @@
 export interface AppSummary {
-  name: string
-  developer_pubkey: string
-  latest_version: string
-  alias?: string
+  name: string;
+  developer_pubkey: string;
+  latest_version: string;
+  alias?: string;
 }
 
 export interface VersionInfo {
-  semver: string
-  cid: string
-  yanked: boolean
+  semver: string;
+  cid: string;
+  yanked: boolean;
 }
 
 export interface AppManifest {
-  manifest_version: string
+  manifest_version: string;
   app: {
-    name: string
-    developer_pubkey: string
-    id: string
-    alias?: string
-  }
+    name: string;
+    developer_pubkey: string;
+    id: string;
+    alias?: string;
+  };
   version: {
-    semver: string
-  }
-  supported_chains: string[]
+    semver: string;
+  };
+  supported_chains: string[];
   permissions: Array<{
-    cap: string
-    bytes: number
-  }>
+    cap: string;
+    bytes: number;
+  }>;
   artifacts: Array<{
-    type: string
-    target: string
-    cid: string
-    size: number
-    mirrors?: string[]
-  }>
-  metadata: Record<string, any>
-  distribution: string
+    type: string;
+    target: string;
+    cid: string;
+    size: number;
+    mirrors?: string[];
+  }>;
+  metadata: Record<string, any>;
+  distribution: string;
   signature: {
-    alg: string
-    sig: string
-    signed_at: string
-  }
+    alg: string;
+    sig: string;
+    signed_at: string;
+  };
 }
 
 export interface DeveloperProfile {
-  display_name?: string
-  website?: string
+  display_name?: string;
+  website?: string;
   proofs?: Array<{
-    type: string
-    value: string
-    verified: boolean
-  }>
+    type: string;
+    value: string;
+    verified: boolean;
+  }>;
 }
 
 export interface Attestation {
-  status: 'ok' | 'yanked' | 'tested'
-  comment?: string
-  timestamp: string
+  status: 'ok' | 'yanked' | 'tested';
+  comment?: string;
+  timestamp: string;
 }
 
 export interface ApiError {
-  message: string
-  status: number
+  message: string;
+  status: number;
 }

@@ -5,13 +5,10 @@ module.exports = {
     sourceType: 'module',
     ecmaVersion: 2020,
   },
-  extends: [
-    'eslint:recommended',
-    'prettier',
-  ],
+  extends: ['eslint:recommended', 'prettier'],
   ignorePatterns: ['dist', '.eslintrc.cjs'],
   rules: {
     'no-unused-vars': 'warn',
     'no-console': 'warn',
   },
-}
+};

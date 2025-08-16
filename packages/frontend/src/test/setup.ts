@@ -1,4 +1,4 @@
-import '@testing-library/jest-dom'
+import '@testing-library/jest-dom';
 
 // Mock IntersectionObserver
 Object.defineProperty(window, 'IntersectionObserver', {
@@ -10,7 +10,7 @@ Object.defineProperty(window, 'IntersectionObserver', {
     observe() {}
     unobserve() {}
   },
-})
+});
 
 // Mock ResizeObserver
 Object.defineProperty(window, 'ResizeObserver', {
@@ -22,4 +22,4 @@ Object.defineProperty(window, 'ResizeObserver', {
     observe() {}
     unobserve() {}
   },
-})
+});
