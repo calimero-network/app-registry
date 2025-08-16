@@ -44,8 +44,12 @@
   },
   "packageManager": "pnpm@8.15.0",
   "lint-staged": {
-    "*.{js,jsx,ts,tsx}": [
+    "packages/backend/**/*.{js,jsx}": [
       "eslint --fix",
+      "prettier --write"
+    ],
+    "packages/frontend/**/*.{ts,tsx}": [
+      "pnpm --filter frontend lint --fix",
       "prettier --write"
     ],
     "*.{json,md,yml,yaml}": [

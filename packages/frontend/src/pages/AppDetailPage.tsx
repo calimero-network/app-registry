@@ -1,150 +1,125 @@
-import { useParams, Link } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, Package, Download, Shield, Calendar } from 'lucide-react';
-import { appsApi } from '../lib/api';
-import type { VersionInfo, AppManifest } from '../types/api';
+import { Package, Download, Globe, Clock } from 'lucide-react';
+import { getAppVersions, getAppManifest } from '@/lib/api';
 
-export function AppDetailPage() {
-  const { pubkey, appName } = useParams<{ pubkey: string; appName: string }>();
+export default function AppDetailPage() {
+  const { pubkey = '', appName = '' } = useParams<{
+    pubkey: string;
+    appName: string;
+  }>();
 
   const { data: versions = [], isLoading: versionsLoading } = useQuery({
     queryKey: ['app-versions', pubkey, appName],
-    queryFn: () => appsApi.getAppVersions(pubkey!, appName!),
+    queryFn: () => getAppVersions(pubkey, appName),
     enabled: !!pubkey && !!appName,
   });
 
-  const latestVersion = versions.find(v => !v.yanked) || versions[0];
-
-  const { data: manifest, isLoading: manifestLoading } = useQuery({
+  const latestVersion = versions[0];
+  const { data: manifest } = useQuery({
     queryKey: ['app-manifest', pubkey, appName, latestVersion?.semver],
-    queryFn: () =>
-      appsApi.getAppManifest(pubkey!, appName!, latestVersion!.semver),
-    enabled: !!latestVersion,
+    queryFn: () => getAppManifest(pubkey, appName, latestVersion.semver),
+    enabled: !!latestVersion?.semver,
   });
 
-  if (!pubkey || !appName) {
-    return <div>Invalid app</div>;
-  }
-
-  return (
-    <div className='space-y-6'>
-      {/* Header */}
-      <div className='flex items-center gap-4'>
-        <Link to='/apps' className='btn btn-secondary'>
-          <ArrowLeft className='h-4 w-4 mr-2' />
-          Back to Apps
-        </Link>
-      </div>
-
-      {/* App Info */}
-      <div className='card p-6'>
-        <div className='flex items-start justify-between'>
-          <div>
-            <h1 className='text-3xl font-bold text-gray-900'>{appName}</h1>
-            <p className='text-sm text-gray-500 font-mono mt-1'>{pubkey}</p>
-            {manifest?.app.alias && (
-              <p className='text-gray-600 mt-2'>{manifest.app.alias}</p>
-            )}
-          </div>
-          <div className='text-right'>
-            <div className='text-sm text-gray-500'>Latest Version</div>
-            <div className='text-2xl font-bold text-primary-600'>
-              {latestVersion ? `v${latestVersion.semver}` : 'N/A'}
-            </div>
+  if (versionsLoading) {
+    return (
+      <div className='container mx-auto px-4 py-8'>
+        <div className='animate-pulse'>
+          <div className='h-8 bg-gray-200 rounded w-1/3 mb-4'></div>
+          <div className='h-4 bg-gray-200 rounded w-1/2 mb-8'></div>
+          <div className='space-y-4'>
+            {[1, 2, 3].map(i => (
+              <div key={i} className='h-20 bg-gray-200 rounded'></div>
+            ))}
           </div>
         </div>
       </div>
+    );
+  }
 
-      {/* Manifest Details */}
+  if (!versions.length) {
+    return (
+      <div className='container mx-auto px-4 py-8'>
+        <div className='text-center'>
+          <Package className='mx-auto h-12 w-12 text-gray-400' />
+          <h2 className='mt-4 text-lg font-medium text-gray-900'>
+            No versions found
+          </h2>
+          <p className='mt-2 text-gray-500'>
+            This app has no published versions yet.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className='container mx-auto px-4 py-8'>
+      <div className='mb-8'>
+        <h1 className='text-3xl font-bold text-gray-900 mb-2'>{appName}</h1>
+        <p className='text-gray-600'>Developer: {pubkey}</p>
+        {manifest && (
+          <p className='text-gray-600'>
+            Latest version: {manifest.version.semver}
+          </p>
+        )}
+      </div>
+
       {manifest && (
-        <div className='grid grid-cols-1 lg:grid-cols-2 gap-6'>
-          <div className='card p-6'>
-            <h2 className='text-xl font-semibold text-gray-900 mb-4'>
-              App Details
-            </h2>
-            <div className='space-y-3'>
-              <div>
-                <label className='text-sm font-medium text-gray-500'>
-                  App ID
-                </label>
-                <p className='text-sm text-gray-900 font-mono'>
-                  {manifest.app.id}
-                </p>
+        <div className='bg-white rounded-lg border border-gray-200 p-6 mb-8'>
+          <h2 className='text-xl font-semibold mb-4'>App Details</h2>
+          <div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
+            <div>
+              <h3 className='font-medium text-gray-900 mb-2'>
+                Supported Chains
+              </h3>
+              <div className='flex flex-wrap gap-2'>
+                {manifest.supported_chains.map(chain => (
+                  <span
+                    key={chain}
+                    className='inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800'
+                  >
+                    <Globe className='w-3 h-3 mr-1' />
+                    {chain}
+                  </span>
+                ))}
               </div>
-              <div>
-                <label className='text-sm font-medium text-gray-500'>
-                  Supported Chains
-                </label>
-                <div className='flex flex-wrap gap-1 mt-1'>
-                  {manifest.supported_chains.map(chain => (
-                    <span
-                      key={chain}
-                      className='bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs'
-                    >
-                      {chain}
-                    </span>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <label className='text-sm font-medium text-gray-500'>
-                  Permissions
-                </label>
-                <div className='space-y-1 mt-1'>
-                  {manifest.permissions.map((perm, index) => (
-                    <div key={index} className='text-sm text-gray-900'>
-                      {perm.cap}: {perm.bytes} bytes
-                    </div>
-                  ))}
-                </div>
+            </div>
+            <div>
+              <h3 className='font-medium text-gray-900 mb-2'>Permissions</h3>
+              <div className='space-y-2'>
+                {manifest.permissions.map((perm, index) => (
+                  <div key={index} className='flex justify-between text-sm'>
+                    <span className='text-gray-600'>{perm.cap}</span>
+                    <span className='text-gray-900'>{perm.bytes} bytes</span>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
 
-          <div className='card p-6'>
-            <h2 className='text-xl font-semibold text-gray-900 mb-4'>
-              Artifacts
-            </h2>
+          <div className='mt-6'>
+            <h3 className='font-medium text-gray-900 mb-2'>Artifacts</h3>
             <div className='space-y-3'>
               {manifest.artifacts.map((artifact, index) => (
-                <div key={index} className='border border-gray-200 rounded p-3'>
-                  <div className='flex items-center justify-between mb-2'>
-                    <span className='font-medium text-gray-900'>
-                      {artifact.type}
-                    </span>
-                    <span className='text-sm text-gray-500'>
-                      {artifact.target}
-                    </span>
-                  </div>
-                  <div className='text-sm text-gray-600 space-y-1'>
-                    <div className='flex justify-between'>
-                      <span>CID:</span>
-                      <span className='font-mono text-xs'>{artifact.cid}</span>
-                    </div>
-                    <div className='flex justify-between'>
-                      <span>Size:</span>
-                      <span>{artifact.size} bytes</span>
+                <div
+                  key={index}
+                  className='flex items-center justify-between p-3 bg-gray-50 rounded-lg'
+                >
+                  <div className='flex items-center'>
+                    <Download className='w-4 h-4 text-gray-400 mr-2' />
+                    <div>
+                      <p className='font-medium text-sm'>{artifact.type}</p>
+                      <p className='text-xs text-gray-500'>{artifact.target}</p>
                     </div>
                   </div>
-                  {artifact.mirrors && artifact.mirrors.length > 0 && (
-                    <div className='mt-2'>
-                      <div className='text-xs text-gray-500 mb-1'>Mirrors:</div>
-                      {artifact.mirrors.map((mirror, mirrorIndex) => (
-                        <div
-                          key={mirrorIndex}
-                          className='text-xs text-blue-600 hover:underline'
-                        >
-                          <a
-                            href={mirror}
-                            target='_blank'
-                            rel='noopener noreferrer'
-                          >
-                            {mirror}
-                          </a>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  <div className='text-right'>
+                    <p className='text-sm font-medium'>{artifact.cid}</p>
+                    <p className='text-xs text-gray-500'>
+                      {artifact.size} bytes
+                    </p>
+                  </div>
                 </div>
               ))}
             </div>
@@ -152,34 +127,13 @@ export function AppDetailPage() {
         </div>
       )}
 
-      {/* Version History */}
-      <div className='card p-6'>
-        <h2 className='text-xl font-semibold text-gray-900 mb-4'>
-          Version History
-        </h2>
-        {versionsLoading ? (
-          <div className='space-y-3'>
-            {[...Array(3)].map((_, i) => (
-              <div
-                key={i}
-                className='h-12 bg-gray-200 rounded animate-pulse'
-              ></div>
-            ))}
-          </div>
-        ) : versions.length === 0 ? (
-          <p className='text-gray-500'>No versions found</p>
-        ) : (
-          <div className='space-y-3'>
-            {versions.map(version => (
-              <VersionRow
-                key={version.semver}
-                version={version}
-                pubkey={pubkey}
-                appName={appName}
-              />
-            ))}
-          </div>
-        )}
+      <div>
+        <h2 className='text-xl font-semibold mb-4'>Version History</h2>
+        <div className='space-y-3'>
+          {versions.map(version => (
+            <VersionRow key={version.semver} version={version} />
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -187,36 +141,23 @@ export function AppDetailPage() {
 
 function VersionRow({
   version,
-  pubkey,
-  appName,
 }: {
-  version: VersionInfo;
-  pubkey: string;
-  appName: string;
+  version: { semver: string; cid: string; yanked?: boolean };
 }) {
   return (
-    <div className='flex items-center justify-between p-3 border border-gray-200 rounded'>
-      <div className='flex items-center gap-3'>
-        <Package className='h-5 w-5 text-gray-400' />
+    <div className='flex items-center justify-between p-4 bg-white border border-gray-200 rounded-lg'>
+      <div className='flex items-center'>
+        <Clock className='w-4 h-4 text-gray-400 mr-2' />
         <div>
-          <div className='font-medium text-gray-900'>v{version.semver}</div>
-          <div className='text-sm text-gray-500 font-mono'>{version.cid}</div>
+          <p className='font-medium'>{version.semver}</p>
+          <p className='text-sm text-gray-500'>{version.cid}</p>
         </div>
       </div>
-      <div className='flex items-center gap-2'>
-        {version.yanked && (
-          <span className='bg-red-100 text-red-800 px-2 py-1 rounded text-xs'>
-            Yanked
-          </span>
-        )}
-        <Link
-          to={`/apps/${pubkey}/${appName}/${version.semver}`}
-          className='btn btn-primary text-sm'
-        >
-          <Download className='h-4 w-4 mr-1' />
-          Download
-        </Link>
-      </div>
+      {version.yanked && (
+        <span className='inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800'>
+          Yanked
+        </span>
+      )}
     </div>
   );
 }

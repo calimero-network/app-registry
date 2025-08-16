@@ -1,29 +1,29 @@
 import { Link } from 'react-router-dom';
-import { Package, Shield, Zap, Users } from 'lucide-react';
+import { Package, Shield, Zap } from 'lucide-react';
 
-export function HomePage() {
+export default function HomePage() {
   return (
-    <div className='space-y-12'>
+    <div className='container mx-auto px-4 py-8'>
       {/* Hero Section */}
-      <div className='text-center'>
-        <h1 className='text-4xl font-bold tracking-tight text-gray-900 sm:text-6xl'>
+      <div className='text-center mb-16'>
+        <h1 className='text-4xl md:text-6xl font-bold text-gray-900 mb-6'>
           SSApp Registry
         </h1>
-        <p className='mt-6 text-lg leading-8 text-gray-600 max-w-3xl mx-auto'>
-          Discover, verify, and deploy Smart Contract Applications (SSApps) with
-          cryptographic security and IPFS integration. A decentralized registry
-          for the future of blockchain applications.
+        <p className='text-xl text-gray-600 mb-8 max-w-3xl mx-auto'>
+          Discover, verify, and deploy Smart Contract Applications with
+          cryptographic signatures and IPFS storage.
         </p>
-        <div className='mt-10 flex items-center justify-center gap-x-6'>
+        <div className='flex flex-col sm:flex-row gap-4 justify-center'>
           <Link
             to='/apps'
-            className='btn btn-primary px-6 py-3 text-base font-semibold'
+            className='inline-flex items-center px-6 py-3 bg-primary-600 text-white font-medium rounded-lg hover:bg-primary-700 transition-colors'
           >
+            <Package className='w-5 h-5 mr-2' />
             Browse Apps
           </Link>
           <Link
             to='/developers'
-            className='btn btn-secondary px-6 py-3 text-base font-semibold'
+            className='inline-flex items-center px-6 py-3 bg-gray-100 text-gray-900 font-medium rounded-lg hover:bg-gray-200 transition-colors'
           >
             View Developers
           </Link>
@@ -31,96 +31,62 @@ export function HomePage() {
       </div>
 
       {/* Features Section */}
-      <div className='py-12'>
-        <div className='mx-auto max-w-7xl px-6 lg:px-8'>
-          <div className='mx-auto max-w-2xl lg:text-center'>
-            <h2 className='text-base font-semibold leading-7 text-primary-600'>
-              Secure & Verified
-            </h2>
-            <p className='mt-2 text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl'>
-              Everything you need to trust SSApps
-            </p>
-            <p className='mt-6 text-lg leading-8 text-gray-600'>
-              Our registry provides cryptographic verification, immutable
-              versioning, and decentralized storage for maximum security and
-              transparency.
-            </p>
+      <div className='grid md:grid-cols-3 gap-8 mb-16'>
+        <div className='text-center'>
+          <div className='inline-flex items-center justify-center w-12 h-12 bg-primary-100 text-primary-600 rounded-lg mb-4'>
+            <Shield className='w-6 h-6' />
           </div>
-          <div className='mx-auto mt-16 max-w-2xl sm:mt-20 lg:mt-24 lg:max-w-none'>
-            <dl className='grid max-w-xl grid-cols-1 gap-x-8 gap-y-16 lg:max-w-none lg:grid-cols-3'>
-              <div className='flex flex-col'>
-                <dt className='flex items-center gap-x-3 text-base font-semibold leading-7 text-gray-900'>
-                  <Shield className='h-5 w-5 flex-none text-primary-600' />
-                  Cryptographic Verification
-                </dt>
-                <dd className='mt-4 flex flex-auto flex-col text-base leading-7 text-gray-600'>
-                  <p className='flex-auto'>
-                    Every app is signed with Ed25519 signatures and verified
-                    using JSON Canonicalization Scheme (JCS) for tamper-proof
-                    authenticity.
-                  </p>
-                </dd>
-              </div>
-              <div className='flex flex-col'>
-                <dt className='flex items-center gap-x-3 text-base font-semibold leading-7 text-gray-900'>
-                  <Package className='h-5 w-5 flex-none text-primary-600' />
-                  Immutable Versions
-                </dt>
-                <dd className='mt-4 flex flex-auto flex-col text-base leading-7 text-gray-600'>
-                  <p className='flex-auto'>
-                    Semantic versioning with immutability guarantees. Same
-                    version, same artifact - globally consistent across all
-                    nodes.
-                  </p>
-                </dd>
-              </div>
-              <div className='flex flex-col'>
-                <dt className='flex items-center gap-x-3 text-base font-semibold leading-7 text-gray-900'>
-                  <Zap className='h-5 w-5 flex-none text-primary-600' />
-                  IPFS Integration
-                </dt>
-                <dd className='mt-4 flex flex-auto flex-col text-base leading-7 text-gray-600'>
-                  <p className='flex-auto'>
-                    WASM artifacts stored on IPFS with content-addressed storage
-                    for decentralized, censorship-resistant distribution.
-                  </p>
-                </dd>
-              </div>
-            </dl>
+          <h3 className='text-lg font-semibold text-gray-900 mb-2'>
+            Cryptographic Security
+          </h3>
+          <p className='text-gray-600'>
+            All apps are cryptographically signed with Ed25519 signatures and
+            verified using JCS canonicalization.
+          </p>
+        </div>
+        <div className='text-center'>
+          <div className='inline-flex items-center justify-center w-12 h-12 bg-green-100 text-green-600 rounded-lg mb-4'>
+            <Package className='w-6 h-6' />
           </div>
+          <h3 className='text-lg font-semibold text-gray-900 mb-2'>
+            Immutable Versions
+          </h3>
+          <p className='text-gray-600'>
+            Semantic versioning with immutable artifacts ensures reproducible
+            builds and secure deployments.
+          </p>
+        </div>
+        <div className='text-center'>
+          <div className='inline-flex items-center justify-center w-12 h-12 bg-blue-100 text-blue-600 rounded-lg mb-4'>
+            <Zap className='w-6 h-6' />
+          </div>
+          <h3 className='text-lg font-semibold text-gray-900 mb-2'>
+            IPFS Storage
+          </h3>
+          <p className='text-gray-600'>
+            WASM artifacts are stored on IPFS with content-addressed storage for
+            decentralized distribution.
+          </p>
         </div>
       </div>
 
       {/* Stats Section */}
-      <div className='bg-white py-12'>
-        <div className='mx-auto max-w-7xl px-6 lg:px-8'>
-          <div className='mx-auto max-w-2xl lg:max-w-none'>
-            <dl className='grid grid-cols-1 gap-x-8 gap-y-16 text-center lg:grid-cols-3'>
-              <div className='mx-auto flex max-w-xs flex-col gap-y-4'>
-                <dt className='text-base leading-7 text-gray-600'>
-                  Registered Apps
-                </dt>
-                <dd className='order-first text-3xl font-bold tracking-tight text-gray-900 sm:text-5xl'>
-                  0
-                </dd>
-              </div>
-              <div className='mx-auto flex max-w-xs flex-col gap-y-4'>
-                <dt className='text-base leading-7 text-gray-600'>
-                  Active Developers
-                </dt>
-                <dd className='order-first text-3xl font-bold tracking-tight text-gray-900 sm:text-5xl'>
-                  0
-                </dd>
-              </div>
-              <div className='mx-auto flex max-w-xs flex-col gap-y-4'>
-                <dt className='text-base leading-7 text-gray-600'>
-                  Total Downloads
-                </dt>
-                <dd className='order-first text-3xl font-bold tracking-tight text-gray-900 sm:text-5xl'>
-                  0
-                </dd>
-              </div>
-            </dl>
+      <div className='bg-gray-50 rounded-lg p-8'>
+        <h2 className='text-2xl font-bold text-gray-900 text-center mb-8'>
+          Registry Statistics
+        </h2>
+        <div className='grid md:grid-cols-3 gap-8 text-center'>
+          <div>
+            <div className='text-3xl font-bold text-primary-600 mb-2'>0</div>
+            <div className='text-gray-600'>Published Apps</div>
+          </div>
+          <div>
+            <div className='text-3xl font-bold text-primary-600 mb-2'>0</div>
+            <div className='text-gray-600'>Active Developers</div>
+          </div>
+          <div>
+            <div className='text-3xl font-bold text-primary-600 mb-2'>0</div>
+            <div className='text-gray-600'>Total Downloads</div>
           </div>
         </div>
       </div>

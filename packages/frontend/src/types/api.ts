@@ -8,7 +8,7 @@ export interface AppSummary {
 export interface VersionInfo {
   semver: string;
   cid: string;
-  yanked: boolean;
+  yanked?: boolean;
 }
 
 export interface AppManifest {
@@ -23,18 +23,18 @@ export interface AppManifest {
     semver: string;
   };
   supported_chains: string[];
-  permissions: Array<{
+  permissions: {
     cap: string;
     bytes: number;
-  }>;
-  artifacts: Array<{
+  }[];
+  artifacts: {
     type: string;
     target: string;
     cid: string;
     size: number;
     mirrors?: string[];
-  }>;
-  metadata: Record<string, any>;
+  }[];
+  metadata: Record<string, unknown>;
   distribution: string;
   signature: {
     alg: string;
@@ -44,13 +44,13 @@ export interface AppManifest {
 }
 
 export interface DeveloperProfile {
-  display_name?: string;
+  display_name: string;
   website?: string;
-  proofs?: Array<{
+  proofs: {
     type: string;
     value: string;
     verified: boolean;
-  }>;
+  }[];
 }
 
 export interface Attestation {
@@ -61,5 +61,6 @@ export interface Attestation {
 
 export interface ApiError {
   message: string;
-  status: number;
+  code?: string;
+  details?: Record<string, unknown>;
 }
