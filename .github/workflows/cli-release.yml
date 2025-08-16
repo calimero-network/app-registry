@@ -1,9 +1,12 @@
 name: CLI Release
 
+# TEMPORARILY DISABLED - Testing semantic release workflow
+# on:
+#   push:
+#     tags:
+#       - 'cli-v*'
 on:
-  push:
-    tags:
-      - 'cli-v*'
+  workflow_dispatch: # Manual trigger only for testing
 
 jobs:
   release-cli:

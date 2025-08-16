@@ -40,7 +40,12 @@
     "eslint-config-prettier": "^9.0.0",
     "typescript": "^5.0.0",
     "tsup": "^8.0.0",
-    "vitest": "^0.29.3"
+    "vitest": "^0.29.3",
+    "semantic-release": "^22.0.0",
+    "@semantic-release/commit-analyzer": "^10.0.0",
+    "@semantic-release/release-notes-generator": "^10.0.0",
+    "@semantic-release/npm": "^10.0.0",
+    "@semantic-release/github": "^9.0.0"
   },
   "engines": {
     "node": ">=18.0.0"

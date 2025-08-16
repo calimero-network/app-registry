@@ -1,0 +1,33 @@
+{
+  "branches": ["main"],
+  "plugins": [
+    "@semantic-release/commit-analyzer",
+    "@semantic-release/release-notes-generator",
+    "@semantic-release/npm",
+    "@semantic-release/github"
+  ],
+  "preset": "conventionalcommits",
+  "tagFormat": "cli-v${version}",
+  "releaseRules": [
+    {
+      "type": "fix",
+      "scope": "cli",
+      "release": "patch"
+    },
+    {
+      "type": "feat",
+      "scope": "cli",
+      "release": "minor"
+    },
+    {
+      "type": "chore",
+      "scope": "cli",
+      "release": "patch"
+    },
+    {
+      "type": "docs",
+      "scope": "cli",
+      "release": "patch"
+    }
+  ]
+}

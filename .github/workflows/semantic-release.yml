@@ -1,0 +1,111 @@
+name: Semantic Release
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  semantic-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build all packages
+        run: pnpm build
+
+      - name: Test all packages
+        run: pnpm test
+
+      - name: Setup npm authentication
+        run: |
+          echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
+          npm config set @xilos:registry https://registry.npmjs.org/
+
+      # CLI Package Release (DRY RUN)
+      - name: Release CLI Package (DRY RUN)
+        if: contains(github.event.head_commit.message, 'fix(cli)') || contains(github.event.head_commit.message, 'feat(cli)') || contains(github.event.head_commit.message, 'chore(cli)')
+        run: |
+          cd packages/cli
+          echo "🔍 CLI Release DRY RUN - Would trigger for: ${{ github.event.head_commit.message }}"
+          echo "📦 Would publish to npm: @xilos/ssapp-registry-cli"
+          echo "🏷️  Would create tag: cli-v*"
+          echo "📝 Would create GitHub release"
+          # npx semantic-release --dry-run
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NODE_ENV: production
+
+      # Client Library Release (DRY RUN)
+      - name: Release Client Library (DRY RUN)
+        if: contains(github.event.head_commit.message, 'fix(lib)') || contains(github.event.head_commit.message, 'feat(lib)') || contains(github.event.head_commit.message, 'chore(lib)')
+        run: |
+          cd packages/client-library
+          echo "🔍 Client Library Release DRY RUN - Would trigger for: ${{ github.event.head_commit.message }}"
+          echo "📦 Would publish to npm: @ssapp-registry/client"
+          echo "🏷️  Would create tag: lib-v*"
+          echo "📝 Would create GitHub release"
+          # npx semantic-release --dry-run
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NODE_ENV: production
+
+      # Backend Release (Docker only, no npm)
+      - name: Release Backend
+        if: contains(github.event.head_commit.message, 'fix(be)') || contains(github.event.head_commit.message, 'feat(be)') || contains(github.event.head_commit.message, 'chore(be)')
+        run: |
+          echo "Backend release triggered - Docker images will be built and pushed"
+          # Docker release logic will be added here when ready
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Frontend Release (Build artifacts only, no npm)
+      - name: Release Frontend
+        if: contains(github.event.head_commit.message, 'fix(fe)') || contains(github.event.head_commit.message, 'feat(fe)') || contains(github.event.head_commit.message, 'chore(fe)')
+        run: |
+          echo "Frontend release triggered - Build artifacts will be created"
+          # Frontend release logic will be added here when ready
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Monorepo-wide Release (all packages)
+      - name: Release All Packages
+        if: contains(github.event.head_commit.message, 'fix:') || contains(github.event.head_commit.message, 'feat:') || contains(github.event.head_commit.message, 'chore:') && !contains(github.event.head_commit.message, '(cli)') && !contains(github.event.head_commit.message, '(lib)') && !contains(github.event.head_commit.message, '(be)') && !contains(github.event.head_commit.message, '(fe)')
+        run: |
+          echo "Monorepo-wide release triggered - all packages will be released"
+          # Monorepo release logic will be added here when ready
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
