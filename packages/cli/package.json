@@ -1,11 +1,14 @@
 {
-  "name": "@ssapp-registry/cli",
-  "version": "1.0.0",
+  "name": "@xilos/ssapp-registry-cli",
+  "version": "0.0.0",
   "description": "SSApp Registry CLI - Command-line interface for interacting with the SSApp Registry",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
     "ssapp-registry": "dist/index.js"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "files": [
     "dist"
@@ -20,7 +23,10 @@
     "test": "vitest --run",
     "test:watch": "vitest",
     "test:coverage": "vitest --coverage",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "version:patch": "npm version patch",
+    "version:minor": "npm version minor",
+    "version:major": "npm version major"
   },
   "dependencies": {
     "@ssapp-registry/client": "workspace:*",

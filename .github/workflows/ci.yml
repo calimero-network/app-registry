@@ -168,11 +168,17 @@ jobs:
           build-args: BUILDKIT_INLINE_CACHE=1
 
       # Publish CLI package to npm (if on main branch)
+      - name: Setup npm authentication
+        if: github.ref == 'refs/heads/main'
+        run: |
+          echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
+          npm config set @xilos:registry https://registry.npmjs.org/
+
       - name: Publish CLI to npm
         if: github.ref == 'refs/heads/main'
         run: |
           cd packages/cli
-          npm publish --access public
+          npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
