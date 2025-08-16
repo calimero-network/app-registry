@@ -50,6 +50,14 @@ pnpm dev:all
 | [Client Library](./packages/client-library) | TypeScript client for API     | TypeScript, Axios        | ✅ Production Ready |
 | [CLI](./packages/cli)                       | Command-line interface        | TypeScript, Commander.js | ✅ Production Ready |
 
+## 📚 Documentation
+
+- **[Contributing](CONTRIBUTING.md)** - Development guidelines and contribution process
+- **[Security](SECURITY.md)** - Security policy and vulnerability reporting
+- **[Support](SUPPORT.md)** - Getting help and troubleshooting
+- **[Code of Conduct](CODE_OF_CONDUCT.md)** - Community guidelines
+- **[License](LICENSE.md)** - MIT License
+
 ## 🛠️ Development Workflow
 
 ### Available Scripts
@@ -197,9 +205,7 @@ The repository uses Husky to ensure code quality:
 ### Core Documentation
 
 - [**API Specification**](./api.yml) - OpenAPI 3.0 specification
-- [**Versioning Strategy**](./VERSIONING.md) - Package versioning approach
-- [**Commit Conventions**](./COMMIT_CONVENTIONS.md) - Conventional commits guide
-- [**Automated Releases**](./AUTOMATED_RELEASES.md) - Release automation system
+  All development guidelines, versioning strategy, commit conventions, and release automation details are now consolidated in the [**Contributing Guide**](CONTRIBUTING.md).
 
 ### Package Documentation
 
