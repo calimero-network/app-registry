@@ -6,6 +6,8 @@ const {
 const manifestSchema = require('../schemas/manifest');
 const config = require('../config');
 
+// We'll access developers data through the server instance instead of direct import
+
 // In-memory storage for demo (replace with database in production)
 const apps = new Map();
 const manifests = new Map();
@@ -15,7 +17,7 @@ function getAppsData() {
   return Array.from(apps.values());
 }
 
-async function routes(fastify, _options) {
+async function routes(fastify, options) {
   // GET /apps - List apps
   fastify.get(
     '/',
@@ -65,12 +67,42 @@ async function routes(fastify, _options) {
         );
       }
 
+      // Enrich results with developer information
+      // Access developers data through shared data
+      const developersData = options.sharedData?.developers || new Map();
+      console.log('Shared data available:', !!options.sharedData);
+      console.log('Developers data available:', !!developersData);
+      console.log('Available developers:', Array.from(developersData.keys()));
+      console.log(
+        'Apps to enrich:',
+        results.map(app => app.developer_pubkey)
+      );
+
+      const enrichedResults = results.map(app => {
+        const developer = developersData.get(app.developer_pubkey);
+        console.log(`Looking up developer ${app.developer_pubkey}:`, developer);
+        return {
+          ...app,
+          developer: developer
+            ? {
+                display_name: developer.display_name,
+                website: developer.website,
+                pubkey: app.developer_pubkey,
+              }
+            : {
+                display_name: 'Unknown Developer',
+                website: null,
+                pubkey: app.developer_pubkey,
+              },
+        };
+      });
+
       // Add CDN headers
       Object.entries(config.cdn.headers).forEach(([key, value]) => {
         reply.header(key, value);
       });
 
-      return results;
+      return enrichedResults;
     }
   );
 

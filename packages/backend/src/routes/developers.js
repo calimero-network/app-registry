@@ -2,14 +2,16 @@ const { validatePublicKey } = require('../lib/verify');
 const config = require('../config');
 
 // In-memory storage for demo (replace with database in production)
-const developers = new Map();
+let developers;
 
 // Function to get developers data for statistics
 function getDevelopersData() {
   return Array.from(developers.values());
 }
 
-async function routes(fastify, _options) {
+async function routes(fastify, options) {
+  // Use shared data if provided, otherwise create new Map
+  developers = options.sharedData?.developers || new Map();
   // GET /developers/{pubkey} - Get developer profile
   fastify.get(
     '/:pubkey',
@@ -118,3 +120,4 @@ async function routes(fastify, _options) {
 
 module.exports = routes;
 module.exports.getDevelopersData = getDevelopersData;
+module.exports.developers = developers;
