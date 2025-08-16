@@ -1,6 +1,6 @@
-# SSApp Registry Backend
+# SSApp Registry
 
-A production-ready SSApp registry backend built with Node.js and Fastify, featuring OpenAPI 3.0 specification, JCS canonicalization, Ed25519 signature verification, and IPFS integration.
+A production-ready SSApp registry with backend API and modern frontend UI. Built with Node.js/Fastify backend and React/TypeScript frontend, featuring OpenAPI 3.0 specification, JCS canonicalization, Ed25519 signature verification, and IPFS integration.
 
 ## 🚀 Quick Start
 
@@ -16,8 +16,14 @@ A production-ready SSApp registry backend built with Node.js and Fastify, featur
 # Install dependencies
 pnpm install
 
-# Start development server
+# Start backend development server
 pnpm dev
+
+# Start frontend development server
+pnpm dev:frontend
+
+# Start both backend and frontend
+pnpm dev:all
 
 # Run tests
 pnpm test
@@ -96,15 +102,24 @@ Configured IPFS gateways for artifact storage:
 ### Project Structure
 
 ```
-packages/backend/
-├── src/
-│   ├── server.js          # Main server setup
-│   ├── config.js          # Configuration management
-│   ├── lib/verify.js      # JCS + Ed25519 verification
-│   ├── schemas/           # JSON schemas
-│   └── routes/            # API endpoints
-├── tests/                 # Test suite
-└── Dockerfile            # Container configuration
+packages/
+├── backend/              # Fastify API server
+│   ├── src/
+│   │   ├── server.js     # Main server setup
+│   │   ├── config.js     # Configuration management
+│   │   ├── lib/verify.js # JCS + Ed25519 verification
+│   │   ├── schemas/      # JSON schemas
+│   │   └── routes/       # API endpoints
+│   ├── tests/            # Test suite
+│   └── Dockerfile        # Container configuration
+└── frontend/             # React application
+    ├── src/
+    │   ├── components/   # Reusable UI components
+    │   ├── pages/        # Page components
+    │   ├── lib/          # API client and utilities
+    │   ├── types/        # TypeScript definitions
+    │   └── App.tsx       # Main app component
+    └── dist/             # Built assets
 ```
 
 ## 🚀 CI/CD Pipeline
