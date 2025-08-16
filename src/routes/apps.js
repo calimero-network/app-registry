@@ -1,0 +1,248 @@
+const { validateSemver, validatePublicKey, verifyManifest } = require('../lib/verify');
+const manifestSchema = require('../schemas/manifest');
+const config = require('../config');
+
+async function routes(fastify, _options) {
+  // In-memory storage for demo (replace with database in production)
+  const apps = new Map();
+  const manifests = new Map();
+
+  // GET /apps - List apps
+  fastify.get('/', {
+    schema: {
+      querystring: {
+        type: 'object',
+        properties: {
+          dev: { type: 'string' },
+          name: { type: 'string' }
+        }
+      },
+      response: {
+        200: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              name: { type: 'string' },
+              developer_pubkey: { type: 'string' },
+              latest_version: { type: 'string' },
+              alias: { type: 'string' }
+            }
+          }
+        }
+      }
+    }
+  }, async (request, reply) => {
+    const { dev, name } = request.query;
+    
+    let results = Array.from(apps.values());
+    
+    if (dev) {
+      if (!validatePublicKey(dev)) {
+        return reply.code(400).send({ error: 'Invalid developer public key' });
+      }
+      results = results.filter(app => app.developer_pubkey === dev);
+    }
+    
+    if (name) {
+      const nameLower = name.toLowerCase();
+      results = results.filter(app => app.name.toLowerCase().includes(nameLower));
+    }
+    
+    // Add CDN headers
+    Object.entries(config.cdn.headers).forEach(([key, value]) => {
+      reply.header(key, value);
+    });
+    
+    return results;
+  });
+
+  // GET /apps/{pubkey}/{app_name} - List all versions
+  fastify.get('/:pubkey/:app_name', {
+    schema: {
+      params: {
+        type: 'object',
+        required: ['pubkey', 'app_name'],
+        properties: {
+          pubkey: { type: 'string' },
+          app_name: { type: 'string' }
+        }
+      },
+      response: {
+        200: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              semver: { type: 'string' },
+              cid: { type: 'string' },
+              yanked: { type: 'boolean' }
+            }
+          }
+        }
+      }
+    }
+  }, async (request, reply) => {
+    const { pubkey, app_name } = request.params;
+    
+    if (!validatePublicKey(pubkey)) {
+      return reply.code(400).send({ error: 'Invalid public key' });
+    }
+    
+    const appKey = `${pubkey}/${app_name}`;
+    const app = apps.get(appKey);
+    
+    if (!app) {
+      return reply.code(404).send({ error: 'App not found' });
+    }
+    
+    const versions = Array.from(manifests.keys())
+      .filter(key => key.startsWith(appKey + '/'))
+      .map(key => {
+        const semver = key.split('/').pop();
+        const manifest = manifests.get(key);
+        return {
+          semver,
+          cid: manifest.artifacts[0]?.cid || null,
+          yanked: false // TODO: Implement yanking
+        };
+      })
+      .sort((a, b) => {
+        // Simple semver comparison (use proper semver library in production)
+        return a.semver.localeCompare(b.semver, undefined, { numeric: true });
+      });
+    
+    // Add CDN headers
+    Object.entries(config.cdn.headers).forEach(([key, value]) => {
+      reply.header(key, value);
+    });
+    
+    return versions;
+  });
+
+  // GET /apps/{pubkey}/{app_name}/{semver} - Get specific version manifest
+  fastify.get('/:pubkey/:app_name/:semver', {
+    schema: {
+      params: {
+        type: 'object',
+        required: ['pubkey', 'app_name', 'semver'],
+        properties: {
+          pubkey: { type: 'string' },
+          app_name: { type: 'string' },
+          semver: { type: 'string' }
+        }
+      },
+      response: {
+        200: manifestSchema,
+        409: {
+          type: 'object',
+          properties: {
+            error: { type: 'string' }
+          }
+        },
+        410: {
+          type: 'object',
+          properties: {
+            error: { type: 'string' }
+          }
+        }
+      }
+    }
+  }, async (request, reply) => {
+    const { pubkey, app_name, semver } = request.params;
+    
+    if (!validatePublicKey(pubkey)) {
+      return reply.code(400).send({ error: 'Invalid public key' });
+    }
+    
+    if (!validateSemver(semver)) {
+      return reply.code(400).send({ error: 'Invalid semver format' });
+    }
+    
+    const manifestKey = `${pubkey}/${app_name}/${semver}`;
+    const manifest = manifests.get(manifestKey);
+    
+    if (!manifest) {
+      return reply.code(404).send({ error: 'Manifest not found' });
+    }
+    
+    // TODO: Check for yanked status
+    // if (manifest.yanked) {
+    //   return reply.code(410).send({ error: 'Version yanked' });
+    // }
+    
+    // Add CDN headers
+    Object.entries(config.cdn.headers).forEach(([key, value]) => {
+      reply.header(key, value);
+    });
+    
+    return manifest;
+  });
+
+  // POST /apps - Register new app version (not in OpenAPI spec but needed for demo)
+  fastify.post('/', {
+    schema: {
+      body: manifestSchema
+    }
+  }, async (request, reply) => {
+    const manifest = request.body;
+    
+    // Validate manifest structure
+    const ajv = require('ajv');
+    const addFormats = require('ajv-formats');
+    const validator = addFormats(new ajv());
+    
+    if (!validator.validate(manifestSchema, manifest)) {
+      return reply.code(400).send({ 
+        error: 'Invalid manifest structure',
+        details: validator.errors 
+      });
+    }
+    
+    // Verify signature
+    try {
+      if (!verifyManifest(manifest)) {
+        return reply.code(400).send({ error: 'Invalid signature' });
+      }
+    } catch (error) {
+      return reply.code(400).send({ error: `Signature verification failed: ${error.message}` });
+    }
+    
+    const { pubkey, name } = manifest.app;
+    const { semver } = manifest.version;
+    
+    const appKey = `${pubkey}/${name}`;
+    const manifestKey = `${appKey}/${semver}`;
+    
+    // Check for version conflicts
+    const existingManifest = manifests.get(manifestKey);
+    if (existingManifest) {
+      const existingCid = existingManifest.artifacts[0]?.cid;
+      const newCid = manifest.artifacts[0]?.cid;
+      
+      if (existingCid !== newCid) {
+        return reply.code(409).send({ 
+          error: 'Version conflict: same semver with different artifact hash' 
+        });
+      }
+    }
+    
+    // Store manifest
+    manifests.set(manifestKey, manifest);
+    
+    // Update app summary
+    apps.set(appKey, {
+      name,
+      developer_pubkey: pubkey,
+      latest_version: semver,
+      alias: manifest.app.alias
+    });
+    
+    reply.code(201).send({ 
+      message: 'App version registered successfully',
+      manifest_key: manifestKey
+    });
+  });
+}
+
+module.exports = routes; 
