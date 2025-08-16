@@ -23,7 +23,7 @@
     "fastify": "^4.24.3",
     "@fastify/cors": "^8.4.0",
     "@fastify/swagger": "^8.12.0",
-    "@fastify/swagger-ui": "^2.1.0",
+    "@fastify/swagger-ui": "^3.0.0",
     "ed25519-supercop": "^1.2.0",
     "multibase": "^4.0.6",
     "multiformats": "^12.0.1",
