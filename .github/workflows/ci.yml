@@ -205,8 +205,8 @@ jobs:
           platforms: linux/amd64
           push: true
           tags: |
-            ssapp-registry/backend:${{ github.sha }}
-            ssapp-registry/backend:latest
+            ${{ secrets.DOCKER_USERNAME }}/ssapp-registry-backend:${{ github.sha }}
+            ${{ secrets.DOCKER_USERNAME }}/ssapp-registry-backend:latest
           build-args: BUILDKIT_INLINE_CACHE=1
 
       - name: Push to Docker Hub (CLI)
@@ -218,6 +218,6 @@ jobs:
           platforms: linux/amd64
           push: true
           tags: |
-            ssapp-registry/cli:${{ github.sha }}
-            ssapp-registry/cli:latest
+            ${{ secrets.DOCKER_USERNAME }}/ssapp-registry-cli:${{ github.sha }}
+            ${{ secrets.DOCKER_USERNAME }}/ssapp-registry-cli:latest
           build-args: BUILDKIT_INLINE_CACHE=1
