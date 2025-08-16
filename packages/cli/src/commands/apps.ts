@@ -3,6 +3,8 @@ import chalk from 'chalk';
 import ora from 'ora';
 import { table } from 'table';
 import { SSAppRegistryClient } from '@ssapp-registry/client';
+import fs from 'fs';
+import path from 'path';
 
 export const appsCommand = new Command('apps')
   .description('Manage SSApp applications')
@@ -123,6 +125,54 @@ export const appsCommand = new Command('apps')
           console.log(JSON.stringify(manifest, null, 2));
         } catch (error) {
           spinner.fail('Failed to fetch manifest');
+          if (error instanceof Error) {
+            console.error(chalk.red(`Error: ${error.message}`));
+          }
+          process.exit(1);
+        }
+      })
+  )
+  .addCommand(
+    new Command('submit')
+      .description('Submit a new application manifest')
+      .argument('<manifest-file>', 'Path to the manifest JSON file')
+      .action(async (manifestFile, options, command) => {
+        const globalOpts = command.parent?.parent?.opts();
+        const client = new SSAppRegistryClient({
+          baseURL: globalOpts?.url || 'http://localhost:8082',
+          timeout: parseInt(globalOpts?.timeout || '10000'),
+        });
+
+        const spinner = ora('Reading manifest file...').start();
+
+        try {
+          // Read and parse the manifest file
+          const manifestPath = path.resolve(manifestFile);
+          if (!fs.existsSync(manifestPath)) {
+            spinner.fail('Manifest file not found');
+            console.error(chalk.red(`File not found: ${manifestFile}`));
+            process.exit(1);
+          }
+
+          const manifestContent = fs.readFileSync(manifestPath, 'utf8');
+          const manifest = JSON.parse(manifestContent);
+
+          spinner.text = 'Submitting application manifest...';
+
+          const result = await client.submitAppManifest(manifest);
+
+          spinner.succeed('Application submitted successfully');
+          console.log(chalk.green(`\n✅ ${result.message}`));
+
+          if (manifest.app?.name) {
+            console.log(chalk.blue(`\n📱 App: ${manifest.app.name}`));
+            console.log(
+              chalk.blue(`👤 Developer: ${manifest.app.developer_pubkey}`)
+            );
+            console.log(chalk.blue(`📦 Version: ${manifest.version?.semver}`));
+          }
+        } catch (error) {
+          spinner.fail('Failed to submit application');
           if (error instanceof Error) {
             console.error(chalk.red(`Error: ${error.message}`));
           }

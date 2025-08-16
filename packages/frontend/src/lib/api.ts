@@ -7,7 +7,7 @@ import type {
   Attestation,
 } from '@/types/api';
 
-const api = axios.create({
+export const api = axios.create({
   baseURL:
     (import.meta as { env?: { VITE_API_URL?: string } }).env?.VITE_API_URL ||
     '/api',

@@ -377,7 +377,10 @@ export class SSAppRegistryClient {
     pubkey: string,
     profile: DeveloperProfile
   ): Promise<{ success: boolean; message: string }> {
-    const response = await this.api.post(`/developers/${pubkey}`, profile);
+    const response = await this.api.post('/developers', {
+      pubkey,
+      ...profile,
+    });
     return response.data;
   }
 

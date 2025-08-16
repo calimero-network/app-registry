@@ -52,4 +52,57 @@ export const developersCommand = new Command('developers')
           process.exit(1);
         }
       })
+  )
+  .addCommand(
+    new Command('create')
+      .description('Create a new developer profile')
+      .argument('<pubkey>', 'Developer public key')
+      .argument('<display-name>', 'Display name for the developer')
+      .option('-w, --website <url>', 'Developer website URL')
+      .option('-p, --proofs <proofs>', 'JSON string of proofs array')
+      .action(async (pubkey, displayName, options, command) => {
+        const globalOpts = command.parent?.parent?.opts();
+        const client = new SSAppRegistryClient({
+          baseURL: globalOpts?.url || 'http://localhost:8082',
+          timeout: parseInt(globalOpts?.timeout || '10000'),
+        });
+
+        const spinner = ora('Creating developer profile...').start();
+
+        try {
+          let proofs = [];
+          if (options.proofs) {
+            try {
+              proofs = JSON.parse(options.proofs);
+            } catch (e) {
+              spinner.fail('Invalid proofs JSON format');
+              console.error(chalk.red('Proofs must be a valid JSON array'));
+              process.exit(1);
+            }
+          }
+
+          const profile = {
+            pubkey,
+            display_name: displayName,
+            website: options.website,
+            proofs,
+          };
+
+          const result = await client.submitDeveloperProfile(pubkey, profile);
+
+          spinner.succeed('Developer profile created successfully');
+          console.log(chalk.green(`\n✅ ${result.message}`));
+          console.log(chalk.blue(`\n👤 Developer: ${displayName}`));
+          console.log(chalk.blue(`🔑 Public Key: ${pubkey}`));
+          if (options.website) {
+            console.log(chalk.blue(`🌐 Website: ${options.website}`));
+          }
+        } catch (error) {
+          spinner.fail('Failed to create developer profile');
+          if (error instanceof Error) {
+            console.error(chalk.red(`Error: ${error.message}`));
+          }
+          process.exit(1);
+        }
+      })
   );

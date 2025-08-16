@@ -1,16 +1,14 @@
 import { Link } from 'react-router-dom';
 import { Package, Shield, Zap } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
+import { api } from '@/lib/api';
 
 export default function HomePage() {
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ['stats'],
     queryFn: async () => {
-      const response = await fetch('/api/stats');
-      if (!response.ok) {
-        throw new Error('Failed to fetch statistics');
-      }
-      return response.json();
+      const response = await api.get('/stats');
+      return response.data;
     },
   });
 
