@@ -1,0 +1,27 @@
+# Global owners
+* @calimero-network/maintainers
+
+# Backend team owns backend package
+/packages/backend/ @calimero-network/backend-team
+
+# Frontend team owns frontend package
+/packages/frontend/ @calimero-network/frontend-team
+
+# Platform team owns infrastructure and deployment
+/infra/ @calimero-network/platform-team
+/.github/workflows/ @calimero-network/platform-team
+/docker-compose.yml @calimero-network/platform-team
+/Dockerfile @calimero-network/platform-team
+
+# Client library team owns client library package
+/packages/client-library/ @calimero-network/client-team
+
+# CLI team owns CLI package
+/packages/cli/ @calimero-network/cli-team
+
+# Documentation team owns docs
+/docs/ @calimero-network/docs-team
+*.md @calimero-network/docs-team
+
+# API specification
+/api.yml @calimero-network/backend-team @calimero-network/docs-team

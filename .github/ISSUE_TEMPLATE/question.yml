@@ -1,0 +1,73 @@
+name: ❓ Question
+description: Ask a question about the project
+title: '[QUESTION] '
+labels: ['question']
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for asking a question!
+
+        Please provide enough context so we can help you effectively.
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Your Question
+      description: What would you like to know?
+      placeholder: Please describe your question in detail...
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Provide context about what you're trying to accomplish
+      placeholder: |
+        - What are you trying to do?
+        - What have you tried so far?
+        - What specific part is unclear?
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment Details
+      description: Help us understand your setup
+      placeholder: |
+        - Operating System:
+        - Node.js Version:
+        - pnpm Version:
+        - Are you running locally or in production?
+        - Any relevant error messages:
+    validations:
+      required: false
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Question Category
+      description: What type of question is this?
+      options:
+        - Installation/Setup
+        - Configuration
+        - API Usage
+        - Development
+        - Deployment
+        - Troubleshooting
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Code of Conduct
+      description: By submitting this issue, you agree to follow our Code of Conduct
+      options:
+        - label: I agree to follow this project's Code of Conduct
+          required: true

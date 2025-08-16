@@ -1,5 +1,10 @@
 # SSApp Registry Monorepo
 
+[![CI](https://github.com/calimero-network/app-registry/workflows/CI/badge.svg)](https://github.com/calimero-network/app-registry/actions/workflows/ci.yml)
+[![OpenAPI](https://img.shields.io/badge/OpenAPI-3.0-brightgreen.svg)](https://github.com/calimero-network/app-registry/blob/main/api.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![pnpm](https://img.shields.io/badge/pnpm-workspace-orange.svg)](https://pnpm.io/workspaces)
+
 A comprehensive monorepo for the SSApp (Smart Contract Application) Registry system, featuring a backend API, frontend web application, client library, and CLI tool.
 
 ## 🏗️ Monorepo Structure

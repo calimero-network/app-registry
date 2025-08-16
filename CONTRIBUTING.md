@@ -37,6 +37,26 @@ pnpm install
 pnpm dev:all
 ```
 
+### Development Commands
+
+```bash
+# Install dependencies
+pnpm install
+
+# Run development servers
+pnpm dev:all
+
+# Lint and format code
+pnpm lint
+pnpm format:check
+
+# Run tests
+pnpm test
+
+# Build all packages
+pnpm build
+```
+
 ## Development Setup
 
 ### Monorepo Structure
@@ -357,6 +377,17 @@ We maintain high test coverage:
 - **Link to related issues**
 - **Screenshots** for UI changes
 - **Test coverage** for new features
+
+### Required Checklist
+
+Before submitting a PR, ensure:
+
+- [ ] **README/docs updated** - Documentation reflects your changes
+- [ ] **OpenAPI updated** - If API changes, update `api.yml` specification
+- [ ] **Tests added/updated** - New functionality has test coverage
+- [ ] **Linting passes** - `pnpm lint` runs without errors
+- [ ] **Formatting correct** - `pnpm format:check` passes
+- [ ] **All tests pass** - `pnpm test` runs successfully
 
 ### Review Process
 

@@ -1,6 +1,35 @@
-# Security Configuration Guide
+# Security Policy
 
-This document outlines the security measures and configuration options for the SSApp Registry.
+This document outlines our security policy and how to report vulnerabilities.
+
+## Reporting a Vulnerability
+
+We take security seriously. If you discover a security vulnerability, please follow these steps:
+
+1. **Do not create a public GitHub issue** for the vulnerability
+2. **Email us directly** at security@calimero.network
+3. **Include detailed information** about the vulnerability
+4. **Provide steps to reproduce** if possible
+5. **Wait for our response** before disclosing publicly
+
+### Response SLA
+
+- **Initial response**: Within 72 hours
+- **Triage and assessment**: Within 1 week
+- **Fix timeline**: Depends on severity and complexity
+- **Public disclosure**: Coordinated with reporter
+
+### What to Include
+
+- Description of the vulnerability
+- Steps to reproduce
+- Potential impact
+- Suggested fix (if you have one)
+- Your contact information
+
+## Security Configuration Guide
+
+This document also outlines the security measures and configuration options for the SSApp Registry.
 
 ## 🔐 **Security Features**
 

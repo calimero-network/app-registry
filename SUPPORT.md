@@ -33,6 +33,7 @@ For bug reports and specific technical issues:
 
 - Check existing [issues](https://github.com/calimero-network/app-registry/issues) first
 - Use the issue templates when creating new issues
+- For questions, use the `question` label
 - Provide detailed information including:
   - Steps to reproduce
   - Expected vs actual behavior
@@ -46,6 +47,14 @@ For enterprise users and professional support:
 - **Email**: [support@calimero.network](mailto:support@calimero.network)
 - **Priority Support**: Available for enterprise customers
 - **Custom Development**: Contact us for custom features and integrations
+
+### Production Incidents
+
+For production incidents and urgent issues:
+
+- **Email**: [ops@calimero.network](mailto:ops@calimero.network)
+- **Response Time**: Within 4 hours for critical issues
+- **Escalation**: Available for enterprise customers
 
 ## Common Issues
 
