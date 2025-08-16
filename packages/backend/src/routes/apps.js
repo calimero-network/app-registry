@@ -70,17 +70,9 @@ async function routes(fastify, options) {
       // Enrich results with developer information
       // Access developers data through shared data
       const developersData = options.sharedData?.developers || new Map();
-      console.log('Shared data available:', !!options.sharedData);
-      console.log('Developers data available:', !!developersData);
-      console.log('Available developers:', Array.from(developersData.keys()));
-      console.log(
-        'Apps to enrich:',
-        results.map(app => app.developer_pubkey)
-      );
 
       const enrichedResults = results.map(app => {
         const developer = developersData.get(app.developer_pubkey);
-        console.log(`Looking up developer ${app.developer_pubkey}:`, developer);
         return {
           ...app,
           developer: developer
