@@ -1,4 +1,4 @@
-name: Basic CI (No External Secrets)
+name: CI
 
 on:
   push:

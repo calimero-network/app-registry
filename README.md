@@ -1,6 +1,9 @@
 # SSApp Registry Monorepo
 
-[![Basic CI](<https://github.com/calimero-network/app-registry/workflows/Basic%20CI%20(No%20External%20Secrets)/badge.svg>)](https://github.com/calimero-network/app-registry/actions/workflows/basic-ci.yml)
+[![CI](https://github.com/calimero-network/app-registry/workflows/CI/badge.svg)](https://github.com/calimero-network/app-registry/actions/workflows/basic-ci.yml)
+[![Lint](https://img.shields.io/badge/Lint-ESLint-blue.svg)](https://eslint.org/)
+[![Test](https://img.shields.io/badge/Test-Jest%20%7C%20Vitest-green.svg)](https://jestjs.io/)
+[![Coverage](https://img.shields.io/badge/Coverage-Enabled-brightgreen.svg)](https://github.com/calimero-network/app-registry/actions/workflows/basic-ci.yml)
 [![OpenAPI](https://img.shields.io/badge/OpenAPI-3.0-brightgreen.svg)](https://github.com/calimero-network/app-registry/blob/main/api.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![pnpm](https://img.shields.io/badge/pnpm-workspace-orange.svg)](https://pnpm.io/workspaces)
