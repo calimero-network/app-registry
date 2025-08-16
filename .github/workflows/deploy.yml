@@ -75,8 +75,6 @@ jobs:
           tags: |
             ghcr.io/${{ github.repository_owner }}/ssapp-registry-backend:${{ github.ref_name }}
             ghcr.io/${{ github.repository_owner }}/ssapp-registry-backend:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
           platforms: linux/amd64
           build-args: |
             BUILDKIT_INLINE_CACHE=1
@@ -91,8 +89,6 @@ jobs:
           tags: |
             ${{ secrets.DOCKER_USERNAME }}/ssapp-registry-backend:${{ github.ref_name }}
             ${{ secrets.DOCKER_USERNAME }}/ssapp-registry-backend:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
           platforms: linux/amd64
           build-args: |
             BUILDKIT_INLINE_CACHE=1

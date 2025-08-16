@@ -166,8 +166,6 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/backend:${{ github.sha }}
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/backend:latest
           build-args: BUILDKIT_INLINE_CACHE=1
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
 
       - name: Build and push CLI Docker image
         uses: docker/build-push-action@v5
@@ -180,8 +178,6 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/cli:${{ github.sha }}
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/cli:latest
           build-args: BUILDKIT_INLINE_CACHE=1
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
 
       # Optional: Push to Docker Hub if credentials are provided
       - name: Check Docker Hub credentials
@@ -212,8 +208,6 @@ jobs:
             ssapp-registry/backend:${{ github.sha }}
             ssapp-registry/backend:latest
           build-args: BUILDKIT_INLINE_CACHE=1
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
 
       - name: Push to Docker Hub (CLI)
         if: steps.docker-hub.outputs.has_credentials == 'true'
@@ -227,5 +221,3 @@ jobs:
             ssapp-registry/cli:${{ github.sha }}
             ssapp-registry/cli:latest
           build-args: BUILDKIT_INLINE_CACHE=1
-          cache-from: type=gha
-          cache-to: type=gha,mode=max

@@ -154,8 +154,6 @@ jobs:
             ghcr.io/${{ github.repository }}/backend:${{ github.sha }}
             ghcr.io/${{ github.repository }}/backend:latest
           build-args: BUILDKIT_INLINE_CACHE=1
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
 
       - name: Build and push CLI Docker image
         uses: docker/build-push-action@v5
@@ -168,5 +166,3 @@ jobs:
             ghcr.io/${{ github.repository }}/cli:${{ github.sha }}
             ghcr.io/${{ github.repository }}/cli:latest
           build-args: BUILDKIT_INLINE_CACHE=1
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
