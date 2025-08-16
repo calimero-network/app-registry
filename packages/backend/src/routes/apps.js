@@ -40,6 +40,14 @@ async function routes(fastify, _options) {
                 developer_pubkey: { type: 'string' },
                 latest_version: { type: 'string' },
                 alias: { type: 'string' },
+                developer: {
+                  type: 'object',
+                  properties: {
+                    display_name: { type: 'string' },
+                    website: { type: 'string' },
+                    pubkey: { type: 'string' },
+                  },
+                },
               },
             },
           },
