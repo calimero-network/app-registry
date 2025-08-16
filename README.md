@@ -80,6 +80,44 @@ npm run lint
 npm run lint:fix
 ```
 
+## Docker
+
+```bash
+# Build Docker image
+npm run docker:build
+
+# Run Docker container
+npm run docker:run
+
+# Run with Docker Compose (production)
+npm run docker:compose
+
+# Run with Docker Compose (development)
+npm run docker:compose:dev
+```
+
+## CI/CD
+
+This project includes GitHub Actions workflows for continuous integration and deployment:
+
+### CI Pipeline (`.github/workflows/ci.yml`)
+- Runs on every push and pull request
+- Tests against Node.js 18.x and 20.x
+- Runs linting and security audits
+- Builds Docker images
+- Uploads build artifacts
+
+### Deployment Pipeline (`.github/workflows/deploy.yml`)
+- Triggers on version tags (e.g., `v1.0.0`)
+- Deploys to production environment
+- Includes health checks and notifications
+
+### Required Secrets
+Set up the following secrets in your GitHub repository:
+- `SNYK_TOKEN`: For security scanning
+- `DOCKER_USERNAME`: Docker Hub username
+- `DOCKER_PASSWORD`: Docker Hub password
+
 ## Manifest Schema
 
 The app manifest follows this structure:

@@ -8,7 +8,11 @@
     "dev": "nodemon src/server.js",
     "test": "jest",
     "lint": "eslint src/",
-    "lint:fix": "eslint src/ --fix"
+    "lint:fix": "eslint src/ --fix",
+    "docker:build": "docker build -t ssapp-registry-backend .",
+    "docker:run": "docker run -p 8080:8080 ssapp-registry-backend",
+    "docker:compose": "docker-compose up -d",
+    "docker:compose:dev": "docker-compose --profile dev up -d"
   },
   "dependencies": {
     "fastify": "^4.24.3",
