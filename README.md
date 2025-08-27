@@ -258,8 +258,8 @@ cp packages/frontend/.env.example packages/frontend/.env
 
 ### Available Images
 
-- **Backend**: `ssapp-registry/backend:latest`
-- **Frontend**: `ssapp-registry/frontend:latest`
+- **Backend**: `calimero-registry/backend:latest`
+- **Frontend**: `calimero-registry/frontend:latest`
 
 ### Running with Docker
 

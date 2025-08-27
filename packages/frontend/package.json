@@ -1,7 +1,7 @@
 {
-  "name": "@ssapp-registry/frontend",
+  "name": "@calimero-network/registry-frontend",
   "version": "1.0.0",
-  "description": "SSApp Registry Frontend - Modern React UI for managing Smart Contract Applications",
+  "description": "Calimero Network App Registry Frontend - Modern React UI for managing Smart Contract Applications",
   "type": "module",
   "scripts": {
     "dev": "vite",

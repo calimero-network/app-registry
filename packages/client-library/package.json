@@ -1,7 +1,7 @@
 {
-  "name": "@ssapp-registry/client",
+  "name": "@calimero-network/registry-client",
   "version": "1.0.0",
-  "description": "SSApp Registry Client Library - JavaScript/TypeScript client for interacting with the SSApp Registry API",
+  "description": "Calimero Network App Registry Client Library - JavaScript/TypeScript client for interacting with the App Registry API",
   "type": "module",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
@@ -51,7 +51,7 @@
     "node": ">=18.0.0"
   },
   "keywords": [
-    "ssapp",
+    "calimero",
     "registry",
     "api",
     "client",

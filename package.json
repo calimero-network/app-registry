@@ -1,37 +1,37 @@
 {
-  "name": "ssapp-registry-monorepo",
+  "name": "@calimero-network/registry-monorepo",
   "version": "1.0.0",
-  "description": "SSApp Registry - Backend Monorepo",
+  "description": "Calimero Network App Registry - Backend Monorepo",
   "private": true,
   "scripts": {
-    "dev": "PORT=8082 pnpm --filter backend dev",
-    "dev:frontend": "pnpm --filter frontend dev",
+    "dev": "PORT=8082 pnpm --filter registry-backend dev",
+    "dev:frontend": "pnpm --filter registry-frontend dev",
     "dev:all": "PORT=8082 pnpm --parallel dev",
     "build": "pnpm --recursive build",
-    "build:backend": "pnpm --filter backend build",
-    "build:frontend": "pnpm --filter frontend build",
-    "build:client": "pnpm --filter client-library build",
-    "build:cli": "pnpm --filter cli build",
+    "build:backend": "pnpm --filter registry-backend build",
+    "build:frontend": "pnpm --filter registry-frontend build",
+    "build:client": "pnpm --filter registry-client build",
+    "build:cli": "pnpm --filter registry-cli build",
     "test": "pnpm --recursive test",
-    "test:backend": "pnpm --filter backend test",
-    "test:frontend": "pnpm --filter frontend test",
-    "test:client": "pnpm --filter client-library test",
-    "test:cli": "pnpm --filter cli test",
+    "test:backend": "pnpm --filter registry-backend test",
+    "test:frontend": "pnpm --filter registry-frontend test",
+    "test:client": "pnpm --filter registry-client test",
+    "test:cli": "pnpm --filter registry-cli test",
     "lint": "pnpm --recursive lint",
     "lint:fix": "pnpm --recursive lint:fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "type-check": "pnpm --recursive type-check",
     "clean": "pnpm --recursive clean",
-    "docker:build": "docker build -f packages/backend/Dockerfile -t ssapp-registry-backend .",
-    "docker:compose": "pnpm --filter backend docker:compose",
-    "docker:compose:dev": "pnpm --filter backend docker:compose:dev",
-    "start": "pnpm --filter backend start",
+    "docker:build": "docker build -f packages/backend/Dockerfile -t calimero-registry-backend .",
+    "docker:compose": "pnpm --filter registry-backend docker:compose",
+    "docker:compose:dev": "pnpm --filter registry-backend docker:compose:dev",
+    "start": "pnpm --filter registry-backend start",
     "quality": "pnpm format:check && pnpm lint && pnpm test",
     "quality:fix": "pnpm format && pnpm lint:fix",
-    "cli:release:patch": "pnpm --filter cli release:patch",
-    "cli:release:minor": "pnpm --filter cli release:minor",
-    "cli:release:major": "pnpm --filter cli release:major"
+    "cli:release:patch": "pnpm --filter registry-cli release:patch",
+    "cli:release:minor": "pnpm --filter registry-cli release:minor",
+    "cli:release:major": "pnpm --filter registry-cli release:major"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
@@ -56,15 +56,15 @@
       "prettier --write"
     ],
     "packages/frontend/**/*.{ts,tsx}": [
-      "pnpm --filter frontend lint --fix",
+      "pnpm --filter registry-frontend lint --fix",
       "prettier --write"
     ],
     "packages/client-library/**/*.{ts,tsx}": [
-      "pnpm --filter client-library lint --fix",
+      "pnpm --filter registry-client lint --fix",
       "prettier --write"
     ],
     "packages/cli/**/*.{ts,tsx}": [
-      "pnpm --filter cli lint --fix",
+      "pnpm --filter registry-cli lint --fix",
       "prettier --write"
     ],
     "*.{json,md,yml,yaml}": [

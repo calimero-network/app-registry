@@ -1,11 +1,11 @@
 {
-  "name": "@xilos/ssapp-registry-cli",
+  "name": "@calimero-network/registry-cli",
   "version": "0.0.0",
-  "description": "SSApp Registry CLI - Command-line interface for interacting with the SSApp Registry",
+  "description": "Calimero Network App Registry CLI - Command-line interface for interacting with the App Registry",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
-    "ssapp-registry": "dist/index.js"
+    "calimero-registry": "dist/index.js"
   },
   "publishConfig": {
     "access": "public"
@@ -32,7 +32,7 @@
     "release:major": "npm run version:major && git add package.json && git commit -m \"feat(cli): breaking change - bump version to $(npm run version:major --silent)\" && git tag cli-v$(npm run version:major --silent)"
   },
   "dependencies": {
-    "@ssapp-registry/client": "workspace:*",
+    "@calimero-network/registry-client": "workspace:*",
     "chalk": "^5.3.0",
     "commander": "^11.0.0",
     "ipfs-http-client": "^60.0.1",
@@ -59,7 +59,7 @@
     "node": ">=18.0.0"
   },
   "keywords": [
-    "ssapp",
+    "calimero",
     "registry",
     "cli",
     "command-line",

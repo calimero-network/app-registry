@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import ora from 'ora';
-import { SSAppRegistryClient } from '@ssapp-registry/client';
+import { SSAppRegistryClient } from '@calimero-network/registry-client';
 
 export const attestationsCommand = new Command('attestations')
   .description('Manage application attestations')

@@ -2,7 +2,7 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import ora from 'ora';
 import { table } from 'table';
-import { SSAppRegistryClient } from '@ssapp-registry/client';
+import { SSAppRegistryClient } from '@calimero-network/registry-client';
 
 export const developersCommand = new Command('developers')
   .description('Manage developer profiles')

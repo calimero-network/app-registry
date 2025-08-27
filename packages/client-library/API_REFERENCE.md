@@ -5,16 +5,16 @@ This document provides a comprehensive reference for the SSApp Registry Client L
 ## 📦 Installation
 
 ```bash
-npm install @ssapp-registry/client
+npm install @calimero-network/registry-client
 ```
 
 ## 🚀 Quick Start
 
 ```typescript
-import { SSAppRegistryClient } from '@ssapp-registry/client';
+import { SSAppRegistryClient } from '@calimero-network/registry-client';
 
 const client = new SSAppRegistryClient({
-  baseURL: 'https://api.ssapp-registry.com',
+  baseURL: 'https://api.calimero.network',
   timeout: 10000,
 });
 ```
@@ -49,7 +49,7 @@ const client = new SSAppRegistryClient();
 
 // Custom configuration
 const client = new SSAppRegistryClient({
-  baseURL: 'https://api.ssapp-registry.com',
+  baseURL: 'https://api.calimero.network',
   timeout: 30000,
   headers: {
     Authorization: 'Bearer token',
@@ -678,7 +678,7 @@ interface ClientConfig {
 
 ```typescript
 const config: ClientConfig = {
-  baseURL: 'https://api.ssapp-registry.com',
+  baseURL: 'https://api.calimero.network',
   timeout: 30000,
   headers: {
     Authorization: 'Bearer token',
@@ -692,12 +692,12 @@ const config: ClientConfig = {
 Here's a complete example showing how to use the client library:
 
 ```typescript
-import { SSAppRegistryClient } from '@ssapp-registry/client';
+import { SSAppRegistryClient } from '@calimero-network/registry-client';
 
 async function main() {
   // Create client
   const client = new SSAppRegistryClient({
-    baseURL: 'https://api.ssapp-registry.com',
+    baseURL: 'https://api.calimero.network',
     timeout: 10000,
   });
 

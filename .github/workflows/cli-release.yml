@@ -74,12 +74,12 @@ jobs:
 
             ### Installation
             ```bash
-            npm install -g @xilos/ssapp-registry-cli
+            npm install -g @calimero-network/registry-cli
             ```
 
             ### Usage
             ```bash
-            ssapp-registry --help
+            calimero-registry --help
             ```
           draft: false
           prerelease: false

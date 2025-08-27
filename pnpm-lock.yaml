@@ -99,7 +99,7 @@ importers:
 
   packages/cli:
     dependencies:
-      '@ssapp-registry/client':
+      '@calimero-network/registry-client':
         specifier: workspace:*
         version: link:../client-library
       chalk:

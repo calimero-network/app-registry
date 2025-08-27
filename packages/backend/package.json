@@ -1,7 +1,7 @@
 {
-  "name": "@ssapp-registry/backend",
+  "name": "@calimero-network/registry-backend",
   "version": "1.0.0",
-  "description": "SSApp Registry Backend API",
+  "description": "Calimero Network App Registry Backend API",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
@@ -14,8 +14,8 @@
     "lint:fix": "eslint src/ tests/ --fix",
     "type-check": "echo 'No TypeScript files to check'",
     "clean": "rm -rf node_modules dist coverage",
-    "docker:build": "docker build -f packages/backend/Dockerfile -t ssapp-registry-backend .",
-    "docker:run": "docker run -p 8080:8080 ssapp-registry-backend",
+    "docker:build": "docker build -f packages/backend/Dockerfile -t calimero-registry-backend .",
+    "docker:run": "docker run -p 8080:8080 calimero-registry-backend",
     "docker:compose": "docker-compose up -d",
     "docker:compose:dev": "docker-compose --profile dev up -d"
   },
