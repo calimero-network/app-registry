@@ -130,9 +130,10 @@ function validatePublicKey(pubkey) {
     if (keyPart.length === 0) {
       return false;
     }
-    
+
     // Validate the key part as base64 (more common with modern crypto libraries)
-    const base64Chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
+    const base64Chars =
+      'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
     for (let i = 0; i < keyPart.length; i++) {
       if (base64Chars.indexOf(keyPart[i]) === -1) {
         return false;
@@ -148,7 +149,8 @@ function validatePublicKey(pubkey) {
   } catch {
     // Try base58
     try {
-      const base58Chars = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+      const base58Chars =
+        '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
       for (let i = 0; i < pubkey.length; i++) {
         if (base58Chars.indexOf(pubkey[i]) === -1) {
           return false;

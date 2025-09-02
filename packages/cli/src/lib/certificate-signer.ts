@@ -7,7 +7,7 @@ import { randomBytes } from 'crypto';
 export function generateKeyPair() {
   const privateKey = randomBytes(32);
   const publicKey = getPublicKey(privateKey);
-  
+
   return {
     publicKey: Buffer.from(publicKey).toString('base64'),
     privateKey: privateKey.toString('base64'),
@@ -18,9 +18,9 @@ export function generateKeyPair() {
  * Create a certificate template
  */
 export function createCertificateTemplate(
-  developerPubkey: string, 
-  certificateId: string, 
-  issuerPubkey: string, 
+  developerPubkey: string,
+  certificateId: string,
+  issuerPubkey: string,
   expiresAt: string
 ) {
   return {
@@ -45,13 +45,16 @@ export function createCertificateTemplate(
 export async function signCertificate(certificate: any, privateKey: string) {
   // Remove signature field and canonicalize
   const { signature: _, ...certificateWithoutSignature } = certificate;
-  const canonicalized = JSON.stringify(certificateWithoutSignature, Object.keys(certificateWithoutSignature).sort());
-  
+  const canonicalized = JSON.stringify(
+    certificateWithoutSignature,
+    Object.keys(certificateWithoutSignature).sort()
+  );
+
   const privateKeyBuffer = Buffer.from(privateKey, 'base64');
   const dataBuffer = Buffer.from(canonicalized, 'utf8');
-  
+
   const signature = await sign(dataBuffer, privateKeyBuffer);
-  
+
   return {
     ...certificate,
     signature: {
@@ -67,21 +70,26 @@ export async function signCertificate(certificate: any, privateKey: string) {
  */
 export async function verifyCertificate(certificate: any): Promise<boolean> {
   try {
-    if (!certificate.signature || 
-        !certificate.signature.alg || 
-        !certificate.signature.sig || 
-        !certificate.signature.signed_at) {
+    if (
+      !certificate.signature ||
+      !certificate.signature.alg ||
+      !certificate.signature.sig ||
+      !certificate.signature.signed_at
+    ) {
       return false;
     }
-    
+
     if (certificate.signature.alg !== 'Ed25519') {
       return false;
     }
 
     // Remove signature field and canonicalize
     const { signature: _, ...certificateWithoutSignature } = certificate;
-    const canonicalized = JSON.stringify(certificateWithoutSignature, Object.keys(certificateWithoutSignature).sort());
-    
+    const canonicalized = JSON.stringify(
+      certificateWithoutSignature,
+      Object.keys(certificateWithoutSignature).sort()
+    );
+
     const publicKey = certificate.issuer_pubkey;
     const signatureBytes = Buffer.from(certificate.signature.sig, 'base64');
     const dataBuffer = Buffer.from(canonicalized, 'utf8');

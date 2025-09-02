@@ -15,6 +15,7 @@ A comprehensive monorepo for the SSApp (Smart Contract Application) Registry sys
 The registry implements a **certificate-based whitelist system** that ensures only authorized developers can upload applications. Developers must obtain and present valid certificates before they can submit apps to the registry.
 
 ### **Certificate Features**
+
 - **Ed25519 cryptographic signatures** with JCS canonicalization
 - **Automatic validation** of developer certificates
 - **Expiration checking** to ensure certificates are current
@@ -26,11 +27,13 @@ The registry implements a **certificate-based whitelist system** that ensures on
 ### **Getting Started with Certificates**
 
 #### **For Administrators**
+
 1. **Generate a key pair** for signing certificates
 2. **Create and sign certificates** for authorized developers
 3. **Distribute certificates** to developers securely
 
 #### **For Developers**
+
 1. **Obtain a certificate** from the registry administrator
 2. **Install certificate** using CLI or web interface
 3. **Start uploading apps** with automatic certificate validation

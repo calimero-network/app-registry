@@ -36,7 +36,7 @@ async function buildServer() {
     limits: {
       fileSize: 50 * 1024 * 1024, // 50MB max file size
       files: 1, // Only allow 1 file upload at a time
-    }
+    },
   });
 
   // Register Swagger

@@ -9,20 +9,21 @@ async function validateWhitelistedDeveloper(request, reply) {
     return;
   }
 
-  const developerPubkey = request.body?.developer_pubkey || request.body?.app?.developer_pubkey;
-  
+  const developerPubkey =
+    request.body?.developer_pubkey || request.body?.app?.developer_pubkey;
+
   if (!developerPubkey) {
-    return reply.code(400).send({ 
-      error: 'Developer public key is required' 
+    return reply.code(400).send({
+      error: 'Developer public key is required',
     });
   }
 
   const whitelistCheck = isDeveloperWhitelisted(developerPubkey);
-  
+
   if (!whitelistCheck.whitelisted) {
-    return reply.code(403).send({ 
+    return reply.code(403).send({
       error: 'Developer not authorized to upload applications',
-      details: whitelistCheck.error
+      details: whitelistCheck.error,
     });
   }
 

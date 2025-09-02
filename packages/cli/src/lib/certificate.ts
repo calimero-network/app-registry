@@ -50,11 +50,11 @@ export function loadCertificate(): Certificate | null {
     // Check expiration
     const now = new Date();
     const expiresAt = new Date(certificate.expires_at);
-    
+
     if (expiresAt < now) {
       return {
         ...certificate,
-        status: 'expired'
+        status: 'expired',
       };
     }
 
@@ -86,12 +86,12 @@ export function removeCertificate(): void {
  */
 export function createClientWithCertificate(registryUrl: string): any {
   const cert = loadCertificate();
-  
+
   // Return a mock client that automatically includes certificate
   return {
     registryUrl,
     certificate: cert,
-    headers: cert ? { 'X-Developer-Certificate': cert.certificate_id } : {}
+    headers: cert ? { 'X-Developer-Certificate': cert.certificate_id } : {},
   };
 }
 
@@ -105,37 +105,40 @@ export async function validateCertificateWithServer(
   try {
     // URL encode the public key to handle special characters
     const encodedPubkey = encodeURIComponent(pubkey);
-    
+
     // Make actual API call to validate certificate
-    const response = await fetch(`${registryUrl}/certificates/${encodedPubkey}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
+    const response = await fetch(
+      `${registryUrl}/certificates/${encodedPubkey}`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    );
 
     if (response.ok) {
       const data = await response.json();
-      return { 
-        whitelisted: data.whitelisted, 
-        message: `Certificate validated: ${data.certificate?.certificate_id}` 
+      return {
+        whitelisted: data.whitelisted,
+        message: `Certificate validated: ${data.certificate?.certificate_id}`,
       };
     } else if (response.status === 404) {
-      return { 
-        whitelisted: false, 
-        message: 'Developer not found in whitelist' 
+      return {
+        whitelisted: false,
+        message: 'Developer not found in whitelist',
       };
     } else {
       const errorData = await response.json().catch(() => ({}));
-      return { 
-        whitelisted: false, 
-        message: errorData.error || 'Certificate validation failed' 
+      return {
+        whitelisted: false,
+        message: errorData.error || 'Certificate validation failed',
       };
     }
   } catch (error) {
-    return { 
-      whitelisted: false, 
-      message: `Failed to validate certificate: ${error instanceof Error ? error.message : 'Unknown error'}` 
+    return {
+      whitelisted: false,
+      message: `Failed to validate certificate: ${error instanceof Error ? error.message : 'Unknown error'}`,
     };
   }
 }
@@ -151,19 +154,28 @@ export function getCertificatePath(): string {
  * Ensure developer has a valid certificate
  * No longer auto-generates - requires admin-issued certificate
  */
-export async function ensureValidCertificate(registryUrl: string): Promise<Certificate> {
+export async function ensureValidCertificate(
+  registryUrl: string
+): Promise<Certificate> {
   const existingCert = loadCertificate();
-  
+
   if (!existingCert) {
-    throw new Error('No certificate found. Please install a certificate using: ssapp-registry certificate install <certificate-file>');
+    throw new Error(
+      'No certificate found. Please install a certificate using: ssapp-registry certificate install <certificate-file>'
+    );
   }
-  
+
   if (!isCertificateValid(existingCert)) {
-    throw new Error('Certificate is expired or invalid. Please contact the registry administrator for a new certificate.');
+    throw new Error(
+      'Certificate is expired or invalid. Please contact the registry administrator for a new certificate.'
+    );
   }
 
   // Validate with server
-  const validation = await validateCertificateWithServer(existingCert.developer_pubkey, registryUrl);
+  const validation = await validateCertificateWithServer(
+    existingCert.developer_pubkey,
+    registryUrl
+  );
   if (!validation.whitelisted) {
     throw new Error(`Certificate validation failed: ${validation.message}`);
   }
@@ -174,10 +186,12 @@ export async function ensureValidCertificate(registryUrl: string): Promise<Certi
 /**
  * Generate a new certificate
  */
-async function generateAndRegisterCertificate(registryUrl: string): Promise<Certificate> {
+async function generateAndRegisterCertificate(
+  registryUrl: string
+): Promise<Certificate> {
   // Generate a unique certificate ID
   const certId = `auto-gen-${Date.now()}`;
-  
+
   // Create certificate template
   const cert: Certificate = {
     developer_pubkey: generateMockPublicKey(),
@@ -189,13 +203,15 @@ async function generateAndRegisterCertificate(registryUrl: string): Promise<Cert
     issuer_pubkey: 'auto-issuer-key',
     signature: {
       algorithm: 'ed25519',
-      value: 'auto-generated-signature'
-    }
+      value: 'auto-generated-signature',
+    },
   };
 
   // Save locally
   saveCertificate(cert);
-  console.log('📝 Certificate saved locally. In production, this would be registered with the registry.');
+  console.log(
+    '📝 Certificate saved locally. In production, this would be registered with the registry.'
+  );
 
   return cert;
 }
@@ -205,10 +221,10 @@ async function generateAndRegisterCertificate(registryUrl: string): Promise<Cert
  */
 function isCertificateValid(cert: Certificate): boolean {
   if (cert.status !== 'active') return false;
-  
+
   const now = new Date();
   const expiresAt = new Date(cert.expires_at);
-  
+
   return expiresAt > now;
 }
 

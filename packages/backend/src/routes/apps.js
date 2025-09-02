@@ -253,26 +253,31 @@ async function routes(fastify, _options) {
               app_key: { type: 'string' },
               manifest_key: { type: 'string' },
               ipfs_cid: { type: 'string' },
-              manifest: { type: 'object' }
-            }
-          }
-        }
-      }
+              manifest: { type: 'object' },
+            },
+          },
+        },
+      },
     },
     async (request, reply) => {
       try {
         console.log('Content-Type:', request.headers['content-type']);
         console.log('Headers:', Object.keys(request.headers));
-        
+
         const parts = request.parts();
         let wasmFile = null;
         const metadata = {};
         let partCount = 0;
-        
+
         // Process multipart form data
         for await (const part of parts) {
           partCount++;
-          console.log(`Processing part ${partCount}:`, part.fieldname, 'isFile:', !!part.file);
+          console.log(
+            `Processing part ${partCount}:`,
+            part.fieldname,
+            'isFile:',
+            !!part.file
+          );
           if (part.file) {
             console.log('Found file part, processing immediately...');
             // Process file immediately to avoid stream issues
@@ -285,57 +290,63 @@ async function routes(fastify, _options) {
               filename: part.filename,
               encoding: part.encoding,
               mimetype: part.mimetype,
-              buffer: Buffer.concat(chunks)
+              buffer: Buffer.concat(chunks),
             };
             console.log('File processed, size:', wasmFile.buffer.length);
           } else {
             metadata[part.fieldname] = part.value;
           }
         }
-        
+
         console.log('Total parts processed:', partCount);
-        
+
         console.log('Received metadata:', metadata);
         console.log('WASM file received:', !!wasmFile);
-        
+
         if (!wasmFile) {
           return reply.code(400).send({ error: 'WASM file is required' });
         }
-        
+
         console.log('Step 1: WASM file validation passed');
-        
+
         // Get developer public key from header (more secure)
         const developerPubkey = request.headers['x-developer-pubkey'];
         if (!developerPubkey) {
-          return reply.code(400).send({ error: 'Developer public key is required in X-Developer-Pubkey header' });
+          return reply.code(400).send({
+            error:
+              'Developer public key is required in X-Developer-Pubkey header',
+          });
         }
 
-        console.log('Step 2: Got developer pubkey from header:', developerPubkey);
+        console.log(
+          'Step 2: Got developer pubkey from header:',
+          developerPubkey
+        );
 
         // Validate developer is whitelisted
         const { isDeveloperWhitelisted } = require('../models/certificate');
         console.log('Step 3: About to check whitelist');
         const whitelistCheck = isDeveloperWhitelisted(developerPubkey);
         console.log('Step 4: Whitelist check result:', whitelistCheck);
-        
+
         if (!whitelistCheck.whitelisted) {
-          return reply.code(403).send({ 
+          return reply.code(403).send({
             error: 'Developer not authorized to upload applications',
-            details: whitelistCheck.error
+            details: whitelistCheck.error,
           });
         }
-        
+
         console.log('Step 5: Using pre-processed buffer');
-        
+
         // Use the buffer we already created during multipart processing
         const wasmBuffer = wasmFile.buffer;
-        
+
         console.log('Step 6: Using WASM buffer, size:', wasmBuffer.length);
         const fileSize = wasmBuffer.length;
-        
+
         // Simulate IPFS upload
         const ipfsCid = `QmDemo${Date.now()}${Math.random().toString(36).substr(2, 9)}`;
-        
+
         // Create manifest
         const manifest = {
           manifest_version: '1.0',
@@ -343,69 +354,72 @@ async function routes(fastify, _options) {
             name: metadata.name,
             developer_pubkey: developerPubkey,
             id: `${metadata.name}-${Date.now()}`,
-            alias: metadata.alias || metadata.name
+            alias: metadata.alias || metadata.name,
           },
           version: {
-            semver: metadata.version
+            semver: metadata.version,
           },
-          supported_chains: metadata.chains ? metadata.chains.split(',').map(c => c.trim()) : ['calimero'],
+          supported_chains: metadata.chains
+            ? metadata.chains.split(',').map(c => c.trim())
+            : ['calimero'],
           permissions: [
             { cap: 'read', bytes: 1024 },
-            { cap: 'write', bytes: 512 }
+            { cap: 'write', bytes: 512 },
           ],
-          artifacts: [{
-            type: 'wasm',
-            target: 'wasm32-unknown-unknown',
-            cid: ipfsCid,
-            size: fileSize
-          }],
+          artifacts: [
+            {
+              type: 'wasm',
+              target: 'wasm32-unknown-unknown',
+              cid: ipfsCid,
+              size: fileSize,
+            },
+          ],
           metadata: {
             description: metadata.description || `${metadata.name} application`,
             author: metadata.author || 'Unknown',
             license: metadata.license || 'MIT',
             build_info: {
               file_size: fileSize,
-              uploaded_at: new Date().toISOString()
-            }
+              uploaded_at: new Date().toISOString(),
+            },
           },
           distribution: 'ipfs',
           signature: {
             alg: 'Ed25519',
             sig: `c2lnbmF0dXJlLTUwMi0${Date.now()}`,
-            signed_at: new Date().toISOString()
-          }
+            signed_at: new Date().toISOString(),
+          },
         };
-        
+
         // Store in registry
         const appKey = `${developerPubkey}/${metadata.name}`;
         const manifestKey = `${appKey}/${metadata.version}`;
-        
+
         // Store the app and manifest
         if (!global.appsStore) global.appsStore = new Map();
         if (!global.manifestsStore) global.manifestsStore = new Map();
-        
+
         global.appsStore.set(appKey, {
           name: metadata.name,
           developer_pubkey: developerPubkey,
           latest_version: metadata.version,
-          created_at: new Date().toISOString()
+          created_at: new Date().toISOString(),
         });
-        
+
         global.manifestsStore.set(manifestKey, manifest);
-        
+
         reply.send({
           message: 'App uploaded and published successfully',
           app_key: appKey,
           manifest_key: manifestKey,
           ipfs_cid: ipfsCid,
-          manifest
+          manifest,
         });
-        
       } catch (error) {
         console.error('Multipart upload error:', error);
         reply.code(500).send({
           error: 'Failed to upload application',
-          details: error.message
+          details: error.message,
         });
       }
     }
@@ -431,7 +445,7 @@ async function routes(fastify, _options) {
             supported_chains: {
               type: 'array',
               items: { type: 'string' },
-              default: ['calimero']
+              default: ['calimero'],
             },
             permissions: {
               type: 'array',
@@ -439,41 +453,44 @@ async function routes(fastify, _options) {
                 type: 'object',
                 properties: {
                   cap: { type: 'string' },
-                  bytes: { type: 'integer' }
-                }
+                  bytes: { type: 'integer' },
+                },
               },
-              default: [{ cap: 'read', bytes: 1024 }]
+              default: [{ cap: 'read', bytes: 1024 }],
             },
             metadata: {
               type: 'object',
               properties: {
                 description: { type: 'string' },
                 author: { type: 'string' },
-                license: { type: 'string' }
-              }
-            }
-          }
-        }
-      }
+                license: { type: 'string' },
+              },
+            },
+          },
+        },
+      },
     },
     async (request, reply) => {
       // Get developer public key from header (consistent with multipart endpoint)
       const developerPubkey = request.headers['x-developer-pubkey'];
       if (!developerPubkey) {
-        return reply.code(400).send({ error: 'Developer public key is required in X-Developer-Pubkey header' });
+        return reply.code(400).send({
+          error:
+            'Developer public key is required in X-Developer-Pubkey header',
+        });
       }
 
       // Validate developer is whitelisted
       const { isDeveloperWhitelisted } = require('../models/certificate');
       const whitelistCheck = isDeveloperWhitelisted(developerPubkey);
-      
+
       if (!whitelistCheck.whitelisted) {
-        return reply.code(403).send({ 
+        return reply.code(403).send({
           error: 'Developer not authorized to upload applications',
-          details: whitelistCheck.error
+          details: whitelistCheck.error,
         });
       }
-      
+
       const {
         name,
         version,
@@ -484,18 +501,20 @@ async function routes(fastify, _options) {
         license,
         chains,
         supported_chains = [chains || 'calimero'],
-        permissions = [{ cap: 'read', bytes: 1024 }]
+        permissions = [{ cap: 'read', bytes: 1024 }],
       } = request.body;
 
       try {
         // 1. Decode and upload WASM file to IPFS
         const wasmBuffer = Buffer.from(wasm_content, 'base64');
         const fileSize = wasmBuffer.length;
-        
+
         // For demo: simulate IPFS upload
         const simulatedCid = `QmDemo${Date.now()}${Math.random().toString(36).substr(2, 9)}`;
-        
-        console.log(`📦 Uploaded WASM file to IPFS: ${simulatedCid} (${fileSize} bytes)`);
+
+        console.log(
+          `📦 Uploaded WASM file to IPFS: ${simulatedCid} (${fileSize} bytes)`
+        );
 
         // 2. Create manifest
         const manifest = {
@@ -504,30 +523,32 @@ async function routes(fastify, _options) {
             name,
             developer_pubkey: developerPubkey,
             id: `${name}-${Date.now()}`,
-            alias: alias || name
+            alias: alias || name,
           },
           version: {
-            semver: version
+            semver: version,
           },
           supported_chains,
           permissions,
-          artifacts: [{
-            type: 'wasm',
-            target: 'wasm32-unknown-unknown',
-            cid: simulatedCid,
-            size: fileSize
-          }],
+          artifacts: [
+            {
+              type: 'wasm',
+              target: 'wasm32-unknown-unknown',
+              cid: simulatedCid,
+              size: fileSize,
+            },
+          ],
           metadata: {
             description,
             author,
-            license
+            license,
           },
           distribution: 'ipfs',
           signature: {
             alg: 'Ed25519',
             sig: 'temp-signature-will-be-replaced',
-            signed_at: new Date().toISOString()
-          }
+            signed_at: new Date().toISOString(),
+          },
         };
 
         // 3. Sign the manifest (TODO: implement real signing)
@@ -535,8 +556,10 @@ async function routes(fastify, _options) {
         const manifestForSigning = { ...manifest };
         delete manifestForSigning.signature;
         const canonicalized = JSON.stringify(manifestForSigning);
-        
-        manifest.signature.sig = Buffer.from(`signature-${canonicalized.length}-${Date.now()}`).toString('base64');
+
+        manifest.signature.sig = Buffer.from(
+          `signature-${canonicalized.length}-${Date.now()}`
+        ).toString('base64');
 
         // 4. Store in registry
         const appKey = `${developerPubkey}/${name}`;
@@ -546,7 +569,7 @@ async function routes(fastify, _options) {
         const existingManifest = manifests.get(manifestKey);
         if (existingManifest) {
           return reply.code(409).send({
-            error: 'Version already exists. Use a different version number.'
+            error: 'Version already exists. Use a different version number.',
           });
         }
 
@@ -564,14 +587,13 @@ async function routes(fastify, _options) {
           app_key: appKey,
           manifest_key: manifestKey,
           ipfs_cid: simulatedCid,
-          manifest
+          manifest,
         });
-
       } catch (error) {
         console.error('Upload error:', error);
         return reply.code(500).send({
           error: 'Failed to upload and publish app',
-          details: error.message
+          details: error.message,
         });
       }
     }

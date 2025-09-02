@@ -6,7 +6,7 @@ const nacl = require('tweetnacl');
  */
 function generateKeyPair() {
   const keyPair = nacl.sign.keyPair();
-  
+
   return {
     publicKey: Buffer.from(keyPair.publicKey).toString('base64'),
     privateKey: Buffer.from(keyPair.secretKey).toString('base64'),
@@ -17,8 +17,11 @@ function generateKeyPair() {
  * Remove signature and private key fields from certificate for signing/verification
  */
 function removeSignature(certificate) {
-  // eslint-disable-next-line no-unused-vars
-  const { signature: _signature, developer_private_key: _privateKey, ...certificateWithoutSignature } = certificate;
+  const {
+    signature: _signature, // eslint-disable-line no-unused-vars
+    developer_private_key: _privateKey, // eslint-disable-line no-unused-vars
+    ...certificateWithoutSignature
+  } = certificate;
   return certificateWithoutSignature;
 }
 
@@ -28,12 +31,12 @@ function removeSignature(certificate) {
 function signCertificate(certificate, privateKey) {
   const certificateWithoutSignature = removeSignature(certificate);
   const canonicalized = canonicalizeJSON(certificateWithoutSignature);
-  
+
   const privateKeyBuffer = Buffer.from(privateKey, 'base64');
   const dataBuffer = Buffer.from(canonicalized, 'utf8');
-  
+
   const signature = nacl.sign.detached(dataBuffer, privateKeyBuffer);
-  
+
   return {
     ...certificate,
     signature: {
@@ -48,7 +51,11 @@ function signCertificate(certificate, privateKey) {
  * Verify certificate signature
  */
 function verifyCertificate(certificate) {
-  if (!certificate.signature || !certificate.signature.sig || !certificate.signature.alg) {
+  if (
+    !certificate.signature ||
+    !certificate.signature.sig ||
+    !certificate.signature.alg
+  ) {
     throw new Error('Missing signature information');
   }
 
@@ -67,7 +74,11 @@ function verifyCertificate(certificate) {
     const signatureBuffer = Buffer.from(signature, 'base64');
     const dataBuffer = Buffer.from(canonicalized, 'utf8');
 
-    return nacl.sign.detached.verify(dataBuffer, signatureBuffer, publicKeyBuffer);
+    return nacl.sign.detached.verify(
+      dataBuffer,
+      signatureBuffer,
+      publicKeyBuffer
+    );
   } catch (error) {
     console.error('Certificate signature verification error:', error);
     return false;
@@ -77,7 +88,12 @@ function verifyCertificate(certificate) {
 /**
  * Create a certificate template
  */
-function createCertificateTemplate(developerPubkey, certificateId, issuerPubkey, expiresAt) {
+function createCertificateTemplate(
+  developerPubkey,
+  certificateId,
+  issuerPubkey,
+  expiresAt
+) {
   return {
     developer_pubkey: developerPubkey,
     certificate_id: certificateId,

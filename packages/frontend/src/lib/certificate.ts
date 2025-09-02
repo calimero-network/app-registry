@@ -27,7 +27,7 @@ const CERT_STORAGE_KEY = 'ssapp-registry-certificate';
 export function loadCertificate(): CertificateStatus {
   try {
     const certData = localStorage.getItem(CERT_STORAGE_KEY);
-    
+
     if (!certData) {
       return { hasCertificate: false, error: 'No certificate found' };
     }
@@ -42,16 +42,17 @@ export function loadCertificate(): CertificateStatus {
     // Check expiration
     const now = new Date();
     const expiresAt = new Date(certificate.expires_at);
-    
+
     if (expiresAt < now) {
       return { hasCertificate: false, error: 'Certificate has expired' };
     }
 
     return { hasCertificate: true, certificate };
   } catch (error) {
-    return { 
-      hasCertificate: false, 
-      error: error instanceof Error ? error.message : 'Failed to load certificate' 
+    return {
+      hasCertificate: false,
+      error:
+        error instanceof Error ? error.message : 'Failed to load certificate',
     };
   }
 }
@@ -75,13 +76,13 @@ export function removeCertificate(): void {
  */
 export function getCertificateHeaders(): Record<string, string> {
   const certStatus = loadCertificate();
-  
+
   if (certStatus.hasCertificate && certStatus.certificate) {
     return {
       'X-Developer-Certificate': certStatus.certificate.certificate_id,
     };
   }
-  
+
   return {};
 }
 

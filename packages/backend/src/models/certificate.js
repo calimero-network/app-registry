@@ -8,7 +8,8 @@ const certificates = new Map();
 // Add some sample certificates for testing
 const sampleCertificates = [
   {
-    developer_pubkey: 'ed25519:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+    developer_pubkey:
+      'ed25519:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
     certificate_id: 'cert-001',
     issued_at: '2024-01-01T00:00:00Z',
     expires_at: '2025-12-31T23:59:59Z',
@@ -22,7 +23,8 @@ const sampleCertificates = [
     },
   },
   {
-    developer_pubkey: 'ed25519:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890',
+    developer_pubkey:
+      'ed25519:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890',
     certificate_id: 'cert-002',
     issued_at: '2024-01-01T00:00:00Z',
     expires_at: '2025-12-31T23:59:59Z',
@@ -47,7 +49,7 @@ const sampleCertificates = [
     signature: {
       alg: 'Ed25519',
       sig: 'omMRhaj2JVSVBtI1sfM04LFTlzq3C76zgEd7fEAxXSHDVdeDhpQbcRejMleLl4kLpQOqz+SUkbT1fFM3n9oIhg==',
-      signed_at: '2025-09-01T10:42:24.289Z'
+      signed_at: '2025-09-01T10:42:24.289Z',
     },
   },
 ];
@@ -63,7 +65,16 @@ function validateCertificate(certificate) {
     return { valid: false, error: 'Invalid certificate format' };
   }
 
-  const requiredFields = ['developer_pubkey', 'certificate_id', 'issued_at', 'expires_at', 'status', 'issuer', 'issuer_pubkey', 'signature'];
+  const requiredFields = [
+    'developer_pubkey',
+    'certificate_id',
+    'issued_at',
+    'expires_at',
+    'status',
+    'issuer',
+    'issuer_pubkey',
+    'signature',
+  ];
   for (const field of requiredFields) {
     if (!certificate[field]) {
       return { valid: false, error: `Missing required field: ${field}` };
@@ -80,7 +91,7 @@ function validateCertificate(certificate) {
 
   const now = new Date();
   const expiresAt = new Date(certificate.expires_at);
-  
+
   if (expiresAt < now) {
     return { valid: false, error: 'Certificate has expired' };
   }
@@ -92,7 +103,10 @@ function validateCertificate(certificate) {
       return { valid: false, error: 'Invalid certificate signature' };
     }
   } catch (error) {
-    return { valid: false, error: `Signature verification failed: ${error.message}` };
+    return {
+      valid: false,
+      error: `Signature verification failed: ${error.message}`,
+    };
   }
 
   return { valid: true };
@@ -104,15 +118,19 @@ function isDeveloperWhitelisted(developerPubkey) {
   if (registryCheck.whitelisted) {
     const validation = validateCertificate(registryCheck.certificate);
     if (validation.valid) {
-      return { whitelisted: true, certificate: registryCheck.certificate, developer: registryCheck.developer };
+      return {
+        whitelisted: true,
+        certificate: registryCheck.certificate,
+        developer: registryCheck.developer,
+      };
     } else {
       return { whitelisted: false, error: validation.error };
     }
   }
-  
+
   // Fallback to old in-memory certificates for backward compatibility
   const certificate = certificates.get(developerPubkey);
-  
+
   if (!certificate) {
     return { whitelisted: false, error: 'Developer not found in whitelist' };
   }

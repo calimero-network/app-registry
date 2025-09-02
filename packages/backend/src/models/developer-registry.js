@@ -3,7 +3,10 @@ const path = require('path');
 const crypto = require('crypto');
 
 // File-based storage for demo (replace with database in production)
-const REGISTRY_FILE = path.join(__dirname, '../../data/developer-registry.json');
+const REGISTRY_FILE = path.join(
+  __dirname,
+  '../../data/developer-registry.json'
+);
 const INVITES_FILE = path.join(__dirname, '../../data/pending-invites.json');
 
 // Ensure data directory exists
@@ -25,7 +28,7 @@ function loadRegistry() {
   }
   return {
     developers: {},
-    certificates: {}
+    certificates: {},
   };
 }
 
@@ -72,14 +75,14 @@ function saveInvites(invites) {
  */
 function createInvite(developerInfo) {
   const invites = loadInvites();
-  
+
   // Generate secure invite token
   const inviteToken = crypto.randomBytes(32).toString('hex');
-  
+
   // Calculate expiration (default 7 days)
   const expiresAt = new Date();
   expiresAt.setDate(expiresAt.getDate() + (developerInfo.expiresInDays || 7));
-  
+
   const invite = {
     token: inviteToken,
     email: developerInfo.email,
@@ -92,12 +95,12 @@ function createInvite(developerInfo) {
     created_by: developerInfo.createdBy || 'admin',
     status: 'pending', // pending, redeemed, expired
     redeemed_at: null,
-    certificate_id: null
+    certificate_id: null,
   };
-  
+
   invites[inviteToken] = invite;
   saveInvites(invites);
-  
+
   return invite;
 }
 
@@ -107,21 +110,21 @@ function createInvite(developerInfo) {
 function getInvite(token) {
   const invites = loadInvites();
   const invite = invites[token];
-  
+
   if (!invite) {
     return null;
   }
-  
+
   // Check if expired
   const now = new Date();
   const expiresAt = new Date(invite.expires_at);
-  
+
   if (expiresAt < now) {
     invite.status = 'expired';
     saveInvites(invites);
     return null;
   }
-  
+
   return invite;
 }
 
@@ -131,30 +134,30 @@ function getInvite(token) {
 function redeemInvite(token, certificateId) {
   const invites = loadInvites();
   const invite = invites[token];
-  
+
   if (!invite || invite.status !== 'pending') {
     throw new Error('Invalid or already redeemed invite');
   }
-  
+
   // Check if expired
   const now = new Date();
   const expiresAt = new Date(invite.expires_at);
-  
+
   if (expiresAt < now) {
     invite.status = 'expired';
     saveInvites(invites);
     throw new Error('Invite has expired');
   }
-  
+
   // Mark invite as redeemed
   invite.status = 'redeemed';
   invite.redeemed_at = new Date().toISOString();
   invite.certificate_id = certificateId;
-  
+
   // Add developer to registry
   const registry = loadRegistry();
   const developerId = `dev_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-  
+
   registry.developers[developerId] = {
     id: developerId,
     email: invite.email,
@@ -165,12 +168,12 @@ function redeemInvite(token, certificateId) {
     status: 'active',
     invited_at: invite.created_at,
     joined_at: new Date().toISOString(),
-    certificate_ids: [certificateId]
+    certificate_ids: [certificateId],
   };
-  
+
   saveInvites(invites);
   saveRegistry(registry);
-  
+
   return registry.developers[developerId];
 }
 
@@ -179,13 +182,13 @@ function redeemInvite(token, certificateId) {
  */
 function getDeveloperByEmail(email) {
   const registry = loadRegistry();
-  
+
   for (const developer of Object.values(registry.developers)) {
     if (developer.email === email) {
       return developer;
     }
   }
-  
+
   return null;
 }
 
@@ -194,15 +197,15 @@ function getDeveloperByEmail(email) {
  */
 function getPendingInvites() {
   const invites = loadInvites();
-  
+
   return Object.values(invites).filter(invite => {
     const now = new Date();
     const expiresAt = new Date(invite.expires_at);
-    
+
     if (expiresAt < now) {
       invite.status = 'expired';
     }
-    
+
     return invite.status === 'pending';
   });
 }
@@ -220,7 +223,7 @@ function getAllDevelopers() {
  */
 function addCertificateToDeveloper(email, certificateId, certificate) {
   const registry = loadRegistry();
-  
+
   // Find developer by email
   let developer = null;
   for (const dev of Object.values(registry.developers)) {
@@ -229,18 +232,18 @@ function addCertificateToDeveloper(email, certificateId, certificate) {
       break;
     }
   }
-  
+
   if (!developer) {
     throw new Error('Developer not found');
   }
-  
+
   // Add certificate
   if (!developer.certificate_ids.includes(certificateId)) {
     developer.certificate_ids.push(certificateId);
   }
-  
+
   registry.certificates[certificateId] = certificate;
-  
+
   saveRegistry(registry);
   return developer;
 }
@@ -250,7 +253,7 @@ function addCertificateToDeveloper(email, certificateId, certificate) {
  */
 function isDeveloperWhitelistedByPubkey(pubkey) {
   const registry = loadRegistry();
-  
+
   // Find certificate with matching developer_pubkey
   for (const [certId, cert] of Object.entries(registry.certificates)) {
     if (cert.developer_pubkey === pubkey) {
@@ -260,13 +263,13 @@ function isDeveloperWhitelistedByPubkey(pubkey) {
           return {
             whitelisted: true,
             certificate: cert,
-            developer: dev
+            developer: dev,
           };
         }
       }
     }
   }
-  
+
   return { whitelisted: false, error: 'Developer not found in whitelist' };
 }
 
@@ -278,5 +281,5 @@ module.exports = {
   getPendingInvites,
   getAllDevelopers,
   addCertificateToDeveloper,
-  isDeveloperWhitelistedByPubkey
+  isDeveloperWhitelistedByPubkey,
 };

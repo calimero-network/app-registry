@@ -1,5 +1,7 @@
 const { validatePublicKey } = require('../lib/verify');
-const { getCertificate, isDeveloperWhitelisted } = require('../models/certificate');
+const {
+  isDeveloperWhitelisted,
+} = require('../models/certificate');
 const config = require('../config');
 
 async function routes(fastify, _options) {
@@ -58,9 +60,9 @@ async function routes(fastify, _options) {
       const whitelistCheck = isDeveloperWhitelisted(pubkey);
 
       if (!whitelistCheck.whitelisted) {
-        return reply.code(404).send({ 
+        return reply.code(404).send({
           error: 'Developer not found in whitelist',
-          details: whitelistCheck.error
+          details: whitelistCheck.error,
         });
       }
 
