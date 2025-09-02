@@ -108,6 +108,9 @@ importers:
       '@calimero-network/registry-client':
         specifier: workspace:*
         version: link:../client-library
+      '@noble/ed25519':
+        specifier: ^3.0.0
+        version: 3.0.0
       axios:
         specifier: ^1.11.0
         version: 1.11.0
@@ -1872,6 +1875,10 @@ packages:
       multiformats: 13.4.0
       uint8-varint: 2.0.4
       uint8arrays: 5.1.0
+    dev: false
+
+  /@noble/ed25519@3.0.0:
+    resolution: {integrity: sha512-QyteqMNm0GLqfa5SoYbSC3+Pvykwpn95Zgth4MFVSMKBB75ELl9tX1LAVsN4c3HXOrakHsF2gL4zWDAYCcsnzg==}
     dev: false
 
   /@noble/hashes@1.8.0:
