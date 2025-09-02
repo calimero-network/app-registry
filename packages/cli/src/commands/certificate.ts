@@ -2,7 +2,7 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import ora from 'ora';
 import fs from 'fs';
-import path from 'path';
+// import path from 'path'; // TODO: Remove if not needed
 import {
   loadCertificate,
   saveCertificate,

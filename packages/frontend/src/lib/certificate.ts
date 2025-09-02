@@ -90,13 +90,13 @@ export function getCertificateHeaders(): Record<string, string> {
  * Validate certificate with the server
  */
 export async function validateCertificateWithServer(
-  api: any,
+  api: { get: (url: string) => Promise<{ data: { whitelisted: boolean } }> },
   pubkey: string
 ): Promise<boolean> {
   try {
     const response = await api.get(`/certificates/${pubkey}`);
     return response.data.whitelisted;
-  } catch (error) {
+  } catch {
     return false;
   }
 }

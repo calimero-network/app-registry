@@ -2,10 +2,7 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import ora from 'ora';
 import { table } from 'table';
-import { SSAppRegistryClient } from '@calimero-network/registry-client';
 import fs from 'fs';
-import path from 'path';
-import FormData from 'form-data';
 import axios from 'axios';
 import {
   ensureValidCertificate,
