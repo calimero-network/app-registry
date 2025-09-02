@@ -67,8 +67,8 @@ export function Layout({ children }: LayoutProps) {
         <div className='max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8'>
           <div className='text-center text-sm text-gray-500'>
             <p>
-              © 2024 SSApp Registry. Built with ❤️ by the Calimero Network
-              team.
+              © 2024 Calimero Network App Registry. Built with ❤️ by the
+              Calimero Network team.
             </p>
           </div>
         </div>

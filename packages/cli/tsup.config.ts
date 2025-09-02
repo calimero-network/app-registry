@@ -9,7 +9,13 @@ export default defineConfig({
   clean: true,
   treeshake: true,
   minify: false,
-  external: ['@ssapp-registry/client', 'commander', 'chalk', 'ora', 'table'],
+  external: [
+    '@calimero-network/registry-client',
+    'commander',
+    'chalk',
+    'ora',
+    'table',
+  ],
   banner: {
     js: '#!/usr/bin/env node',
   },

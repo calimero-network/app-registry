@@ -214,16 +214,16 @@ describe('Verification library', () => {
 
 ```bash
 # Build Docker image
-docker build -t ssapp-registry-backend .
+docker build -t calimero-registry-backend .
 
 # Run container
-docker run -p 3000:3000 ssapp-registry-backend
+docker run -p 3000:3000 calimero-registry-backend
 
 # Run with environment variables
 docker run -p 3000:3000 \
   -e NODE_ENV=production \
   -e PORT=3000 \
-  ssapp-registry-backend
+  calimero-registry-backend
 ```
 
 ### Docker Compose
@@ -309,7 +309,7 @@ pnpm build
 NODE_ENV=production pnpm start
 
 # Using PM2
-pm2 start dist/server.js --name ssapp-registry-backend
+pm2 start dist/server.js --name calimero-registry-backend
 ```
 
 ### Environment Configuration

@@ -11,9 +11,9 @@ import { adminCommand } from './commands/admin.js';
 const program = new Command();
 
 program
-  .name('ssapp-registry')
+  .name('calimero-registry')
   .description(
-    'SSApp Registry CLI - Command-line interface for the SSApp Registry'
+    'Calimero Network App Registry CLI - Command-line interface for the App Registry'
   )
   .version('1.0.0');
 

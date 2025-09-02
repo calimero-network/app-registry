@@ -60,7 +60,7 @@ jobs:
         run: |
           cd packages/cli
           echo "🚀 CLI Release DRY RUN"
-          echo "📦 Package: @xilos/ssapp-registry-cli"
+          echo "📦 Package: @calimero-network/registry-cli"
           echo "🎯 Release type: ${{ needs.detect-changes.outputs.release-type }}"
           echo "🏷️  Would create tag: cli-v*"
           echo "📝 Would create GitHub release"
@@ -77,7 +77,7 @@ jobs:
         run: |
           cd packages/client-library
           echo "🚀 Client Library Release DRY RUN"
-          echo "📦 Package: @ssapp-registry/client"
+          echo "📦 Package: @calimero-network/registry-client"
           echo "🎯 Release type: ${{ needs.detect-changes.outputs.release-type }}"
           echo "🏷️  Would create tag: lib-v*"
           echo "📝 Would create GitHub release"
@@ -94,7 +94,7 @@ jobs:
         run: |
           cd packages/backend
           echo "🚀 Backend Release DRY RUN"
-          echo "📦 Package: @ssapp-registry/backend"
+          echo "📦 Package: @calimero-network/registry-backend"
           echo "🎯 Release type: ${{ needs.detect-changes.outputs.release-type }}"
           echo "🏷️  Would create tag: backend-v*"
           echo "📝 Would create GitHub release"
@@ -110,7 +110,7 @@ jobs:
         run: |
           cd packages/frontend
           echo "🚀 Frontend Release DRY RUN"
-          echo "📦 Package: @ssapp-registry/frontend"
+          echo "📦 Package: @calimero-network/registry-frontend"
           echo "🎯 Release type: ${{ needs.detect-changes.outputs.release-type }}"
           echo "🏷️  Would create tag: frontend-v*"
           echo "📝 Would create GitHub release"

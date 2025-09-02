@@ -26,7 +26,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20.x'
-          cache: 'pnpm'
 
       - name: Install dependencies
         run: pnpm install
@@ -73,8 +72,8 @@ jobs:
           file: ./packages/backend/Dockerfile
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/ssapp-registry-backend:${{ github.ref_name }}
-            ghcr.io/${{ github.repository_owner }}/ssapp-registry-backend:latest
+            ghcr.io/${{ github.repository_owner }}/calimero-registry-backend:${{ github.ref_name }}
+            ghcr.io/${{ github.repository_owner }}/calimero-registry-backend:latest
           platforms: linux/amd64
           build-args: |
             BUILDKIT_INLINE_CACHE=1
@@ -87,8 +86,8 @@ jobs:
           file: ./packages/backend/Dockerfile
           push: true
           tags: |
-            ${{ secrets.DOCKER_USERNAME }}/ssapp-registry-backend:${{ github.ref_name }}
-            ${{ secrets.DOCKER_USERNAME }}/ssapp-registry-backend:latest
+            ${{ secrets.DOCKER_USERNAME }}/calimero-registry-backend:${{ github.ref_name }}
+            ${{ secrets.DOCKER_USERNAME }}/calimero-registry-backend:latest
           platforms: linux/amd64
           build-args: |
             BUILDKIT_INLINE_CACHE=1
@@ -96,7 +95,7 @@ jobs:
       - name: Deploy to production
         run: |
           echo "Deploying version ${{ github.ref_name }} to production"
-          echo "Docker image: ghcr.io/${{ github.repository_owner }}/ssapp-registry-backend:${{ github.ref_name }}"
+          echo "Docker image: ghcr.io/${{ github.repository_owner }}/calimero-registry-backend:${{ github.ref_name }}"
           # Add your deployment commands here
           # Examples:
           # - Deploy to Kubernetes
@@ -107,6 +106,6 @@ jobs:
       - name: Notify deployment
         run: |
           echo "✅ Successfully deployed SSApp Registry Backend v${{ github.ref_name }}"
-          echo "🐳 Docker image: ghcr.io/${{ github.repository_owner }}/ssapp-registry-backend:${{ github.ref_name }}"
+          echo "🐳 Docker image: ghcr.io/${{ github.repository_owner }}/calimero-registry-backend:${{ github.ref_name }}"
           echo "🌐 Health check: https://your-domain.com/healthz"
           echo "📚 API docs: https://your-domain.com/docs"

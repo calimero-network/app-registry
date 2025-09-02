@@ -127,7 +127,7 @@ pnpm test --verbose
 
 ```bash
 # Build with verbose output
-docker build --progress=plain -t ssapp-registry .
+docker build --progress=plain -t calimero-registry .
 
 # Check Docker logs
 docker logs <container-name>

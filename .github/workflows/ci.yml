@@ -194,6 +194,6 @@ jobs:
           platforms: linux/amd64
           push: true
           tags: |
-            ${{ secrets.DOCKER_USERNAME }}/ssapp-registry-backend:${{ github.sha }}
-            ${{ secrets.DOCKER_USERNAME }}/ssapp-registry-backend:latest
+            ${{ secrets.DOCKER_USERNAME }}/calimero-registry-backend:${{ github.sha }}
+            ${{ secrets.DOCKER_USERNAME }}/calimero-registry-backend:latest
           build-args: BUILDKIT_INLINE_CACHE=1

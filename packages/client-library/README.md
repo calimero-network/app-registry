@@ -16,13 +16,13 @@ A TypeScript client library for the SSApp (Smart Contract Application) Registry 
 
 ```bash
 # Install from npm
-npm install @ssapp-registry/client
+npm install @calimero-network/registry-client
 
 # Or using pnpm
-pnpm add @ssapp-registry/client
+pnpm add @calimero-network/registry-client
 
 # Or using yarn
-yarn add @ssapp-registry/client
+yarn add @calimero-network/registry-client
 ```
 
 ## 🔧 Configuration
@@ -30,10 +30,10 @@ yarn add @ssapp-registry/client
 ### Basic Setup
 
 ```typescript
-import { SSAppRegistryClient } from '@ssapp-registry/client';
+import { SSAppRegistryClient } from '@calimero-network/registry-client';
 
 const client = new SSAppRegistryClient({
-  baseURL: 'https://api.ssapp-registry.com',
+  baseURL: 'https://api.calimero.network',
   apiKey: 'your-api-key', // Optional
   timeout: 10000, // 10 seconds
 });
@@ -201,10 +201,10 @@ const attestation = await client.attestations.create({
 ### Complete Application Management
 
 ```typescript
-import { SSAppRegistryClient } from '@ssapp-registry/client';
+import { SSAppRegistryClient } from '@calimero-network/registry-client';
 
 const client = new SSAppRegistryClient({
-  baseURL: 'https://api.ssapp-registry.com',
+  baseURL: 'https://api.calimero.network',
 });
 
 async function manageApplication() {
@@ -263,10 +263,10 @@ async function manageApplication() {
 import {
   SSAppRegistryClient,
   SSAppRegistryError,
-} from '@ssapp-registry/client';
+} from '@calimero-network/registry-client';
 
 const client = new SSAppRegistryClient({
-  baseURL: 'https://api.ssapp-registry.com',
+  baseURL: 'https://api.calimero.network',
 });
 
 async function handleErrors() {
@@ -327,7 +327,7 @@ async function batchOperations() {
 ### Unit Testing
 
 ```typescript
-import { SSAppRegistryClient } from '@ssapp-registry/client';
+import { SSAppRegistryClient } from '@calimero-network/registry-client';
 import { mockApiResponse } from './test-utils';
 
 describe('SSAppRegistryClient', () => {
@@ -400,7 +400,7 @@ describe('Integration Tests', () => {
 import axios from 'axios';
 
 const client = new SSAppRegistryClient({
-  baseURL: 'https://api.ssapp-registry.com',
+  baseURL: 'https://api.calimero.network',
 });
 
 // Add request interceptor
@@ -425,7 +425,7 @@ client.axios.interceptors.response.use(
 ### Custom Logger
 
 ```typescript
-import { Logger } from '@ssapp-registry/client';
+import { Logger } from '@calimero-network/registry-client';
 
 class CustomLogger implements Logger {
   info(message: string, data?: any) {
@@ -442,7 +442,7 @@ class CustomLogger implements Logger {
 }
 
 const client = new SSAppRegistryClient({
-  baseURL: 'https://api.ssapp-registry.com',
+  baseURL: 'https://api.calimero.network',
   logger: new CustomLogger(),
 });
 ```
@@ -451,7 +451,7 @@ const client = new SSAppRegistryClient({
 
 ```typescript
 const client = new SSAppRegistryClient({
-  baseURL: 'https://api.ssapp-registry.com',
+  baseURL: 'https://api.calimero.network',
   retries: 3,
   retryDelay: 1000, // 1 second
   timeout: 30000, // 30 seconds

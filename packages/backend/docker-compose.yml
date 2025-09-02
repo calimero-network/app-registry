@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  ssapp-registry:
+  calimero-registry:
     build:
       context: .
       dockerfile: Dockerfile
@@ -28,7 +28,7 @@ services:
       start_period: 40s
     restart: unless-stopped
 
-  ssapp-registry-dev:
+  calimero-registry-dev:
     build:
       context: .
       dockerfile: Dockerfile

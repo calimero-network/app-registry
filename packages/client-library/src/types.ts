@@ -241,7 +241,7 @@ export interface ApiError {
  * @example
  * ```typescript
  * const config: ClientConfig = {
- *   baseURL: 'https://api.ssapp-registry.com',
+ *   baseURL: 'https://api.calimero.network',
  *   timeout: 30000,
  *   headers: {
  *     'Authorization': 'Bearer token',

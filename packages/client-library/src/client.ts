@@ -17,10 +17,10 @@ import type {
  *
  * @example
  * ```typescript
- * import { SSAppRegistryClient } from '@ssapp-registry/client';
+ * import { SSAppRegistryClient } from '@calimero-network/registry-client';
  *
  * const client = new SSAppRegistryClient({
- *   baseURL: 'https://api.ssapp-registry.com',
+ *   baseURL: 'https://api.calimero.network',
  *   timeout: 10000,
  * });
  *
@@ -49,7 +49,7 @@ export class SSAppRegistryClient {
    *
    * // Custom configuration
    * const client = new SSAppRegistryClient({
-   *   baseURL: 'https://api.ssapp-registry.com',
+   *   baseURL: 'https://api.calimero.network',
    *   timeout: 30000,
    *   headers: {
    *     'Authorization': 'Bearer token',

@@ -1,6 +1,6 @@
-# SSApp Registry CLI
+# Calimero Network App Registry CLI
 
-A command-line interface tool for the SSApp (Smart Contract Application) Registry. Provides easy-to-use commands for managing applications, developers, and attestations directly from the terminal.
+A command-line interface tool for the Calimero Network App Registry. Provides easy-to-use commands for managing applications, developers, and attestations directly from the terminal.
 
 ## 🚀 Features
 
@@ -19,13 +19,13 @@ A command-line interface tool for the SSApp (Smart Contract Application) Registr
 
 ```bash
 # Install globally from npm
-npm install -g @xilos/ssapp-registry-cli
+npm install -g @calimero-network/registry-cli
 
 # Or using pnpm
-pnpm add -g @xilos/ssapp-registry-cli
+pnpm add -g @calimero-network/registry-cli
 
 # Or using yarn
-yarn global add @xilos/ssapp-registry-cli
+yarn global add @calimero-network/registry-cli
 ```
 
 ### Local Development
@@ -51,30 +51,30 @@ pnpm link
 
 ```bash
 # Configure the CLI
-ssapp-registry config set api-url https://api.ssapp-registry.com
-ssapp-registry config set api-key your-api-key
+calimero-registry config set api-url https://api.calimero.network
+calimero-registry config set api-key your-api-key
 
 # View current configuration
-ssapp-registry config list
+calimero-registry config list
 ```
 
 ### Configuration Options
 
 ```bash
 # Set API URL
-ssapp-registry config set api-url https://your-api-url.com
+calimero-registry config set api-url https://your-api-url.com
 
 # Set API key for authentication
-ssapp-registry config set api-key your-api-key
+calimero-registry config set api-key your-api-key
 
 # Set output format (json, table, yaml)
-ssapp-registry config set output-format json
+calimero-registry config set output-format json
 
 # Set default limit for list commands
-ssapp-registry config set default-limit 20
+calimero-registry config set default-limit 20
 
 # Enable/disable color output
-ssapp-registry config set color-output true
+calimero-registry config set color-output true
 ```
 
 ## 📚 Command Reference
@@ -85,42 +85,42 @@ ssapp-registry config set color-output true
 
 ```bash
 # List all applications
-ssapp-registry apps list
+calimero-registry apps list
 
 # List with filters
-ssapp-registry apps list --search wallet --verified --limit 10
+calimero-registry apps list --search wallet --verified --limit 10
 
 # Output in JSON format
-ssapp-registry apps list --output json
+calimero-registry apps list --output json
 
 # Show specific fields
-ssapp-registry apps list --fields name,version,developer
+calimero-registry apps list --fields name,version,developer
 ```
 
 #### Get Application Details
 
 ```bash
 # Get application by ID
-ssapp-registry apps get app-id
+calimero-registry apps get app-id
 
 # Get with full details
-ssapp-registry apps get app-id --full
+calimero-registry apps get app-id --full
 
 # Get manifest only
-ssapp-registry apps get app-id --manifest
+calimero-registry apps get app-id --manifest
 ```
 
 #### Create Application
 
 ```bash
 # Interactive creation
-ssapp-registry apps create
+calimero-registry apps create
 
 # Create from file
-ssapp-registry apps create --file app-manifest.json
+calimero-registry apps create --file app-manifest.json
 
 # Create with inline data
-ssapp-registry apps create \
+calimero-registry apps create \
   --name "My SSApp" \
   --description "A smart contract application" \
   --version "1.0.0" \
@@ -131,23 +131,23 @@ ssapp-registry apps create \
 
 ```bash
 # Update application
-ssapp-registry apps update app-id --description "Updated description"
+calimero-registry apps update app-id --description "Updated description"
 
 # Update from file
-ssapp-registry apps update app-id --file updates.json
+calimero-registry apps update app-id --file updates.json
 
 # Update version
-ssapp-registry apps update app-id --version "1.1.0"
+calimero-registry apps update app-id --version "1.1.0"
 ```
 
 #### Delete Application
 
 ```bash
 # Delete application
-ssapp-registry apps delete app-id
+calimero-registry apps delete app-id
 
 # Force delete (skip confirmation)
-ssapp-registry apps delete app-id --force
+calimero-registry apps delete app-id --force
 ```
 
 ### Developers
@@ -156,33 +156,33 @@ ssapp-registry apps delete app-id --force
 
 ```bash
 # List all developers
-ssapp-registry developers list
+calimero-registry developers list
 
 # List with filters
-ssapp-registry developers list --search john --verified
+calimero-registry developers list --search john --verified
 
 # Show developer apps
-ssapp-registry developers list --include-apps
+calimero-registry developers list --include-apps
 ```
 
 #### Get Developer Details
 
 ```bash
 # Get developer by ID
-ssapp-registry developers get developer-id
+calimero-registry developers get developer-id
 
 # Get with apps
-ssapp-registry developers get developer-id --include-apps
+calimero-registry developers get developer-id --include-apps
 ```
 
 #### Create Developer
 
 ```bash
 # Interactive creation
-ssapp-registry developers create
+calimero-registry developers create
 
 # Create with data
-ssapp-registry developers create \
+calimero-registry developers create \
   --name "John Doe" \
   --email "john@example.com" \
   --public-key "ed25519:..."
@@ -194,20 +194,20 @@ ssapp-registry developers create \
 
 ```bash
 # List all attestations
-ssapp-registry attestations list
+calimero-registry attestations list
 
 # List by app
-ssapp-registry attestations list --app-id app-id
+calimero-registry attestations list --app-id app-id
 
 # List by developer
-ssapp-registry attestations list --developer-id developer-id
+calimero-registry attestations list --developer-id developer-id
 ```
 
 #### Create Attestation
 
 ```bash
 # Create attestation
-ssapp-registry attestations create \
+calimero-registry attestations create \
   --app-id app-id \
   --type verification \
   --data '{"verified": true, "reason": "Security audit passed"}'
@@ -219,26 +219,26 @@ ssapp-registry attestations create \
 
 ```bash
 # List configuration
-ssapp-registry config list
+calimero-registry config list
 
 # Set configuration value
-ssapp-registry config set key value
+calimero-registry config set key value
 
 # Get configuration value
-ssapp-registry config get key
+calimero-registry config get key
 
 # Reset configuration
-ssapp-registry config reset
+calimero-registry config reset
 ```
 
 #### Health Check
 
 ```bash
 # Check API health
-ssapp-registry health
+calimero-registry health
 
 # Detailed health check
-ssapp-registry health --detailed
+calimero-registry health --detailed
 ```
 
 ## 🎯 Usage Examples
@@ -247,48 +247,48 @@ ssapp-registry health --detailed
 
 ```bash
 # 1. Create a new application
-ssapp-registry apps create \
+calimero-registry apps create \
   --name "DeFi Wallet" \
   --description "A decentralized finance wallet" \
   --version "1.0.0" \
   --developer-id "my-developer-id"
 
 # 2. List applications to verify creation
-ssapp-registry apps list --search "DeFi Wallet"
+calimero-registry apps list --search "DeFi Wallet"
 
 # 3. Get application details
-ssapp-registry apps get app-id --full
+calimero-registry apps get app-id --full
 
 # 4. Update the application
-ssapp-registry apps update app-id \
+calimero-registry apps update app-id \
   --description "Updated DeFi wallet with new features" \
   --version "1.1.0"
 
 # 5. Create an attestation
-ssapp-registry attestations create \
+calimero-registry attestations create \
   --app-id app-id \
   --type verification \
   --data '{"verified": true, "audit": "passed"}'
 
 # 6. List attestations
-ssapp-registry attestations list --app-id app-id
+calimero-registry attestations list --app-id app-id
 ```
 
 ### Batch Operations
 
 ```bash
 # Create multiple applications from a file
-cat apps.json | ssapp-registry apps create --batch
+cat apps.json | calimero-registry apps create --batch
 
 # Update multiple applications
-ssapp-registry apps list --output json | \
+calimero-registry apps list --output json | \
   jq -r '.apps[].id' | \
-  xargs -I {} ssapp-registry apps update {} --version "1.1.0"
+  xargs -I {} calimero-registry apps update {} --version "1.1.0"
 
 # Delete all applications by a developer
-ssapp-registry apps list --developer-id dev-id --output json | \
+calimero-registry apps list --developer-id dev-id --output json | \
   jq -r '.apps[].id' | \
-  xargs -I {} ssapp-registry apps delete {} --force
+  xargs -I {} calimero-registry apps delete {} --force
 ```
 
 ### Scripting Examples
@@ -299,7 +299,7 @@ ssapp-registry apps list --developer-id dev-id --output json | \
 #!/bin/bash
 
 # Create application and get ID
-APP_ID=$(ssapp-registry apps create \
+APP_ID=$(calimero-registry apps create \
   --name "My App" \
   --version "1.0.0" \
   --output json | jq -r '.id')
@@ -310,7 +310,7 @@ echo "Created app with ID: $APP_ID"
 sleep 5
 
 # Get app details
-ssapp-registry apps get "$APP_ID" --output json
+calimero-registry apps get "$APP_ID" --output json
 ```
 
 #### Node.js Script
@@ -321,7 +321,7 @@ const { execSync } = require('child_process');
 // Create application
 const createResult = JSON.parse(
   execSync(
-    'ssapp-registry apps create --name "My App" --output json'
+    'calimero-registry apps create --name "My App" --output json'
   ).toString()
 );
 
@@ -330,7 +330,7 @@ console.log('Created app:', appId);
 
 // Get application details
 const appDetails = JSON.parse(
-  execSync(`ssapp-registry apps get ${appId} --output json`).toString()
+  execSync(`calimero-registry apps get ${appId} --output json`).toString()
 );
 
 console.log('App details:', appDetails);
@@ -343,7 +343,7 @@ console.log('App details:', appDetails);
 #### JSON Output
 
 ```bash
-ssapp-registry apps list --output json
+calimero-registry apps list --output json
 ```
 
 ```json
@@ -368,7 +368,7 @@ ssapp-registry apps list --output json
 #### Table Output
 
 ```bash
-ssapp-registry apps list --output table
+calimero-registry apps list --output table
 ```
 
 ```
@@ -382,7 +382,7 @@ ssapp-registry apps list --output table
 #### YAML Output
 
 ```bash
-ssapp-registry apps list --output yaml
+calimero-registry apps list --output yaml
 ```
 
 ```yaml
@@ -402,7 +402,7 @@ offset: 0
 
 ```bash
 # Start interactive mode
-ssapp-registry interactive
+calimero-registry interactive
 
 # Available commands in interactive mode:
 # > apps list
@@ -416,13 +416,13 @@ ssapp-registry interactive
 
 ```bash
 # Enable auto-completion for bash
-ssapp-registry completion bash > ~/.bash_completion
+calimero-registry completion bash > ~/.bash_completion
 
 # Enable auto-completion for zsh
-ssapp-registry completion zsh > ~/.zsh_completion
+calimero-registry completion zsh > ~/.zsh_completion
 
 # Enable auto-completion for fish
-ssapp-registry completion fish > ~/.config/fish/completions/ssapp-registry.fish
+calimero-registry completion fish > ~/.config/fish/completions/calimero-registry.fish
 ```
 
 ## 🧪 Testing
