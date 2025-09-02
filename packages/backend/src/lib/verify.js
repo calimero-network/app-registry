@@ -121,17 +121,34 @@ function validateSemver(semver) {
 }
 
 /**
- * Validate public key format (base58 or multibase)
+ * Validate public key format (base58, multibase, or ed25519: prefixed)
  */
 function validatePublicKey(pubkey) {
+  // Handle ed25519: prefixed keys
+  if (pubkey.startsWith('ed25519:')) {
+    const keyPart = pubkey.substring(8); // Remove 'ed25519:' prefix
+    if (keyPart.length === 0) {
+      return false;
+    }
+    
+    // Validate the key part as base64 (more common with modern crypto libraries)
+    const base64Chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
+    for (let i = 0; i < keyPart.length; i++) {
+      if (base64Chars.indexOf(keyPart[i]) === -1) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  // Try multibase first
   try {
     multibase.decode(pubkey);
     return true;
   } catch {
     // Try base58
     try {
-      const base58Chars =
-        '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+      const base58Chars = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
       for (let i = 0; i < pubkey.length; i++) {
         if (base58Chars.indexOf(pubkey[i]) === -1) {
           return false;

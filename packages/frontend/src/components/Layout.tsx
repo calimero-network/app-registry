@@ -1,5 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Package, Users, Home } from 'lucide-react';
+import { Package, Users, Home, Shield } from 'lucide-react';
+import CertificateManager from './CertificateManager';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -48,6 +49,10 @@ export function Layout({ children }: LayoutProps) {
                 );
               })}
             </nav>
+
+            <div className='flex items-center space-x-4'>
+              <CertificateManager />
+            </div>
           </div>
         </div>
       </header>
