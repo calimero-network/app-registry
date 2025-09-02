@@ -1,7 +1,5 @@
 const { validatePublicKey } = require('../lib/verify');
-const {
-  isDeveloperWhitelisted,
-} = require('../models/certificate');
+const { isDeveloperWhitelisted } = require('../models/certificate');
 const config = require('../config');
 
 async function routes(fastify, _options) {
