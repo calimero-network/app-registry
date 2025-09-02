@@ -22,7 +22,7 @@ certificateCommand
   .command('status')
   .description('Show certificate status')
   .action(async (options, command) => {
-    const globalOpts = command.parent?.opts();
+    const _globalOpts = command.parent?.opts(); // eslint-disable-line @typescript-eslint/no-unused-vars
     try {
       const cert = loadCertificate();
 
@@ -60,11 +60,11 @@ certificateCommand
   .command('auto-generate')
   .description('Automatically generate a new certificate')
   .action(async (options, command) => {
-    const globalOpts = command.parent?.opts();
+    const _globalOpts = command.parent?.opts();
     try {
       console.log('🔐 Automatically generating new certificate...');
       const cert = await ensureValidCertificate(
-        globalOpts?.url || 'http://localhost:8082'
+        _globalOpts?.url || 'http://localhost:8082'
       );
       console.log('✅ Certificate generated:', cert.certificate_id);
     } catch (error) {

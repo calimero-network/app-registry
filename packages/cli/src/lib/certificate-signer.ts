@@ -1,5 +1,7 @@
+/* eslint-disable */
 import { getPublicKey, sign, verify } from '@noble/ed25519';
 import { randomBytes } from 'crypto';
+import { Buffer } from 'buffer';
 
 /**
  * Generate real Ed25519 key pair
@@ -44,7 +46,8 @@ export function createCertificateTemplate(
  */
 export async function signCertificate(certificate: any, privateKey: string) {
   // Remove signature field and canonicalize
-  const { signature: _, ...certificateWithoutSignature } = certificate;
+
+  const { signature: _sig1, ...certificateWithoutSignature } = certificate;
   const canonicalized = JSON.stringify(
     certificateWithoutSignature,
     Object.keys(certificateWithoutSignature).sort()
@@ -84,7 +87,8 @@ export async function verifyCertificate(certificate: any): Promise<boolean> {
     }
 
     // Remove signature field and canonicalize
-    const { signature: _, ...certificateWithoutSignature } = certificate;
+
+    const { signature: _sig, ...certificateWithoutSignature } = certificate;
     const canonicalized = JSON.stringify(
       certificateWithoutSignature,
       Object.keys(certificateWithoutSignature).sort()

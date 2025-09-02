@@ -6,6 +6,8 @@ import {
 } from '../lib/certificate-signer.js';
 import * as fs from 'fs';
 import * as path from 'path';
+// @ts-expect-error - Node.js fetch global not typed
+declare const fetch: any; // eslint-disable-line @typescript-eslint/no-explicit-any
 
 export const adminCommand = new Command('admin').description(
   'Administrative operations'

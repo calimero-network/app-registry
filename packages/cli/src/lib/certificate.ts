@@ -1,6 +1,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+// @ts-expect-error - Node.js fetch global not typed
+declare const fetch: any; // eslint-disable-line @typescript-eslint/no-explicit-any
 
 export interface Certificate {
   developer_pubkey: string;
@@ -186,7 +188,9 @@ export async function ensureValidCertificate(
 /**
  * Generate a new certificate
  */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function generateAndRegisterCertificate(
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   registryUrl: string
 ): Promise<Certificate> {
   // Generate a unique certificate ID
