@@ -45,7 +45,7 @@
     "@semantic-release/commit-analyzer": "^10.0.0",
     "@semantic-release/release-notes-generator": "^10.0.0",
     "@semantic-release/npm": "^10.0.0",
-    "@semantic-release/github": "^9.0.0"
+    "@semantic-release/github": "^11.0.5"
   },
   "engines": {
     "node": ">=18.0.0"
