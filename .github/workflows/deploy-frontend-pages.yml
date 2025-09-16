@@ -22,7 +22,7 @@ jobs:
           VITE_API_URL: https://app-registry-backend.onrender.com
         run: pnpm build
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v4
         with:
           path: packages/frontend/dist
   deploy:
