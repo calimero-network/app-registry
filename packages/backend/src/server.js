@@ -9,6 +9,8 @@ const fs = require('fs');
 const appsRoutes = require('./routes/apps');
 const developersRoutes = require('./routes/developers');
 const attestationsRoutes = require('./routes/attestations');
+const certificatesRoutes = require('./routes/certificates');
+const invitesRoutes = require('./routes/invites');
 
 // Global data store for sharing between routes
 global.developersStore = new Map();
@@ -27,6 +29,14 @@ async function buildServer() {
   await server.register(cors, {
     origin: config.cors.origin,
     credentials: true,
+  });
+
+  // Register multipart support for file uploads
+  await server.register(require('@fastify/multipart'), {
+    limits: {
+      fileSize: 50 * 1024 * 1024, // 50MB max file size
+      files: 1, // Only allow 1 file upload at a time
+    },
   });
 
   // Register Swagger
@@ -77,6 +87,8 @@ async function buildServer() {
   await server.register(appsRoutes, { prefix: '/apps' });
   await server.register(developersRoutes, { prefix: '/developers' });
   await server.register(attestationsRoutes, { prefix: '/attestations' });
+  await server.register(certificatesRoutes, { prefix: '/certificates' });
+  await server.register(invitesRoutes, { prefix: '/invites' });
 
   return server;
 }

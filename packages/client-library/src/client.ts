@@ -457,4 +457,31 @@ export class SSAppRegistryClient {
     const response = await this.api.get('/healthz');
     return response.data;
   }
+
+  /**
+   * Retrieves certificate information for a developer.
+   *
+   * @param pubkey - Developer public key
+   * @returns Promise resolving to certificate information
+   *
+   * @example
+   * ```typescript
+   * const certificate = await client.getCertificate('ed25519:abc123...');
+   * console.log(certificate.whitelisted); // true or false
+   * ```
+   */
+  async getCertificate(pubkey: string): Promise<{
+    whitelisted: boolean;
+    certificate?: {
+      developer_pubkey: string;
+      certificate_id: string;
+      issued_at: string;
+      expires_at: string;
+      status: string;
+      issuer: string;
+    };
+  }> {
+    const response = await this.api.get(`/certificates/${pubkey}`);
+    return response.data;
+  }
 }

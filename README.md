@@ -10,6 +10,34 @@
 
 A comprehensive monorepo for the SSApp (Smart Contract Application) Registry system, featuring a backend API, frontend web application, client library, and CLI tool.
 
+## 🔐 **Developer Whitelist System**
+
+The registry implements a **certificate-based whitelist system** that ensures only authorized developers can upload applications. Developers must obtain and present valid certificates before they can submit apps to the registry.
+
+### **Certificate Features**
+
+- **Ed25519 cryptographic signatures** with JCS canonicalization
+- **Automatic validation** of developer certificates
+- **Expiration checking** to ensure certificates are current
+- **Seamless integration** across CLI, web interface, and API
+- **Local storage** for convenient certificate management
+- **Manual revocation** by administrators
+- **Admin tools** for generating key pairs and signing certificates
+
+### **Getting Started with Certificates**
+
+#### **For Administrators**
+
+1. **Generate a key pair** for signing certificates
+2. **Create and sign certificates** for authorized developers
+3. **Distribute certificates** to developers securely
+
+#### **For Developers**
+
+1. **Obtain a certificate** from the registry administrator
+2. **Install certificate** using CLI or web interface
+3. **Start uploading apps** with automatic certificate validation
+
 ## 🏗️ Monorepo Structure
 
 ```
@@ -120,6 +148,35 @@ pnpm --filter client-library test
 # CLI
 pnpm --filter cli build
 pnpm --filter cli test
+```
+
+### Certificate Management
+
+```bash
+# Install certificate from file
+ssapp-registry certificate install <certificate-file.json>
+
+# Check certificate status
+ssapp-registry certificate status
+
+# Remove certificate
+ssapp-registry certificate clear
+
+# Show certificate file path
+ssapp-registry certificate path
+```
+
+### Admin Certificate Operations
+
+```bash
+# Generate a new key pair for signing certificates
+ssapp-registry admin generate-keypair -o keypair.json
+
+# Create and sign a new developer certificate
+ssapp-registry admin create-certificate <developer-pubkey> <certificate-id> -k keypair.json -e 2024-12-31
+
+# Verify a certificate signature
+ssapp-registry admin verify-certificate <certificate-file.json>
 ```
 
 ## 🧪 Testing

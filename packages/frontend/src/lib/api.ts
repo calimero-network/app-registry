@@ -6,12 +6,20 @@ import type {
   DeveloperProfile,
   Attestation,
 } from '@/types/api';
+import { getCertificateHeaders } from './certificate';
 
 export const api = axios.create({
   baseURL:
     (import.meta as { env?: { VITE_API_URL?: string } }).env?.VITE_API_URL ||
     '/api',
   timeout: 10000,
+});
+
+// Add certificate headers to all requests
+api.interceptors.request.use(config => {
+  const certHeaders = getCertificateHeaders();
+  Object.assign(config.headers, certHeaders);
+  return config;
 });
 
 // Error interceptor
