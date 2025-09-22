@@ -213,8 +213,8 @@ importers:
   packages/frontend:
     dependencies:
       '@tanstack/react-query':
-        specifier: ^4.29.0
-        version: 4.40.1(react-dom@18.3.1)(react@18.3.1)
+        specifier: ^5.90.1
+        version: 5.90.1(react@18.3.1)
       axios:
         specifier: ^1.3.0
         version: 1.11.0
@@ -2377,26 +2377,17 @@ packages:
       '@sinonjs/commons': 3.0.1
     dev: true
 
-  /@tanstack/query-core@4.40.0:
-    resolution: {integrity: sha512-7MJTtZkCSuehMC7IxMOCGsLvHS3jHx4WjveSrGsG1Nc1UQLjaFwwkpLA2LmPfvOAxnH4mszMOBFD6LlZE+aB+Q==}
+  /@tanstack/query-core@5.90.1:
+    resolution: {integrity: sha512-hmi8i+mWP3QnD8yq3+6LWri9IEZAlFbpbM/UVB+TJtp5RIxUfzuARqyW39b+HCfBKKnFKSHWMXNB5YN8lo/E/Q==}
     dev: false
 
-  /@tanstack/react-query@4.40.1(react-dom@18.3.1)(react@18.3.1):
-    resolution: {integrity: sha512-mgD07S5N8e5v81CArKDWrHE4LM7HxZ9k/KLeD3+NUD9WimGZgKIqojUZf/rXkfAMYZU9p0Chzj2jOXm7xpgHHQ==}
+  /@tanstack/react-query@5.90.1(react@18.3.1):
+    resolution: {integrity: sha512-tN7Fx2HuV2SBhl+STgL8enbfSInRoNU1B1+5LIU62klcMElE4lFzol4aReuRSUeD6ntzPayK0KrM6w9+ZlHEkw==}
     peerDependencies:
-      react: ^16.8.0 || ^17.0.0 || ^18.0.0
-      react-dom: ^16.8.0 || ^17.0.0 || ^18.0.0
-      react-native: '*'
-    peerDependenciesMeta:
-      react-dom:
-        optional: true
-      react-native:
-        optional: true
+      react: ^18 || ^19
     dependencies:
-      '@tanstack/query-core': 4.40.0
+      '@tanstack/query-core': 5.90.1
       react: 18.3.1
-      react-dom: 18.3.1(react@18.3.1)
-      use-sync-external-store: 1.5.0(react@18.3.1)
     dev: false
 
   /@testing-library/dom@8.20.1:
@@ -9382,14 +9373,6 @@ packages:
     resolution: {integrity: sha512-n2huDr9h9yzd6exQVnH/jU5mr+Pfx08LRXXZhkLLetAMESRj+anQsTAh940iMrIetKAmry9coFuZQ2jY8/p3WA==}
     engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
     dev: true
-
-  /use-sync-external-store@1.5.0(react@18.3.1):
-    resolution: {integrity: sha512-Rb46I4cGGVBmjamjphe8L/UnvJD+uPPtTkNvX5mZgqdbavhI4EbgIWJiIHXJ8bc/i9EQGPRh4DwEURJ552Do0A==}
-    peerDependencies:
-      react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
-    dependencies:
-      react: 18.3.1
-    dev: false
 
   /util-deprecate@1.0.2:
     resolution: {integrity: sha512-EPD5q1uXyFxJpCrLnCc1nHnq3gOa6DZBocAIiI2TaSCA7VCJ1UJDMagCzIkXNsUYfD1daK//LTEQ8xiIbrHtcw==}
