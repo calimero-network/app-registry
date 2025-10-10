@@ -146,8 +146,8 @@ importers:
         specifier: ^8.0.0
         version: 8.0.0
       conventional-changelog-writer:
-        specifier: ^7.0.0
-        version: 7.0.1
+        specifier: ^6.0.0
+        version: 6.0.1
       eslint:
         specifier: ^9.33.0
         version: 9.33.0
@@ -201,8 +201,8 @@ importers:
         specifier: ^8.0.0
         version: 8.0.0
       conventional-changelog-writer:
-        specifier: ^7.0.0
-        version: 7.0.1
+        specifier: ^6.0.0
+        version: 6.0.1
       eslint:
         specifier: ^9.33.0
         version: 9.33.0
@@ -3867,6 +3867,20 @@ packages:
       semver: 6.3.1
       split: 1.0.1
       through2: 4.0.2
+    dev: true
+
+  /conventional-changelog-writer@6.0.1:
+    resolution: {integrity: sha512-359t9aHorPw+U+nHzUXHS5ZnPBOizRxfQsWT5ZDHBfvfxQOAik+yfuhKXG66CN5LEWPpMNnIMHUTCKeYNprvHQ==}
+    engines: {node: '>=14'}
+    hasBin: true
+    dependencies:
+      conventional-commits-filter: 3.0.0
+      dateformat: 3.0.3
+      handlebars: 4.7.8
+      json-stringify-safe: 5.0.1
+      meow: 8.1.2
+      semver: 7.7.2
+      split: 1.0.1
     dev: true
 
   /conventional-changelog-writer@7.0.1:
