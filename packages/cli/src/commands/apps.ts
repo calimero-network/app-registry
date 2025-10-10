@@ -59,19 +59,18 @@ export const appsCommand = new Command('apps')
   .addCommand(
     new Command('versions')
       .description('List versions of a specific application')
-      .argument('<pubkey>', 'Developer public key')
-      .argument('<name>', 'Application name')
-      .action(async (pubkey, name, options, command) => {
+      .argument('<appId>', 'Application ID')
+      .action(async (appId, options, command) => {
         const globalOpts = command.parent?.parent?.opts();
         const client = new SSAppRegistryClient({
           baseURL: globalOpts?.url || 'http://localhost:8082',
           timeout: parseInt(globalOpts?.timeout || '10000'),
         });
 
-        const spinner = ora(`Fetching versions for ${name}...`).start();
+        const spinner = ora(`Fetching versions for ${appId}...`).start();
 
         try {
-          const versions = await client.getAppVersions(pubkey, name);
+          const versions = await client.getAppVersions(appId);
 
           spinner.succeed(`Found ${versions.length} version(s)`);
 
@@ -102,10 +101,9 @@ export const appsCommand = new Command('apps')
   .addCommand(
     new Command('manifest')
       .description('Get manifest for a specific application version')
-      .argument('<pubkey>', 'Developer public key')
-      .argument('<name>', 'Application name')
+      .argument('<appId>', 'Application ID')
       .argument('<version>', 'Application version')
-      .action(async (pubkey, name, version, options, command) => {
+      .action(async (appId, version, options, command) => {
         const globalOpts = command.parent?.parent?.opts();
         const client = new SSAppRegistryClient({
           baseURL: globalOpts?.url || 'http://localhost:8082',
@@ -113,11 +111,11 @@ export const appsCommand = new Command('apps')
         });
 
         const spinner = ora(
-          `Fetching manifest for ${name}@${version}...`
+          `Fetching manifest for ${appId}@${version}...`
         ).start();
 
         try {
-          const manifest = await client.getAppManifest(pubkey, name, version);
+          const manifest = await client.getAppManifest(appId, version);
 
           spinner.succeed('Manifest fetched successfully');
 

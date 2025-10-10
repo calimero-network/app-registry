@@ -107,17 +107,19 @@ async function routes(fastify, _options) {
     }
   );
 
-  // GET /apps/{pubkey}/{app_name} - List all versions
+  // GET /apps/{app_id} - List all versions
   fastify.get(
-    '/:pubkey/:app_name',
+    '/:app_id',
     {
       schema: {
         params: {
           type: 'object',
-          required: ['pubkey', 'app_name'],
+          required: ['app_id'],
           properties: {
-            pubkey: { type: 'string' },
-            app_name: { type: 'string' },
+            app_id: {
+              type: 'string',
+              pattern: '^[a-zA-Z0-9_-]+$',
+            },
           },
         },
         response: {
@@ -136,14 +138,19 @@ async function routes(fastify, _options) {
       },
     },
     async (request, reply) => {
-      const { pubkey, app_name } = request.params;
+      const { app_id } = request.params;
 
-      if (!validatePublicKey(pubkey)) {
-        return reply.code(400).send({ error: 'Invalid public key' });
+      // Find app by app_id in the apps map
+      let app = null;
+      let appKey = null;
+
+      for (const [key, appData] of apps.entries()) {
+        if (appData.id === app_id) {
+          app = appData;
+          appKey = key;
+          break;
+        }
       }
-
-      const appKey = `${pubkey}/${app_name}`;
-      const app = apps.get(appKey);
 
       if (!app) {
         return reply.code(404).send({ error: 'App not found' });
@@ -174,17 +181,19 @@ async function routes(fastify, _options) {
     }
   );
 
-  // GET /apps/{pubkey}/{app_name}/{semver} - Get specific version manifest
+  // GET /apps/{app_id}/{semver} - Get specific version manifest
   fastify.get(
-    '/:pubkey/:app_name/:semver',
+    '/:app_id/:semver',
     {
       schema: {
         params: {
           type: 'object',
-          required: ['pubkey', 'app_name', 'semver'],
+          required: ['app_id', 'semver'],
           properties: {
-            pubkey: { type: 'string' },
-            app_name: { type: 'string' },
+            app_id: {
+              type: 'string',
+              pattern: '^[a-zA-Z0-9_-]+$',
+            },
             semver: { type: 'string' },
           },
         },
@@ -206,17 +215,26 @@ async function routes(fastify, _options) {
       },
     },
     async (request, reply) => {
-      const { pubkey, app_name, semver } = request.params;
-
-      if (!validatePublicKey(pubkey)) {
-        return reply.code(400).send({ error: 'Invalid public key' });
-      }
+      const { app_id, semver } = request.params;
 
       if (!validateSemver(semver)) {
         return reply.code(400).send({ error: 'Invalid semver format' });
       }
 
-      const manifestKey = `${pubkey}/${app_name}/${semver}`;
+      // Find app by app_id to get the internal key
+      let appKey = null;
+      for (const [key, appData] of apps.entries()) {
+        if (appData.id === app_id) {
+          appKey = key;
+          break;
+        }
+      }
+
+      if (!appKey) {
+        return reply.code(404).send({ error: 'App not found' });
+      }
+
+      const manifestKey = `${appKey}/${semver}`;
       const manifest = manifests.get(manifestKey);
 
       if (!manifest) {
@@ -280,7 +298,7 @@ async function routes(fastify, _options) {
         //   .send({ error: `Signature verification failed: ${error.message}` });
       }
 
-      const { developer_pubkey: pubkey, name } = manifest.app;
+      const { developer_pubkey: pubkey, name, id: app_id } = manifest.app;
       const { semver } = manifest.version;
 
       const appKey = `${pubkey}/${name}`;
@@ -322,6 +340,7 @@ async function routes(fastify, _options) {
 
       // Update app summary
       apps.set(appKey, {
+        id: app_id,
         name,
         developer_pubkey: pubkey,
         latest_version: semver,

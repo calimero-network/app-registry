@@ -32,20 +32,16 @@ export const getApps = async (params?: {
   return response.data;
 };
 
-export const getAppVersions = async (
-  pubkey: string,
-  appName: string
-): Promise<VersionInfo[]> => {
-  const response = await api.get(`/apps/${pubkey}/${appName}`);
+export const getAppVersions = async (appId: string): Promise<VersionInfo[]> => {
+  const response = await api.get(`/apps/${appId}`);
   return response.data;
 };
 
 export const getAppManifest = async (
-  pubkey: string,
-  appName: string,
+  appId: string,
   semver: string
 ): Promise<AppManifest> => {
-  const response = await api.get(`/apps/${pubkey}/${appName}/${semver}`);
+  const response = await api.get(`/apps/${appId}/${semver}`);
   return response.data;
 };
 

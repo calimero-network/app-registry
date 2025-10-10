@@ -5,17 +5,19 @@ async function routes(fastify, _options) {
   // In-memory storage for demo (replace with database in production)
   const attestations = new Map();
 
-  // GET /attestations/{pubkey}/{app_name}/{semver} - Get registry attestations
+  // GET /attestations/{app_id}/{semver} - Get registry attestations
   fastify.get(
-    '/:pubkey/:app_name/:semver',
+    '/:app_id/:semver',
     {
       schema: {
         params: {
           type: 'object',
-          required: ['pubkey', 'app_name', 'semver'],
+          required: ['app_id', 'semver'],
           properties: {
-            pubkey: { type: 'string' },
-            app_name: { type: 'string' },
+            app_id: {
+              type: 'string',
+              pattern: '^[a-zA-Z0-9_-]+$',
+            },
             semver: { type: 'string' },
           },
         },
@@ -38,17 +40,13 @@ async function routes(fastify, _options) {
       },
     },
     async (request, reply) => {
-      const { pubkey, app_name, semver } = request.params;
-
-      if (!validatePublicKey(pubkey)) {
-        return reply.code(400).send({ error: 'Invalid public key' });
-      }
+      const { app_id, semver } = request.params;
 
       if (!validateSemver(semver)) {
         return reply.code(400).send({ error: 'Invalid semver format' });
       }
 
-      const attestationKey = `${pubkey}/${app_name}/${semver}`;
+      const attestationKey = `${app_id}/${semver}`;
       const attestation = attestations.get(attestationKey);
 
       if (!attestation) {

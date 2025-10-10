@@ -141,29 +141,21 @@ export class SSAppRegistryClient {
    *
    * @throws {ApiError} When the application is not found or request fails
    */
-  async getAppVersions(
-    pubkey: string,
-    appName: string
-  ): Promise<VersionInfo[]> {
-    const response = await this.api.get(`/apps/${pubkey}/${appName}`);
+  async getAppVersions(appId: string): Promise<VersionInfo[]> {
+    const response = await this.api.get(`/apps/${appId}`);
     return response.data;
   }
 
   /**
    * Retrieves the complete manifest for a specific application version.
    *
-   * @param pubkey - Developer's public key (Ed25519 format)
-   * @param appName - Name of the application
+   * @param appId - Unique application identifier
    * @param semver - Semantic version (e.g., '1.0.0', '2.1.3')
    * @returns Promise resolving to the application manifest
    *
    * @example
    * ```typescript
-   * const manifest = await client.getAppManifest(
-   *   'ed25519:abc123...',
-   *   'my-wallet-app',
-   *   '1.2.0'
-   * );
+   * const manifest = await client.getAppManifest('my-wallet-app', '1.2.0');
    *
    * console.log(`App: ${manifest.app.name}`);
    * console.log(`Version: ${manifest.version.semver}`);
@@ -182,12 +174,8 @@ export class SSAppRegistryClient {
    *
    * @throws {ApiError} When the manifest is not found or request fails
    */
-  async getAppManifest(
-    pubkey: string,
-    appName: string,
-    semver: string
-  ): Promise<AppManifest> {
-    const response = await this.api.get(`/apps/${pubkey}/${appName}/${semver}`);
+  async getAppManifest(appId: string, semver: string): Promise<AppManifest> {
+    const response = await this.api.get(`/apps/${appId}/${semver}`);
     return response.data;
   }
 

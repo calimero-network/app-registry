@@ -118,10 +118,7 @@ async getAppVersions(
 **Example:**
 
 ```typescript
-const versions = await client.getAppVersions(
-  'ed25519:abc123...',
-  'my-wallet-app'
-);
+const versions = await client.getAppVersions('my-wallet-app');
 
 versions.forEach(version => {
   console.log(`Version ${version.semver}: ${version.cid}`);
@@ -154,11 +151,7 @@ async getAppManifest(
 **Example:**
 
 ```typescript
-const manifest = await client.getAppManifest(
-  'ed25519:abc123...',
-  'my-wallet-app',
-  '1.2.0'
-);
+const manifest = await client.getAppManifest('my-wallet-app', '1.2.0');
 
 console.log(`App: ${manifest.app.name}`);
 console.log(`Version: ${manifest.version.semver}`);
