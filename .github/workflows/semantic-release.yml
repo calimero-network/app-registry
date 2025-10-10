@@ -54,35 +54,29 @@ jobs:
           pnpm build
           pnpm test
 
-      # CLI Package Release (DRY RUN)
-      - name: Release CLI Package (DRY RUN)
+      # CLI Package Release
+      - name: Release CLI Package
         if: needs.detect-changes.outputs.cli-changed == 'true'
         run: |
           cd packages/cli
-          echo "🚀 CLI Release DRY RUN"
+          echo "🚀 CLI Release"
           echo "📦 Package: @calimero-network/registry-cli"
           echo "🎯 Release type: ${{ needs.detect-changes.outputs.release-type }}"
-          echo "🏷️  Would create tag: cli-v*"
-          echo "📝 Would create GitHub release"
-          echo "📊 Changes detected since last CLI release"
-          # npx semantic-release --dry-run
+          npx semantic-release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           NODE_ENV: production
 
-      # Client Library Release (DRY RUN)
-      - name: Release Client Library (DRY RUN)
+      # Client Library Release
+      - name: Release Client Library
         if: needs.detect-changes.outputs.lib-changed == 'true'
         run: |
           cd packages/client-library
-          echo "🚀 Client Library Release DRY RUN"
+          echo "🚀 Client Library Release"
           echo "📦 Package: @calimero-network/registry-client"
           echo "🎯 Release type: ${{ needs.detect-changes.outputs.release-type }}"
-          echo "🏷️  Would create tag: lib-v*"
-          echo "📝 Would create GitHub release"
-          echo "📊 Changes detected since last Client Library release"
-          # npx semantic-release --dry-run
+          npx semantic-release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -120,16 +114,20 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_ENV: production
 
-      # Monorepo-wide Release (DRY RUN)
-      - name: Release All Packages (DRY RUN)
+      # Monorepo-wide Release
+      - name: Release All Packages
         if: needs.detect-changes.outputs.monorepo-changed == 'true'
         run: |
-          echo "🚀 Monorepo-wide Release DRY RUN"
+          echo "🚀 Monorepo-wide Release"
           echo "🎯 Release type: ${{ needs.detect-changes.outputs.release-type }}"
-          echo "📦 Would release all packages with coordinated versioning"
-          echo "🏷️  Would create tags for all packages"
-          echo "📝 Would create GitHub releases for all packages"
+          echo "📦 Releasing all packages with coordinated versioning"
           echo "📊 Monorepo-wide changes detected"
-          # Monorepo release logic will be added here when ready
+          # Release CLI and Client Library packages
+          if [ "${{ needs.detect-changes.outputs.cli-changed }}" == "true" ]; then
+            cd packages/cli && npx semantic-release
+          fi
+          if [ "${{ needs.detect-changes.outputs.lib-changed }}" == "true" ]; then
+            cd packages/client-library && npx semantic-release
+          fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
