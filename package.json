@@ -50,6 +50,11 @@
     "pnpm": ">=8.0.0"
   },
   "packageManager": "pnpm@8.15.0",
+  "pnpm": {
+    "overrides": {
+      "conventional-changelog-writer": "6.0.0"
+    }
+  },
   "lint-staged": {
     "packages/backend/**/*.{js,jsx}": [
       "eslint --fix",
