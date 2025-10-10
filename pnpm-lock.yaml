@@ -145,6 +145,9 @@ importers:
       conventional-changelog-conventionalcommits:
         specifier: ^8.0.0
         version: 8.0.0
+      conventional-changelog-writer:
+        specifier: ^7.0.0
+        version: 7.0.1
       eslint:
         specifier: ^9.33.0
         version: 9.33.0
@@ -197,6 +200,9 @@ importers:
       conventional-changelog-conventionalcommits:
         specifier: ^8.0.0
         version: 8.0.0
+      conventional-changelog-writer:
+        specifier: ^7.0.0
+        version: 7.0.1
       eslint:
         specifier: ^9.33.0
         version: 9.33.0
