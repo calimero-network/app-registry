@@ -11,22 +11,18 @@
   "releaseRules": [
     {
       "type": "fix",
-      "scope": "lib",
       "release": "patch"
     },
     {
       "type": "feat",
-      "scope": "lib",
       "release": "minor"
     },
     {
       "type": "chore",
-      "scope": "lib",
       "release": "patch"
     },
     {
       "type": "docs",
-      "scope": "lib",
       "release": "patch"
     }
   ]

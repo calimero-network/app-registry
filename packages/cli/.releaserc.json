@@ -11,22 +11,18 @@
   "releaseRules": [
     {
       "type": "fix",
-      "scope": "cli",
       "release": "patch"
     },
     {
       "type": "feat",
-      "scope": "cli",
       "release": "minor"
     },
     {
       "type": "chore",
-      "scope": "cli",
       "release": "patch"
     },
     {
       "type": "docs",
-      "scope": "cli",
       "release": "patch"
     }
   ]
