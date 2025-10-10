@@ -4,21 +4,20 @@ import { Package, Download, Globe, Clock } from 'lucide-react';
 import { getAppVersions, getAppManifest } from '@/lib/api';
 
 export default function AppDetailPage() {
-  const { pubkey = '', appName = '' } = useParams<{
-    pubkey: string;
-    appName: string;
+  const { appId = '' } = useParams<{
+    appId: string;
   }>();
 
   const { data: versions = [], isLoading: versionsLoading } = useQuery({
-    queryKey: ['app-versions', pubkey, appName],
-    queryFn: () => getAppVersions(pubkey, appName),
-    enabled: !!pubkey && !!appName,
+    queryKey: ['app-versions', appId],
+    queryFn: () => getAppVersions(appId),
+    enabled: !!appId,
   });
 
   const latestVersion = versions[0];
   const { data: manifest } = useQuery({
-    queryKey: ['app-manifest', pubkey, appName, latestVersion?.semver],
-    queryFn: () => getAppManifest(pubkey, appName, latestVersion.semver),
+    queryKey: ['app-manifest', appId, latestVersion?.semver],
+    queryFn: () => getAppManifest(appId, latestVersion.semver),
     enabled: !!latestVersion?.semver,
   });
 
@@ -57,8 +56,12 @@ export default function AppDetailPage() {
   return (
     <div className='container mx-auto px-4 py-8'>
       <div className='mb-8'>
-        <h1 className='text-3xl font-bold text-gray-900 mb-2'>{appName}</h1>
-        <p className='text-gray-600'>Developer: {pubkey}</p>
+        <h1 className='text-3xl font-bold text-gray-900 mb-2'>
+          {manifest?.app.alias || manifest?.app.name || appId}
+        </h1>
+        <p className='text-gray-600'>
+          Developer: {manifest?.app.developer_pubkey || 'Loading...'}
+        </p>
         {manifest && (
           <p className='text-gray-600'>
             Latest version: {manifest.version.semver}

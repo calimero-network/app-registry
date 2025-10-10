@@ -1,4 +1,5 @@
 export interface AppSummary {
+  id: string;
   name: string;
   developer_pubkey: string;
   latest_version: string;

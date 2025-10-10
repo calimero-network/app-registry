@@ -138,7 +138,7 @@ function AppCard({ app }: { app: AppSummary }) {
         </p>
       </div>
       <Link
-        to={`/apps/${app.developer_pubkey}/${app.name}`}
+        to={`/apps/${app.id}`}
         className='inline-flex items-center text-sm font-medium text-primary-600 hover:text-primary-700'
       >
         View Details

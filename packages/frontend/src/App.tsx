@@ -12,7 +12,7 @@ function App() {
       <Routes>
         <Route path='/' element={<HomePage />} />
         <Route path='/apps' element={<AppsPage />} />
-        <Route path='/apps/:pubkey/:appName' element={<AppDetailPage />} />
+        <Route path='/apps/:appId' element={<AppDetailPage />} />
         <Route path='/developers' element={<DevelopersPage />} />
         <Route path='/developers/:pubkey' element={<DeveloperDetailPage />} />
       </Routes>
