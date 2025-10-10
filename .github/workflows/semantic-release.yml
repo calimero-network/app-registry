@@ -62,7 +62,6 @@ jobs:
           echo "🚀 CLI Release"
           echo "📦 Package: @calimero-network/registry-cli"
           echo "🎯 Release type: ${{ needs.detect-changes.outputs.release-type }}"
-          pnpm install
           npx semantic-release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -77,7 +76,6 @@ jobs:
           echo "🚀 Client Library Release"
           echo "📦 Package: @calimero-network/registry-client"
           echo "🎯 Release type: ${{ needs.detect-changes.outputs.release-type }}"
-          pnpm install
           npx semantic-release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -126,10 +124,10 @@ jobs:
           echo "📊 Monorepo-wide changes detected"
           # Release CLI and Client Library packages
           if [ "${{ needs.detect-changes.outputs.cli-changed }}" == "true" ]; then
-            cd packages/cli && pnpm install && npx semantic-release
+            cd packages/cli && npx semantic-release
           fi
           if [ "${{ needs.detect-changes.outputs.lib-changed }}" == "true" ]; then
-            cd packages/client-library && pnpm install && npx semantic-release
+            cd packages/client-library && npx semantic-release
           fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
