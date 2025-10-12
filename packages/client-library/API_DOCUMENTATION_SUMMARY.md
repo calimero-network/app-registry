@@ -27,7 +27,7 @@ This document summarizes the implementation of comprehensive API documentation f
 
 - ✅ **AppSummary**: Application summary information with property descriptions
 - ✅ **VersionInfo**: Version information with semantic versioning and yanked status
-- ✅ **AppManifest**: Complete manifest structure with all nested properties documented
+- ✅ **AppManifest**: Complete manifest structure updated to include `namespace`, optional `id`, artifact `path|mirrors|cid` one-of, optional `sha256`, and signature guidelines
 - ✅ **DeveloperProfile**: Developer profile with verification proofs
 - ✅ **Attestation**: Attestation status and metadata
 - ✅ **ApiError**: Error handling structure with codes and details
@@ -158,6 +158,80 @@ interface TypeName {
 6. **Complete Example** - Full application example
 7. **Error Handling** - Comprehensive error handling guide
 8. **Notes** - Important usage notes and best practices
+
+### **Manifest Specification (New)**
+
+- **Required fields**
+  - `manifest_version: string (e.g., "1.0")`
+  - `app`:
+    - `namespace: string` (lowercase, [a-z0-9.-], 1–128; reverse-DNS recommended)
+    - `name: string` (lowercase, [a-z0-9._-], 1–64)
+    - `developer_pubkey: string` (base58-encoded 32-byte Ed25519 pubkey)
+    - `id?: string` (optional; nodes derive ApplicationId if omitted)
+    - `alias?: string`
+  - `version: { semver: string }` (SemVer 2.0)
+  - `artifacts: [{ type: 'wasm'; target: 'node'; size: number; (path|mirrors|cid); sha256?: string }]`
+  - `distribution: string` (e.g., "ipfs")
+  - `metadata?: object`
+  - `signature?: { alg: 'ed25519'; sig: string; signed_at: ISO-8601 }`
+  - `supported_chains?: string[]`, `permissions?: { cap: string; bytes: number }[]`
+
+- **ApplicationId Derivation (V2)**
+  - `canonical = lower(namespace) + '.' + lower(name) + ':' + lower(developer_pubkey)`
+  - `ApplicationId = base58(sha256(utf8(canonical)))`
+  - Namespace, name, developer_pubkey are immutable identifiers across versions
+
+- **Artifact Selection (Node)**
+  - Preference: `path` (dev) > first `https` in `mirrors` > IPFS via `cid`
+  - `size` is a hint; if `sha256` present, nodes verify content
+
+- **Validation Rules (Registry)**
+  - namespace/name lowercased and charset-constrained
+  - developer_pubkey decodes to 32 bytes base58/multibase
+  - mirrors are `https`; `cid` matches IPFS pattern; `sha256` is 32-byte hex or base58
+  - At least one suitable node artifact present
+
+- **Minimal Example**
+
+```json
+{
+  "manifest_version": "1.0",
+  "app": {
+    "namespace": "com.example",
+    "name": "kvstore",
+    "developer_pubkey": "3aJ...base58_32B..."
+  },
+  "version": { "semver": "1.2.0" },
+  "artifacts": [
+    {
+      "type": "wasm",
+      "target": "node",
+      "size": 1738,
+      "sha256": "f1ab...hex...",
+      "mirrors": ["https://cdn.example.com/artifacts/kvstore-1.2.0.wasm"]
+    }
+  ],
+  "distribution": "ipfs",
+  "supported_chains": ["near:testnet"],
+  "permissions": [{ "cap": "storage", "bytes": 1048576 }],
+  "metadata": { "description": "Key-value store" }
+}
+```
+
+- **Dev-only Variant**
+
+```json
+{
+  "artifacts": [
+    {
+      "type": "wasm",
+      "target": "node",
+      "size": 1738,
+      "path": "/abs/path/kv_store.wasm"
+    }
+  ]
+}
+```
 
 ### **Source Code Documentation**
 

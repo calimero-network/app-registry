@@ -34,6 +34,31 @@ function removeSignature(manifest) {
   return manifestWithoutSignature;
 }
 
+function decodeBase58ToBytes(input) {
+  const base58Chars =
+    '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+  let decoded = 0n;
+  let leadingZeros = 0;
+  for (let i = 0; i < input.length; i++) {
+    const ch = input[i];
+    if (ch === '1' && decoded === 0n) {
+      leadingZeros += 1;
+      continue;
+    }
+    const idx = base58Chars.indexOf(ch);
+    if (idx === -1) throw new Error('Invalid base58 character');
+    decoded = decoded * 58n + BigInt(idx);
+  }
+  const bytes = [];
+  while (decoded > 0n) {
+    bytes.unshift(Number(decoded % 256n));
+    decoded = decoded / 256n;
+  }
+  // Prepend leading zero bytes
+  for (let i = 0; i < leadingZeros; i++) bytes.unshift(0);
+  return Buffer.from(bytes);
+}
+
 /**
  * Verify Ed25519 signature
  */
@@ -66,8 +91,14 @@ function verifySignature(publicKey, signature, data) {
       decodedPubKey = Buffer.from(bytes);
     }
 
-    // Decode signature from base64
-    const decodedSig = Buffer.from(signature, 'base64');
+    // Decode signature: try base64 first; if fails, try base58
+    let decodedSig;
+    try {
+      decodedSig = Buffer.from(signature, 'base64');
+      if (decodedSig.length !== 64) throw new Error('Invalid base64 length');
+    } catch {
+      decodedSig = decodeBase58ToBytes(signature);
+    }
 
     // Convert data to Buffer if it's a string
     const dataBuffer =
@@ -93,7 +124,7 @@ function verifyManifest(manifest) {
     throw new Error('Missing signature information');
   }
 
-  if (manifest.signature.alg !== 'Ed25519') {
+  if ((manifest.signature.alg || '').toLowerCase() !== 'ed25519') {
     throw new Error('Unsupported signature algorithm');
   }
 
@@ -125,19 +156,13 @@ function validateSemver(semver) {
  */
 function validatePublicKey(pubkey) {
   try {
-    multibase.decode(pubkey);
-    return true;
+    const decoded = multibase.decode(pubkey);
+    return Buffer.from(decoded).length === 32;
   } catch {
     // Try base58
     try {
-      const base58Chars =
-        '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
-      for (let i = 0; i < pubkey.length; i++) {
-        if (base58Chars.indexOf(pubkey[i]) === -1) {
-          return false;
-        }
-      }
-      return true;
+      const bytes = decodeBase58ToBytes(pubkey);
+      return bytes.length === 32;
     } catch {
       return false;
     }

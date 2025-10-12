@@ -1,16 +1,6 @@
 const manifestSchema = {
   type: 'object',
-  required: [
-    'manifest_version',
-    'app',
-    'version',
-    'supported_chains',
-    'permissions',
-    'artifacts',
-    'metadata',
-    'distribution',
-    'signature',
-  ],
+  required: ['manifest_version', 'app', 'version', 'artifacts', 'distribution'],
   properties: {
     manifest_version: {
       type: 'string',
@@ -18,12 +8,15 @@ const manifestSchema = {
     },
     app: {
       type: 'object',
-      required: ['name', 'developer_pubkey', 'id', 'alias'],
+      required: ['name', 'namespace', 'developer_pubkey'],
       properties: {
         name: {
           type: 'string',
-          minLength: 1,
-          maxLength: 100,
+          pattern: '^[a-z0-9._-]{1,64}$',
+        },
+        namespace: {
+          type: 'string',
+          pattern: '^[a-z0-9.-]{1,128}$',
         },
         developer_pubkey: {
           type: 'string',
@@ -31,7 +24,6 @@ const manifestSchema = {
         },
         id: {
           type: 'string',
-          pattern: '^[a-zA-Z0-9_-]+$',
         },
         alias: {
           type: 'string',
@@ -77,31 +69,36 @@ const manifestSchema = {
       type: 'array',
       items: {
         type: 'object',
-        required: ['type', 'target', 'cid', 'size'],
         properties: {
-          type: {
+          type: { type: 'string', enum: ['wasm'] },
+          target: { type: 'string' },
+          path: {
             type: 'string',
-            enum: ['wasm'],
-          },
-          target: {
-            type: 'string',
+            pattern: '^/.*',
           },
           cid: {
             type: 'string',
             pattern: '^Qm[1-9A-HJ-NP-Za-km-z]{44}$|^bafy[a-z2-7]{55}$',
           },
-          size: {
-            type: 'integer',
-            minimum: 1,
-          },
           mirrors: {
             type: 'array',
-            items: {
-              type: 'string',
-              format: 'uri',
-            },
+            items: { type: 'string', format: 'uri', pattern: '^https://.*' },
+            minItems: 1,
+          },
+          size: { type: 'integer', minimum: 1 },
+          sha256: {
+            anyOf: [
+              { type: 'string', pattern: '^[A-Fa-f0-9]{64}$' },
+              { type: 'string', pattern: '^[1-9A-HJ-NP-Za-km-z]{43,52}$' },
+            ],
           },
         },
+        required: ['type', 'target', 'size'],
+        oneOf: [
+          { required: ['path'] },
+          { required: ['cid'] },
+          { required: ['mirrors'] },
+        ],
       },
       minItems: 1,
     },
@@ -110,23 +107,14 @@ const manifestSchema = {
     },
     distribution: {
       type: 'string',
-      enum: ['ipfs'],
     },
     signature: {
       type: 'object',
       required: ['alg', 'sig', 'signed_at'],
       properties: {
-        alg: {
-          type: 'string',
-          enum: ['Ed25519'],
-        },
-        sig: {
-          type: 'string',
-        },
-        signed_at: {
-          type: 'string',
-          format: 'date-time',
-        },
+        alg: { type: 'string', enum: ['Ed25519', 'ed25519'] },
+        sig: { type: 'string' },
+        signed_at: { type: 'string', format: 'date-time' },
       },
     },
   },

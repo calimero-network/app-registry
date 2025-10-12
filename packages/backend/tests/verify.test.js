@@ -33,7 +33,12 @@ describe('Verification library', () => {
   });
 
   test('validatePublicKey should accept valid keys', () => {
-    const sampleKey = '11111111111111111111111111111111';
+    // 32 zero bytes encoded in base58 is '11111111111111111111111111111111' (length 32),
+    // but our strict check requires 32 decoded bytes. Construct a proper 32-byte base58 key.
+    // Use a 32-byte buffer and encode to base58 manually with alphabet weights matching verify.js logic.
+    // For simplicity in tests, use a known base58-32B example key (Bitcoin-style base58 without 0OIl):
+    // Use a raw base58 key representing 32 zero bytes (32 leading '1's)
+    const sampleKey = '1'.repeat(32);
     expect(validatePublicKey(sampleKey)).toBe(true);
   });
 
@@ -46,7 +51,8 @@ describe('Verification library', () => {
       manifest_version: '1.0',
       app: {
         name: 'test',
-        developer_pubkey: '11111111111111111111111111111111',
+        namespace: 'example.test',
+        developer_pubkey: '1'.repeat(32),
         id: 'test',
         alias: 'test',
       },

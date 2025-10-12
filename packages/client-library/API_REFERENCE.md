@@ -488,38 +488,36 @@ const versionInfo: VersionInfo = {
 
 ### AppManifest
 
-Complete application manifest containing all metadata and artifacts.
+Complete application manifest containing all metadata and artifacts. Includes `namespace`, optional `id`, and artifact `path|mirrors|cid` one-of with optional `sha256`.
 
 ```typescript
 interface AppManifest {
-  manifest_version: string; // Version of the manifest format
+  manifest_version: string;
   app: {
-    name: string; // The name of the application
-    developer_pubkey: string; // Developer's public key in Ed25519 format
-    id: string; // Unique identifier for the application
-    alias?: string; // Optional human-readable alias
+    namespace: string; // lowercase, [a-z0-9.-], 1–128
+    name: string; // lowercase, [a-z0-9._-], 1–64
+    developer_pubkey: string; // base58-encoded 32-byte Ed25519 pubkey
+    id?: string; // optional; node derives ApplicationId when omitted
+    alias?: string;
   };
-  version: {
-    semver: string; // Semantic version (e.g., '1.0.0', '2.1.3')
-  };
-  supported_chains: string[]; // List of supported blockchain networks
-  permissions: {
-    cap: string; // Permission capability (e.g., 'wallet', 'network', 'storage')
-    bytes: number; // Maximum bytes allowed for this permission
-  }[];
+  version: { semver: string };
+  supported_chains: string[];
+  permissions: { cap: string; bytes: number }[];
   artifacts: {
-    type: string; // Type of artifact (e.g., 'wasm', 'html', 'js')
-    target: string; // Target platform (e.g., 'browser', 'node')
-    cid: string; // IPFS CID of the artifact
-    size: number; // Size of the artifact in bytes
-    mirrors?: string[]; // Optional mirror URLs for faster access
+    type: string; // 'wasm'
+    target: string; // 'node' preferred
+    path?: string; // absolute dev path
+    cid?: string; // IPFS CID
+    size: number; // bytes
+    mirrors?: string[]; // https URLs
+    sha256?: string; // hex or base58
   }[];
-  metadata: Record<string, unknown>; // Additional metadata about the application
-  distribution: string; // Distribution method (e.g., 'ipfs')
-  signature: {
-    alg: string; // Signature algorithm (e.g., 'ed25519')
-    sig: string; // The signature value
-    signed_at: string; // ISO timestamp when the manifest was signed
+  metadata: Record<string, unknown>;
+  distribution: string;
+  signature?: {
+    alg: string; // 'ed25519'
+    sig: string;
+    signed_at: string; // ISO timestamp
   };
 }
 ```
@@ -528,41 +526,27 @@ interface AppManifest {
 
 ```typescript
 const manifest: AppManifest = {
-  manifest_version: '1.0.0',
+  manifest_version: '1.0',
   app: {
-    name: 'my-wallet-app',
-    developer_pubkey: 'ed25519:abc123...',
-    id: 'unique-app-id',
-    alias: 'My Wallet',
+    namespace: 'com.example',
+    name: 'kvstore',
+    developer_pubkey: '3aJ...base58_32B...',
+    alias: 'Key-Value Store',
   },
-  version: {
-    semver: '1.0.0',
-  },
-  supported_chains: ['mainnet', 'testnet'],
-  permissions: [
-    { cap: 'wallet', bytes: 1024 },
-    { cap: 'network', bytes: 512 },
-  ],
+  version: { semver: '1.2.0' },
+  supported_chains: ['near:testnet'],
+  permissions: [{ cap: 'storage', bytes: 1048576 }],
   artifacts: [
     {
       type: 'wasm',
-      target: 'browser',
-      cid: 'QmHash...',
-      size: 1024000,
-      mirrors: ['https://gateway.pinata.cloud/ipfs/QmHash...'],
+      target: 'node',
+      size: 1738,
+      sha256: 'f1ab...hex...',
+      mirrors: ['https://cdn.example.com/artifacts/kvstore-1.2.0.wasm'],
     },
   ],
-  metadata: {
-    description: 'A secure wallet application',
-    author: 'John Doe',
-    license: 'MIT',
-  },
+  metadata: { description: 'Key-value store' },
   distribution: 'ipfs',
-  signature: {
-    alg: 'ed25519',
-    sig: 'signature...',
-    signed_at: '2024-01-01T00:00:00Z',
-  },
 };
 ```
 

@@ -97,10 +97,12 @@ export interface AppManifest {
   app: {
     /** The name of the application */
     name: string;
+    /** Namespace for the application (reverse-DNS recommended) */
+    namespace: string;
     /** Developer's public key in Ed25519 format */
     developer_pubkey: string;
-    /** Unique identifier for the application */
-    id: string;
+    /** Optional pre-assigned application identifier (base58-32B) */
+    id?: string;
     /** Optional human-readable alias */
     alias?: string;
   };
@@ -124,12 +126,16 @@ export interface AppManifest {
     type: string;
     /** Target platform (e.g., 'browser', 'node') */
     target: string;
-    /** IPFS CID of the artifact */
-    cid: string;
+    /** Absolute path for local development (dev-only) */
+    path?: string;
+    /** IPFS CID of the artifact (required if no mirrors) */
+    cid?: string;
     /** Size of the artifact in bytes */
     size: number;
     /** Optional mirror URLs for faster access */
     mirrors?: string[];
+    /** Optional sha256 integrity (hex or base58) */
+    sha256?: string;
   }[];
   /** Additional metadata about the application */
   metadata: Record<string, unknown>;

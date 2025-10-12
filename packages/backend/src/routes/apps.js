@@ -4,6 +4,7 @@ const {
   verifyManifest,
 } = require('../lib/verify');
 const { verifyIPFSFile, getIPFSFileSize } = require('../lib/ipfs');
+const crypto = require('crypto');
 const manifestSchema = require('../schemas/manifest');
 const config = require('../config');
 
@@ -298,28 +299,104 @@ async function routes(fastify, _options) {
         //   .send({ error: `Signature verification failed: ${error.message}` });
       }
 
-      const { developer_pubkey: pubkey, name, id: app_id } = manifest.app;
+      const { developer_pubkey: pubkey, name, namespace } = manifest.app;
+      let { id: app_id } = manifest.app;
       const { semver } = manifest.version;
+
+      // Validate public key length (32B) via helper
+      if (!validatePublicKey(pubkey)) {
+        return reply.code(400).send({ error: 'Invalid developer public key' });
+      }
+
+      // Validate name/namespace charset via schema; additionally ensure lowercase
+      if (name !== name.toLowerCase()) {
+        return reply.code(400).send({ error: 'app.name must be lowercase' });
+      }
+      if (namespace !== namespace.toLowerCase()) {
+        return reply
+          .code(400)
+          .send({ error: 'app.namespace must be lowercase' });
+      }
+
+      // ApplicationId policy
+      const deriveAppId = () => {
+        const canonicalName = `${namespace.toLowerCase()}.${name.toLowerCase()}`;
+        const canonicalString = `${canonicalName}:${pubkey.toLowerCase()}`;
+        const hash = crypto
+          .createHash('sha256')
+          .update(canonicalString, 'utf8')
+          .digest();
+        // base58 encode
+        const alphabet =
+          '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+        let x = BigInt(`0x${hash.toString('hex')}`);
+        let out = '';
+        while (x > 0n) {
+          const mod = x % 58n;
+          out = alphabet[Number(mod)] + out;
+          x = x / 58n;
+        }
+        return out || '1';
+      };
+
+      // Validate or derive app_id
+      if (app_id) {
+        if (!validatePublicKey(app_id)) {
+          return reply
+            .code(400)
+            .send({ error: 'Provided app.id must be base58-encoded 32 bytes' });
+        }
+      } else {
+        app_id = deriveAppId();
+        manifest.app.id = app_id;
+      }
 
       const appKey = `${pubkey}/${name}`;
       const manifestKey = `${appKey}/${semver}`;
 
       // Verify IPFS artifacts exist
       for (const artifact of manifest.artifacts) {
-        const exists = await verifyIPFSFile(artifact.cid);
-        if (!exists) {
-          return reply.code(400).send({
-            error: `Artifact with CID ${artifact.cid} not found on IPFS`,
-          });
+        // Must be wasm
+        if (artifact.type !== 'wasm') {
+          return reply
+            .code(400)
+            .send({ error: 'Only wasm artifacts are supported' });
         }
+        // Node-preferred target is 'node'
+        if (artifact.target !== 'node') {
+          // allow but continue; selection is node-side. We ensure at least one wasm overall below
+        }
+        // Prefer mirrors or cid; validate availability only when cid present
+        if (artifact.cid) {
+          const exists = await verifyIPFSFile(artifact.cid);
+          if (!exists) {
+            return reply.code(400).send({
+              error: `Artifact with CID ${artifact.cid} not found on IPFS`,
+            });
+          }
+          // Verify file size matches
+          const actualSize = await getIPFSFileSize(artifact.cid);
+          if (actualSize !== null && actualSize !== artifact.size) {
+            return reply.code(400).send({
+              error: `File size mismatch for CID ${artifact.cid}. Expected: ${artifact.size}, Actual: ${actualSize}`,
+            });
+          }
+        }
+      }
 
-        // Verify file size matches
-        const actualSize = await getIPFSFileSize(artifact.cid);
-        if (actualSize !== null && actualSize !== artifact.size) {
-          return reply.code(400).send({
-            error: `File size mismatch for CID ${artifact.cid}. Expected: ${artifact.size}, Actual: ${actualSize}`,
-          });
-        }
+      // Ensure at least one suitable artifact exists for node installs
+      const hasSuitable = manifest.artifacts.some(
+        a =>
+          a.type === 'wasm' &&
+          a.target === 'node' &&
+          (a.path || a.mirrors || a.cid) &&
+          a.size
+      );
+      if (!hasSuitable) {
+        return reply.code(400).send({
+          error:
+            'At least one artifact with type="wasm", target="node" and (path|mirrors|cid) is required',
+        });
       }
 
       // Check for version conflicts
