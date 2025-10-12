@@ -12,5 +12,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Trigger Render Deploy
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
         run: |
-          curl -fsSL https://api.render.com/deploy/${{ secrets.RENDER_DEPLOY_HOOK }}
+          if [ -z "$RENDER_DEPLOY_HOOK_URL" ]; then
+            echo "❌ Missing RENDER_DEPLOY_HOOK_URL secret" >&2
+            exit 1
+          fi
+          echo "Triggering Render deploy..."
+          curl -fsS -X GET "$RENDER_DEPLOY_HOOK_URL"
+          echo "✅ Render deploy hook triggered"
