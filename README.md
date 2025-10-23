@@ -53,13 +53,6 @@ calimero-registry local stop
 
 For detailed local registry documentation, see [packages/cli/LOCAL_REGISTRY.md](./packages/cli/LOCAL_REGISTRY.md).
 
-### Integration Guides
-
-- **[Integration Guide](./INTEGRATION_GUIDE.md)**: Comprehensive guide for integrating with different registry systems
-- **[AI Integration Prompt](./AI_INTEGRATION_PROMPT.md)**: Detailed prompt for AI assistants to understand registry integration patterns
-- **[Integration Checklist](./INTEGRATION_CHECKLIST.md)**: Quick reference checklist for registry integration
-- **[Integration Examples](./INTEGRATION_EXAMPLE.md)**: Practical examples showing how to integrate with different scenarios
-
 ## 🚀 Quick Start
 
 ### Prerequisites
