@@ -11,6 +11,9 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  optimizeDeps: {
+    include: ['@calimero-network/mero-icons'],
+  },
   server: {
     port: 3000,
     proxy: {
