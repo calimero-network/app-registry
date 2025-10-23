@@ -30,7 +30,7 @@
     "ipfs-http-client": "^60.0.1",
     "js-yaml": "^4.1.0",
     "multibase": "^4.0.6",
-    "multiformats": "^12.0.1"
+    "multiformats": "^13.4.1"
   },
   "devDependencies": {
     "@types/jest": "^29.5.0",
