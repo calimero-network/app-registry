@@ -194,7 +194,8 @@ describe.skip('V1 API Endpoints', () => {
         },
       };
 
-      // TODO: Add manifests to storage when implemented
+      storage.storeManifest(manifest1);
+      storage.storeManifest(manifest2);
     });
 
     test('should return versions for existing app', async () => {
