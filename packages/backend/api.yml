@@ -1,1 +1,31 @@
-../../api.yml
+openapi: 3.0.0
+info:
+  title: Calimero SSApp Registry V1 API
+  description: V1 API for Calimero SSApp Registry
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080
+    description: Development server
+paths:
+  /healthz:
+    get:
+      summary: Health check
+      responses:
+        '200':
+          description: Service is healthy
+  /v1/apps:
+    post:
+      summary: Submit a manifest
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '201':
+          description: Manifest submitted successfully
+        '400':
+          description: Invalid manifest
+        '409':
+          description: Manifest already exists

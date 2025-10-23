@@ -5,13 +5,10 @@ const swaggerUi = require('@fastify/swagger-ui');
 const path = require('path');
 const fs = require('fs');
 
-// Import routes
-const appsRoutes = require('./routes/apps');
-const developersRoutes = require('./routes/developers');
-const attestationsRoutes = require('./routes/attestations');
+// Import V1 routes
+const { V1Routes } = require('./routes/v1');
 
-// Global data store for sharing between routes
-global.developersStore = new Map();
+// V1 API - No global data store needed
 
 // Import config
 const config = require('./config');
@@ -53,30 +50,18 @@ async function buildServer() {
 
   // Statistics endpoint
   server.get('/stats', async (_request, _reply) => {
-    // Get apps data from the apps route
-    const apps = require('./routes/apps');
-    const appsData = apps.getAppsData ? apps.getAppsData() : [];
-
-    // Calculate statistics
-    const publishedApps = appsData.length;
-    const activeDevelopers = new Set(appsData.map(app => app.developer_pubkey))
-      .size;
-    const totalDownloads = appsData.reduce(
-      (sum, app) => sum + (app.downloads || 0),
-      0
-    );
-
+    // V1 statistics - simplified for now
     return {
-      publishedApps,
-      activeDevelopers,
-      totalDownloads,
+      publishedApps: 0,
+      activeDevelopers: 0,
+      totalDownloads: 0,
+      message: 'V1 API - Statistics endpoint coming soon',
     };
   });
 
-  // Register routes
-  await server.register(appsRoutes, { prefix: '/apps' });
-  await server.register(developersRoutes, { prefix: '/developers' });
-  await server.register(attestationsRoutes, { prefix: '/attestations' });
+  // Register V1 routes only
+  const v1Routes = new V1Routes();
+  v1Routes.registerRoutes(server);
 
   return server;
 }

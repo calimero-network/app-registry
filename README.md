@@ -24,6 +24,42 @@ registry/
 └── docs/               # Documentation
 ```
 
+## 🚀 V1 API - Production Ready!
+
+The registry now features a **complete V1 API** with advanced dependency resolution, security controls, and comprehensive validation:
+
+### **✅ Core Features:**
+
+- **📋 Manifest Management** - Submit, retrieve, and validate V1 manifests
+- **🔍 Advanced Search** - Search by app ID, name, interfaces, and dependencies
+- **🔗 Dependency Resolution** - Automatic dependency resolution with cycle detection
+- **🔐 Security Controls** - Rate limiting, size limits, and depth protection
+- **✍️ Signature Verification** - Ed25519 signature validation with JCS canonicalization
+- **📦 Artifact Validation** - SHA256 digest verification and URI validation
+
+### **✅ CLI Commands:**
+
+```bash
+# V1 API Commands
+calimero-registry v1 push manifest.json --local    # Submit manifest
+calimero-registry v1 get app-id --local           # Get app versions
+calimero-registry v1 get app-id version --local   # Get specific manifest
+calimero-registry v1 ls --search query --local     # Search applications
+calimero-registry v1 resolve app-id version --local # Resolve dependencies
+calimero-registry v1 verify manifest.json         # Verify manifest locally
+```
+
+### **✅ API Endpoints:**
+
+```bash
+# V1 API Endpoints
+POST   /v1/apps                    # Submit manifest
+GET    /v1/apps/:id                # Get app versions
+GET    /v1/apps/:id/:version       # Get specific manifest
+GET    /v1/search?q=query          # Search applications
+POST   /v1/resolve                 # Resolve dependencies
+```
+
 ## 🏠 Local Development Registry
 
 The CLI now includes a complete **local registry** for development purposes, allowing you to test app submissions and manage applications without requiring a remote server or IPFS.

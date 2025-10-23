@@ -3,6 +3,7 @@ import path from 'path';
 import { LocalConfig } from './local-config.js';
 
 export interface AppSummary {
+  id?: string;
   name: string;
   developer_pubkey: string;
   latest_version: string;
@@ -19,11 +20,9 @@ export interface VersionInfo {
 export interface AppManifest {
   manifest_version: string;
   app: {
+    app_id: string;
     name: string;
-    namespace: string;
     developer_pubkey: string;
-    id?: string;
-    alias?: string;
   };
   version: {
     semver: string;
@@ -163,7 +162,7 @@ export class LocalDataStore {
     const versions: VersionInfo[] = [];
 
     for (const [key, manifest] of this.data.manifests.entries()) {
-      if (manifest.app.id === appId) {
+      if (key.startsWith(`${appId}/`)) {
         const semver = key.split('/').pop()!;
         versions.push({
           semver,
@@ -180,13 +179,9 @@ export class LocalDataStore {
 
   // Manifest management
   getManifest(appId: string, semver: string): AppManifest | undefined {
-    // Find the manifest key by appId
-    for (const [, manifest] of this.data.manifests.entries()) {
-      if (manifest.app.id === appId && manifest.version.semver === semver) {
-        return manifest;
-      }
-    }
-    return undefined;
+    // Use direct key lookup for app_id system
+    const manifestKey = `${appId}/${semver}`;
+    return this.data.manifests.get(manifestKey);
   }
 
   setManifest(manifestKey: string, manifest: AppManifest): void {
@@ -334,7 +329,7 @@ export class LocalDataStore {
 
     // Add sample manifests
     sampleManifests.forEach(manifest => {
-      const manifestKey = `${manifest.app.developer_pubkey}/${manifest.app.name}/${manifest.version.semver}`;
+      const manifestKey = `${manifest.app.app_id}/${manifest.version.semver}`;
       this.setManifest(manifestKey, manifest);
     });
 
