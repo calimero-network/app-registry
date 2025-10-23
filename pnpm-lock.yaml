@@ -105,12 +105,18 @@ importers:
       '@calimero-network/registry-client':
         specifier: workspace:*
         version: link:../client-library
+      '@fastify/cors':
+        specifier: ^8.4.0
+        version: 8.5.0
       chalk:
         specifier: ^5.3.0
         version: 5.5.0
       commander:
         specifier: ^11.0.0
         version: 11.1.0
+      fastify:
+        specifier: ^4.24.3
+        version: 4.29.1
       ipfs-http-client:
         specifier: ^60.0.1
         version: 60.0.1
