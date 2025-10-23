@@ -5,6 +5,7 @@ import { developersCommand } from './commands/developers.js';
 import { attestationsCommand } from './commands/attestations.js';
 import { healthCommand } from './commands/health.js';
 import { ipfsCommand } from './commands/ipfs.js';
+import { localCommand } from './commands/local.js';
 
 const program = new Command();
 
@@ -22,6 +23,7 @@ program.option(
   'Request timeout in milliseconds',
   '10000'
 );
+program.option('--local', 'Use local registry instead of remote API');
 
 // Add commands
 program.addCommand(appsCommand);
@@ -29,6 +31,7 @@ program.addCommand(developersCommand);
 program.addCommand(attestationsCommand);
 program.addCommand(healthCommand);
 program.addCommand(ipfsCommand);
+program.addCommand(localCommand);
 
 // Global error handler
 program.exitOverride();

@@ -1,16 +1,18 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import ora from 'ora';
-import { SSAppRegistryClient } from '@calimero-network/registry-client';
+import { createRegistryClient } from '../lib/registry-client.js';
 
 export const healthCommand = new Command('health')
   .description('Check the health of the SSApp Registry API')
   .action(async (options, command) => {
     const globalOpts = command.parent?.opts();
-    const client = new SSAppRegistryClient({
-      baseURL: globalOpts?.url || 'http://localhost:8082',
-      timeout: parseInt(globalOpts?.timeout || '10000'),
-    });
+    const useLocal = globalOpts?.local || false;
+    const client = createRegistryClient(
+      useLocal,
+      globalOpts?.url,
+      parseInt(globalOpts?.timeout || '10000')
+    );
 
     const spinner = ora('Checking API health...').start();
 

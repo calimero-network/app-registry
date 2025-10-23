@@ -24,6 +24,35 @@ registry/
 └── docs/               # Documentation
 ```
 
+## 🏠 Local Development Registry
+
+The CLI now includes a complete **local registry** for development purposes, allowing you to test app submissions and manage applications without requiring a remote server or IPFS.
+
+### Key Features
+
+- **🔄 Offline Development**: Work without internet connection
+- **📁 File-Based Storage**: JSON files instead of database
+- **🔧 Local Artifacts**: HTTP serving instead of IPFS
+- **⚡ Fast Iteration**: No network delays
+- **🛡️ Data Isolation**: Safe development environment
+
+### Quick Local Development
+
+```bash
+# Start local registry
+calimero-registry local start
+
+# Use with existing commands
+calimero-registry apps list --local
+calimero-registry apps submit manifest.json --local
+calimero-registry health --local
+
+# Stop local registry
+calimero-registry local stop
+```
+
+For detailed local registry documentation, see [packages/cli/LOCAL_REGISTRY.md](./packages/cli/LOCAL_REGISTRY.md).
+
 ## 🚀 Quick Start
 
 ### Prerequisites

@@ -12,6 +12,7 @@ A command-line interface tool for the Calimero Network App Registry. Provides ea
 - **Configuration Management**: Persistent configuration storage
 - **Batch Operations**: Support for bulk operations
 - **Progress Indicators**: Visual progress bars for long operations
+- **🆕 Local Registry**: Complete local development environment with file-based storage and artifact serving
 
 ## 📦 Installation
 
@@ -77,6 +78,65 @@ calimero-registry config set default-limit 20
 calimero-registry config set color-output true
 ```
 
+## 🏠 Local Registry for Development
+
+The CLI now includes a complete local registry for development purposes. This allows you to test app submissions, manage applications, and serve artifacts locally without requiring a remote registry server.
+
+### Quick Start with Local Registry
+
+```bash
+# Start local registry
+calimero-registry local start
+
+# Use local registry with existing commands
+calimero-registry apps list --local
+calimero-registry apps submit manifest.json --local
+calimero-registry health --local
+
+# Stop local registry
+calimero-registry local stop
+```
+
+### Local Registry Management
+
+```bash
+# Check status
+calimero-registry local status
+
+# Seed with sample data
+calimero-registry local seed
+
+# Reset all data
+calimero-registry local reset --force
+
+# Backup data
+calimero-registry local backup
+
+# Restore from backup
+calimero-registry local restore backup.json
+```
+
+### Key Benefits
+
+- **🔄 Offline Development**: Work without internet connection
+- **⚡ Fast Iteration**: No network delays
+- **📁 File-Based Storage**: No database required
+- **🔧 Local Artifacts**: Serve files locally instead of IPFS
+- **🛡️ Data Isolation**: Safe development without affecting production
+- **👥 Team Collaboration**: Share local registry configurations
+
+### Local vs Remote Registry
+
+| Feature      | Remote Registry | Local Registry |
+| ------------ | --------------- | -------------- |
+| Storage      | Database        | JSON Files     |
+| Artifacts    | IPFS            | Local Files    |
+| Network      | Required        | Offline        |
+| Setup        | Complex         | Simple         |
+| Data Control | Limited         | Full Control   |
+
+For detailed local registry documentation, see [LOCAL_REGISTRY.md](./LOCAL_REGISTRY.md).
+
 ## 📚 Command Reference
 
 ### Applications
@@ -95,6 +155,9 @@ calimero-registry apps list --output json
 
 # Show specific fields
 calimero-registry apps list --fields name,version,developer
+
+# Use local registry
+calimero-registry apps list --local
 ```
 
 #### Get Application Details
@@ -125,6 +188,9 @@ calimero-registry apps create \
   --description "A smart contract application" \
   --version "1.0.0" \
   --developer-id "developer-id"
+
+# Submit to local registry
+calimero-registry apps submit manifest.json --local
 ```
 
 #### Update Application
@@ -213,6 +279,40 @@ calimero-registry attestations create \
   --data '{"verified": true, "reason": "Security audit passed"}'
 ```
 
+### Local Registry Commands
+
+#### Start/Stop Local Registry
+
+```bash
+# Start local registry
+calimero-registry local start
+
+# Start on specific port
+calimero-registry local start --port 8083
+
+# Stop local registry
+calimero-registry local stop
+
+# Check status
+calimero-registry local status
+```
+
+#### Data Management
+
+```bash
+# Seed with sample data
+calimero-registry local seed
+
+# Reset all data
+calimero-registry local reset --force
+
+# Backup data
+calimero-registry local backup
+
+# Restore from backup
+calimero-registry local restore backup.json
+```
+
 ### Utility Commands
 
 #### Configuration
@@ -239,6 +339,9 @@ calimero-registry health
 
 # Detailed health check
 calimero-registry health --detailed
+
+# Check local registry health
+calimero-registry health --local
 ```
 
 ## 🎯 Usage Examples
@@ -272,6 +375,34 @@ calimero-registry attestations create \
 
 # 6. List attestations
 calimero-registry attestations list --app-id app-id
+```
+
+### Local Development Workflow
+
+```bash
+# 1. Start local registry
+calimero-registry local start
+
+# 2. Seed with sample data
+calimero-registry local seed
+
+# 3. List apps from local registry
+calimero-registry apps list --local
+
+# 4. Submit new app to local registry
+calimero-registry apps submit my-manifest.json --local
+
+# 5. Get app manifest from local registry
+calimero-registry apps manifest my-app 1.0.0 --local
+
+# 6. Check local registry health
+calimero-registry health --local
+
+# 7. Backup local data
+calimero-registry local backup
+
+# 8. Stop local registry
+calimero-registry local stop
 ```
 
 ### Batch Operations

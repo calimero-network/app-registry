@@ -2,7 +2,7 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import ora from 'ora';
 import { table } from 'table';
-import { SSAppRegistryClient } from '@calimero-network/registry-client';
+import { createRegistryClient } from '../lib/registry-client.js';
 import fs from 'fs';
 import path from 'path';
 
@@ -15,10 +15,12 @@ export const appsCommand = new Command('apps')
       .option('-n, --name <name>', 'Filter by application name')
       .action(async (options, command) => {
         const globalOpts = command.parent?.parent?.opts();
-        const client = new SSAppRegistryClient({
-          baseURL: globalOpts?.url || 'http://localhost:8082',
-          timeout: parseInt(globalOpts?.timeout || '10000'),
-        });
+        const useLocal = globalOpts?.local || false;
+        const client = createRegistryClient(
+          useLocal,
+          globalOpts?.url,
+          parseInt(globalOpts?.timeout || '10000')
+        );
 
         const spinner = ora('Fetching applications...').start();
 
@@ -62,10 +64,12 @@ export const appsCommand = new Command('apps')
       .argument('<appId>', 'Application ID')
       .action(async (appId, options, command) => {
         const globalOpts = command.parent?.parent?.opts();
-        const client = new SSAppRegistryClient({
-          baseURL: globalOpts?.url || 'http://localhost:8082',
-          timeout: parseInt(globalOpts?.timeout || '10000'),
-        });
+        const useLocal = globalOpts?.local || false;
+        const client = createRegistryClient(
+          useLocal,
+          globalOpts?.url,
+          parseInt(globalOpts?.timeout || '10000')
+        );
 
         const spinner = ora(`Fetching versions for ${appId}...`).start();
 
@@ -105,10 +109,12 @@ export const appsCommand = new Command('apps')
       .argument('<version>', 'Application version')
       .action(async (appId, version, options, command) => {
         const globalOpts = command.parent?.parent?.opts();
-        const client = new SSAppRegistryClient({
-          baseURL: globalOpts?.url || 'http://localhost:8082',
-          timeout: parseInt(globalOpts?.timeout || '10000'),
-        });
+        const useLocal = globalOpts?.local || false;
+        const client = createRegistryClient(
+          useLocal,
+          globalOpts?.url,
+          parseInt(globalOpts?.timeout || '10000')
+        );
 
         const spinner = ora(
           `Fetching manifest for ${appId}@${version}...`
@@ -136,10 +142,12 @@ export const appsCommand = new Command('apps')
       .argument('<manifest-file>', 'Path to the manifest JSON file')
       .action(async (manifestFile, options, command) => {
         const globalOpts = command.parent?.parent?.opts();
-        const client = new SSAppRegistryClient({
-          baseURL: globalOpts?.url || 'http://localhost:8082',
-          timeout: parseInt(globalOpts?.timeout || '10000'),
-        });
+        const useLocal = globalOpts?.local || false;
+        const client = createRegistryClient(
+          useLocal,
+          globalOpts?.url,
+          parseInt(globalOpts?.timeout || '10000')
+        );
 
         const spinner = ora('Reading manifest file...').start();
 
