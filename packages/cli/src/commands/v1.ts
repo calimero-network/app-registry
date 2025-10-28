@@ -5,10 +5,7 @@
  */
 
 import { Command } from 'commander';
-import { SSAppRegistryClient } from '@calimero-network/registry-client';
-import { createRegistryClient } from '../lib/registry-client';
 import fs from 'fs';
-import path from 'path';
 import fetch from 'node-fetch';
 
 interface V1Manifest {
@@ -113,8 +110,10 @@ function createPushCommand(): Command {
           console.log(`   ID: ${result.id}`);
           console.log(`   Version: ${result.version}`);
           console.log(`   URI: ${result.canonical_uri}`);
-        } catch (error: any) {
-          console.error('❌ Failed to submit manifest:', error.message);
+        } catch (error: unknown) {
+          const errorMessage =
+            error instanceof Error ? error.message : 'Unknown error';
+          console.error('❌ Failed to submit manifest:', errorMessage);
           process.exit(1);
         }
       }
@@ -186,8 +185,10 @@ function createGetCommand(): Command {
             console.log(`📱 App: ${result.id}`);
             console.log(`📋 Versions: ${result.versions.join(', ')}`);
           }
-        } catch (error: any) {
-          console.error('❌ Failed to get manifest:', error.message);
+        } catch (error: unknown) {
+          const errorMessage =
+            error instanceof Error ? error.message : 'Unknown error';
+          console.error('❌ Failed to get manifest:', errorMessage);
           process.exit(1);
         }
       }
@@ -231,7 +232,7 @@ function createListCommand(): Command {
             }
 
             console.log(`Found ${results.length} result(s):`);
-            results.forEach((result: any) => {
+            results.forEach((result: { id: string; versions?: string[] }) => {
               console.log(
                 `  📱 ${result.id}@${result.versions?.[0] || 'unknown'}`
               );
@@ -249,8 +250,10 @@ function createListCommand(): Command {
               'Note: Use --search <query> to search for specific apps'
             );
           }
-        } catch (error: any) {
-          console.error('❌ Failed to list applications:', error.message);
+        } catch (error: unknown) {
+          const errorMessage =
+            error instanceof Error ? error.message : 'Unknown error';
+          console.error('❌ Failed to list applications:', errorMessage);
           process.exit(1);
         }
       }
@@ -301,9 +304,11 @@ function createResolveCommand(): Command {
 
           console.log('✅ Dependencies resolved successfully!');
           console.log(`📋 Installation plan:`);
-          result.plan.forEach((item: any) => {
-            console.log(`   ${item.action}: ${item.id}@${item.version}`);
-          });
+          result.plan.forEach(
+            (item: { action: string; id: string; version: string }) => {
+              console.log(`   ${item.action}: ${item.id}@${item.version}`);
+            }
+          );
 
           if (result.satisfies?.length > 0) {
             console.log(`✅ Satisfies: ${result.satisfies.join(', ')}`);
@@ -312,8 +317,10 @@ function createResolveCommand(): Command {
           if (result.missing?.length > 0) {
             console.log(`❌ Missing: ${result.missing.join(', ')}`);
           }
-        } catch (error: any) {
-          console.error('❌ Failed to resolve dependencies:', error.message);
+        } catch (error: unknown) {
+          const errorMessage =
+            error instanceof Error ? error.message : 'Unknown error';
+          console.error('❌ Failed to resolve dependencies:', errorMessage);
           process.exit(1);
         }
       }
@@ -398,8 +405,10 @@ function createVerifyCommand(): Command {
         if (manifest.requires?.length > 0) {
           console.log(`   Requires: ${manifest.requires.join(', ')}`);
         }
-      } catch (error: any) {
-        console.error('❌ Failed to verify manifest:', error.message);
+      } catch (error: unknown) {
+        const errorMessage =
+          error instanceof Error ? error.message : 'Unknown error';
+        console.error('❌ Failed to verify manifest:', errorMessage);
         process.exit(1);
       }
     });

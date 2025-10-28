@@ -149,7 +149,8 @@ export class LocalArtifactServer {
             const filename = path.basename(artifact.path);
             updatedArtifact.mirrors = [
               this.getArtifactUrl(
-                manifest.app.id || manifest.app.name,
+                manifest.app.id ||
+                  manifest.app.name?.replace(/\s+/g, '-').toLowerCase(),
                 manifest.version.semver,
                 filename
               ),

@@ -5,6 +5,7 @@ import { LocalDataStore, AppSummary, AppManifest } from './local-storage.js';
 import { LocalArtifactServer } from './local-artifacts.js';
 import path from 'path';
 import fs from 'fs';
+import { Buffer } from 'buffer';
 
 export interface ServerStatus {
   running: boolean;
@@ -222,7 +223,7 @@ export class LocalRegistryServer {
             `attachment; filename="${filename}"`
           );
 
-          return artifactData;
+          return artifactData as Uint8Array;
         } catch {
           return {
             statusCode: 404,
@@ -242,7 +243,7 @@ export class LocalRegistryServer {
         // Set appropriate headers
         reply.header('Content-Type', 'application/octet-stream');
 
-        return artifactData;
+        return artifactData as Uint8Array;
       } catch {
         return {
           statusCode: 404,
@@ -281,7 +282,7 @@ export class LocalRegistryServer {
 
     // V1 API endpoints
     this.server.post('/v1/apps', async (request, reply) => {
-      const manifest = request.body as any;
+      const manifest = request.body as Record<string, unknown>;
 
       // Basic validation
       if (
@@ -320,7 +321,7 @@ export class LocalRegistryServer {
           version: manifest.version,
           canonical_uri: `/v1/apps/${manifest.id}/${manifest.version}`,
         });
-      } catch (error) {
+      } catch {
         return reply.code(409).send({
           error: 'already_exists',
           details: `${manifest.id}@${manifest.version}`,
@@ -388,7 +389,9 @@ export class LocalRegistryServer {
           v1Manifest,
           Object.keys(v1Manifest).sort()
         );
-        return { canonical_jcs: Buffer.from(canonicalJCS).toString('base64') };
+        return {
+          canonical_jcs: Buffer.from(canonicalJCS, 'utf8').toString('base64'),
+        };
       }
 
       return v1Manifest;
@@ -409,7 +412,7 @@ export class LocalRegistryServer {
       const results = apps.filter(
         app =>
           app.name.toLowerCase().includes(q.toLowerCase()) ||
-          (app as any).id?.toLowerCase().includes(q.toLowerCase())
+          (app as { id?: string }).id?.toLowerCase().includes(q.toLowerCase())
       );
 
       return results.map(app => ({
@@ -419,7 +422,10 @@ export class LocalRegistryServer {
     });
 
     this.server.post('/v1/resolve', async (request, reply) => {
-      const { root, installed } = request.body as any;
+      const { root } = request.body as {
+        root: { id: string; version: string };
+        installed?: Array<{ id: string; version: string }>;
+      };
 
       if (!root || !root.id || !root.version) {
         return reply.code(400).send({

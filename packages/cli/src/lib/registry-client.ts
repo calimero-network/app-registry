@@ -144,7 +144,9 @@ export class LocalRegistryClient implements RegistryClient {
           // If artifact has a local path, copy it to local storage
           if (artifact.path && fs.existsSync(artifact.path)) {
             const filename = path.basename(artifact.path);
-            const appId = manifest.app.id || manifest.app.name;
+            const appId =
+              manifest.app.id ||
+              manifest.app.name?.replace(/\s+/g, '-').toLowerCase();
 
             try {
               await this.artifactServer.copyArtifactToLocal(

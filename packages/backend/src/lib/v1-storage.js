@@ -258,17 +258,6 @@ class V1Storage {
   }
 
   /**
-   * Get all manifests for dependency resolution
-   */
-  getAllManifests() {
-    const manifests = [];
-    for (const [, manifestData] of this.manifests) {
-      manifests.push(manifestData.json);
-    }
-    return manifests;
-  }
-
-  /**
    * Get manifest by key for internal use
    */
   getManifestByKey(key) {

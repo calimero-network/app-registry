@@ -224,7 +224,7 @@ class V1Routes {
         }
 
         // Store manifest
-        const manifestData = this.storage.storeManifest(manifest);
+        this.storage.storeManifest(manifest);
 
         return reply.status(201).send({
           id: manifest.id,
@@ -616,7 +616,6 @@ class V1Routes {
         });
 
         const apps = Array.from(uniqueApps.values());
-        const total = apps.length;
         const paginatedApps = apps.slice(offset, offset + limitNum);
 
         // Convert to frontend format (AppSummary interface)
