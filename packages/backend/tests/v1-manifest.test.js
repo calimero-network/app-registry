@@ -274,8 +274,9 @@ describe('V1 Manifest Schema Validation', () => {
         },
         signature: {
           alg: 'rsa',
-          pubkey: 'invalid-pubkey',
-          sig: 'invalid-signature',
+          pubkey:
+            'ed25519:invalidpubkey123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz',
+          sig: 'base64:invalidSignature123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz',
           signed_at: 'invalid-date',
         },
       };
