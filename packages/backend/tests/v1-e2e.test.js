@@ -6,11 +6,11 @@
  */
 
 const { buildServer } = require('../src/server');
-const http = require('http');
+// const http = require('http');
 
 describe('V1 API End-to-End Tests', () => {
   let server;
-  let baseUrl = 'http://localhost:8080';
+  const baseUrl = 'http://localhost:8080';
 
   beforeAll(async () => {
     server = await buildServer();

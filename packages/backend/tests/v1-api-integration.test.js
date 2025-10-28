@@ -5,6 +5,7 @@
  */
 
 const { buildServer } = require('../src/server');
+const request = require('supertest');
 
 // Skip integration tests for now due to supertest compatibility issues
 describe.skip('V1 API Integration Tests', () => {

@@ -102,7 +102,7 @@ describe('V1 Utility Functions', () => {
         const nobleEd25519 = await import('@noble/ed25519');
         ed25519 = nobleEd25519.ed25519;
       }
-      const seed = Buffer.alloc(32, 0);
+      // const seed = Buffer.alloc(32, 0);
       privateKey = ed25519.utils.randomPrivateKey();
       publicKey = ed25519.getPublicKey(privateKey);
     });

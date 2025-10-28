@@ -164,38 +164,36 @@ describe.skip('V1 API Endpoints', () => {
   describe('GET /v1/apps/:id', () => {
     beforeEach(async () => {
       // Seed with test data
-      const manifest1 = {
-        manifest_version: '1.0',
-        id: 'com.example.chat.manager',
-        name: 'Chat Manager',
-        version: '1.3.0',
-        chains: ['near:testnet'],
-        artifact: {
-          type: 'wasm',
-          target: 'node',
-          digest:
-            'sha256:2222222222222222222222222222222222222222222222222222222222222222',
-          uri: 'https://example.com/artifacts/chat-manager/1.3.0/manager.wasm',
-        },
-      };
-
-      const manifest2 = {
-        manifest_version: '1.0',
-        id: 'com.example.chat.manager',
-        name: 'Chat Manager',
-        version: '1.2.0',
-        chains: ['near:testnet'],
-        artifact: {
-          type: 'wasm',
-          target: 'node',
-          digest:
-            'sha256:3333333333333333333333333333333333333333333333333333333333333333',
-          uri: 'https://example.com/artifacts/chat-manager/1.2.0/manager.wasm',
-        },
-      };
-
-      storage.storeManifest(manifest1);
-      storage.storeManifest(manifest2);
+      // const manifest1 = {
+      //   manifest_version: '1.0',
+      //   id: 'com.example.chat.manager',
+      //   name: 'Chat Manager',
+      //   version: '1.3.0',
+      //   chains: ['near:testnet'],
+      //   artifact: {
+      //     type: 'wasm',
+      //     target: 'node',
+      //     digest:
+      //       'sha256:2222222222222222222222222222222222222222222222222222222222222222',
+      //     uri: 'https://example.com/artifacts/chat-manager/1.3.0/manager.wasm',
+      //   },
+      // };
+      // const manifest2 = {
+      //   manifest_version: '1.0',
+      //   id: 'com.example.chat.manager',
+      //   name: 'Chat Manager',
+      //   version: '1.2.0',
+      //   chains: ['near:testnet'],
+      //   artifact: {
+      //     type: 'wasm',
+      //     target: 'node',
+      //     digest:
+      //       'sha256:3333333333333333333333333333333333333333333333333333333333333333',
+      //     uri: 'https://example.com/artifacts/chat-manager/1.2.0/manager.wasm',
+      //   },
+      // };
+      // storage.storeManifest(manifest1);
+      // storage.storeManifest(manifest2);
     });
 
     test('should return versions for existing app', async () => {
@@ -217,23 +215,22 @@ describe.skip('V1 API Endpoints', () => {
   describe('GET /v1/apps/:id/:version', () => {
     beforeEach(async () => {
       // Seed with test data
-      const manifest = {
-        manifest_version: '1.0',
-        id: 'com.example.chat.manager',
-        name: 'Chat Manager',
-        version: '1.3.0',
-        chains: ['near:testnet'],
-        artifact: {
-          type: 'wasm',
-          target: 'node',
-          digest:
-            'sha256:2222222222222222222222222222222222222222222222222222222222222222',
-          uri: 'https://example.com/artifacts/chat-manager/1.3.0/manager.wasm',
-        },
-        provides: ['chat.manager@1'],
-        requires: ['chat.channel@1'],
-      };
-
+      // const manifest = {
+      //   manifest_version: '1.0',
+      //   id: 'com.example.chat.manager',
+      //   name: 'Chat Manager',
+      //   version: '1.3.0',
+      //   chains: ['near:testnet'],
+      //   artifact: {
+      //     type: 'wasm',
+      //     target: 'node',
+      //     digest:
+      //       'sha256:2222222222222222222222222222222222222222222222222222222222222222',
+      //     uri: 'https://example.com/artifacts/chat-manager/1.3.0/manager.wasm',
+      //   },
+      //   provides: ['chat.manager@1'],
+      //   requires: ['chat.channel@1'],
+      // };
       // TODO: Add manifest to storage when implemented
     });
 
@@ -268,40 +265,39 @@ describe.skip('V1 API Endpoints', () => {
   describe('GET /v1/search', () => {
     beforeEach(async () => {
       // Seed with test data
-      const manifests = [
-        {
-          manifest_version: '1.0',
-          id: 'com.example.chat.manager',
-          name: 'Chat Manager',
-          version: '1.3.0',
-          chains: ['near:testnet'],
-          artifact: {
-            type: 'wasm',
-            target: 'node',
-            digest:
-              'sha256:2222222222222222222222222222222222222222222222222222222222222222',
-            uri: 'https://example.com/artifacts/chat-manager/1.3.0/manager.wasm',
-          },
-          provides: ['chat.manager@1'],
-          requires: ['chat.channel@1'],
-        },
-        {
-          manifest_version: '1.0',
-          id: 'com.example.chat.channel',
-          name: 'Chat Channel',
-          version: '1.0.0',
-          chains: ['near:testnet'],
-          artifact: {
-            type: 'wasm',
-            target: 'node',
-            digest:
-              'sha256:1111111111111111111111111111111111111111111111111111111111111111',
-            uri: 'https://example.com/artifacts/chat-channel/1.0.0/channel.wasm',
-          },
-          provides: ['chat.channel@1'],
-        },
-      ];
-
+      // const manifests = [
+      //   {
+      //     manifest_version: '1.0',
+      //     id: 'com.example.chat.manager',
+      //     name: 'Chat Manager',
+      //     version: '1.3.0',
+      //     chains: ['near:testnet'],
+      //     artifact: {
+      //       type: 'wasm',
+      //       target: 'node',
+      //       digest:
+      //         'sha256:2222222222222222222222222222222222222222222222222222222222222222',
+      //       uri: 'https://example.com/artifacts/chat-manager/1.3.0/manager.wasm',
+      //     },
+      //     provides: ['chat.manager@1'],
+      //     requires: ['chat.channel@1'],
+      //   },
+      //   {
+      //     manifest_version: '1.0',
+      //     id: 'com.example.chat.channel',
+      //     name: 'Chat Channel',
+      //     version: '1.0.0',
+      //     chains: ['near:testnet'],
+      //     artifact: {
+      //       type: 'wasm',
+      //       target: 'node',
+      //       digest:
+      //         'sha256:1111111111111111111111111111111111111111111111111111111111111111',
+      //       uri: 'https://example.com/artifacts/chat-channel/1.0.0/channel.wasm',
+      //     },
+      //     provides: ['chat.channel@1'],
+      //   },
+      // ];
       // TODO: Add manifests to storage when implemented
     });
 
@@ -360,46 +356,45 @@ describe.skip('V1 API Endpoints', () => {
   describe('POST /v1/resolve', () => {
     beforeEach(async () => {
       // Seed with test data
-      const manifests = [
-        {
-          manifest_version: '1.0',
-          id: 'com.example.chat.manager',
-          name: 'Chat Manager',
-          version: '1.3.0',
-          chains: ['near:testnet'],
-          artifact: {
-            type: 'wasm',
-            target: 'node',
-            digest:
-              'sha256:2222222222222222222222222222222222222222222222222222222222222222',
-            uri: 'https://example.com/artifacts/chat-manager/1.3.0/manager.wasm',
-          },
-          provides: ['chat.manager@1'],
-          requires: ['chat.channel@1'],
-          dependencies: [
-            {
-              id: 'com.example.chat.channel',
-              range: '^1.0.0',
-            },
-          ],
-        },
-        {
-          manifest_version: '1.0',
-          id: 'com.example.chat.channel',
-          name: 'Chat Channel',
-          version: '1.0.0',
-          chains: ['near:testnet'],
-          artifact: {
-            type: 'wasm',
-            target: 'node',
-            digest:
-              'sha256:1111111111111111111111111111111111111111111111111111111111111111',
-            uri: 'https://example.com/artifacts/chat-channel/1.0.0/channel.wasm',
-          },
-          provides: ['chat.channel@1'],
-        },
-      ];
-
+      // const manifests = [
+      //   {
+      //     manifest_version: '1.0',
+      //     id: 'com.example.chat.manager',
+      //     name: 'Chat Manager',
+      //     version: '1.3.0',
+      //     chains: ['near:testnet'],
+      //     artifact: {
+      //       type: 'wasm',
+      //       target: 'node',
+      //       digest:
+      //         'sha256:2222222222222222222222222222222222222222222222222222222222222222',
+      //       uri: 'https://example.com/artifacts/chat-manager/1.3.0/manager.wasm',
+      //     },
+      //     provides: ['chat.manager@1'],
+      //     requires: ['chat.channel@1'],
+      //     dependencies: [
+      //       {
+      //         id: 'com.example.chat.channel',
+      //         range: '^1.0.0',
+      //       },
+      //     ],
+      //   },
+      //   {
+      //     manifest_version: '1.0',
+      //     id: 'com.example.chat.channel',
+      //     name: 'Chat Channel',
+      //     version: '1.0.0',
+      //     chains: ['near:testnet'],
+      //     artifact: {
+      //       type: 'wasm',
+      //       target: 'node',
+      //       digest:
+      //         'sha256:1111111111111111111111111111111111111111111111111111111111111111',
+      //       uri: 'https://example.com/artifacts/chat-channel/1.0.0/channel.wasm',
+      //     },
+      //     provides: ['chat.channel@1'],
+      //   },
+      // ];
       // TODO: Add manifests to storage when implemented
     });
 
