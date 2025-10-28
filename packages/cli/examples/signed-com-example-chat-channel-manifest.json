@@ -3,18 +3,14 @@
   "id": "com.example.chat.channel",
   "name": "Chat Channel",
   "version": "1.0.0",
-  "chains": [
-    "near:testnet"
-  ],
+  "chains": ["near:testnet"],
   "artifact": {
     "type": "wasm",
     "target": "node",
     "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
     "uri": "https://example.com/artifacts/chat-channel/1.0.0/channel.wasm"
   },
-  "provides": [
-    "chat.channel@1"
-  ],
+  "provides": ["chat.channel@1"],
   "signature": {
     "alg": "ed25519",
     "pubkey": "ed25519:MCowBQYDK2VwAyEA5ttgXO0chr5V1Nc0lfaPk2Pqug/NY0FsVdpIbFz/i7Q=",

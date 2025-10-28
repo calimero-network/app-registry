@@ -15,11 +15,17 @@ class V1Config {
     this.VERIFY_FETCH = this.getBooleanEnv('VERIFY_FETCH', false);
     this.ALLOW_UNVERIFIED = this.getBooleanEnv('ALLOW_UNVERIFIED', false);
     this.REQUIRE_SIGNATURES = this.getBooleanEnv('REQUIRE_SIGNATURES', false);
-    this.ENABLE_RATE_LIMITING = this.getBooleanEnv('ENABLE_RATE_LIMITING', true);
+    this.ENABLE_RATE_LIMITING = this.getBooleanEnv(
+      'ENABLE_RATE_LIMITING',
+      true
+    );
     this.ENABLE_SIZE_LIMITS = this.getBooleanEnv('ENABLE_SIZE_LIMITS', true);
 
     // Security limits (can be overridden by environment)
-    this.MAX_MANIFEST_SIZE = this.getNumberEnv('MAX_MANIFEST_SIZE', 1024 * 1024); // 1MB
+    this.MAX_MANIFEST_SIZE = this.getNumberEnv(
+      'MAX_MANIFEST_SIZE',
+      1024 * 1024
+    ); // 1MB
     this.MAX_DEPENDENCIES = this.getNumberEnv('MAX_DEPENDENCIES', 32);
     this.MAX_PROVIDES = this.getNumberEnv('MAX_PROVIDES', 16);
     this.MAX_REQUIRES = this.getNumberEnv('MAX_REQUIRES', 16);
@@ -31,18 +37,36 @@ class V1Config {
     this.RATE_LIMIT_MAX = this.getNumberEnv('RATE_LIMIT_MAX', 100); // 100 requests per minute
 
     // Artifact validation
-    this.ARTIFACT_FETCH_TIMEOUT = this.getNumberEnv('ARTIFACT_FETCH_TIMEOUT', 30000); // 30 seconds
-    this.ARTIFACT_MAX_SIZE = this.getNumberEnv('ARTIFACT_MAX_SIZE', 10 * 1024 * 1024); // 10MB
+    this.ARTIFACT_FETCH_TIMEOUT = this.getNumberEnv(
+      'ARTIFACT_FETCH_TIMEOUT',
+      30000
+    ); // 30 seconds
+    this.ARTIFACT_MAX_SIZE = this.getNumberEnv(
+      'ARTIFACT_MAX_SIZE',
+      10 * 1024 * 1024
+    ); // 10MB
 
     // Development flags
     this.DEV_MODE = this.getBooleanEnv('DEV_MODE', false);
     this.DEBUG_LOGGING = this.getBooleanEnv('DEBUG_LOGGING', false);
-    this.ALLOW_LOCAL_ARTIFACTS = this.getBooleanEnv('ALLOW_LOCAL_ARTIFACTS', false);
+    this.ALLOW_LOCAL_ARTIFACTS = this.getBooleanEnv(
+      'ALLOW_LOCAL_ARTIFACTS',
+      false
+    );
 
     // Feature flags
-    this.ENABLE_CANONICAL_JCS = this.getBooleanEnv('ENABLE_CANONICAL_JCS', true);
-    this.ENABLE_INTERFACE_RESOLUTION = this.getBooleanEnv('ENABLE_INTERFACE_RESOLUTION', true);
-    this.ENABLE_CYCLE_DETECTION = this.getBooleanEnv('ENABLE_CYCLE_DETECTION', true);
+    this.ENABLE_CANONICAL_JCS = this.getBooleanEnv(
+      'ENABLE_CANONICAL_JCS',
+      true
+    );
+    this.ENABLE_INTERFACE_RESOLUTION = this.getBooleanEnv(
+      'ENABLE_INTERFACE_RESOLUTION',
+      true
+    );
+    this.ENABLE_CYCLE_DETECTION = this.getBooleanEnv(
+      'ENABLE_CYCLE_DETECTION',
+      true
+    );
   }
 
   getBooleanEnv(key, defaultValue) {
@@ -83,7 +107,9 @@ class V1Config {
     }
 
     if (this.REQUIRE_SIGNATURES && this.ALLOW_UNVERIFIED) {
-      errors.push('REQUIRE_SIGNATURES and ALLOW_UNVERIFIED cannot both be true');
+      errors.push(
+        'REQUIRE_SIGNATURES and ALLOW_UNVERIFIED cannot both be true'
+      );
     }
 
     return errors;

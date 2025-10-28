@@ -3,9 +3,7 @@
   "id": "com.example.simple.app",
   "name": "Simple App",
   "version": "1.0.0",
-  "chains": [
-    "near:testnet"
-  ],
+  "chains": ["near:testnet"],
   "artifact": {
     "type": "wasm",
     "target": "node",
