@@ -5,6 +5,7 @@
  */
 
 const { buildServer } = require('../src/server');
+const request = require('supertest');
 
 // V1 API Integration Tests
 describe('V1 API Integration Tests', () => {
