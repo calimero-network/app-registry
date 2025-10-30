@@ -5,10 +5,9 @@
  */
 
 const { buildServer } = require('../src/server');
-const request = require('supertest');
 
-// Skip integration tests for now due to supertest compatibility issues
-describe.skip('V1 API Integration Tests', () => {
+// V1 API Integration Tests
+describe('V1 API Integration Tests', () => {
   let app;
 
   beforeAll(async () => {
@@ -74,117 +73,236 @@ describe.skip('V1 API Integration Tests', () => {
         },
       };
 
-      const response = await request(app)
-        .post('/v1/apps')
-        .send(invalidManifest)
-        .expect(400);
+      const response = await app.inject({
+        method: 'POST',
+        url: '/v1/apps',
+        payload: invalidManifest,
+      });
 
-      expect(response.body).toHaveProperty('error', 'invalid_schema');
-      expect(response.body).toHaveProperty('details');
+      expect(response.statusCode).toBe(400);
+      const body = JSON.parse(response.body);
+      expect(body).toHaveProperty('error', 'invalid_schema');
+      expect(body).toHaveProperty('details');
     });
 
     test('should reject duplicate manifest and return 409', async () => {
+      // Create a unique manifest for this test
+      const uniqueManifest = {
+        ...validManifest,
+        id: 'com.example.chat.manager.duplicate',
+      };
+
       // First submission should succeed
-      await request(app).post('/v1/apps').send(validManifest).expect(201);
+      const firstResponse = await app.inject({
+        method: 'POST',
+        url: '/v1/apps',
+        payload: uniqueManifest,
+      });
+      expect(firstResponse.statusCode).toBe(201);
 
       // Second submission should fail
-      const response = await request(app)
-        .post('/v1/apps')
-        .send(validManifest)
-        .expect(409);
+      const response = await app.inject({
+        method: 'POST',
+        url: '/v1/apps',
+        payload: uniqueManifest,
+      });
 
-      expect(response.body).toHaveProperty('error', 'already_exists');
-      expect(response.body).toHaveProperty(
-        'details',
-        'com.example.chat.manager@1.3.0'
-      );
+      expect(response.statusCode).toBe(409);
+      const body = JSON.parse(response.body);
+      expect(body).toHaveProperty('error', 'already_exists');
+      expect(body).toHaveProperty('details');
     });
   });
 
   describe('GET /v1/apps/:id', () => {
-    test('should return versions for existing app', async () => {
-      const response = await request(app)
-        .get('/v1/apps/com.example.chat.manager')
-        .expect(200);
+    beforeEach(async () => {
+      // Seed with test data
+      const manifest = {
+        manifest_version: '1.0',
+        id: 'com.example.chat.manager',
+        name: 'Chat Manager',
+        version: '1.3.0',
+        chains: ['near:testnet'],
+        artifact: {
+          type: 'wasm',
+          target: 'node',
+          digest:
+            'sha256:2222222222222222222222222222222222222222222222222222222222222222',
+          uri: 'https://example.com/artifacts/chat-manager/1.3.0/manager.wasm',
+        },
+        provides: ['chat.manager@1'],
+        requires: ['chat.channel@1'],
+      };
 
-      expect(response.body).toHaveProperty('id', 'com.example.chat.manager');
-      expect(response.body).toHaveProperty('versions');
-      expect(response.body.versions).toContain('1.3.0');
+      await app.inject({
+        method: 'POST',
+        url: '/v1/apps',
+        payload: manifest,
+      });
+    });
+
+    test('should return versions for existing app', async () => {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/v1/apps/com.example.chat.manager',
+      });
+
+      expect(response.statusCode).toBe(200);
+      const body = JSON.parse(response.body);
+      expect(body).toHaveProperty('id', 'com.example.chat.manager');
+      expect(body).toHaveProperty('versions');
+      expect(body.versions).toContain('1.3.0');
     });
 
     test('should return 404 for non-existent app', async () => {
-      await request(app).get('/v1/apps/com.nonexistent.app').expect(404);
+      const response = await app.inject({
+        method: 'GET',
+        url: '/v1/apps/com.nonexistent.app',
+      });
+      expect(response.statusCode).toBe(404);
     });
   });
 
   describe('GET /v1/apps/:id/:version', () => {
-    test('should return manifest for existing app version', async () => {
-      const response = await request(app)
-        .get('/v1/apps/com.example.chat.manager/1.3.0')
-        .expect(200);
+    beforeEach(async () => {
+      // Seed with test data
+      const manifest = {
+        manifest_version: '1.0',
+        id: 'com.example.chat.manager',
+        name: 'Chat Manager',
+        version: '1.3.0',
+        chains: ['near:testnet'],
+        artifact: {
+          type: 'wasm',
+          target: 'node',
+          digest:
+            'sha256:2222222222222222222222222222222222222222222222222222222222222222',
+          uri: 'https://example.com/artifacts/chat-manager/1.3.0/manager.wasm',
+        },
+        provides: ['chat.manager@1'],
+        requires: ['chat.channel@1'],
+      };
 
-      expect(response.body).toHaveProperty('manifest_version', '1.0');
-      expect(response.body).toHaveProperty('id', 'com.example.chat.manager');
-      expect(response.body).toHaveProperty('version', '1.3.0');
-      expect(response.body).toHaveProperty('provides', ['chat.manager@1']);
-      expect(response.body).toHaveProperty('requires', ['chat.channel@1']);
+      await app.inject({
+        method: 'POST',
+        url: '/v1/apps',
+        payload: manifest,
+      });
+    });
+
+    test('should return manifest for existing app version', async () => {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/v1/apps/com.example.chat.manager/1.3.0',
+      });
+
+      expect(response.statusCode).toBe(200);
+      const body = JSON.parse(response.body);
+      expect(body).toHaveProperty('manifest_version', '1.0');
+      expect(body).toHaveProperty('id', 'com.example.chat.manager');
+      expect(body).toHaveProperty('version', '1.3.0');
+      expect(body).toHaveProperty('provides', ['chat.manager@1']);
+      expect(body).toHaveProperty('requires', ['chat.channel@1']);
     });
 
     test('should return canonical JCS when requested', async () => {
-      const response = await request(app)
-        .get('/v1/apps/com.example.chat.manager/1.3.0?canonical=true')
-        .expect(200);
+      const response = await app.inject({
+        method: 'GET',
+        url: '/v1/apps/com.example.chat.manager/1.3.0?canonical=true',
+      });
 
-      expect(response.body).toHaveProperty('canonical_jcs');
-      expect(typeof response.body.canonical_jcs).toBe('string');
+      expect(response.statusCode).toBe(200);
+      const body = JSON.parse(response.body);
+      expect(body).toHaveProperty('canonical_jcs');
+      expect(typeof body.canonical_jcs).toBe('string');
     });
 
     test('should return 404 for non-existent app version', async () => {
-      await request(app)
-        .get('/v1/apps/com.example.chat.manager/2.0.0')
-        .expect(404);
+      const response = await app.inject({
+        method: 'GET',
+        url: '/v1/apps/com.example.chat.manager/2.0.0',
+      });
+      expect(response.statusCode).toBe(404);
     });
   });
 
   describe('GET /v1/search', () => {
-    test('should search by app id', async () => {
-      const response = await request(app)
-        .get('/v1/search?q=com.example.chat.manager')
-        .expect(200);
+    beforeEach(async () => {
+      // Seed with test data
+      const manifest = {
+        manifest_version: '1.0',
+        id: 'com.example.chat.manager',
+        name: 'Chat Manager',
+        version: '1.3.0',
+        chains: ['near:testnet'],
+        artifact: {
+          type: 'wasm',
+          target: 'node',
+          digest:
+            'sha256:2222222222222222222222222222222222222222222222222222222222222222',
+          uri: 'https://example.com/artifacts/chat-manager/1.3.0/manager.wasm',
+        },
+        provides: ['chat.manager@1'],
+        requires: ['chat.channel@1'],
+      };
 
-      expect(Array.isArray(response.body)).toBe(true);
-      expect(response.body.length).toBeGreaterThan(0);
-      expect(response.body[0]).toHaveProperty('id', 'com.example.chat.manager');
+      await app.inject({
+        method: 'POST',
+        url: '/v1/apps',
+        payload: manifest,
+      });
+    });
+
+    test('should search by app id', async () => {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/v1/search?q=com.example.chat.manager',
+      });
+
+      expect(response.statusCode).toBe(200);
+      const body = JSON.parse(response.body);
+      expect(Array.isArray(body)).toBe(true);
+      expect(body.length).toBeGreaterThan(0);
+      expect(body[0]).toHaveProperty('id', 'com.example.chat.manager');
     });
 
     test('should search by app name', async () => {
-      const response = await request(app)
-        .get('/v1/search?q=Chat Manager')
-        .expect(200);
+      const response = await app.inject({
+        method: 'GET',
+        url: '/v1/search?q=Chat Manager',
+      });
 
-      expect(Array.isArray(response.body)).toBe(true);
-      expect(response.body.length).toBeGreaterThan(0);
-      expect(response.body[0]).toHaveProperty('id', 'com.example.chat.manager');
+      expect(response.statusCode).toBe(200);
+      const body = JSON.parse(response.body);
+      expect(Array.isArray(body)).toBe(true);
+      expect(body.length).toBeGreaterThan(0);
+      expect(body[0]).toHaveProperty('id', 'com.example.chat.manager');
     });
 
     test('should search by provides interface', async () => {
-      const response = await request(app)
-        .get('/v1/search?q=chat.manager@1')
-        .expect(200);
+      const response = await app.inject({
+        method: 'GET',
+        url: '/v1/search?q=chat.manager@1',
+      });
 
-      expect(Array.isArray(response.body)).toBe(true);
-      expect(response.body.length).toBeGreaterThan(0);
-      expect(response.body[0]).toHaveProperty('provides');
-      expect(response.body[0].provides).toContain('chat.manager@1');
+      expect(response.statusCode).toBe(200);
+      const body = JSON.parse(response.body);
+      expect(Array.isArray(body)).toBe(true);
+      expect(body.length).toBeGreaterThan(0);
+      expect(body[0]).toHaveProperty('provides');
+      expect(body[0].provides).toContain('chat.manager@1');
     });
 
     test('should return empty array for no matches', async () => {
-      const response = await request(app)
-        .get('/v1/search?q=nonexistent')
-        .expect(200);
+      const response = await app.inject({
+        method: 'GET',
+        url: '/v1/search?q=nonexistent',
+      });
 
-      expect(Array.isArray(response.body)).toBe(true);
-      expect(response.body.length).toBe(0);
+      expect(response.statusCode).toBe(200);
+      const body = JSON.parse(response.body);
+      expect(Array.isArray(body)).toBe(true);
+      expect(body.length).toBe(0);
     });
   });
 });

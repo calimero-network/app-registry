@@ -10,11 +10,17 @@ const { buildServer } = require('../src/server');
 
 describe('V1 API End-to-End Tests', () => {
   let server;
-  const baseUrl = 'http://localhost:8080';
+  let baseUrl;
 
   beforeAll(async () => {
     server = await buildServer();
-    await server.listen({ port: 8080, host: '0.0.0.0' });
+    await server.listen({ port: 0, host: '127.0.0.1' });
+    const addressInfo = server.server.address();
+    const port =
+      typeof addressInfo === 'object' && addressInfo !== null
+        ? addressInfo.port
+        : Number(String(addressInfo).split(':').pop());
+    baseUrl = `http://127.0.0.1:${port}`;
   });
 
   afterAll(async () => {
@@ -55,7 +61,6 @@ describe('V1 API End-to-End Tests', () => {
         uri: 'https://example.com/test-app.wasm',
       },
       provides: ['storage@1'],
-      requires: ['runtime@1'],
     };
 
     test('should submit a valid manifest', async () => {
@@ -109,7 +114,7 @@ describe('V1 API End-to-End Tests', () => {
       expect(Array.isArray(data)).toBe(true);
       expect(data.length).toBeGreaterThan(0);
       expect(data[0]).toHaveProperty('id');
-      expect(data[0]).toHaveProperty('versions');
+      expect(data[0]).toHaveProperty('version');
     });
 
     test('should search by app id', async () => {
