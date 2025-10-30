@@ -5,7 +5,7 @@
  * for large dependency graphs and searches.
  */
 
-const LRU = require('lru-cache');
+const { LRUCache } = require('lru-cache');
 
 class V1StorageOptimized {
   constructor(options = {}) {
@@ -15,8 +15,8 @@ class V1StorageOptimized {
 
     // Performance optimizations
     this.cacheSize = options.cacheSize || 1000;
-    this.searchCache = new LRU({ max: this.cacheSize });
-    this.resolveCache = new LRU({ max: this.cacheSize });
+    this.searchCache = new LRUCache({ max: this.cacheSize });
+    this.resolveCache = new LRUCache({ max: this.cacheSize });
 
     // Advanced indexing for fast lookups
     this.searchIndex = new Map(); // Full-text search index
@@ -367,7 +367,7 @@ class V1StorageOptimized {
     const searchKeys = Array.from(this.searchCache.keys());
     for (const key of searchKeys) {
       if (key.includes(appId)) {
-        this.searchCache.del(key);
+        this.searchCache.delete(key);
       }
     }
 
@@ -375,7 +375,7 @@ class V1StorageOptimized {
     const resolveKeys = Array.from(this.resolveCache.keys());
     for (const key of resolveKeys) {
       if (key.includes(appId)) {
-        this.resolveCache.del(key);
+        this.resolveCache.delete(key);
       }
     }
   }
@@ -440,8 +440,8 @@ class V1StorageOptimized {
    * Clear all caches
    */
   clearCaches() {
-    this.searchCache.reset();
-    this.resolveCache.reset();
+    this.searchCache.clear();
+    this.resolveCache.clear();
   }
 
   /**
