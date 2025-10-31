@@ -3,6 +3,18 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    /* Design System CSS Variables - matching Tailwind colors */
+    --color-brand-600: #a5ff11;
+    --color-brand-100: #ecfc91;
+    --color-brand-800: #8aa200;
+    --color-brand-900: #2d381b;
+    --color-semantic-success: #16a34a;
+    --color-semantic-error: #ef4444;
+    --color-semantic-warning: #f59e0b;
+    --color-semantic-info: #3b82f6;
+  }
+
   html {
     font-family: 'Power Grotesk', 'Inter', system-ui, sans-serif;
   }

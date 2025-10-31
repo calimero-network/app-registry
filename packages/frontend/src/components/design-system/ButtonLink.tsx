@@ -30,9 +30,36 @@ export interface ButtonLinkProps {
  * Composed using the design system Button component with Link as the underlying element.
  * All Button styling and behavior is inherited from the design system Button.
  */
-export function ButtonLink({ to, children, ...buttonProps }: ButtonLinkProps) {
+export function ButtonLink({
+  to,
+  children,
+  size,
+  rounded,
+  variant,
+  className,
+  disabled,
+  leftIcon,
+  rightIcon,
+  fullWidth,
+  'data-testid': testId,
+  ...restProps
+}: ButtonLinkProps) {
   return (
-    <Button as={Link as React.ElementType} to={to} {...buttonProps}>
+    // @ts-expect-error - Button's polymorphic 'as' prop accepts Link but types need refinement
+    <Button
+      as={Link}
+      to={to}
+      size={size}
+      rounded={rounded}
+      variant={variant}
+      className={className}
+      disabled={disabled}
+      leftIcon={leftIcon}
+      rightIcon={rightIcon}
+      fullWidth={fullWidth}
+      data-testid={testId}
+      {...restProps}
+    >
       {children}
     </Button>
   );

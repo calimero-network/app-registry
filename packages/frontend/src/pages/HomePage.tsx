@@ -1,14 +1,14 @@
 import { Package } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { ButtonLink } from '@/components/ButtonLink';
 import {
-  ButtonLink,
   MetricCard,
   Card,
   CardHeader,
   CardTitle,
   CardContent,
-} from '@/components/design-system';
+} from '@calimero-network/mero-ui';
 import { tokens } from '@calimero-network/mero-tokens';
 import { features } from '@/constants/features';
 
@@ -39,11 +39,18 @@ export default function HomePage() {
           <ButtonLink
             to='/apps'
             variant='primary'
-            leftIcon={<Package className='w-5 h-5' />}
+            size='xl'
+            rounded={false}
+            leftIcon={<Package className='w-6 h-6' />}
           >
             BROWSE APPS
           </ButtonLink>
-          <ButtonLink to='/developers' variant='secondary'>
+          <ButtonLink
+            to='/developers'
+            variant='secondary'
+            size='xl'
+            rounded={false}
+          >
             VIEW DEVELOPERS
           </ButtonLink>
         </div>
