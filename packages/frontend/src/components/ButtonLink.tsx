@@ -45,20 +45,22 @@ export function ButtonLink({
   ...restProps
 }: ButtonLinkProps) {
   return (
-    // @ts-expect-error - Button's polymorphic 'as' prop accepts Link but types need refinement
     <Button
       as={Link}
-      to={to}
-      size={size}
-      rounded={rounded}
-      variant={variant}
-      className={className}
-      disabled={disabled}
-      leftIcon={leftIcon}
-      rightIcon={rightIcon}
-      fullWidth={fullWidth}
-      data-testid={testId}
-      {...restProps}
+      {...({
+        to,
+        size,
+        rounded,
+        variant,
+        className,
+        disabled,
+        leftIcon,
+        rightIcon,
+        fullWidth,
+        'data-testid': testId,
+        ...restProps,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any)}
     >
       {children}
     </Button>
