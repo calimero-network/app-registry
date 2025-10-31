@@ -18,7 +18,7 @@
   "dependencies": {
     "@calimero-network/mero-icons": "^0.0.6",
     "@calimero-network/mero-tokens": "^0.0.5",
-    "@calimero-network/mero-ui": "^1.4.0",
+    "@calimero-network/mero-ui": "^1.5.0",
     "@tanstack/react-query": "^4.29.0",
     "axios": "^1.3.0",
     "clsx": "^1.2.1",
