@@ -27,27 +27,28 @@ import { Button } from '@/components/design-system';
 </Button>;
 ```
 
-### FeatureCard
+### Card
 
-A card component for displaying features with icons and descriptions.
+A flexible card component for displaying content with optional header, icon, description, and actions.
 
 **Features:**
 
-- Multiple variants: default, compact, large
-- Configurable icon sizes
-- Clickable support
-- Consistent styling with brand colors
+- Multiple variants: rounded (default) and rectangle
+- Configurable icons and actions
+- Clickable support with hover effects
+- Tooltip support
+- Composition pattern or convenience props
 
 **Usage:**
 
 ```tsx
-import { FeatureCard } from '@/components/design-system';
+import { Card } from '@/components/design-system';
 
-<FeatureCard
+<Card
   icon={<Shield className='w-6 h-6' />}
   title='Security'
   description='Enterprise-grade security'
-  variant='default'
+  variant='rounded'
 />;
 ```
 

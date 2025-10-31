@@ -1,8 +1,15 @@
 import { Package } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { ButtonLink, MetricCard } from '@/components/design-system';
-import { FeatureCard } from '@/components/FeatureCard';
+import {
+  ButtonLink,
+  MetricCard,
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+} from '@/components/design-system';
+import { tokens } from '@calimero-network/mero-tokens';
 import { features } from '@/constants/features';
 
 export default function HomePage() {
@@ -45,12 +52,26 @@ export default function HomePage() {
       {/* Features Section */}
       <div className='grid md:grid-cols-3 gap-8 mb-16'>
         {features.map(feature => (
-          <FeatureCard
-            key={feature.title}
-            icon={<feature.icon className='w-6 h-6' />}
-            title={feature.title}
-            description={feature.description}
-          />
+          <Card key={feature.title}>
+            <CardHeader>
+              <div
+                style={{ display: 'flex', alignItems: 'center', gap: '12px' }}
+              >
+                <feature.icon
+                  className='w-6 h-6'
+                  style={{ color: tokens.color.brand[600].value }}
+                />
+                <CardTitle color={tokens.color.brand[600].value}>
+                  {feature.title}
+                </CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div style={{ color: tokens.color.brand[600].value }}>
+                {feature.description}
+              </div>
+            </CardContent>
+          </Card>
         ))}
       </div>
 
@@ -63,17 +84,17 @@ export default function HomePage() {
           <MetricCard
             title='Published Apps'
             value={publishedApps}
-            isLoading={statsLoading}
+            loading={statsLoading}
           />
           <MetricCard
             title='Active Developers'
             value={activeDevelopers}
-            isLoading={statsLoading}
+            loading={statsLoading}
           />
           <MetricCard
             title='Total Downloads'
             value={totalDownloads}
-            isLoading={statsLoading}
+            loading={statsLoading}
           />
         </div>
       </div>

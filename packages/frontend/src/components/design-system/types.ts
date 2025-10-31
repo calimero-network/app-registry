@@ -7,8 +7,6 @@ export type Variant =
   | 'outline'
   | 'ghost'
   | 'destructive';
-export type CardVariant = 'default' | 'compact' | 'large';
-export type TrendDirection = 'up' | 'down' | 'neutral';
 
 // Base component props that all components should extend
 export interface BaseComponentProps {
