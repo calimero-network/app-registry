@@ -5,6 +5,7 @@ import { LocalDataStore, AppSummary, AppManifest } from './local-storage.js';
 import { LocalArtifactServer } from './local-artifacts.js';
 import path from 'path';
 import fs from 'fs';
+import { Buffer } from 'buffer';
 
 export interface ServerStatus {
   running: boolean;
@@ -150,7 +151,11 @@ export class LocalRegistryServer {
       const manifest = this.dataStore.getManifest(appId, semver);
 
       if (!manifest) {
-        throw this.server.httpErrors.notFound('Manifest not found');
+        return {
+          statusCode: 404,
+          error: 'Not Found',
+          message: 'Manifest not found',
+        };
       }
 
       // Update artifacts to use local URLs
@@ -162,24 +167,28 @@ export class LocalRegistryServer {
 
       // Validate manifest structure
       if (!this.validateManifest(manifest)) {
-        throw this.server.httpErrors.badRequest('Invalid manifest structure');
+        return {
+          statusCode: 400,
+          error: 'Bad Request',
+          message: 'Invalid manifest structure',
+        };
       }
 
       // Process artifacts - copy to local storage
       const processedManifest = await this.processManifestArtifacts(manifest);
 
       // Store manifest
-      const manifestKey = `${manifest.app.developer_pubkey}/${manifest.app.name}/${manifest.version.semver}`;
+      const manifestKey = `${manifest.app.app_id}/${manifest.version.semver}`;
       this.dataStore.setManifest(manifestKey, processedManifest);
 
       // Update app summary
-      const appKey = `${manifest.app.developer_pubkey}/${manifest.app.name}`;
+      const appKey = manifest.app.app_id;
       const appSummary: AppSummary = {
         name: manifest.app.name,
         developer_pubkey: manifest.app.developer_pubkey,
         latest_version: manifest.version.semver,
         latest_cid: manifest.artifacts[0]?.cid || '',
-        alias: manifest.app.alias,
+        alias: manifest.app.name, // Use name as alias
       };
       this.dataStore.setApp(appKey, appSummary);
 
@@ -214,9 +223,13 @@ export class LocalRegistryServer {
             `attachment; filename="${filename}"`
           );
 
-          return artifactData;
+          return artifactData as Uint8Array;
         } catch {
-          throw this.server.httpErrors.notFound('Artifact not found');
+          return {
+            statusCode: 404,
+            error: 'Not Found',
+            message: 'Artifact not found',
+          };
         }
       }
     );
@@ -230,9 +243,13 @@ export class LocalRegistryServer {
         // Set appropriate headers
         reply.header('Content-Type', 'application/octet-stream');
 
-        return artifactData;
+        return artifactData as Uint8Array;
       } catch {
-        throw this.server.httpErrors.notFound('Artifact not found');
+        return {
+          statusCode: 404,
+          error: 'Not Found',
+          message: 'Artifact not found',
+        };
       }
     });
 
@@ -262,6 +279,168 @@ export class LocalRegistryServer {
       await this.seed();
       return { message: 'Sample data seeded successfully' };
     });
+
+    // V1 API endpoints
+    this.server.post('/v1/apps', async (request, reply) => {
+      const manifest = request.body as Record<string, unknown>;
+
+      // Basic validation
+      if (
+        !manifest.manifest_version ||
+        !manifest.id ||
+        !manifest.name ||
+        !manifest.version
+      ) {
+        return reply.code(400).send({
+          error: 'invalid_schema',
+          details: 'Missing required fields',
+        });
+      }
+
+      try {
+        // Process artifacts - copy to local storage
+        const processedManifest = await this.processManifestArtifacts(manifest);
+
+        // Store manifest directly (no conversion needed)
+        const manifestKey = `${manifest.id}/${manifest.version}`;
+        this.dataStore.setManifest(manifestKey, processedManifest);
+
+        // Create app summary
+        const appKey = manifest.id;
+        const appSummary = {
+          id: manifest.id,
+          name: manifest.name,
+          developer_pubkey: 'local-dev-key',
+          latest_version: manifest.version,
+          latest_cid: manifest.artifact?.digest || '',
+        };
+        this.dataStore.setApp(appKey, appSummary);
+
+        return reply.code(201).send({
+          id: manifest.id,
+          version: manifest.version,
+          canonical_uri: `/v1/apps/${manifest.id}/${manifest.version}`,
+        });
+      } catch {
+        return reply.code(409).send({
+          error: 'already_exists',
+          details: `${manifest.id}@${manifest.version}`,
+        });
+      }
+    });
+
+    this.server.get('/v1/apps/:id', async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const versions = this.dataStore.getAppVersions(id);
+
+      if (!versions || versions.length === 0) {
+        return reply
+          .code(404)
+          .send({ error: 'not_found', message: 'App not found' });
+      }
+
+      return {
+        id,
+        versions: versions.map(v => v.semver),
+      };
+    });
+
+    this.server.get('/v1/apps/:id/:version', async (request, reply) => {
+      const { id, version } = request.params as { id: string; version: string };
+      const { canonical } = request.query as { canonical?: string };
+
+      const oldManifest = this.dataStore.getManifest(id, version);
+      if (!oldManifest) {
+        return reply
+          .code(404)
+          .send({ error: 'not_found', message: 'Manifest not found' });
+      }
+
+      // Convert old format to V1 format
+      const v1Manifest = {
+        manifest_version: oldManifest.manifest_version,
+        id: oldManifest.app.app_id,
+        name: oldManifest.app.name,
+        version: oldManifest.version.semver,
+        chains: oldManifest.supported_chains,
+        artifact: oldManifest.artifacts[0]
+          ? {
+              type: oldManifest.artifacts[0].type,
+              target: oldManifest.artifacts[0].target,
+              digest:
+                oldManifest.artifacts[0].cid || `sha256:${'0'.repeat(64)}`,
+              uri:
+                oldManifest.artifacts[0].path ||
+                oldManifest.artifacts[0].mirrors?.[0] ||
+                'https://example.com/artifact',
+            }
+          : {
+              type: 'wasm',
+              target: 'node',
+              digest: `sha256:${'0'.repeat(64)}`,
+              uri: 'https://example.com/artifact',
+            },
+        _warnings: [],
+      };
+
+      if (canonical === 'true') {
+        // Return canonical JCS format
+        const canonicalJCS = JSON.stringify(
+          v1Manifest,
+          Object.keys(v1Manifest).sort()
+        );
+        return {
+          canonical_jcs: Buffer.from(canonicalJCS, 'utf8').toString('base64'),
+        };
+      }
+
+      return v1Manifest;
+    });
+
+    this.server.get('/v1/search', async (request, reply) => {
+      const { q } = request.query as { q?: string };
+
+      if (!q) {
+        return reply.code(400).send({
+          error: 'bad_request',
+          message: 'Query parameter "q" is required',
+        });
+      }
+
+      // Simple search implementation
+      const apps = this.dataStore.getApps({});
+      const results = apps.filter(
+        app =>
+          app.name.toLowerCase().includes(q.toLowerCase()) ||
+          (app as { id?: string }).id?.toLowerCase().includes(q.toLowerCase())
+      );
+
+      return results.map(app => ({
+        id: app.id || app.name,
+        versions: [app.latest_version],
+      }));
+    });
+
+    this.server.post('/v1/resolve', async (request, reply) => {
+      const { root } = request.body as {
+        root: { id: string; version: string };
+        installed?: Array<{ id: string; version: string }>;
+      };
+
+      if (!root || !root.id || !root.version) {
+        return reply.code(400).send({
+          error: 'bad_request',
+          message: 'Root app ID and version are required',
+        });
+      }
+
+      // Simple resolution - just return the root app for now
+      return {
+        plan: [{ action: 'install', id: root.id, version: root.version }],
+        satisfies: [],
+        missing: [],
+      };
+    });
   }
 
   private validateManifest(manifest: AppManifest): boolean {
@@ -269,6 +448,7 @@ export class LocalRegistryServer {
     return !!(
       manifest.manifest_version &&
       manifest.app &&
+      manifest.app.app_id &&
       manifest.app.name &&
       manifest.app.developer_pubkey &&
       manifest.version &&
@@ -283,43 +463,40 @@ export class LocalRegistryServer {
   ): Promise<AppManifest> {
     const processedManifest = { ...manifest };
 
-    if (processedManifest.artifacts) {
-      processedManifest.artifacts = await Promise.all(
-        processedManifest.artifacts.map(async artifact => {
-          const processedArtifact = { ...artifact };
+    // Handle V1 manifest format (single artifact object)
+    if (manifest.artifact && manifest.artifact.uri) {
+      const artifact = manifest.artifact;
 
-          // If artifact has a local path, copy it to local storage
-          if (artifact.path && fs.existsSync(artifact.path)) {
-            const filename = path.basename(artifact.path);
-            const appId = manifest.app.id || manifest.app.name;
+      // Check if it's a file:// URI
+      if (artifact.uri.startsWith('file://')) {
+        const filePath = artifact.uri.replace('file://', '');
 
-            try {
-              await this.artifactServer.copyArtifactToLocal(
-                artifact.path,
+        if (fs.existsSync(filePath)) {
+          const filename = path.basename(filePath);
+          const appId = manifest.id;
+
+          try {
+            await this.artifactServer.copyArtifactToLocal(
+              filePath,
+              appId,
+              manifest.version,
+              filename
+            );
+
+            // Update artifact URI to use local URL
+            processedManifest.artifact = {
+              ...artifact,
+              uri: this.artifactServer.getArtifactUrl(
                 appId,
-                manifest.version.semver,
+                manifest.version,
                 filename
-              );
-
-              // Update artifact to use local URL
-              processedArtifact.mirrors = [
-                this.artifactServer.getArtifactUrl(
-                  appId,
-                  manifest.version.semver,
-                  filename
-                ),
-              ];
-
-              // Remove local path for production compatibility
-              delete processedArtifact.path;
-            } catch (error) {
-              console.warn(`Failed to copy artifact ${artifact.path}:`, error);
-            }
+              ),
+            };
+          } catch (error) {
+            console.warn(`Failed to copy artifact ${filePath}:`, error);
           }
-
-          return processedArtifact;
-        })
-      );
+        }
+      }
     }
 
     return processedManifest;

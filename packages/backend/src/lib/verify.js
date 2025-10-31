@@ -1,4 +1,5 @@
-const ed25519 = require('ed25519-supercop');
+// Dynamic import for ES module
+let ed25519;
 const { multibase } = require('multibase');
 
 /**
@@ -131,7 +132,7 @@ function verifyManifest(manifest) {
   const manifestWithoutSignature = removeSignature(manifest);
   const canonicalized = canonicalizeJSON(manifestWithoutSignature);
 
-  const publicKey = manifest.app.developer_pubkey;
+  const publicKey = manifest.signature.pubkey;
   const signature = manifest.signature.sig;
 
   const isValid = verifySignature(publicKey, signature, canonicalized);

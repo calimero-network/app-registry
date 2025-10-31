@@ -94,11 +94,11 @@ export class LocalRegistryClient implements RegistryClient {
     const processedManifest = await this.processManifestArtifacts(manifest);
 
     // Store manifest
-    const manifestKey = `${manifest.app.developer_pubkey}/${manifest.app.name}/${manifest.version.semver}`;
+    const manifestKey = `${manifest.app.app_id}/${manifest.version.semver}`;
     this.dataStore.setManifest(manifestKey, processedManifest);
 
     // Update app summary
-    const appKey = `${manifest.app.developer_pubkey}/${manifest.app.name}`;
+    const appKey = manifest.app.app_id;
     const appSummary: AppSummary = {
       name: manifest.app.name,
       developer_pubkey: manifest.app.developer_pubkey,
@@ -144,7 +144,9 @@ export class LocalRegistryClient implements RegistryClient {
           // If artifact has a local path, copy it to local storage
           if (artifact.path && fs.existsSync(artifact.path)) {
             const filename = path.basename(artifact.path);
-            const appId = manifest.app.id || manifest.app.name;
+            const appId =
+              manifest.app.id ||
+              manifest.app.name?.replace(/\s+/g, '-').toLowerCase();
 
             try {
               await this.artifactServer.copyArtifactToLocal(

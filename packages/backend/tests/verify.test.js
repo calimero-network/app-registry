@@ -73,7 +73,7 @@ describe('Verification library', () => {
       distribution: 'ipfs',
       signature: {
         alg: 'Ed25519',
-        sig: 'invalid-signature',
+        sig: 'invalidSignature123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz',
         signed_at: new Date().toISOString(),
       },
     };

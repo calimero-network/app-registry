@@ -1,19 +1,47 @@
 version: '3.8'
 
 services:
-  calimero-registry:
+  registry-api:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ../../
+      dockerfile: packages/backend/Dockerfile.simple
     ports:
-      - '8080:8080'
+      - '8081:8080'
     environment:
-      - NODE_ENV=production
-      - PORT=8080
-      - HOST=0.0.0.0
-      - LOG_LEVEL=info
-      - CORS_ORIGIN=http://localhost:3000,https://registry.example.com
-      - IPFS_GATEWAYS=https://ipfs.io/ipfs/,https://gateway.pinata.cloud/ipfs/,https://cloudflare-ipfs.com/ipfs/
+      # Production settings
+      NODE_ENV: production
+      PORT: 8080
+      HOST: 0.0.0.0
+
+      # Security settings
+      ENABLE_RATE_LIMITING: 'true'
+      ENABLE_SIZE_LIMITS: 'true'
+      REQUIRE_SIGNATURES: 'false'
+      ALLOW_UNVERIFIED: 'true'
+
+      # Limits
+      MAX_MANIFEST_SIZE: '1048576' # 1MB
+      MAX_DEPENDENCIES: '32'
+      MAX_PROVIDES: '16'
+      MAX_REQUIRES: '16'
+      MAX_SEARCH_RESULTS: '100'
+      MAX_RESOLVE_DEPTH: '10'
+      RATE_LIMIT_MAX: '100'
+      RATE_LIMIT_WINDOW: '60000'
+
+      # Features
+      ENABLE_CANONICAL_JCS: 'true'
+      ENABLE_INTERFACE_RESOLUTION: 'true'
+      ENABLE_CYCLE_DETECTION: 'true'
+
+      # Development (set to false in production)
+      DEV_MODE: 'false'
+      DEBUG_LOGGING: 'false'
+      ALLOW_LOCAL_ARTIFACTS: 'false'
+
+    volumes:
+      - registry-data:/app/data
+    restart: unless-stopped
     healthcheck:
       test:
         [
@@ -26,25 +54,16 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
-    restart: unless-stopped
 
-  calimero-registry-dev:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: builder
-    ports:
-      - '8081:8080'
-    environment:
-      - NODE_ENV=development
-      - PORT=8080
-      - HOST=0.0.0.0
-      - LOG_LEVEL=debug
-      - CORS_ORIGIN=http://localhost:3000,https://registry.example.com
-      - IPFS_GATEWAYS=https://ipfs.io/ipfs/,https://gateway.pinata.cloud/ipfs/,https://cloudflare-ipfs.com/ipfs/
-    volumes:
-      - ./src:/app/src
-      - ../../api.yml:/app/api.yml
-    command: ['npm', 'run', 'dev']
-    profiles:
-      - dev
+  # Optional: Redis for rate limiting (if needed for production)
+  # redis:
+  #   image: redis:7-alpine
+  #   ports:
+  #     - "6379:6379"
+  #   volumes:
+  #     - redis-data:/data
+  #   restart: unless-stopped
+
+volumes:
+  registry-data:
+  # redis-data:

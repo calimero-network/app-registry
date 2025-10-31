@@ -1,0 +1,21 @@
+{
+  "manifest_version": "1.0",
+  "id": "com.example.chat.manager",
+  "name": "Chat Manager",
+  "version": "1.3.0",
+  "chains": ["near:testnet"],
+  "artifact": {
+    "type": "wasm",
+    "target": "node",
+    "digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+    "uri": "https://example.com/artifacts/chat-manager/1.3.0/manager.wasm"
+  },
+  "provides": ["chat.manager@1"],
+  "requires": ["chat.channel@1"],
+  "dependencies": [
+    {
+      "id": "com.example.chat.channel",
+      "range": "^1.0.0"
+    }
+  ]
+}

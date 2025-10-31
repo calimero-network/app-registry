@@ -1,0 +1,19 @@
+{
+  "manifest_version": "1.0",
+  "id": "com.example.simple.app",
+  "name": "Simple App",
+  "version": "1.0.0",
+  "chains": ["near:testnet"],
+  "artifact": {
+    "type": "wasm",
+    "target": "node",
+    "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+    "uri": "https://example.com/artifacts/simple-app/1.0.0/app.wasm"
+  },
+  "signature": {
+    "alg": "ed25519",
+    "pubkey": "ed25519:MCowBQYDK2VwAyEASix04RAcnOVTH9ivUyv0KgxI5N9WLFZHt92IlWtFkz8=",
+    "sig": "base64:L6oLiF/mdvT0RJhhogSXmHqauYlg6JFQ38aGIeXU4zc=",
+    "signed_at": "2025-10-23T20:57:24Z"
+  }
+}
