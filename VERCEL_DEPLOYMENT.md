@@ -58,22 +58,20 @@ cd /Users/xilosada/dev/calimero/registry
 vercel link
 ```
 
-### 2. **Create Vercel KV Database**
+### 2. **Add Redis from Vercel Marketplace**
 
 1. Go to [Vercel Dashboard](https://vercel.com/dashboard)
 2. Select your project
 3. Go to **Storage** tab
-4. Click **Create Database**
-5. Select **KV** (Redis)
-6. Name it `registry-kv`
-7. Click **Create**
+4. Browse **Marketplace**
+5. Select **Upstash Redis** (or another Redis provider)
+6. Click **Add Integration**
+7. Authorize and connect
 
-Vercel will automatically add these environment variables:
+Vercel will automatically add this environment variable:
 
 ```
-KV_REST_API_URL=https://...
-KV_REST_API_TOKEN=...
-KV_REST_API_READ_ONLY_TOKEN=...
+REDIS_URL=redis://default:***@***.upstash.io:6379
 ```
 
 ### 3. **Deploy**
@@ -230,11 +228,10 @@ curl https://your-project.vercel.app/api/v1/apps/com.example.test
 
 ## 🔐 Environment Variables
 
-### Automatically Set by Vercel KV
+### Automatically Set by Marketplace Redis
 
 ```
-KV_REST_API_URL=...
-KV_REST_API_TOKEN=...
+REDIS_URL=redis://default:***@***.upstash.io:6379
 ```
 
 ### Optional (Set in Vercel Dashboard)

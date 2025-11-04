@@ -34,31 +34,31 @@ class V1StorageKV {
     await this.updateAppMetadata(manifest);
 
     // 3. Track versions
-    await kv.sadd(`versions:${manifest.id}`, manifest.version);
+    await kv.sAdd(`versions:${manifest.id}`, manifest.version);
 
     // 4. Update provides index
     if (manifest.provides) {
       for (const iface of manifest.provides) {
-        await kv.sadd(`provides:${iface}`, key);
+        await kv.sAdd(`provides:${iface}`, key);
       }
     }
 
     // 5. Update requires index
     if (manifest.requires) {
       for (const iface of manifest.requires) {
-        await kv.sadd(`requires:${iface}`, key);
+        await kv.sAdd(`requires:${iface}`, key);
       }
     }
 
     // 6. Store dependencies
     if (manifest.dependencies) {
       for (const dep of manifest.dependencies) {
-        await kv.sadd(`deps:${key}`, JSON.stringify(dep));
+        await kv.sAdd(`deps:${key}`, JSON.stringify(dep));
       }
     }
 
     // 7. Track this app in global apps list
-    await kv.sadd('apps:all', manifest.id);
+    await kv.sAdd('apps:all', manifest.id);
 
     return manifestData;
   }
@@ -78,7 +78,7 @@ class V1StorageKV {
    * Get all versions for an app
    */
   async getAppVersions(id) {
-    const versions = await kv.smembers(`versions:${id}`);
+    const versions = await kv.sMembers(`versions:${id}`);
     return versions.sort((a, b) => this.compareVersions(b, a));
   }
 
@@ -86,7 +86,7 @@ class V1StorageKV {
    * Check if manifest exists
    */
   async hasManifest(id, version) {
-    const exists = await kv.sismember(`versions:${id}`, version);
+    const exists = await kv.sIsMember(`versions:${id}`, version);
     return exists === 1;
   }
 
@@ -94,10 +94,10 @@ class V1StorageKV {
    * Get all apps
    */
   async getApps() {
-    const appIds = await kv.smembers('apps:all');
+    const appIds = await kv.sMembers('apps:all');
     const apps = await Promise.all(
       appIds.map(async id => {
-        const app = await kv.hgetall(`app:${id}`);
+        const app = await kv.hGetAll(`app:${id}`);
         return app && app.id ? app : null;
       })
     );
@@ -108,11 +108,11 @@ class V1StorageKV {
    * Get all manifests
    */
   async getAllManifests() {
-    const appIds = await kv.smembers('apps:all');
+    const appIds = await kv.sMembers('apps:all');
     const allManifests = [];
 
     for (const appId of appIds) {
-      const versions = await kv.smembers(`versions:${appId}`);
+      const versions = await kv.sMembers(`versions:${appId}`);
       for (const version of versions) {
         const manifest = await this.getManifest(appId, version);
         if (manifest) {
@@ -212,11 +212,11 @@ class V1StorageKV {
    */
   async updateAppMetadata(manifest) {
     const appId = manifest.id;
-    const existingApp = await kv.hgetall(`app:${appId}`);
+    const existingApp = await kv.hGetAll(`app:${appId}`);
 
     if (!existingApp || !existingApp.id) {
       // New app
-      await kv.hset(`app:${appId}`, {
+      await kv.hSet(`app:${appId}`, {
         id: appId,
         name: manifest.name,
         latest_version: manifest.version,
@@ -227,7 +227,7 @@ class V1StorageKV {
       if (
         this.compareVersions(manifest.version, existingApp.latest_version) > 0
       ) {
-        await kv.hset(`app:${appId}`, {
+        await kv.hSet(`app:${appId}`, {
           ...existingApp,
           latest_version: manifest.version,
         });

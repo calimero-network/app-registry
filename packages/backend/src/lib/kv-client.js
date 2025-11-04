@@ -1,25 +1,99 @@
 /**
- * Vercel KV Client Wrapper
+ * Redis Client Wrapper for Vercel Marketplace
  *
- * Provides a unified interface for Vercel KV that works in both
- * production (real Vercel KV) and development (mock in-memory store).
+ * Provides a unified interface for Redis that works in both
+ * production (Vercel Marketplace Redis) and development (mock in-memory store).
  */
 
-const isProduction = process.env.VERCEL === '1';
+const { createClient } = require('redis');
+
+const isProduction = process.env.VERCEL === '1' || process.env.REDIS_URL;
 const isDevelopment = !isProduction;
 
 let kvClient;
+let redisClient;
 
-if (isProduction) {
-  // Use real Vercel KV in production
-  const { kv } = require('@vercel/kv');
-  kvClient = kv;
-  // eslint-disable-next-line no-console
-  console.log('✅ Using Vercel KV (production)');
+if (isProduction && process.env.REDIS_URL) {
+  // Use real Redis from Vercel Marketplace
+  redisClient = createClient({
+    url: process.env.REDIS_URL,
+  });
+
+  redisClient.on('error', err => {
+    // eslint-disable-next-line no-console
+    console.error('Redis error:', err);
+  });
+
+  // Wrapper to ensure connection before operations
+  kvClient = {
+    _connected: false,
+
+    async _ensureConnected() {
+      if (!this._connected) {
+        await redisClient.connect();
+        this._connected = true;
+        // eslint-disable-next-line no-console
+        console.log('✅ Connected to Vercel Marketplace Redis');
+      }
+    },
+
+    // String operations
+    async get(key) {
+      await this._ensureConnected();
+      return await redisClient.get(key);
+    },
+
+    async set(key, value) {
+      await this._ensureConnected();
+      return await redisClient.set(key, value);
+    },
+
+    async del(key) {
+      await this._ensureConnected();
+      return await redisClient.del(key);
+    },
+
+    // Hash operations
+    async hSet(key, obj) {
+      await this._ensureConnected();
+      return await redisClient.hSet(key, obj);
+    },
+
+    async hGetAll(key) {
+      await this._ensureConnected();
+      return await redisClient.hGetAll(key);
+    },
+
+    async hGet(key, field) {
+      await this._ensureConnected();
+      return await redisClient.hGet(key, field);
+    },
+
+    // Set operations
+    async sAdd(key, ...members) {
+      await this._ensureConnected();
+      return await redisClient.sAdd(key, members);
+    },
+
+    async sMembers(key) {
+      await this._ensureConnected();
+      return await redisClient.sMembers(key);
+    },
+
+    async sIsMember(key, member) {
+      await this._ensureConnected();
+      return await redisClient.sIsMember(key, member);
+    },
+
+    async sRem(key, ...members) {
+      await this._ensureConnected();
+      return await redisClient.sRem(key, members);
+    },
+  };
 } else {
-  // Mock KV for local development using in-memory storage
+  // Mock Redis for local development using in-memory storage
   // eslint-disable-next-line no-console
-  console.log('⚠️  Using Mock KV (development mode)');
+  console.log('⚠️  Using Mock Redis (development mode)');
 
   const mockStore = new Map();
   const mockSets = new Map();
@@ -34,7 +108,6 @@ if (isProduction) {
 
     async set(key, value) {
       mockStore.set(key, value);
-      // Ignore TTL options in mock
       return 'OK';
     },
 
@@ -45,23 +118,23 @@ if (isProduction) {
     },
 
     // Hash operations
-    async hset(key, obj) {
+    async hSet(key, obj) {
       mockHashes.set(key, obj);
       return Object.keys(obj).length;
     },
 
-    async hgetall(key) {
+    async hGetAll(key) {
       const data = mockHashes.get(key);
       return data || {};
     },
 
-    async hget(key, field) {
+    async hGet(key, field) {
       const data = mockHashes.get(key);
       return data ? data[field] : null;
     },
 
     // Set operations
-    async sadd(key, ...members) {
+    async sAdd(key, ...members) {
       if (!mockSets.has(key)) {
         mockSets.set(key, new Set());
       }
@@ -76,17 +149,17 @@ if (isProduction) {
       return added;
     },
 
-    async smembers(key) {
+    async sMembers(key) {
       const set = mockSets.get(key);
       return set ? Array.from(set) : [];
     },
 
-    async sismember(key, member) {
+    async sIsMember(key, member) {
       const set = mockSets.get(key);
       return set && set.has(member) ? 1 : 0;
     },
 
-    async srem(key, ...members) {
+    async sRem(key, ...members) {
       const set = mockSets.get(key);
       if (!set) return 0;
       let removed = 0;
