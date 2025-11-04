@@ -4,9 +4,9 @@
   "description": "Calimero Network App Registry - Backend Monorepo",
   "private": true,
   "scripts": {
-    "dev": "PORT=8082 pnpm --filter registry-backend dev",
+    "dev": "pnpm --filter registry-backend dev",
     "dev:frontend": "pnpm --filter registry-frontend dev",
-    "dev:all": "PORT=8082 pnpm --parallel dev",
+    "dev:all": "pnpm --parallel dev",
     "build": "pnpm --recursive build",
     "build:backend": "pnpm --filter registry-backend build",
     "build:frontend": "pnpm --filter registry-frontend build",
