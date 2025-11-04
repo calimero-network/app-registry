@@ -1,0 +1,15 @@
+node_modules
+.git
+*.log
+coverage
+test-data
+packages/backend/tests
+packages/backend/coverage
+packages/cli
+packages/client-library
+.env
+.env.local
+*.test.js
+*.test.ts
+__tests__
+
