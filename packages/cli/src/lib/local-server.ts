@@ -132,15 +132,49 @@ export class LocalRegistryServer {
       };
     });
 
-    // Apps endpoints
+    // Apps endpoints (support both path and query parameter formats)
     this.server.get('/apps', async request => {
-      const query = request.query as { dev?: string; name?: string };
+      const query = request.query as {
+        dev?: string;
+        name?: string;
+        id?: string;
+        versions?: string;
+        version?: string;
+      };
+
+      // Handle Vercel-style query parameters
+      if (query.id && query.versions === 'true') {
+        // GET /apps?id=xxx&versions=true (Vercel format)
+        return {
+          id: query.id,
+          versions: this.dataStore.getAppVersions(query.id),
+        };
+      }
+
+      if (query.id && query.version) {
+        // GET /apps?id=xxx&version=yyy (Vercel format)
+        const manifest = this.dataStore.getManifest(query.id, query.version);
+        if (!manifest) {
+          return {
+            statusCode: 404,
+            error: 'Not Found',
+            message: 'Manifest not found',
+          };
+        }
+        return this.artifactServer.updateManifestArtifacts(manifest);
+      }
+
+      // Default: list all apps
       return this.dataStore.getApps(query);
     });
 
     this.server.get('/apps/:appId', async request => {
       const { appId } = request.params as { appId: string };
-      return this.dataStore.getAppVersions(appId);
+      const versions = this.dataStore.getAppVersions(appId);
+      return {
+        id: appId,
+        versions: versions,
+      };
     });
 
     this.server.get('/apps/:appId/:semver', async request => {
