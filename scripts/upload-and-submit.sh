@@ -1,9 +1,9 @@
 #!/bin/bash
 # Upload WASM to GitHub and Submit to Registry (Complete Flow)
-# Usage: ./scripts/upload-and-submit.sh <wasm-file> <app-id> <app-name> <new-version>
+# Usage: ./scripts/upload-and-submit.sh <wasm-file> <app-id> <app-name> <new-version> [provides] [requires]
 #
 # Example:
-#   ./scripts/upload-and-submit.sh meropass.wasm network.calimero.meropass "MeroPass - Password Vault" 0.2.0
+#   ./scripts/upload-and-submit.sh meropass.wasm network.calimero.meropass "MeroPass - Password Vault" 0.2.0 '["password.vault@1"]' '[]'
 
 set -e
 
@@ -11,7 +11,7 @@ if [ "$#" -lt 4 ]; then
     echo "❌ Usage: $0 <wasm-file> <app-id> <app-name> <new-version> [provides] [requires]"
     echo ""
     echo "Example:"
-    echo "  $0 meropass.wasm network.calimero.meropass \"MeroPass\" 0.2.0 \"password.vault@1\" \"\""
+    echo "  $0 meropass.wasm network.calimero.meropass \"MeroPass\" 0.2.0 '[\"password.vault@1\",\"secret.manager@1\"]' '[]'"
     exit 1
 fi
 
