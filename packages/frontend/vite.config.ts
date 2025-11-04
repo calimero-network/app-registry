@@ -15,11 +15,12 @@ export default defineConfig({
     include: ['@calimero-network/mero-icons'],
   },
   server: {
-    port: 3000,
+    port: parseInt(process.env.VITE_PORT || '3000'),
     proxy: {
       '/api': {
-        target: 'http://localhost:8080',
+        target: process.env.VITE_API_PROXY || 'http://localhost:8080',
         changeOrigin: true,
+        rewrite: path => path.replace(/^\/api/, ''),
       },
     },
   },
