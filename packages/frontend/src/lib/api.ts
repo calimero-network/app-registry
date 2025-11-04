@@ -38,9 +38,9 @@ export const getApps = async (params?: {
 };
 
 export const getAppVersions = async (appId: string): Promise<VersionInfo[]> => {
-  // Use query parameter workaround for Vercel dynamic routes
-  const response = await api.get('/appversions', {
-    params: { id: appId },
+  // Use existing /apps endpoint with query parameters
+  const response = await api.get('/apps', {
+    params: { id: appId, versions: 'true' },
   });
   // Transform V1 API response to frontend format
   const versions = response.data.versions || [];
@@ -55,8 +55,8 @@ export const getAppManifest = async (
   appId: string,
   semver: string
 ): Promise<AppManifest> => {
-  // Use query parameter workaround for Vercel dynamic routes
-  const response = await api.get('/appmanifest', {
+  // Use existing /apps endpoint with query parameters
+  const response = await api.get('/apps', {
     params: { id: appId, version: semver },
   });
   const manifest = response.data;

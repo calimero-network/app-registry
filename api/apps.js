@@ -22,13 +22,49 @@ module.exports = async (req, res) => {
   }
 
   try {
-    const { page = 1, limit = 20, dev = '', name = '' } = req.query;
+    const {
+      page = 1,
+      limit = 20,
+      dev = '',
+      name = '',
+      id = '',
+      version = '',
+      versions = '',
+    } = req.query;
 
+    const store = getStorage();
+
+    // Handle version query: /api/apps?id=xxx&versions=true
+    if (id && versions === 'true') {
+      const appVersions = await store.getAppVersions(id);
+      if (appVersions.length === 0) {
+        return res.status(404).json({
+          error: 'app_not_found',
+          details: `App ${id} not found`,
+        });
+      }
+      return res.status(200).json({
+        id,
+        versions: appVersions,
+      });
+    }
+
+    // Handle manifest query: /api/apps?id=xxx&version=yyy
+    if (id && version) {
+      const manifest = await store.getManifest(id, version);
+      if (!manifest) {
+        return res.status(404).json({
+          error: 'manifest_not_found',
+          details: `Manifest ${id}@${version} not found`,
+        });
+      }
+      return res.status(200).json(manifest);
+    }
+
+    // Default: list all apps
     const pageNum = parseInt(page, 10);
     const limitNum = Math.min(parseInt(limit, 10), 100);
     const offset = (pageNum - 1) * limitNum;
-
-    const store = getStorage();
     const allManifests = await store.getAllManifests();
 
     // Filter by developer and name
