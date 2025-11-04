@@ -44,11 +44,33 @@ export const getAppVersions = async (appId: string): Promise<VersionInfo[]> => {
   });
   // Transform V1 API response to frontend format
   const versions = response.data.versions || [];
-  return versions.map((version: string) => ({
-    semver: version,
-    cid: `ipfs://${appId}@${version}`, // Mock CID for development
-    yanked: false,
-  }));
+
+  // Fetch artifact URIs for each version
+  const versionsWithArtifacts = await Promise.all(
+    versions.map(async (version: string) => {
+      try {
+        const manifestResponse = await api.get('/apps', {
+          params: { id: appId, version },
+        });
+        const artifactUri =
+          manifestResponse.data?.artifact?.uri || `${appId}@${version}`;
+        return {
+          semver: version,
+          cid: artifactUri, // Real artifact URI from manifest
+          yanked: false,
+        };
+      } catch {
+        // Fallback if manifest fetch fails
+        return {
+          semver: version,
+          cid: `${appId}@${version}`,
+          yanked: false,
+        };
+      }
+    })
+  );
+
+  return versionsWithArtifacts;
 };
 
 export const getAppManifest = async (
