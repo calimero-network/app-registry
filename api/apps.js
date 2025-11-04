@@ -23,28 +23,29 @@ module.exports = async (req, res) => {
 
   try {
     const { page = 1, limit = 20, dev = '', name = '' } = req.query;
-    
+
     const pageNum = parseInt(page, 10);
     const limitNum = Math.min(parseInt(limit, 10), 100);
     const offset = (pageNum - 1) * limitNum;
 
     const store = getStorage();
     const allManifests = await store.getAllManifests();
-    
+
     // Filter by developer and name
     let filteredManifests = allManifests;
-    
+
     if (dev) {
       filteredManifests = filteredManifests.filter(
         m => m.developer && m.developer.pubkey === dev
       );
     }
-    
+
     if (name) {
       const nameLower = name.toLowerCase();
       filteredManifests = filteredManifests.filter(
-        m => m.name.toLowerCase().includes(nameLower) || 
-             m.id.toLowerCase().includes(nameLower)
+        m =>
+          m.name.toLowerCase().includes(nameLower) ||
+          m.id.toLowerCase().includes(nameLower)
       );
     }
 
@@ -91,4 +92,3 @@ module.exports = async (req, res) => {
     });
   }
 };
-

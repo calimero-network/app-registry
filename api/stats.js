@@ -20,7 +20,7 @@ module.exports = async (req, res) => {
     const store = getStorage();
     const apps = await store.getApps();
     const manifests = await store.getAllManifests();
-    
+
     // Count unique developers
     const developers = new Set();
     manifests.forEach(m => {
@@ -28,7 +28,7 @@ module.exports = async (req, res) => {
         developers.add(m.signature.pubkey);
       }
     });
-    
+
     return res.status(200).json({
       publishedApps: apps.length,
       activeDevelopers: developers.size,
@@ -45,4 +45,3 @@ module.exports = async (req, res) => {
     });
   }
 };
-

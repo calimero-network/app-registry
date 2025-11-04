@@ -3,7 +3,9 @@
  * GET /api/v1/apps/:id
  */
 
-const { V1StorageKV } = require('../../../packages/backend/src/lib/v1-storage-kv');
+const {
+  V1StorageKV,
+} = require('../../../packages/backend/src/lib/v1-storage-kv');
 
 // Singleton storage instance
 let storage;
@@ -32,7 +34,7 @@ module.exports = async (req, res) => {
 
     const store = getStorage();
     const versions = await store.getAppVersions(id);
-    
+
     if (versions.length === 0) {
       return res.status(404).json({
         error: 'app_not_found',
@@ -52,4 +54,3 @@ module.exports = async (req, res) => {
     });
   }
 };
-

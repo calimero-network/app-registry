@@ -3,9 +3,13 @@
  * POST /api/v1/apps
  */
 
-const { V1StorageKV } = require('../../../packages/backend/src/lib/v1-storage-kv');
+const {
+  V1StorageKV,
+} = require('../../../packages/backend/src/lib/v1-storage-kv');
 const { V1Utils } = require('../../../packages/backend/src/lib/v1-utils');
-const { v1ManifestSchema } = require('../../../packages/backend/src/schemas/v1-manifest');
+const {
+  v1ManifestSchema,
+} = require('../../../packages/backend/src/schemas/v1-manifest');
 const Ajv = require('ajv');
 const addFormats = require('ajv-formats');
 
@@ -25,7 +29,7 @@ function init() {
 
 module.exports = async (req, res) => {
   init();
-  
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -38,7 +42,9 @@ module.exports = async (req, res) => {
     if (!valid) {
       return res.status(400).json({
         error: 'invalid_schema',
-        details: validateManifest.errors.map(e => `${e.instancePath} ${e.message}`),
+        details: validateManifest.errors.map(
+          e => `${e.instancePath} ${e.message}`
+        ),
       });
     }
 
@@ -103,4 +109,3 @@ module.exports = async (req, res) => {
     });
   }
 };
-

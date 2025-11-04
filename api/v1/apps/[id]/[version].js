@@ -3,7 +3,9 @@
  * GET /api/v1/apps/:id/:version
  */
 
-const { V1StorageKV } = require('../../../../packages/backend/src/lib/v1-storage-kv');
+const {
+  V1StorageKV,
+} = require('../../../../packages/backend/src/lib/v1-storage-kv');
 
 // Singleton storage instance
 let storage;
@@ -32,7 +34,7 @@ module.exports = async (req, res) => {
 
     const store = getStorage();
     const manifest = await store.getManifest(id, version);
-    
+
     if (!manifest) {
       return res.status(404).json({
         error: 'manifest_not_found',
@@ -43,7 +45,10 @@ module.exports = async (req, res) => {
     // Check if canonical JCS is requested
     const { canonical } = req.query;
     if (canonical === 'true') {
-      const manifestWithCanonical = await store.getManifestWithCanonical(id, version);
+      const manifestWithCanonical = await store.getManifestWithCanonical(
+        id,
+        version
+      );
       return res.status(200).json(manifestWithCanonical);
     }
 
@@ -56,4 +61,3 @@ module.exports = async (req, res) => {
     });
   }
 };
-
