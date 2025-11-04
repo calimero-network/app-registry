@@ -77,18 +77,15 @@ describe('V1 Performance Optimizations', () => {
       }
 
       // First search (cache miss)
-      const start1 = Date.now();
       const results1 = storage.searchManifests('app1');
-      const duration1 = Date.now() - start1;
 
       // Second search (cache hit)
-      const start2 = Date.now();
       const results2 = storage.searchManifests('app1');
-      const duration2 = Date.now() - start2;
 
-      // Cache hit should be faster or equal (both might be very fast)
-      expect(duration2).toBeLessThanOrEqual(duration1);
+      // Verify results are the same (cache hit)
       expect(results1).toEqual(results2);
+      // Note: We don't check timing here as it's too variable in CI (both can be 0-1ms)
+      // Instead, we verify cache metrics below
 
       // Verify cache metrics
       const metrics = storage.getMetrics();
