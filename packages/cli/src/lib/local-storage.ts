@@ -166,7 +166,7 @@ export class LocalDataStore {
         const semver = key.split('/').pop()!;
         versions.push({
           semver,
-          cid: manifest.artifacts[0]?.cid || '',
+          cid: manifest.artifact?.digest || '', // v1 format uses 'artifact' (singular)
           yanked: false, // TODO: Implement yanking
         });
       }

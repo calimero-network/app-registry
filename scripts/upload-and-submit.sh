@@ -21,7 +21,7 @@ APP_NAME="$3"
 NEW_VERSION="$4"
 PROVIDES="${5:-[]}"
 REQUIRES="${6:-[]}"
-REGISTRY_URL="${REGISTRY_URL:-https://mero-registry.vercel.app}"
+REGISTRY_URL="${REGISTRY_URL:-https://apps.calimero.network}"
 
 echo "🚀 Complete Version Submission Flow"
 echo "======================================"

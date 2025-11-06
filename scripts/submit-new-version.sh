@@ -18,7 +18,7 @@ fi
 WASM_FILE="$1"
 APP_ID="$2"
 NEW_VERSION="$3"
-REGISTRY_URL="${REGISTRY_URL:-https://mero-registry.vercel.app}"
+REGISTRY_URL="${REGISTRY_URL:-https://apps.calimero.network}"
 
 echo "🔍 Verifying WASM file..."
 if [ ! -f "$WASM_FILE" ]; then
