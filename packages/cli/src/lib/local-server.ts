@@ -170,7 +170,9 @@ export class LocalRegistryServer {
 
     this.server.get('/apps/:appId', async request => {
       const { appId } = request.params as { appId: string };
-      const versions = this.dataStore.getAppVersions(appId);
+      const versionObjects = this.dataStore.getAppVersions(appId);
+      // Convert to simple string array to match Vercel format
+      const versions = versionObjects.map(v => v.semver);
       return {
         id: appId,
         versions: versions,
