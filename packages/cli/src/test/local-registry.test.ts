@@ -98,7 +98,7 @@ describe('Local Registry', () => {
       const apps = dataStore.getApps();
 
       expect(apps.length).toBeGreaterThan(0);
-      expect(apps[0].name).toBe('sample-wallet');
+      expect(apps[0].name).toBe('Sample Wallet');
     });
   });
 

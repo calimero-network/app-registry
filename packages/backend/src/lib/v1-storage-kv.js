@@ -64,10 +64,51 @@ class V1StorageKV {
   }
 
   /**
+   * Store a V2 Bundle Manifest
+   */
+  async storeBundleManifest(manifest) {
+    const key = `${manifest.package}/${manifest.appVersion}`;
+    const manifestData = {
+      json: manifest,
+      created_at: new Date().toISOString(),
+    };
+
+    // 1. Store manifest
+    await kv.set(`bundle:${key}`, JSON.stringify(manifestData));
+
+    // 2. Index interfaces (exports)
+    if (manifest.interfaces && manifest.interfaces.exports) {
+      for (const iface of manifest.interfaces.exports) {
+        await kv.sAdd(`provides:${iface}`, key);
+      }
+    }
+
+    // 3. Track bundle versions (can share same keys or distinct?)
+    // For now, keep separate to avoid collision with V1 apps
+    await kv.sAdd(`bundle-versions:${manifest.package}`, manifest.appVersion);
+
+    // 4. Global bundles list
+    await kv.sAdd('bundles:all', manifest.package);
+
+    return manifestData;
+  }
+
+  /**
    * Get manifest by id and version
    */
   async getManifest(id, version) {
     const key = `manifest:${id}/${version}`;
+    const data = await kv.get(key);
+    if (!data) return null;
+    const parsed = JSON.parse(data);
+    return parsed.json;
+  }
+
+  /**
+   * Get V2 Bundle Manifest by package and version
+   */
+  async getBundleManifest(pkg, version) {
+    const key = `bundle:${pkg}/${version}`;
     const data = await kv.get(key);
     if (!data) return null;
     const parsed = JSON.parse(data);

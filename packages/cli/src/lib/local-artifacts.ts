@@ -3,7 +3,7 @@ import path from 'path';
 import crypto from 'crypto';
 import { Buffer } from 'buffer';
 import { LocalConfig } from './local-config.js';
-import { LocalDataStore } from './local-storage.js';
+import { LocalDataStore, V1Manifest } from './local-storage.js';
 
 export class LocalArtifactServer {
   private config: LocalConfig;
@@ -103,65 +103,38 @@ export class LocalArtifactServer {
 
   // Get artifact URL for local serving
   getArtifactUrl(appId: string, version: string, filename: string): string {
-    const baseUrl = `http://${this.config.getHost()}:${this.config.getPort()}`;
+    const baseUrl = `http://${this.config.getPublicHost()}:${this.config.getPort()}`;
     return `${baseUrl}/artifacts/${appId}/${version}/${filename}`;
   }
 
   // Get artifact URL by hash
   getArtifactUrlByHash(hash: string): string {
-    const baseUrl = `http://${this.config.getHost()}:${this.config.getPort()}`;
+    const baseUrl = `http://${this.config.getPublicHost()}:${this.config.getPort()}`;
     return `${baseUrl}/artifacts/${hash}`;
   }
 
-  // Update manifest artifacts to use local URLs
-  updateManifestArtifacts(manifest: {
-    artifacts?: Array<{
-      path?: string;
-      type: string;
-      target: string;
-      size: number;
-      sha256: string;
-    }>;
-  }): {
-    artifacts?: Array<{
-      path?: string;
-      type: string;
-      target: string;
-      size: number;
-      sha256: string;
-    }>;
-  } {
-    const updatedManifest = { ...manifest };
+  // Update manifest artifact to use local URLs (and preserve HTTP access)
+  updateManifestArtifact(manifest: V1Manifest): V1Manifest {
+    const updatedManifest: V1Manifest = { ...manifest };
 
-    if (updatedManifest.artifacts) {
-      updatedManifest.artifacts = updatedManifest.artifacts.map(
-        (artifact: {
-          path?: string;
-          type: string;
-          target: string;
-          size: number;
-          sha256: string;
-        }) => {
-          const updatedArtifact = { ...artifact };
+    if (!manifest.artifact?.uri) {
+      return updatedManifest;
+    }
 
-          // If artifact has a local path, update it to use local URL
-          if (artifact.path) {
-            const filename = path.basename(artifact.path);
-            updatedArtifact.mirrors = [
-              this.getArtifactUrl(
-                manifest.app.id ||
-                  manifest.app.name?.replace(/\s+/g, '-').toLowerCase(),
-                manifest.version.semver,
-                filename
-              ),
-            ];
-            // Remove local path for production compatibility
-            delete updatedArtifact.path;
-          }
+    const uri = manifest.artifact.uri;
 
-          return updatedArtifact;
-        }
-      );
+    if (uri.startsWith('/')) {
+      updatedManifest.artifact = {
+        ...manifest.artifact,
+        uri: `${this.getArtifactUrl(manifest.id, manifest.version, path.basename(manifest.artifact.uri))}`,
+      };
+    } else if (uri.startsWith('file://')) {
+      const filePath = uri.replace('file://', '');
+      const filename = path.basename(filePath);
+      updatedManifest.artifact = {
+        ...manifest.artifact,
+        uri: this.getArtifactUrl(manifest.id, manifest.version, filename),
+      };
     }
 
     return updatedManifest;
