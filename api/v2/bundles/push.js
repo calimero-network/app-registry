@@ -278,20 +278,7 @@ const handler = async (req, res) => {
       });
     }
 
-    // 2. Check if bundle already exists (first-come-first-serve)
-    const existing = await store.getBundleManifest(
-      bundleManifest.package,
-      bundleManifest.appVersion
-    );
-
-    if (existing) {
-      return res.status(409).json({
-        error: 'bundle_exists',
-        message: `Bundle ${bundleManifest.package}@${bundleManifest.appVersion} already exists. First-come-first-serve policy.`,
-      });
-    }
-
-    // 3. Verify signature (if present)
+    // 2. Verify signature (if present) - do this before atomic storage
     const signatureResult = await verifyBundleSignature(bundleManifest);
     if (!signatureResult.valid) {
       return res.status(400).json({
@@ -301,8 +288,25 @@ const handler = async (req, res) => {
       });
     }
 
-    // 4. Store bundle manifest
-    await store.storeBundleManifest(bundleManifest);
+    // 3. Atomic store bundle manifest (prevents race conditions)
+    // storeBundleManifest uses SETNX internally for atomic check-and-set
+    try {
+      await store.storeBundleManifest(bundleManifest);
+    } catch (error) {
+      // Check if error is due to bundle already existing
+      if (
+        error.message &&
+        error.message.includes('already exists') &&
+        error.message.includes('First-come-first-serve')
+      ) {
+        return res.status(409).json({
+          error: 'bundle_exists',
+          message: `Bundle ${bundleManifest.package}@${bundleManifest.appVersion} already exists. First-come-first-serve policy.`,
+        });
+      }
+      // Re-throw other errors
+      throw error;
+    }
 
     // 5. Return success
     return res.status(201).json({

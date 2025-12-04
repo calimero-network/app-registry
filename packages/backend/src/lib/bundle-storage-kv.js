@@ -14,6 +14,8 @@ class BundleStorageKV {
 
   /**
    * Store a V2 Bundle Manifest
+   * Uses atomic SETNX to prevent race conditions
+   * @throws {Error} If bundle already exists (first-come-first-serve)
    */
   async storeBundleManifest(manifest) {
     const key = `${manifest.package}/${manifest.appVersion}`;
@@ -44,8 +46,16 @@ class BundleStorageKV {
       }
     }
 
-    // 1. Store manifest (only after validation)
-    await kv.set(`bundle:${key}`, JSON.stringify(manifestData));
+    // 1. Atomic check-and-set: Store manifest only if it doesn't exist
+    const bundleKey = `bundle:${key}`;
+    const wasSet = await kv.setNX(bundleKey, JSON.stringify(manifestData));
+
+    if (wasSet === 0) {
+      // Key already exists - first-come-first-serve policy
+      throw new Error(
+        `Bundle ${manifest.package}@${manifest.appVersion} already exists. First-come-first-serve policy.`
+      );
+    }
 
     // 2. Index interfaces (exports) - safe to iterate after validation
     if (

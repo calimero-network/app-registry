@@ -20,6 +20,13 @@ jest.mock('../src/lib/kv-client', () => ({
     get: jest.fn(async key => {
       return mockKVData.get(key) || null;
     }),
+    setNX: jest.fn(async (key, value) => {
+      if (mockKVData.has(key)) {
+        return 0; // Key already exists
+      }
+      mockKVData.set(key, value);
+      return 1; // Key was set
+    }),
     sAdd: jest.fn(async (key, value) => {
       if (!mockKVSets.has(key)) {
         mockKVSets.set(key, new Set());
@@ -64,7 +71,7 @@ describe('Bundle Storage Validation', () => {
       );
 
       // Verify manifest was NOT stored
-      expect(kv.set).not.toHaveBeenCalled();
+      expect(kv.setNX).not.toHaveBeenCalled();
     });
 
     test('should reject non-array interfaces.uses', async () => {
@@ -84,7 +91,7 @@ describe('Bundle Storage Validation', () => {
       );
 
       // Verify manifest was NOT stored
-      expect(kv.set).not.toHaveBeenCalled();
+      expect(kv.setNX).not.toHaveBeenCalled();
     });
 
     test('should accept null interfaces.exports', async () => {
@@ -102,8 +109,8 @@ describe('Bundle Storage Validation', () => {
 
       await storage.storeBundleManifest(bundle);
 
-      // Verify manifest was stored
-      expect(kv.set).toHaveBeenCalled();
+      // Verify manifest was stored using atomic setNX
+      expect(kv.setNX).toHaveBeenCalled();
     });
 
     test('should accept undefined interfaces field', async () => {
@@ -118,8 +125,8 @@ describe('Bundle Storage Validation', () => {
 
       await storage.storeBundleManifest(bundle);
 
-      // Verify manifest was stored
-      expect(kv.set).toHaveBeenCalled();
+      // Verify manifest was stored using atomic setNX
+      expect(kv.setNX).toHaveBeenCalled();
     });
 
     test('should skip invalid interface names in exports', async () => {
@@ -169,8 +176,8 @@ describe('Bundle Storage Validation', () => {
 
       await storage.storeBundleManifest(bundle);
 
-      // Verify manifest was stored
-      expect(kv.set).toHaveBeenCalled();
+      // Verify manifest was stored using atomic setNX
+      expect(kv.setNX).toHaveBeenCalled();
 
       // Verify no interface indexing calls (empty arrays)
       const calls = kv.sAdd.mock.calls;
