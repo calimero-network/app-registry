@@ -176,7 +176,10 @@ function validateBundleManifest(bundle) {
 
   // Validate interfaces field structure (if present)
   if (bundle.interfaces !== undefined && bundle.interfaces !== null) {
-    if (typeof bundle.interfaces !== 'object' || Array.isArray(bundle.interfaces)) {
+    if (
+      typeof bundle.interfaces !== 'object' ||
+      Array.isArray(bundle.interfaces)
+    ) {
       errors.push(
         'Invalid interfaces field. Must be an object with optional exports and uses arrays'
       );
@@ -318,7 +321,7 @@ const handler = async (req, res) => {
     return res.status(500).json({
       error: 'internal_server_error',
       message: error.message || 'Failed to push bundle',
-      });
+    });
   }
 };
 
