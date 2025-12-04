@@ -15,9 +15,7 @@
  * 3. First-come-first-serve (package@version must not exist)
  */
 
-const {
-  BundleStorageKV,
-} = require('../../packages/backend/src/lib/bundle-storage-kv');
+const { BundleStorageKV } = require('../packages/backend/src/lib/bundle-storage-kv');
 
 // Dynamic import for Ed25519
 let ed25519;
