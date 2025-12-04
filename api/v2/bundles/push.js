@@ -262,7 +262,8 @@ const handler = async (req, res) => {
     if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
       return res.status(400).json({
         error: 'invalid_request',
-        message: 'Request body must be a JSON object (bundle manifest), not an array',
+        message:
+          'Request body must be a JSON object (bundle manifest), not an array',
       });
     }
 
