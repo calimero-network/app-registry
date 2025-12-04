@@ -23,14 +23,44 @@ const {
 let ed25519;
 
 /**
- * Canonicalize JSON for signing (sort keys, remove signature)
+ * Recursively sort object keys for canonicalization
+ * Exported for testing
+ */
+function sortKeysRecursively(obj) {
+  if (obj === null || typeof obj !== 'object') {
+    return obj;
+  }
+
+  if (Array.isArray(obj)) {
+    return obj.map(item => sortKeysRecursively(item));
+  }
+
+  const sorted = {};
+  const keys = Object.keys(obj).sort();
+  for (const key of keys) {
+    const value = obj[key];
+    if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+      sorted[key] = sortKeysRecursively(value);
+    } else if (Array.isArray(value)) {
+      sorted[key] = value.map(item => sortKeysRecursively(item));
+    } else {
+      sorted[key] = value;
+    }
+  }
+  return sorted;
+}
+
+/**
+ * Canonicalize JSON for signing (sort keys recursively, remove signature)
+ * Exported for testing
  */
 function canonicalizeBundle(bundle) {
   // Remove signature for canonicalization
   // eslint-disable-next-line no-unused-vars
   const { signature, ...canonicalObj } = bundle;
   // Sort keys recursively
-  return JSON.stringify(canonicalObj, Object.keys(canonicalObj).sort());
+  const sorted = sortKeysRecursively(canonicalObj);
+  return JSON.stringify(sorted);
 }
 
 /**
@@ -144,13 +174,72 @@ function validateBundleManifest(bundle) {
     );
   }
 
+  // Validate interfaces field structure (if present)
+  if (bundle.interfaces !== undefined && bundle.interfaces !== null) {
+    if (typeof bundle.interfaces !== 'object' || Array.isArray(bundle.interfaces)) {
+      errors.push(
+        'Invalid interfaces field. Must be an object with optional exports and uses arrays'
+      );
+    } else {
+      // Validate exports array
+      if (
+        bundle.interfaces.exports !== undefined &&
+        bundle.interfaces.exports !== null &&
+        !Array.isArray(bundle.interfaces.exports)
+      ) {
+        errors.push(
+          'Invalid interfaces.exports. Must be an array of interface names'
+        );
+      }
+
+      // Validate uses array
+      if (
+        bundle.interfaces.uses !== undefined &&
+        bundle.interfaces.uses !== null &&
+        !Array.isArray(bundle.interfaces.uses)
+      ) {
+        errors.push(
+          'Invalid interfaces.uses. Must be an array of interface names'
+        );
+      }
+
+      // Validate interface names are strings
+      if (Array.isArray(bundle.interfaces.exports)) {
+        for (const iface of bundle.interfaces.exports) {
+          if (typeof iface !== 'string' || iface.trim().length === 0) {
+            errors.push(
+              'Invalid interface name in exports. Must be a non-empty string'
+            );
+            break;
+          }
+        }
+      }
+
+      if (Array.isArray(bundle.interfaces.uses)) {
+        for (const iface of bundle.interfaces.uses) {
+          if (typeof iface !== 'string' || iface.trim().length === 0) {
+            errors.push(
+              'Invalid interface name in uses. Must be a non-empty string'
+            );
+            break;
+          }
+        }
+      }
+    }
+  }
+
   return {
     valid: errors.length === 0,
     errors,
   };
 }
 
-module.exports = async (req, res) => {
+// Export functions for testing
+module.exports.canonicalizeBundle = canonicalizeBundle;
+module.exports.sortKeysRecursively = sortKeysRecursively;
+
+// Export the main handler
+const handler = async (req, res) => {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -229,6 +318,8 @@ module.exports = async (req, res) => {
     return res.status(500).json({
       error: 'internal_server_error',
       message: error.message || 'Failed to push bundle',
-    });
+      });
   }
 };
+
+module.exports = handler;

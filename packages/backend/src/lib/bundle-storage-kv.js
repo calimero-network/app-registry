@@ -5,6 +5,7 @@
  */
 
 const { kv } = require('./kv-client');
+const semver = require('semver');
 
 class BundleStorageKV {
   constructor() {
@@ -21,20 +22,54 @@ class BundleStorageKV {
       created_at: new Date().toISOString(),
     };
 
-    // 1. Store manifest
-    await kv.set(`bundle:${key}`, JSON.stringify(manifestData));
-
-    // 2. Index interfaces (exports)
-    if (manifest.interfaces && manifest.interfaces.exports) {
-      for (const iface of manifest.interfaces.exports) {
-        await kv.sAdd(`provides:${iface}`, key);
+    // Validate interfaces structure before storage to prevent partial writes
+    if (manifest.interfaces) {
+      if (
+        manifest.interfaces.exports !== undefined &&
+        manifest.interfaces.exports !== null &&
+        !Array.isArray(manifest.interfaces.exports)
+      ) {
+        throw new Error(
+          'Invalid interfaces.exports: must be an array or undefined/null'
+        );
+      }
+      if (
+        manifest.interfaces.uses !== undefined &&
+        manifest.interfaces.uses !== null &&
+        !Array.isArray(manifest.interfaces.uses)
+      ) {
+        throw new Error(
+          'Invalid interfaces.uses: must be an array or undefined/null'
+        );
       }
     }
 
-    // 3. Index interfaces (uses)
-    if (manifest.interfaces && manifest.interfaces.uses) {
+    // 1. Store manifest (only after validation)
+    await kv.set(`bundle:${key}`, JSON.stringify(manifestData));
+
+    // 2. Index interfaces (exports) - safe to iterate after validation
+    if (
+      manifest.interfaces &&
+      Array.isArray(manifest.interfaces.exports) &&
+      manifest.interfaces.exports.length > 0
+    ) {
+      for (const iface of manifest.interfaces.exports) {
+        if (typeof iface === 'string' && iface.trim().length > 0) {
+          await kv.sAdd(`provides:${iface}`, key);
+        }
+      }
+    }
+
+    // 3. Index interfaces (uses) - safe to iterate after validation
+    if (
+      manifest.interfaces &&
+      Array.isArray(manifest.interfaces.uses) &&
+      manifest.interfaces.uses.length > 0
+    ) {
       for (const iface of manifest.interfaces.uses) {
-        await kv.sAdd(`uses:${iface}`, key);
+        if (typeof iface === 'string' && iface.trim().length > 0) {
+          await kv.sAdd(`uses:${iface}`, key);
+        }
       }
     }
 
@@ -60,19 +95,26 @@ class BundleStorageKV {
 
   /**
    * Get all versions for a bundle package
+   * Returns versions sorted in descending order (newest first)
    */
   async getBundleVersions(pkg) {
     const versions = await kv.sMembers(`bundle-versions:${pkg}`);
     return versions.sort((a, b) => {
-      // Simple semver-like sorting (can be improved)
-      const aParts = a.split('.').map(Number);
-      const bParts = b.split('.').map(Number);
-      for (let i = 0; i < Math.max(aParts.length, bParts.length); i++) {
-        const aVal = aParts[i] || 0;
-        const bVal = bParts[i] || 0;
-        if (aVal !== bVal) return bVal - aVal;
+      // Use semver for proper version comparison (handles pre-release, build metadata, etc.)
+      const aValid = semver.valid(a);
+      const bValid = semver.valid(b);
+
+      // If both are valid semver, use semver comparison
+      if (aValid && bValid) {
+        return semver.rcompare(aValid, bValid); // Reverse compare for descending order
       }
-      return 0;
+
+      // If only one is valid, prefer the valid one
+      if (aValid && !bValid) return -1;
+      if (!aValid && bValid) return 1;
+
+      // If neither is valid, fall back to string comparison
+      return b.localeCompare(a, undefined, { numeric: true });
     });
   }
 

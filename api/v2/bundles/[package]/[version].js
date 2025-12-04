@@ -6,7 +6,7 @@
 
 const {
   BundleStorageKV,
-} = require('../../../packages/backend/src/lib/bundle-storage-kv');
+} = require('../../../../packages/backend/src/lib/bundle-storage-kv');
 
 // Singleton storage instance
 let storage;
