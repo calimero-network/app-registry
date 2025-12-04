@@ -5,7 +5,7 @@
  */
 
 // Import from the API endpoint file
-const { canonicalizeBundle } = require('../../api/v2/bundles/push');
+const { canonicalizeBundle } = require('../../../api/v2/bundles/push');
 
 describe('Canonicalization', () => {
   test('should recursively sort nested object keys', () => {
