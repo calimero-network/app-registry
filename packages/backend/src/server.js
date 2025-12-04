@@ -5,11 +5,6 @@ const swaggerUi = require('@fastify/swagger-ui');
 const path = require('path');
 const fs = require('fs');
 
-// Import V1 routes
-const { V1Routes } = require('./routes/v1');
-
-// V1 API - No global data store needed
-
 // Import config
 const config = require('./config');
 
@@ -50,18 +45,13 @@ async function buildServer() {
 
   // Statistics endpoint
   server.get('/stats', async (_request, _reply) => {
-    // V1 statistics - simplified for now
     return {
-      publishedApps: 0,
+      publishedBundles: 0,
       activeDevelopers: 0,
       totalDownloads: 0,
-      message: 'V1 API - Statistics endpoint coming soon',
+      message: 'V2 Bundle API - Statistics endpoint',
     };
   });
-
-  // Register V1 routes only
-  const v1Routes = new V1Routes();
-  v1Routes.registerRoutes(server);
 
   return server;
 }

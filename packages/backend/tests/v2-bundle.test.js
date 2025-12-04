@@ -4,7 +4,7 @@
  * Tests the V2 bundle manifest storage logic.
  */
 
-const { V1StorageKV } = require('../src/lib/v1-storage-kv');
+const { BundleStorageKV } = require('../src/lib/bundle-storage-kv');
 
 // Mock KV Client
 jest.mock('../src/lib/kv-client', () => ({
@@ -25,7 +25,7 @@ describe('V2 Bundle Manifest Storage', () => {
   let storage;
 
   beforeEach(() => {
-    storage = new V1StorageKV();
+    storage = new BundleStorageKV();
     jest.clearAllMocks();
   });
 

@@ -18,32 +18,6 @@ export interface VersionInfo {
   yanked: boolean;
 }
 
-export interface V1Artifact {
-  type: string;
-  target: string;
-  digest: string;
-  uri: string;
-}
-
-export interface V1Manifest {
-  manifest_version: string;
-  id: string;
-  name: string;
-  version: string;
-  chains: string[];
-  artifact: V1Artifact;
-  provides?: string[];
-  requires?: string[];
-  dependencies?: Array<{ id: string; range: string }>;
-  metadata?: Record<string, unknown>;
-  signature?: {
-    alg: string;
-    sig: string;
-    signed_at: string;
-    pubkey?: string;
-  };
-}
-
 // --- V2 / Bundle Manifest Support ---
 
 export interface BundleArtifact {
@@ -96,7 +70,6 @@ export interface BundleManifest {
 
 export interface LocalRegistryData {
   apps: Map<string, AppSummary>;
-  manifests: Map<string, V1Manifest>;
   bundleManifests: Map<string, BundleManifest>; // Key: "package/version"
   artifacts: Map<string, string>; // digest -> file path
 }
@@ -105,14 +78,12 @@ export class LocalDataStore {
   private config: LocalConfig;
   private data: LocalRegistryData;
   private appsFile: string;
-  private manifestsFile: string;
   private bundleManifestsFile: string;
   private artifactsFile: string;
 
   constructor(config: LocalConfig) {
     this.config = config;
     this.appsFile = path.join(config.getDataDir(), 'apps.json');
-    this.manifestsFile = path.join(config.getDataDir(), 'manifests.json');
     this.bundleManifestsFile = path.join(
       config.getDataDir(),
       'bundle_manifests.json'
@@ -120,7 +91,6 @@ export class LocalDataStore {
     this.artifactsFile = path.join(config.getDataDir(), 'artifacts.json');
     this.data = {
       apps: new Map(),
-      manifests: new Map(),
       bundleManifests: new Map(),
       artifacts: new Map(),
     };
@@ -133,14 +103,6 @@ export class LocalDataStore {
       if (fs.existsSync(this.appsFile)) {
         const appsData = JSON.parse(fs.readFileSync(this.appsFile, 'utf8'));
         this.data.apps = new Map(Object.entries(appsData));
-      }
-
-      // Load manifests
-      if (fs.existsSync(this.manifestsFile)) {
-        const manifestsData = JSON.parse(
-          fs.readFileSync(this.manifestsFile, 'utf8')
-        );
-        this.data.manifests = new Map(Object.entries(manifestsData));
       }
 
       // Load bundle manifests
@@ -173,13 +135,6 @@ export class LocalDataStore {
       // Save apps
       const appsObj = Object.fromEntries(this.data.apps);
       fs.writeFileSync(this.appsFile, JSON.stringify(appsObj, null, 2));
-
-      // Save manifests
-      const manifestsObj = Object.fromEntries(this.data.manifests);
-      fs.writeFileSync(
-        this.manifestsFile,
-        JSON.stringify(manifestsObj, null, 2)
-      );
 
       // Save bundle manifests
       const bundleManifestsObj = Object.fromEntries(this.data.bundleManifests);
@@ -227,52 +182,27 @@ export class LocalDataStore {
     this.saveData();
   }
 
-  // Versions management
-  getAppVersions(appId: string): VersionInfo[] {
+  // Versions management (bundles only)
+  getAppVersions(packageId: string): VersionInfo[] {
     const versions: VersionInfo[] = [];
 
-    for (const [key, manifest] of this.data.manifests.entries()) {
-      if (key.startsWith(`${appId}/`)) {
+    // Get bundle versions
+    for (const [key, manifest] of this.data.bundleManifests.entries()) {
+      if (key.startsWith(`${packageId}/`)) {
         const semver = key.split('/').pop()!;
+        const digest = manifest.wasm?.hash || '';
         versions.push({
           semver,
-          digest: manifest.artifact.digest,
-          cid: manifest.artifact.digest, // Compatibility
+          digest,
+          cid: digest, // Compatibility
           yanked: false,
         });
-      }
-    }
-
-    // Add bundle versions
-    for (const [key, manifest] of this.data.bundleManifests.entries()) {
-      if (key.startsWith(`${appId}/`)) {
-        const semver = key.split('/').pop()!;
-        if (!versions.some(v => v.semver === semver)) {
-          const digest = manifest.wasm?.hash || '';
-          versions.push({
-            semver,
-            digest,
-            cid: digest, // Compatibility
-            yanked: false,
-          });
-        }
       }
     }
 
     return versions.sort((a, b) =>
       a.semver.localeCompare(b.semver, undefined, { numeric: true })
     );
-  }
-
-  // Manifest management (V1)
-  getManifest(appId: string, semver: string): V1Manifest | undefined {
-    const manifestKey = `${appId}/${semver}`;
-    return this.data.manifests.get(manifestKey);
-  }
-
-  setManifest(manifestKey: string, manifest: V1Manifest): void {
-    this.data.manifests.set(manifestKey, manifest);
-    this.saveData();
   }
 
   // Manifest management (V2 / Bundles)
@@ -305,7 +235,7 @@ export class LocalDataStore {
   getStats() {
     return {
       publishedApps: this.data.apps.size,
-      totalVersions: this.data.manifests.size + this.data.bundleManifests.size,
+      totalVersions: this.data.bundleManifests.size,
       totalArtifacts: this.data.artifacts.size,
     };
   }
@@ -330,7 +260,6 @@ export class LocalDataStore {
     const backupData = {
       timestamp: new Date().toISOString(),
       apps: Object.fromEntries(this.data.apps),
-      manifests: Object.fromEntries(this.data.manifests),
       bundleManifests: Object.fromEntries(this.data.bundleManifests),
       artifacts: Object.fromEntries(this.data.artifacts),
     };
@@ -348,7 +277,6 @@ export class LocalDataStore {
 
     // Restore data
     this.data.apps = new Map(Object.entries(backupData.apps || {}));
-    this.data.manifests = new Map(Object.entries(backupData.manifests || {}));
     this.data.bundleManifests = new Map(
       Object.entries(backupData.bundleManifests || {})
     );
@@ -360,7 +288,6 @@ export class LocalDataStore {
   // Reset data
   reset(): void {
     this.data.apps.clear();
-    this.data.manifests.clear();
     this.data.bundleManifests.clear();
     this.data.artifacts.clear();
     this.saveData();
@@ -368,38 +295,7 @@ export class LocalDataStore {
 
   // Seed with sample data
   async seed(): Promise<void> {
-    // V1 Sample
-    const sampleManifest: V1Manifest = {
-      manifest_version: '1.0',
-      id: 'sample-wallet',
-      name: 'Sample Wallet',
-      version: '1.0.0',
-      chains: ['mainnet', 'testnet'],
-      artifact: {
-        type: 'wasm',
-        target: 'node',
-        digest: 'sha256:abc123def456',
-        uri: 'https://example.com/sample-wallet.wasm',
-      },
-      metadata: {
-        description: 'A sample wallet application for testing',
-      },
-    };
-
-    const appSummary: AppSummary = {
-      id: sampleManifest.id,
-      name: sampleManifest.name,
-      latest_version: sampleManifest.version,
-      latest_digest: sampleManifest.artifact.digest,
-    };
-
-    this.setApp(sampleManifest.id, appSummary);
-    this.setManifest(
-      `${sampleManifest.id}/${sampleManifest.version}`,
-      sampleManifest
-    );
-
-    // V2 Sample
+    // V2 Sample Bundle
     const bundleManifest: BundleManifest = {
       version: '1.0',
       package: 'com.calimero.sample-bundle',

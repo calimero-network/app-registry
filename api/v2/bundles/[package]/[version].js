@@ -5,15 +5,15 @@
  */
 
 const {
-  V1StorageKV,
-} = require('../../../packages/backend/src/lib/v1-storage-kv');
+  BundleStorageKV,
+} = require('../../../packages/backend/src/lib/bundle-storage-kv');
 
 // Singleton storage instance
 let storage;
 
 function getStorage() {
   if (!storage) {
-    storage = new V1StorageKV();
+    storage = new BundleStorageKV();
   }
   return storage;
 }
