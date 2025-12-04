@@ -237,10 +237,6 @@ function validateBundleManifest(bundle) {
   };
 }
 
-// Export functions for testing
-module.exports.canonicalizeBundle = canonicalizeBundle;
-module.exports.sortKeysRecursively = sortKeysRecursively;
-
 // Export the main handler
 const handler = async (req, res) => {
   if (req.method !== 'POST') {
@@ -321,8 +317,12 @@ const handler = async (req, res) => {
     return res.status(500).json({
       error: 'internal_server_error',
       message: error.message || 'Failed to push bundle',
-    });
+      });
   }
 };
+
+// Export functions for testing (before overwriting with handler)
+handler.canonicalizeBundle = canonicalizeBundle;
+handler.sortKeysRecursively = sortKeysRecursively;
 
 module.exports = handler;
