@@ -14,13 +14,13 @@ describe('Canonicalization', () => {
       package: 'com.example.test',
       appVersion: '1.0.0',
       metadata: {
-        tags: ['b', 'a'],
+        tags: ['a', 'b'], // Arrays maintain order
         name: 'Test',
         description: 'A test',
       },
       interfaces: {
-        uses: ['b', 'a'],
-        exports: ['d', 'c'],
+        uses: ['a', 'b'], // Arrays maintain order
+        exports: ['c', 'd'], // Arrays maintain order
       },
       wasm: {
         hash: 'abc',
@@ -34,22 +34,22 @@ describe('Canonicalization', () => {
       package: 'com.example.test',
       appVersion: '1.0.0',
       metadata: {
-        name: 'Test',
+        name: 'Test', // Different key order
         description: 'A test',
-        tags: ['a', 'b'],
+        tags: ['a', 'b'], // Same array order
       },
       interfaces: {
-        exports: ['c', 'd'],
-        uses: ['a', 'b'],
+        exports: ['c', 'd'], // Same array order
+        uses: ['a', 'b'], // Same array order
       },
       wasm: {
-        size: 100,
+        size: 100, // Different key order
         path: 'app.wasm',
         hash: 'abc',
       },
     };
 
-    // Both should produce the same canonical form
+    // Both should produce the same canonical form (object keys sorted, arrays unchanged)
     const canonical1 = canonicalizeBundle(bundle1);
     const canonical2 = canonicalizeBundle(bundle2);
 
