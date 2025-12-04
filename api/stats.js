@@ -3,7 +3,9 @@
  * GET /api/stats
  */
 
-const { BundleStorageKV } = require('../packages/backend/src/lib/bundle-storage-kv');
+const {
+  BundleStorageKV,
+} = require('../packages/backend/src/lib/bundle-storage-kv');
 
 // Singleton storage instance
 let storage;

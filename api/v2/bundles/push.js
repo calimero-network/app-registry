@@ -1,14 +1,14 @@
 /**
  * V2 Bundle Push API
  * POST /api/v2/bundles/push
- * 
+ *
  * Temporary: Unauthenticated first-come-first-serve with signature verification
- * 
+ *
  * Accepts:
  * - multipart/form-data with .mpk file
  * OR
  * - JSON with bundle manifest
- * 
+ *
  * Validates:
  * 1. Bundle manifest structure
  * 2. Signature verification (if present)
@@ -44,7 +44,7 @@ async function verifyBundleSignature(bundle) {
 
   try {
     const signature = bundle.signature;
-    
+
     if (!signature.alg || signature.alg.toLowerCase() !== 'ed25519') {
       return {
         valid: false,
@@ -127,12 +127,21 @@ function validateBundleManifest(bundle) {
 
   // Validate package name format (basic validation)
   if (bundle.package && !/^[a-z0-9]+(\.[a-z0-9-]+)+$/.test(bundle.package)) {
-    errors.push('Invalid package name format. Must be reverse domain notation (e.g., com.example.app)');
+    errors.push(
+      'Invalid package name format. Must be reverse domain notation (e.g., com.example.app)'
+    );
   }
 
   // Validate appVersion is semver
-  if (bundle.appVersion && !/^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$/.test(bundle.appVersion)) {
-    errors.push('Invalid appVersion format. Must be valid semver (e.g., 1.0.0)');
+  if (
+    bundle.appVersion &&
+    !/^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$/.test(
+      bundle.appVersion
+    )
+  ) {
+    errors.push(
+      'Invalid appVersion format. Must be valid semver (e.g., 1.0.0)'
+    );
   }
 
   return {
@@ -156,7 +165,8 @@ module.exports = async (req, res) => {
       // TODO: Handle actual .mpk file upload
       return res.status(400).json({
         error: 'multipart_not_implemented',
-        message: 'Multipart file upload not yet implemented. Please send JSON manifest.',
+        message:
+          'Multipart file upload not yet implemented. Please send JSON manifest.',
       });
     }
 
@@ -222,4 +232,3 @@ module.exports = async (req, res) => {
     });
   }
 };
-
