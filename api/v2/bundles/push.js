@@ -17,7 +17,7 @@
 
 const {
   BundleStorageKV,
-} = require('../packages/backend/src/lib/bundle-storage-kv');
+} = require('../../../packages/backend/src/lib/bundle-storage-kv');
 
 // Dynamic import for Ed25519
 let ed25519;
