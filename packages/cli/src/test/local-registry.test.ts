@@ -95,10 +95,12 @@ describe('Local Registry', () => {
 
     it('should seed with sample data', async () => {
       await dataStore.seed();
-      const apps = dataStore.getApps();
+      const bundles = await dataStore.getAllBundles();
 
-      expect(apps.length).toBeGreaterThan(0);
-      expect(apps[0].name).toBe('Sample Wallet');
+      // After removing V1, seed only creates bundle manifests
+      // Check that bundles are seeded instead
+      expect(bundles.length).toBeGreaterThan(0);
+      expect(bundles).toContain('com.calimero.sample-bundle');
     });
   });
 
