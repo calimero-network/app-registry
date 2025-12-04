@@ -34,6 +34,7 @@ describe('Push Endpoint Validation', () => {
     req = {
       method: 'POST',
       body: null,
+      headers: {},
     };
 
     res = {
