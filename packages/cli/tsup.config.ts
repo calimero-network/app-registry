@@ -15,6 +15,7 @@ export default defineConfig({
     'chalk',
     'ora',
     'table',
+    'tar',
   ],
   banner: {
     js: '#!/usr/bin/env node',

@@ -9,7 +9,7 @@
 import { Command } from 'commander';
 import fs from 'fs';
 import path from 'path';
-import tar from 'tar';
+import * as tar from 'tar';
 import { LocalDataStore, BundleManifest } from '../lib/local-storage.js';
 import { LocalConfig } from '../lib/local-config.js';
 import { LocalArtifactServer } from '../lib/local-artifacts.js';
