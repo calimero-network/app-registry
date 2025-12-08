@@ -293,6 +293,13 @@ export class LocalDataStore {
     this.saveData();
   }
 
+  /**
+   * Get all bundle manifests
+   */
+  getAllBundles(): BundleManifest[] {
+    return Array.from(this.data.bundleManifests.values());
+  }
+
   // Seed with sample data
   async seed(): Promise<void> {
     // V2 Sample Bundle
