@@ -30,6 +30,11 @@ jobs:
     needs: detect-changes
     runs-on: ubuntu-latest
     if: needs.detect-changes.outputs.cli-changed == 'true' || needs.detect-changes.outputs.lib-changed == 'true' || needs.detect-changes.outputs.backend-changed == 'true' || needs.detect-changes.outputs.frontend-changed == 'true' || needs.detect-changes.outputs.monorepo-changed == 'true'
+    permissions:
+      id-token: write # Required for OIDC/trusted publishers
+      contents: write # Required for creating GitHub releases
+      issues: write # Required for commenting on issues
+      pull-requests: write # Required for commenting on PRs
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -40,6 +45,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '18'
+          registry-url: 'https://registry.npmjs.org'
+          scope: '@calimero-network'
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v2
@@ -80,9 +87,8 @@ jobs:
           npx semantic-release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           NODE_ENV: production
+          # NODE_AUTH_TOKEN is automatically set by setup-node when using OIDC/trusted publishers
 
       # Backend Release (DRY RUN)
       - name: Release Backend (DRY RUN)
