@@ -72,9 +72,8 @@ jobs:
           npx semantic-release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           NODE_ENV: production
+          # NODE_AUTH_TOKEN is automatically set by setup-node when using OIDC/trusted publishers
 
       # Client Library Release
       - name: Release Client Library
@@ -139,3 +138,5 @@ jobs:
           fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_ENV: production
+          # NODE_AUTH_TOKEN is automatically set by setup-node when using OIDC/trusted publishers
