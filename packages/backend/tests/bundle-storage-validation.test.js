@@ -22,10 +22,10 @@ jest.mock('../src/lib/kv-client', () => ({
     }),
     setNX: jest.fn(async (key, value) => {
       if (mockKVData.has(key)) {
-        return 0; // Key already exists
+        return false; // Key already exists
       }
       mockKVData.set(key, value);
-      return 1; // Key was set
+      return true; // Key was set
     }),
     sAdd: jest.fn(async (key, value) => {
       if (!mockKVSets.has(key)) {

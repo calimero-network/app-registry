@@ -50,7 +50,9 @@ class BundleStorageKV {
     const bundleKey = `bundle:${key}`;
     const wasSet = await kv.setNX(bundleKey, JSON.stringify(manifestData));
 
-    if (wasSet === 0) {
+    // setNX returns boolean: true if key was set, false if key already exists
+    // Handle both boolean (node-redis v4+) and integer (legacy) return types
+    if (!wasSet || wasSet === 0) {
       // Key already exists - first-come-first-serve policy
       throw new Error(
         `Bundle ${manifest.package}@${manifest.appVersion} already exists. First-come-first-serve policy.`
@@ -142,6 +144,35 @@ class BundleStorageKV {
     const key = `bundle:${pkg}/${version}`;
     const data = await kv.get(key);
     return !!data;
+  }
+
+  /**
+   * Get all bundle keys efficiently for stats
+   * Returns array of {package, version} objects
+   */
+  async getAllBundleKeys() {
+    const packages = await this.getAllBundles();
+
+    // Fetch all version sets in parallel
+    const versionPromises = packages.map(async pkg => {
+      const versions = await this.getBundleVersions(pkg);
+      return versions.map(version => ({ package: pkg, version }));
+    });
+
+    const versionArrays = await Promise.all(versionPromises);
+    return versionArrays.flat();
+  }
+
+  /**
+   * Batch get multiple bundle manifests
+   * More efficient than individual getBundleManifest calls
+   */
+  async getBundleManifestsBatch(bundleKeys) {
+    // Fetch all manifests in parallel
+    const manifestPromises = bundleKeys.map(({ package: pkg, version }) =>
+      this.getBundleManifest(pkg, version)
+    );
+    return Promise.all(manifestPromises);
   }
 }
 

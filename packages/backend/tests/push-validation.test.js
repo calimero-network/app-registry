@@ -104,7 +104,12 @@ describe('Push Endpoint Validation', () => {
         version: '1.0',
         package: 'com.example.test',
         appVersion: '1.0.0',
-        wasm: { path: 'app.wasm', size: 100, hash: null },
+        metadata: {
+          name: 'Test App',
+          description: 'A test app',
+          author: 'Test Author',
+        },
+        wasm: { path: 'app.wasm', size: 100, hash: 'abc123' },
         migrations: [],
       };
 

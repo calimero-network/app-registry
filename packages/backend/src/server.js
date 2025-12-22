@@ -44,14 +44,47 @@ async function buildServer() {
     return { status: 'ok' };
   });
 
-  // Statistics endpoint
+  // Statistics endpoint (optimized to avoid N+1 queries)
   server.get('/stats', async (_request, _reply) => {
-    return {
-      publishedBundles: 0,
-      activeDevelopers: 0,
-      totalDownloads: 0,
-      message: 'V2 Bundle API - Statistics endpoint',
-    };
+    try {
+      // Get all bundle keys efficiently (parallel queries)
+      const bundleKeys = await bundleStorage.getAllBundleKeys();
+
+      // Count total bundles (all versions)
+      const totalBundles = bundleKeys.length;
+
+      // Batch fetch all manifests in parallel
+      const bundles = await bundleStorage.getBundleManifestsBatch(bundleKeys);
+
+      // Count unique developers (from bundle signatures)
+      const developers = new Set();
+      for (const bundle of bundles) {
+        if (bundle?.signature?.pubkey) {
+          developers.add(bundle.signature.pubkey);
+        }
+      }
+
+      // Count unique packages
+      const uniquePackages = new Set(
+        bundleKeys.map(bundleKey => bundleKey.package)
+      ).size;
+
+      return {
+        publishedBundles: totalBundles,
+        uniquePackages,
+        activeDevelopers: developers.size,
+        totalDownloads: 0, // TODO: Implement download tracking
+      };
+    } catch (error) {
+      server.log.error('Error in GET /stats:', error);
+      return {
+        publishedBundles: 0,
+        uniquePackages: 0,
+        activeDevelopers: 0,
+        totalDownloads: 0,
+        error: 'Failed to calculate statistics',
+      };
+    }
   });
 
   // Use BundleStorageKV for v2 bundle storage
@@ -283,9 +316,14 @@ async function buildServer() {
     const filePath = path.join(artifactsDir, artifactPath);
 
     // Security: only allow files in artifacts directory
+    // Use path.sep to prevent path traversal to sibling directories (e.g., artifacts-private)
     const resolvedPath = path.resolve(filePath);
     const resolvedArtifactsDir = path.resolve(artifactsDir);
-    if (!resolvedPath.startsWith(resolvedArtifactsDir)) {
+    const artifactsDirWithSep = resolvedArtifactsDir + path.sep;
+    if (
+      !resolvedPath.startsWith(artifactsDirWithSep) &&
+      resolvedPath !== resolvedArtifactsDir
+    ) {
       return reply.code(403).send({ error: 'Forbidden' });
     }
 

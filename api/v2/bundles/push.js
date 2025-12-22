@@ -155,6 +155,41 @@ function validateBundleManifest(bundle) {
     errors.push('Missing required field: appVersion');
   }
 
+  // Validate metadata (required field)
+  if (!bundle.metadata) {
+    errors.push('Missing required field: metadata');
+  } else if (
+    typeof bundle.metadata !== 'object' ||
+    Array.isArray(bundle.metadata)
+  ) {
+    errors.push('Invalid metadata field. Must be an object');
+  }
+
+  // Validate wasm (required field)
+  if (!bundle.wasm) {
+    errors.push('Missing required field: wasm');
+  } else if (typeof bundle.wasm !== 'object' || Array.isArray(bundle.wasm)) {
+    errors.push('Invalid wasm field. Must be an object');
+  } else {
+    // Validate wasm object structure
+    if (!bundle.wasm.path || typeof bundle.wasm.path !== 'string') {
+      errors.push('Missing or invalid wasm.path. Must be a non-empty string');
+    }
+    if (!bundle.wasm.hash || typeof bundle.wasm.hash !== 'string') {
+      errors.push('Missing or invalid wasm.hash. Must be a non-empty string');
+    }
+    if (
+      bundle.wasm.size === undefined ||
+      bundle.wasm.size === null ||
+      typeof bundle.wasm.size !== 'number' ||
+      bundle.wasm.size < 0
+    ) {
+      errors.push(
+        'Missing or invalid wasm.size. Must be a non-negative number'
+      );
+    }
+  }
+
   // Validate package name format (basic validation)
   if (bundle.package && !/^[a-z0-9]+(\.[a-z0-9-]+)+$/.test(bundle.package)) {
     errors.push(
