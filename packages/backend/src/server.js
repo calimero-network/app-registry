@@ -7,6 +7,7 @@ const fs = require('fs');
 
 // Import config
 const config = require('./config');
+const { BundleStorageKV } = require('./lib/bundle-storage-kv');
 
 async function buildServer() {
   const server = fastify({
@@ -53,173 +54,266 @@ async function buildServer() {
     };
   });
 
-  // Simple in-memory store for E2E testing
-  const appStore = new Map();
-  const appVersions = new Map();
+  // Use BundleStorageKV for v2 bundle storage
+  const bundleStorage = new BundleStorageKV();
 
-  // Seed with test app on startup for E2E testing
-  const seedTestApp = () => {
+  // Seed with test apps on startup for E2E testing
+  const seedTestApps = async () => {
     // Real WASM file hash (kv-store.wasm)
     const wasmHash =
       '587d96f54984f62b2b1d834f07f4f162a9ab8c9a9d17a7d51f9baffca1f0b343';
     const wasmUrl = `http://localhost:${process.env.PORT || 8080}/artifacts/kv_store.wasm`;
+    // Get WASM file size (approximate - kv_store.wasm is ~283KB)
+    const wasmSize = 283441;
 
-    const testApp = {
-      manifest_version: '1.0',
-      id: 'com.calimero.test-app',
-      name: 'Test App',
-      version: '1.0.0',
-      chains: ['near:testnet', 'near:mainnet'],
-      artifact: {
-        type: 'wasm',
-        target: 'node',
-        digest: `sha256:${wasmHash}`,
-        uri: wasmUrl,
-      },
+    // V2 Bundle format - Test App
+    const testAppBundle = {
+      version: '1.0', // Internal manifest version
+      package: 'com.calimero.test-app',
+      appVersion: '1.0.0',
       metadata: {
+        name: 'Test App',
         description:
           'A simple test application for E2E testing (uses kv-store WASM)',
         author: 'Calimero Team',
       },
+      interfaces: {
+        exports: [],
+        uses: [],
+      },
+      wasm: {
+        path: wasmUrl,
+        size: wasmSize,
+        hash: wasmHash,
+      },
+      abi: null,
+      migrations: [],
+      links: null,
+      signature: {
+        alg: 'ed25519',
+        sig: 'test-signature',
+        pubkey:
+          'ed25519:1111111111111111111111111111111111111111111111111111111111111111',
+        signedAt: new Date().toISOString(),
+      },
     };
-    const key = `${testApp.id}/${testApp.version}`;
-    appStore.set(key, testApp);
-    appVersions.set(testApp.id, [testApp.version]);
+
+    // V2 Bundle format - Frontend Demo App
+    const frontendDemoBundle = {
+      version: '1.0',
+      package: 'com.calimero.frontend-demo',
+      appVersion: '1.0.0',
+      metadata: {
+        name: 'Frontend Demo App',
+        description:
+          'A test application with a frontend link for testing frontend launch functionality',
+        author: 'Calimero Team',
+      },
+      interfaces: {
+        exports: [],
+        uses: [],
+      },
+      wasm: {
+        path: wasmUrl,
+        size: wasmSize,
+        hash: wasmHash,
+      },
+      abi: null,
+      migrations: [],
+      links: {
+        frontend: 'https://www.calimero.network/',
+        github: 'https://github.com/calimero-network',
+        docs: 'https://docs.calimero.network',
+      },
+      signature: {
+        alg: 'ed25519',
+        sig: 'test-signature-2',
+        pubkey:
+          'ed25519:2222222222222222222222222222222222222222222222222222222222222222',
+        signedAt: new Date().toISOString(),
+      },
+    };
+
+    // Store bundles (only if they don't exist)
+    try {
+      await bundleStorage.storeBundleManifest(testAppBundle);
+      server.log.info('✅ Seeded test-app bundle');
+    } catch (err) {
+      if (err.message.includes('already exists')) {
+        server.log.info('ℹ️  test-app bundle already exists');
+      } else {
+        server.log.warn('⚠️  Failed to seed test-app bundle:', err.message);
+      }
+    }
+
+    try {
+      await bundleStorage.storeBundleManifest(frontendDemoBundle);
+      server.log.info('✅ Seeded frontend-demo bundle');
+    } catch (err) {
+      if (err.message.includes('already exists')) {
+        server.log.info('ℹ️  frontend-demo bundle already exists');
+      } else {
+        server.log.warn(
+          '⚠️  Failed to seed frontend-demo bundle:',
+          err.message
+        );
+      }
+    }
   };
 
-  // Seed on startup
-  seedTestApp();
+  // Seed test apps only in development mode
+  // In production, bundles should be pushed via the API
+  if (
+    process.env.NODE_ENV !== 'production' &&
+    process.env.SEED_TEST_APPS !== 'false'
+  ) {
+    await seedTestApps();
+  } else {
+    server.log.info(
+      'ℹ️  Skipping test app seeding (production mode or SEED_TEST_APPS=false)'
+    );
+  }
 
-  // POST /api/v1/apps - Submit app manifest
-  server.post('/api/v1/apps', async (request, reply) => {
-    const manifest = request.body;
+  // V2 Bundle API endpoints
 
-    // Basic validation
-    if (!manifest.id || !manifest.name || !manifest.version) {
-      return reply.code(400).send({
-        error: 'invalid_schema',
-        message: 'Missing required fields: id, name, or version',
+  // GET /api/v2/bundles - List all bundles
+  server.get('/api/v2/bundles', async (request, reply) => {
+    try {
+      const { package: pkg, version, developer } = request.query || {};
+
+      // If specific package and version requested, return single bundle
+      if (pkg && version) {
+        const bundle = await bundleStorage.getBundleManifest(pkg, version);
+        if (!bundle) {
+          return reply.code(404).send({
+            error: 'bundle_not_found',
+            message: `Bundle ${pkg}@${version} not found`,
+          });
+        }
+        return [bundle];
+      }
+
+      // Get all bundle packages
+      const allPackages = await bundleStorage.getAllBundles();
+
+      // Fetch all bundles with their latest versions
+      const bundles = [];
+      for (const packageName of allPackages) {
+        // Filter by package if specified
+        if (pkg && packageName !== pkg) {
+          continue;
+        }
+
+        const versions = await bundleStorage.getBundleVersions(packageName);
+        if (versions.length === 0) {
+          continue;
+        }
+
+        // Get latest version (first in sorted descending list)
+        const latestVersion = versions[0];
+        const bundle = await bundleStorage.getBundleManifest(
+          packageName,
+          latestVersion
+        );
+
+        if (!bundle) {
+          continue;
+        }
+
+        // Filter by developer pubkey if specified
+        if (developer) {
+          const bundlePubkey = bundle.signature?.pubkey;
+          if (!bundlePubkey || bundlePubkey !== developer) {
+            continue;
+          }
+        }
+
+        bundles.push(bundle);
+      }
+
+      // Sort by package name
+      bundles.sort((a, b) => a.package.localeCompare(b.package));
+
+      return bundles;
+    } catch (error) {
+      server.log.error('Error listing bundles:', error);
+      return reply.code(500).send({
+        error: 'internal_server_error',
+        message: error.message || 'Failed to list bundles',
       });
     }
+  });
 
-    const key = `${manifest.id}/${manifest.version}`;
+  // GET /api/v2/bundles/:package/:version - Get specific bundle
+  server.get('/api/v2/bundles/:package/:version', async (request, reply) => {
+    try {
+      const { package: pkg, version } = request.params;
 
-    // Check if already exists
-    if (appStore.has(key)) {
-      return reply.code(409).send({
-        error: 'already_exists',
-        message: `App ${manifest.id} version ${manifest.version} already exists`,
+      if (!pkg || !version) {
+        return reply.code(400).send({
+          error: 'invalid_request',
+          message: 'Package and version are required',
+        });
+      }
+
+      const bundle = await bundleStorage.getBundleManifest(pkg, version);
+
+      if (!bundle) {
+        return reply.code(404).send({
+          error: 'bundle_not_found',
+          message: `Bundle ${pkg}@${version} not found`,
+        });
+      }
+
+      return bundle;
+    } catch (error) {
+      server.log.error('Error getting bundle:', error);
+      return reply.code(500).send({
+        error: 'internal_server_error',
+        message: error.message || 'Failed to get bundle',
       });
     }
-
-    // Store the manifest
-    appStore.set(key, manifest);
-
-    // Track versions
-    if (!appVersions.has(manifest.id)) {
-      appVersions.set(manifest.id, []);
-    }
-    appVersions.get(manifest.id).push(manifest.version);
-
-    return reply.code(201).send({
-      id: manifest.id,
-      version: manifest.version,
-      message: 'App registered successfully',
-    });
   });
 
-  // GET /api/v1/apps - List all apps
-  server.get('/api/v1/apps', async (_request, _reply) => {
-    const apps = Array.from(appVersions.keys()).map(id => {
-      const versions = appVersions.get(id);
-      // Get the latest version manifest
-      const latestVersion = versions[versions.length - 1];
-      const key = `${id}/${latestVersion}`;
-      const manifest = appStore.get(key);
-
-      return {
-        id,
-        name: manifest?.name || id,
-        latest_version: latestVersion,
-        latest_cid: manifest?.artifact?.digest || '',
-        developer_pubkey: manifest?.signature?.pubkey || '',
-        alias: manifest?.name,
-      };
-    });
-
-    return { apps };
-  });
-
-  // GET /api/v1/apps/:id - Get app versions
-  server.get('/api/v1/apps/:id', async (request, reply) => {
-    const { id } = request.params;
-    const versions = appVersions.get(id);
-
-    if (!versions) {
-      return reply.code(404).send({
-        error: 'not_found',
-        message: `App ${id} not found`,
-      });
-    }
-
-    // Return VersionInfo objects with cid from manifests
-    const versionInfos = versions.map(version => {
-      const key = `${id}/${version}`;
-      const manifest = appStore.get(key);
-      return {
-        semver: version,
-        cid: manifest?.artifact?.digest || '',
-        yanked: false,
-      };
-    });
-
-    return {
-      id,
-      versions: versionInfos,
-    };
-  });
-
-  // GET /api/v1/apps/:id/:version - Get specific manifest
-  server.get('/api/v1/apps/:id/:version', async (request, reply) => {
-    const { id, version } = request.params;
-    const key = `${id}/${version}`;
-    const manifest = appStore.get(key);
-
-    if (!manifest) {
-      return reply.code(404).send({
-        error: 'not_found',
-        message: `App ${id} version ${version} not found`,
-      });
-    }
-
-    return manifest;
-  });
-
-  // Serve WASM artifacts
-  server.get('/artifacts/:filename', async (request, reply) => {
-    const { filename } = request.params;
+  // Serve artifacts (WASM, MPK, etc.)
+  // Supports both flat structure (/artifacts/:filename) and nested structure (/artifacts/:package/:version/:filename)
+  server.get('/artifacts/*', async (request, reply) => {
+    const artifactPath = request.params['*']; // Get the full path after /artifacts/
     const artifactsDir = path.join(__dirname, '../artifacts');
-    const filePath = path.join(artifactsDir, filename);
+    const filePath = path.join(artifactsDir, artifactPath);
 
     // Security: only allow files in artifacts directory
-    if (!filePath.startsWith(artifactsDir)) {
+    const resolvedPath = path.resolve(filePath);
+    const resolvedArtifactsDir = path.resolve(artifactsDir);
+    if (!resolvedPath.startsWith(resolvedArtifactsDir)) {
       return reply.code(403).send({ error: 'Forbidden' });
     }
 
     if (!fs.existsSync(filePath)) {
       return reply.code(404).send({
         error: 'not_found',
-        message: `Artifact ${filename} not found`,
+        message: `Artifact ${artifactPath} not found`,
       });
     }
 
     // Read and send the file
     try {
       const fileContent = fs.readFileSync(filePath);
+      const ext = path.extname(filePath).toLowerCase();
 
-      // Set appropriate headers for WASM files
-      reply.header('Content-Type', 'application/wasm');
-      reply.header('Content-Disposition', `attachment; filename="${filename}"`);
+      // Set appropriate Content-Type based on file extension
+      let contentType = 'application/octet-stream';
+      if (ext === '.wasm') {
+        contentType = 'application/wasm';
+      } else if (ext === '.mpk') {
+        contentType = 'application/zip'; // MPK files are ZIP archives
+      }
+
+      reply.header('Content-Type', contentType);
+      reply.header(
+        'Content-Disposition',
+        `attachment; filename="${path.basename(filePath)}"`
+      );
       reply.header('Content-Length', fileContent.length);
 
       return reply.send(fileContent);

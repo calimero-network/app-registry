@@ -5,11 +5,24 @@
 ### Backend Configuration
 
 ```bash
-# Server port (default: 8080)
-PORT=8080
+# Server Configuration
+PORT=8080                    # Server port (default: 8080)
+HOST=0.0.0.0                 # Server host (default: 0.0.0.0)
+NODE_ENV=production         # Environment (development/production)
 
-# Redis connection (auto-set by Vercel in production)
-REDIS_URL=redis://default:***@***.upstash.io:6379
+# Storage (Production Required)
+REDIS_URL=redis://...       # Redis connection URL (required in production)
+VERCEL=1                    # Set automatically by Vercel (enables Redis)
+
+# Development/Testing
+SEED_TEST_APPS=true         # Seed test apps on startup (default: true in dev, false in prod)
+LOG_LEVEL=info              # Logging level (debug, info, warn, error)
+
+# CORS Configuration
+CORS_ORIGIN=http://localhost:1420,https://app.calimero.network
+
+# IPFS Configuration (optional)
+IPFS_GATEWAYS=https://ipfs.io/ipfs/,https://gateway.pinata.cloud/ipfs/
 ```
 
 ### Frontend Configuration

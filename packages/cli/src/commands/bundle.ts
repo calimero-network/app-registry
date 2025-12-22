@@ -10,14 +10,175 @@ import { Command } from 'commander';
 import fs from 'fs';
 import path from 'path';
 import * as tar from 'tar';
+import crypto from 'crypto';
 import { LocalDataStore, BundleManifest } from '../lib/local-storage.js';
 import { LocalConfig } from '../lib/local-config.js';
 import { LocalArtifactServer } from '../lib/local-artifacts.js';
 
 export const bundleCommand = new Command('bundle')
   .description('Manage application bundles (V2)')
+  .addCommand(createCreateCommand())
   .addCommand(createPushCommand())
   .addCommand(createGetCommand());
+
+function createCreateCommand(): Command {
+  return new Command('create')
+    .description('Create an MPK bundle from a WASM file')
+    .argument('<wasm-file>', 'Path to the WASM file')
+    .argument('<package>', 'Package name (e.g. com.calimero.myapp)')
+    .argument('<version>', 'Version (e.g. 1.0.0)')
+    .option('-o, --output <path>', 'Output path for the MPK file')
+    .option('--name <name>', 'Application name')
+    .option('--description <description>', 'Application description')
+    .option('--author <author>', 'Application author', 'Calimero Team')
+    .option('--frontend <url>', 'Frontend URL')
+    .option('--github <url>', 'GitHub URL')
+    .option('--docs <url>', 'Documentation URL')
+    .option(
+      '--export <interface>',
+      'Export interface (can be specified multiple times)',
+      (value, prev) => {
+        return [...(prev || []), value];
+      }
+    )
+    .option(
+      '--use <interface>',
+      'Use interface (can be specified multiple times)',
+      (value, prev) => {
+        return [...(prev || []), value];
+      }
+    )
+    .action(async (wasmFile, pkg, version, options) => {
+      try {
+        const wasmPath = path.resolve(wasmFile);
+        if (!fs.existsSync(wasmPath)) {
+          console.error(`❌ WASM file not found: ${wasmFile}`);
+          process.exit(1);
+        }
+
+        console.log(`📦 Creating MPK bundle from: ${path.basename(wasmPath)}`);
+
+        // Read WASM file
+        const wasmContent = fs.readFileSync(wasmPath);
+        const wasmSize = wasmContent.length;
+
+        // Calculate SHA256 hash
+        const hash = crypto
+          .createHash('sha256')
+          .update(wasmContent)
+          .digest('hex');
+
+        // Build metadata
+        const metadata: {
+          name: string;
+          description: string;
+          author: string;
+        } = {
+          name: options.name || pkg,
+          description: options.description || '',
+          author: options.author || 'Calimero Team',
+        };
+
+        // Build links if provided
+        const links: {
+          frontend?: string;
+          github?: string;
+          docs?: string;
+        } = {};
+        if (options.frontend) links.frontend = options.frontend;
+        if (options.github) links.github = options.github;
+        if (options.docs) links.docs = options.docs;
+
+        // Build interfaces
+        const interfaces = {
+          exports: options.export || [],
+          uses: options.use || [],
+        };
+
+        // Create bundle manifest
+        const manifest: BundleManifest = {
+          version: '1.0',
+          package: pkg,
+          appVersion: version,
+          metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
+          interfaces:
+            interfaces.exports.length > 0 || interfaces.uses.length > 0
+              ? interfaces
+              : undefined,
+          wasm: {
+            path: 'app.wasm',
+            hash: hash,
+            size: wasmSize,
+          },
+          abi: null,
+          migrations: [],
+          links: Object.keys(links).length > 0 ? links : undefined,
+          signature: undefined,
+        };
+
+        // Determine output path
+        let outputPath = options.output;
+        if (!outputPath) {
+          const outputDir = path.join(process.cwd(), pkg, version);
+          if (!fs.existsSync(outputDir)) {
+            fs.mkdirSync(outputDir, { recursive: true });
+          }
+          outputPath = path.join(outputDir, `${pkg}-${version}.mpk`);
+        } else {
+          outputPath = path.resolve(outputPath);
+          const outputDir = path.dirname(outputPath);
+          if (!fs.existsSync(outputDir)) {
+            fs.mkdirSync(outputDir, { recursive: true });
+          }
+        }
+
+        // Create temporary directory for bundle contents
+        const tempDir = path.join(
+          path.dirname(outputPath),
+          `.temp-bundle-${Date.now()}`
+        );
+        fs.mkdirSync(tempDir, { recursive: true });
+
+        try {
+          // Write manifest.json
+          fs.writeFileSync(
+            path.join(tempDir, 'manifest.json'),
+            JSON.stringify(manifest, null, 2)
+          );
+
+          // Copy WASM file as app.wasm
+          fs.writeFileSync(path.join(tempDir, 'app.wasm'), wasmContent);
+
+          // Create gzip-compressed tar archive
+          await tar.create(
+            {
+              gzip: true,
+              file: outputPath,
+              cwd: tempDir,
+            },
+            ['manifest.json', 'app.wasm']
+          );
+
+          const outputSize = fs.statSync(outputPath).size;
+          console.log(`✅ Created MPK bundle: ${outputPath}`);
+          console.log(`   Package: ${pkg}`);
+          console.log(`   Version: ${version}`);
+          console.log(`   Size: ${outputSize} bytes`);
+          console.log(`   WASM Hash: ${hash}`);
+        } finally {
+          // Cleanup temp directory
+          if (fs.existsSync(tempDir)) {
+            fs.rmSync(tempDir, { recursive: true, force: true });
+          }
+        }
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : 'Unknown error';
+        console.error('❌ Failed to create bundle:', message);
+        process.exit(1);
+      }
+    });
+}
 
 function createPushCommand(): Command {
   return new Command('push')
@@ -140,8 +301,8 @@ async function extractManifest(
   // @ts-expect-error tar typing issue
   await tar.t({
     file: bundlePath,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    onentry: (entry: any) => {
+
+    onentry: (entry: tar.ReadEntry) => {
       if (entry.path === 'manifest.json') {
         // Found it
       }
