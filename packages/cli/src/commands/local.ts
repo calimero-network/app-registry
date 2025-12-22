@@ -14,31 +14,48 @@ localCommand.addCommand(
   new Command('start')
     .description('Start local registry server')
     .option('-p, --port <port>', 'Port to run the server on', '8082')
-    .option('-h, --host <host>', 'Host to bind the server to', 'localhost')
+    .option('-h, --host <host>', 'Host to bind the server to', '0.0.0.0')
+    .option(
+      '--public-host <host>',
+      'Public host exposed in manifest artifact URLs',
+      'host.docker.internal'
+    )
     .action(async options => {
       const spinner = ora('Starting local registry...').start();
 
       try {
         const config = new LocalConfig();
+        config.setHost(options.host);
+        config.setPublicHost(options.publicHost);
+        config.setPort(parseInt(options.port, 10));
         const server = new LocalRegistryServer(config);
 
         await server.start(parseInt(options.port));
 
         spinner.succeed(
-          `Local registry started on http://${options.host}:${options.port}`
+          `Local registry started on http://${config.getHost()}:${config.getPort()}`
         );
         console.log(chalk.blue('\n📱 Local Registry Status:'));
         console.log(
-          chalk.green(`✅ Server: http://${options.host}:${options.port}`)
+          chalk.green(
+            `✅ Server: http://${config.getHost()}:${config.getPort()}`
+          )
+        );
+        console.log(
+          chalk.green(
+            `🌐 Public URL: http://${config.getPublicHost()}:${config.getPort()}`
+          )
         );
         console.log(chalk.green(`📁 Data: ${config.getDataDir()}`));
         console.log(
           chalk.green(
-            `📋 Health: http://${options.host}:${options.port}/healthz`
+            `📋 Health: http://${config.getHost()}:${config.getPort()}/healthz`
           )
         );
         console.log(
-          chalk.green(`📊 Stats: http://${options.host}:${options.port}/stats`)
+          chalk.green(
+            `📊 Stats: http://${config.getHost()}:${config.getPort()}/stats`
+          )
         );
         console.log(
           chalk.blue(

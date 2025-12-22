@@ -1,11 +1,13 @@
 openapi: 3.0.0
 info:
-  title: Calimero SSApp Registry V1 API
-  description: V1 API for Calimero SSApp Registry
-  version: 1.0.0
+  title: Calimero SSApp Registry V2 API
+  description: V2 Bundle API for Calimero SSApp Registry (MPK format)
+  version: 2.0.0
 servers:
   - url: http://localhost:8080
     description: Development server
+  - url: https://registry.calimero.network
+    description: Production server
 paths:
   /healthz:
     get:
@@ -13,19 +15,150 @@ paths:
       responses:
         '200':
           description: Service is healthy
-  /v1/apps:
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+  /api/v2/bundles:
+    get:
+      summary: List all bundles
+      parameters:
+        - name: package
+          in: query
+          schema:
+            type: string
+          description: Filter by package name
+        - name: version
+          in: query
+          schema:
+            type: string
+          description: Filter by version (requires package)
+        - name: developer
+          in: query
+          schema:
+            type: string
+          description: Filter by developer pubkey
+      responses:
+        '200':
+          description: List of bundles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BundleManifest'
     post:
-      summary: Submit a manifest
+      summary: Push a new bundle
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
+              $ref: '#/components/schemas/BundleManifest'
       responses:
         '201':
-          description: Manifest submitted successfully
+          description: Bundle created successfully
         '400':
-          description: Invalid manifest
+          description: Invalid bundle manifest
         '409':
-          description: Manifest already exists
+          description: Bundle already exists
+  /api/v2/bundles/{package}/{version}:
+    get:
+      summary: Get specific bundle
+      parameters:
+        - name: package
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Bundle manifest
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BundleManifest'
+        '404':
+          description: Bundle not found
+  /artifacts/{path}:
+    get:
+      summary: Serve bundle artifacts (MPK, WASM)
+      parameters:
+        - name: path
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Artifact path (e.g., package/version/file.mpk)
+      responses:
+        '200':
+          description: Artifact file
+        '404':
+          description: Artifact not found
+components:
+  schemas:
+    BundleManifest:
+      type: object
+      required:
+        - version
+        - package
+        - appVersion
+        - metadata
+        - wasm
+      properties:
+        version:
+          type: string
+          description: Manifest version (always "1.0" for v2)
+        package:
+          type: string
+          description: Package identifier (e.g., com.calimero.myapp)
+        appVersion:
+          type: string
+          description: Application version (semver)
+        metadata:
+          type: object
+          properties:
+            name:
+              type: string
+            description:
+              type: string
+            author:
+              type: string
+        wasm:
+          type: object
+          properties:
+            path:
+              type: string
+            hash:
+              type: string
+            size:
+              type: integer
+        links:
+          type: object
+          properties:
+            frontend:
+              type: string
+            github:
+              type: string
+            docs:
+              type: string
+        signature:
+          type: object
+          properties:
+            alg:
+              type: string
+            sig:
+              type: string
+            pubkey:
+              type: string
+            signedAt:
+              type: string

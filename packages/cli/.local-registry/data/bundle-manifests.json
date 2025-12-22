@@ -1,0 +1,18 @@
+{
+  "com.calimero.kv-store/1.0.0": {
+    "version": "1.0",
+    "package": "com.calimero.kv-store",
+    "appVersion": "1.0.0",
+    "wasm": {
+      "path": "app.wasm",
+      "size": 283441,
+      "hash": null
+    },
+    "abi": {
+      "path": "abi.json",
+      "size": 3294,
+      "hash": null
+    },
+    "migrations": []
+  }
+}

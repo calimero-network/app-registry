@@ -48,6 +48,16 @@ if (isProduction && process.env.REDIS_URL) {
       return await redisClient.set(key, value);
     },
 
+    /**
+     * Atomic SET if Not eXists (SETNX)
+     * Returns boolean: true if key was set, false if key already exists
+     * (node-redis v4+ returns boolean, not integer)
+     */
+    async setNX(key, value) {
+      await this._ensureConnected();
+      return await redisClient.setNX(key, value);
+    },
+
     async del(key) {
       await this._ensureConnected();
       return await redisClient.del(key);
@@ -109,6 +119,19 @@ if (isProduction && process.env.REDIS_URL) {
     async set(key, value) {
       mockStore.set(key, value);
       return 'OK';
+    },
+
+    /**
+     * Atomic SET if Not eXists (SETNX) for mock
+     * Returns boolean: true if key was set, false if key already exists
+     * (matches node-redis v4+ behavior)
+     */
+    async setNX(key, value) {
+      if (mockStore.has(key)) {
+        return false; // Key already exists
+      }
+      mockStore.set(key, value);
+      return true; // Key was set
     },
 
     async del(key) {

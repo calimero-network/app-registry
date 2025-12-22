@@ -6,7 +6,7 @@ import { attestationsCommand } from './commands/attestations.js';
 import { healthCommand } from './commands/health.js';
 import { ipfsCommand } from './commands/ipfs.js';
 import { localCommand } from './commands/local.js';
-import { v1Command } from './commands/v1.js';
+import { bundleCommand } from './commands/bundle.js';
 
 const program = new Command();
 
@@ -33,7 +33,7 @@ program.addCommand(attestationsCommand);
 program.addCommand(healthCommand);
 program.addCommand(ipfsCommand);
 program.addCommand(localCommand);
-program.addCommand(v1Command);
+program.addCommand(bundleCommand);
 
 // Global error handler
 program.exitOverride();

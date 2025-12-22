@@ -6,6 +6,7 @@ export interface LocalConfigData {
   server: {
     port: number;
     host: string;
+    publicHost: string;
   };
   data: {
     dir: string;
@@ -40,7 +41,8 @@ export class LocalConfig {
     const defaultConfig: LocalConfigData = {
       server: {
         port: 8082,
-        host: 'localhost',
+        host: '0.0.0.0',
+        publicHost: 'host.docker.internal',
       },
       data: {
         dir: path.join(os.homedir(), '.calimero-registry', 'data'),
@@ -65,7 +67,20 @@ export class LocalConfig {
         const existingConfig = JSON.parse(
           fs.readFileSync(this.configPath, 'utf8')
         );
-        return { ...defaultConfig, ...existingConfig };
+        return {
+          server: {
+            ...defaultConfig.server,
+            ...(existingConfig.server || {}),
+          },
+          data: {
+            ...defaultConfig.data,
+            ...(existingConfig.data || {}),
+          },
+          artifacts: {
+            ...defaultConfig.artifacts,
+            ...(existingConfig.artifacts || {}),
+          },
+        };
       } catch {
         console.warn('Failed to load existing config, using defaults');
       }
@@ -101,6 +116,15 @@ export class LocalConfig {
 
   setHost(host: string): void {
     this.config.server.host = host;
+    this.saveConfig();
+  }
+
+  getPublicHost(): string {
+    return this.config.server.publicHost;
+  }
+
+  setPublicHost(host: string): void {
+    this.config.server.publicHost = host;
     this.saveConfig();
   }
 
