@@ -17,6 +17,20 @@ program
   )
   .version('1.0.0');
 
+// Global help text with examples
+program.addHelpText(
+  'after',
+  `
+Examples:
+  $ calimero-registry apps list
+  $ calimero-registry apps create --file manifest.json
+  $ calimero-registry local start
+  $ calimero-registry health --local
+
+For more information, visit: https://github.com/calimero-network/app-registry
+`
+);
+
 // Global options
 program.option('-u, --url <url>', 'Registry API URL', 'http://localhost:8082');
 program.option(
