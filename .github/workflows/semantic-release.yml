@@ -44,7 +44,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '24' # Required for semantic-release@25.0.1 and project engines requirement
           registry-url: 'https://registry.npmjs.org'
           scope: '@calimero-network'
 
