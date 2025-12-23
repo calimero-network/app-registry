@@ -47,7 +47,7 @@
     "@semantic-release/commit-analyzer": "^10.0.0",
     "@semantic-release/exec": "^7.0.0",
     "@semantic-release/github": "^9.0.0",
-    "@semantic-release/release-notes-generator": "^14.0.0",
+    "@semantic-release/release-notes-generator": "^10.0.0",
     "@types/node": "^20.0.0",
     "@typescript-eslint/eslint-plugin": "^8.39.1",
     "@typescript-eslint/parser": "^8.39.1",
