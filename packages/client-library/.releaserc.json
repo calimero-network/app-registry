@@ -8,7 +8,13 @@
         "preset": "conventionalcommits"
       }
     ],
-    "@semantic-release/npm",
+    [
+      "@semantic-release/exec",
+      {
+        "prepareCmd": "npm version ${nextRelease.version} --no-git-tag-version",
+        "publishCmd": "npm publish"
+      }
+    ],
     "@semantic-release/github"
   ],
   "preset": "conventionalcommits",

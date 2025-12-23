@@ -45,8 +45,8 @@
   "devDependencies": {
     "@eslint/js": "^9.33.0",
     "@semantic-release/commit-analyzer": "^10.0.0",
+    "@semantic-release/exec": "^7.0.0",
     "@semantic-release/github": "^9.0.0",
-    "@semantic-release/npm": "^10.0.0",
     "@semantic-release/release-notes-generator": "^10.0.0",
     "@types/node": "^20.0.0",
     "@typescript-eslint/eslint-plugin": "^8.39.1",
@@ -55,7 +55,7 @@
     "conventional-changelog-writer": "^6.0.0",
     "eslint": "^9.33.0",
     "eslint-config-prettier": "^9.0.0",
-    "semantic-release": "^22.0.0",
+    "semantic-release": "^25.0.1",
     "tsup": "^8.0.0",
     "typescript": "^5.0.0",
     "vitest": "^0.29.3"
