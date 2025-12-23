@@ -52,7 +52,8 @@
   "packageManager": "pnpm@8.15.0",
   "pnpm": {
     "overrides": {
-      "conventional-changelog-writer": "^7.0.0"
+      "conventional-changelog-writer": "^7.0.0",
+      "@semantic-release/release-notes-generator": "10.0.1"
     }
   },
   "lint-staged": {
