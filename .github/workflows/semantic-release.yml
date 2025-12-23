@@ -44,7 +44,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20' # Required for semantic-release@22.0.0 (yargs-parser@22.0.0 requires Node.js 20+)
           registry-url: 'https://registry.npmjs.org'
           scope: '@calimero-network'
 
@@ -73,7 +73,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_ENV: production
-          # NODE_AUTH_TOKEN is automatically set by setup-node when using OIDC/trusted publishers
 
       # Client Library Release
       - name: Release Client Library
@@ -87,7 +86,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_ENV: production
-          # NODE_AUTH_TOKEN is automatically set by setup-node when using OIDC/trusted publishers
 
       # Backend Release (DRY RUN)
       - name: Release Backend (DRY RUN)
@@ -139,4 +137,3 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_ENV: production
-          # NODE_AUTH_TOKEN is automatically set by setup-node when using OIDC/trusted publishers
