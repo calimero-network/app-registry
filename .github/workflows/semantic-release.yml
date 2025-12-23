@@ -44,7 +44,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20' # Required for semantic-release@22.0.0 (yargs-parser@22.0.0 requires Node.js 20+)
+          node-version: '20'
           registry-url: 'https://registry.npmjs.org'
           scope: '@calimero-network'
 
