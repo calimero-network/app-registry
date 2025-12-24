@@ -71,6 +71,10 @@
     "command-line",
     "typescript"
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/calimero-network/app-registry.git"
+  },
   "author": "Calimero Network",
   "license": "MIT"
 }
