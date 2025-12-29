@@ -11,7 +11,7 @@ async function getKV() {
   const isProduction = process.env.VERCEL === '1' || !!process.env.REDIS_URL;
 
   if (isProduction && process.env.REDIS_URL) {
-    const { createClient } = await import('redis');
+    const { createClient } = require('redis');
     const redisClient = createClient({ url: process.env.REDIS_URL });
     redisClient.on('error', (err) => console.error('Redis error:', err));
 
@@ -50,7 +50,7 @@ async function getKV() {
   return kvClient;
 }
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -76,7 +76,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const semver = (await import('semver')).default;
+    const semver = require('semver');
     const { package: pkg, version, developer } = req.query || {};
 
     if (pkg && version) {
@@ -106,4 +106,4 @@ export default async function handler(req, res) {
     console.error('List Error:', error);
     return res.status(500).json({ error: 'internal_error', message: error?.message ?? String(error) });
   }
-}
+};
