@@ -20,6 +20,8 @@ async function buildServer() {
   await server.register(cors, {
     origin: config.cors.origin,
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
   // Register Swagger
@@ -208,18 +210,6 @@ async function buildServer() {
   }
 
   // V2 Bundle API endpoints
-
-  // Handle OPTIONS requests for CORS preflight
-  server.options('/api/v2/bundles', async (request, reply) => {
-    return reply.code(200).send();
-  });
-
-  server.options(
-    '/api/v2/bundles/:package/:version',
-    async (request, reply) => {
-      return reply.code(200).send();
-    }
-  );
 
   // GET /api/v2/bundles - List all bundles
   server.get('/api/v2/bundles', async (request, reply) => {
