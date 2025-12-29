@@ -6,6 +6,7 @@
 const {
   BundleStorageKV,
 } = require('../../../packages/backend/src/lib/bundle-storage-kv');
+const { verifyManifest } = require('../../../packages/backend/src/lib/verify');
 
 // Singleton storage instance
 let storage;
@@ -35,6 +36,18 @@ module.exports = async function handler(req, res) {
         error: 'invalid_manifest',
         message: 'Missing required fields: package, appVersion',
       });
+    }
+
+    // Verify signature if present (signatures are optional but must be valid if provided)
+    if (bundleManifest.signature) {
+      try {
+        verifyManifest(bundleManifest);
+      } catch (error) {
+        return res.status(400).json({
+          error: 'invalid_signature',
+          message: error.message || 'Signature verification failed',
+        });
+      }
     }
 
     const overwrite = bundleManifest._overwrite === true;

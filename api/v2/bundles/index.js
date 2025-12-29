@@ -17,11 +17,18 @@ async function getKV() {
 
     kvClient = {
       _connected: false,
+      _connecting: null,
       async _ensureConnected() {
-        if (!this._connected) {
-          await redisClient.connect();
-          this._connected = true;
+        if (this._connected) return;
+        if (this._connecting) {
+          await this._connecting;
+          return;
         }
+        this._connecting = redisClient.connect().then(() => {
+          this._connected = true;
+          this._connecting = null;
+        });
+        await this._connecting;
       },
       async get(key) {
         await this._ensureConnected();

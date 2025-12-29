@@ -90,7 +90,7 @@ module.exports = async function handler(req, res) {
     const binary = Buffer.from(binaryHex, 'hex');
 
     // Set appropriate headers
-    res.setHeader('Content-Type', 'application/zip'); // MPK is a Gzip compressed tarball
+    res.setHeader('Content-Type', 'application/gzip'); // MPK is a Gzip compressed tarball
     res.setHeader('Content-Length', binary.length);
     res.setHeader(
       'Content-Disposition',
