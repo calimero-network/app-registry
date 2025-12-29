@@ -1,30 +1,23 @@
 /**
  * V2 Bundle Push API
  * POST /api/v2/bundles/push
- *
- * Temporary: Unauthenticated first-come-first-serve with signature verification
- *
- * Accepts:
- * - multipart/form-data with .mpk file
- * OR
- * - JSON with bundle manifest
- *
- * Validates:
- * 1. Bundle manifest structure
- * 2. Signature verification (if present)
- * 3. First-come-first-serve (package@version must not exist)
  */
 
-const {
-  BundleStorageKV,
-} = require('../../../packages/backend/src/lib/bundle-storage-kv');
-
-// Dynamic import for Ed25519
+// Dynamic import for dependencies
+let BundleStorageKV;
 let ed25519;
+
+function getStorage() {
+  if (!BundleStorageKV) {
+    ({
+      BundleStorageKV,
+    } = require('../../../packages/backend/src/lib/bundle-storage-kv'));
+  }
+  return new BundleStorageKV();
+}
 
 /**
  * Recursively sort object keys for canonicalization
- * Exported for testing
  */
 function sortKeysRecursively(obj) {
   if (obj === null || typeof obj !== 'object') {
@@ -49,6 +42,23 @@ function sortKeysRecursively(obj) {
  */
 function canonicalizeJSON(obj) {
   return JSON.stringify(sortKeysRecursively(obj));
+}
+
+/**
+ * Canonicalize bundle for signature verification
+ */
+function canonicalizeBundle(manifest) {
+  const { signature, ...rest } = manifest;
+  return canonicalizeJSON({
+    version: rest.version,
+    package: rest.package,
+    appVersion: rest.appVersion,
+    metadata: rest.metadata,
+    wasm: rest.wasm,
+    interfaces: rest.interfaces || null,
+    migrations: rest.migrations || null,
+    links: rest.links || null,
+  });
 }
 
 /**
@@ -127,17 +137,7 @@ async function verifySignature(manifest, signature) {
       ed25519 = await import('@noble/ed25519');
     }
 
-    const canonical = canonicalizeJSON({
-      version: manifest.version,
-      package: manifest.package,
-      appVersion: manifest.appVersion,
-      metadata: manifest.metadata,
-      wasm: manifest.wasm,
-      interfaces: manifest.interfaces || null,
-      migrations: manifest.migrations || null,
-      links: manifest.links || null,
-    });
-
+    const canonical = canonicalizeBundle(manifest);
     const message = new TextEncoder().encode(canonical);
     const signatureBytes = new Uint8Array(Buffer.from(signature.sig, 'hex'));
     const pubkeyBytes = new Uint8Array(
@@ -149,34 +149,6 @@ async function verifySignature(manifest, signature) {
     console.error('Signature verification error:', error);
     return false;
   }
-}
-
-/**
- * Canonicalize bundle for signature verification
- * Exported for testing
- */
-function canonicalizeBundle(manifest) {
-  const { signature, ...rest } = manifest;
-  return canonicalizeJSON({
-    version: rest.version,
-    package: rest.package,
-    appVersion: rest.appVersion,
-    metadata: rest.metadata,
-    wasm: rest.wasm,
-    interfaces: rest.interfaces || null,
-    migrations: rest.migrations || null,
-    links: rest.links || null,
-  });
-}
-
-// Singleton storage instance
-let storage;
-
-function getStorage() {
-  if (!storage) {
-    storage = new BundleStorageKV();
-  }
-  return storage;
 }
 
 // Export the main handler
@@ -195,6 +167,9 @@ const handler = async (req, res) => {
     return res.status(200).end();
   }
 
+  // Set CORS headers for all other requests
+  res.setHeader('Access-Control-Allow-Origin', '*');
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -203,7 +178,7 @@ const handler = async (req, res) => {
     const store = getStorage();
     let bundleManifest;
 
-    // Check if this is multipart/form-data (file upload)
+    // Handle multipart/form-data (future improvement)
     if (req.headers['content-type']?.includes('multipart/form-data')) {
       return res.status(501).json({
         error: 'not_implemented',
@@ -212,14 +187,7 @@ const handler = async (req, res) => {
     }
 
     // Handle JSON payload
-    try {
-      bundleManifest = req.body;
-    } catch (error) {
-      return res.status(400).json({
-        error: 'invalid_json',
-        message: 'Request body must be valid JSON',
-      });
-    }
+    bundleManifest = req.body;
 
     // Validate manifest structure
     const validation = validateBundleManifest(bundleManifest);

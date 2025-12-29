@@ -4,15 +4,14 @@
  * Returns: Bundle Manifest JSON
  */
 
-const {
-  BundleStorageKV,
-} = require('../../../../packages/backend/src/lib/bundle-storage-kv');
-
 // Singleton storage instance
 let storage;
 
 function getStorage() {
   if (!storage) {
+    const {
+      BundleStorageKV,
+    } = require('../../../../packages/backend/src/lib/bundle-storage-kv');
     storage = new BundleStorageKV();
   }
   return storage;
@@ -33,14 +32,15 @@ module.exports = async (req, res) => {
     return res.status(200).end();
   }
 
+  // Set CORS headers for all other requests
+  res.setHeader('Access-Control-Allow-Origin', '*');
+
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
     // Vercel route params are passed in req.query
-    // But since this is a [package]/[version].js route,
-    // package and version should be available in req.query
     const { package: pkg, version } = req.query;
 
     if (!pkg || !version) {
