@@ -13,7 +13,7 @@ async function getKV() {
   if (isProduction && process.env.REDIS_URL) {
     const { createClient } = require('redis');
     const redisClient = createClient({ url: process.env.REDIS_URL });
-    redisClient.on('error', (err) => console.error('Redis error:', err));
+    redisClient.on('error', err => console.error('Redis error:', err));
 
     kvClient = {
       _connected: false,
@@ -61,7 +61,10 @@ module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.setHeader(
+      'Access-Control-Allow-Headers',
+      'Content-Type, Authorization'
+    );
     return res.status(200).end();
   }
 
@@ -98,7 +101,9 @@ module.exports = async function handler(req, res) {
       if (pkg && packageName !== pkg) continue;
       const versions = await kv.sMembers(`bundle-versions:${packageName}`);
       if (versions.length === 0) continue;
-      const sorted = versions.sort((a, b) => semver.rcompare(semver.valid(a) || '0.0.0', semver.valid(b) || '0.0.0'));
+      const sorted = versions.sort((a, b) =>
+        semver.rcompare(semver.valid(a) || '0.0.0', semver.valid(b) || '0.0.0')
+      );
       const latestVersion = sorted[0];
       const data = await kv.get(`bundle:${packageName}/${latestVersion}`);
       if (!data) continue;
@@ -111,6 +116,11 @@ module.exports = async function handler(req, res) {
     return res.status(200).json(bundles);
   } catch (error) {
     console.error('List Error:', error);
-    return res.status(500).json({ error: 'internal_error', message: error?.message ?? String(error) });
+    return res
+      .status(500)
+      .json({
+        error: 'internal_error',
+        message: error?.message ?? String(error),
+      });
   }
 };

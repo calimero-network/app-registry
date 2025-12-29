@@ -13,7 +13,7 @@ async function getKV() {
   if (isProduction && process.env.REDIS_URL) {
     const { createClient } = require('redis');
     const redisClient = createClient({ url: process.env.REDIS_URL });
-    redisClient.on('error', (err) => console.error('Redis error:', err));
+    redisClient.on('error', err => console.error('Redis error:', err));
 
     kvClient = {
       _connected: false,
@@ -52,7 +52,10 @@ module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.setHeader(
+      'Access-Control-Allow-Headers',
+      'Content-Type, Authorization'
+    );
     return res.status(200).end();
   }
 
@@ -75,13 +78,19 @@ module.exports = async function handler(req, res) {
 
   try {
     const { package: pkg, version } = req.query;
-    if (!pkg || !version) return res.status(400).json({ error: 'missing_params' });
+    if (!pkg || !version)
+      return res.status(400).json({ error: 'missing_params' });
 
     const data = await kv.get(`bundle:${pkg}/${version}`);
     if (!data) return res.status(404).json({ error: 'not_found' });
     return res.status(200).json(JSON.parse(data).json);
   } catch (error) {
     console.error('Get Error:', error);
-    return res.status(500).json({ error: 'internal_error', message: error?.message ?? String(error) });
+    return res
+      .status(500)
+      .json({
+        error: 'internal_error',
+        message: error?.message ?? String(error),
+      });
   }
 };

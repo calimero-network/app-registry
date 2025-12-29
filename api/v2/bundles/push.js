@@ -25,7 +25,8 @@ module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  if (req.method !== 'POST')
+    return res.status(405).json({ error: 'Method not allowed' });
 
   try {
     const store = getStorage();
@@ -62,6 +63,11 @@ module.exports = async function handler(req, res) {
     });
   } catch (error) {
     console.error('Push Error:', error);
-    return res.status(500).json({ error: 'internal_error', message: error?.message ?? String(error) });
+    return res
+      .status(500)
+      .json({
+        error: 'internal_error',
+        message: error?.message ?? String(error),
+      });
   }
 };
