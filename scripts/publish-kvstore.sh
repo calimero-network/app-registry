@@ -7,7 +7,7 @@ set -e
 
 # Configuration
 KVSTORE_DIR="../kv-store"
-REGISTRY_URL="https://mero-registry-9onfdxo78-calimero-network.vercel.app"  # Production registry URL
+REGISTRY_URL="https://mero-registry-d5cwwpzsy-calimero-network.vercel.app"
 WASM_FILE="$KVSTORE_DIR/logic/res/kv_store.wasm"
 PACKAGE="com.calimero.kvstore"
 VERSION="0.2.5"
