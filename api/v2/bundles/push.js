@@ -260,8 +260,21 @@ const handler = async (req, res) => {
   }
 };
 
-module.exports = {
-  handler,
-  canonicalizeBundle,
-  validateBundleManifest,
+// Export the main handler directly for Vercel
+module.exports = async (req, res) => {
+  try {
+    return await handler(req, res);
+  } catch (error) {
+    console.error('CRITICAL: Serverless function crash:', error);
+    return res.status(500).json({
+      error: 'function_crash',
+      message: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+    });
+  }
 };
+
+// Also export helper for testing if needed
+module.exports.handler = handler;
+module.exports.canonicalizeBundle = canonicalizeBundle;
+module.exports.validateBundleManifest = validateBundleManifest;

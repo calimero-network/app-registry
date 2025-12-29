@@ -7,7 +7,7 @@ set -e
 
 # Configuration
 KVSTORE_DIR="../kv-store"
-REGISTRY_URL="https://apps.calimero.network"  # Production registry URL
+REGISTRY_URL="https://mero-registry-9onfdxo78-calimero-network.vercel.app"  # Production registry URL
 WASM_FILE="$KVSTORE_DIR/logic/res/kv_store.wasm"
 PACKAGE="com.calimero.kvstore"
 VERSION="0.2.5"
@@ -107,10 +107,10 @@ EOF
 
 # Push manifest to production registry via the correct v2 endpoint
 echo -e "${BLUE}📤 Pushing manifest to production registry: $REGISTRY_URL${NC}"
-API_RESPONSE=$(curl -s -w "\nHTTP_CODE:%{http_code}" \
+API_RESPONSE=$(echo "$MANIFEST_CONTENT" | curl -s -w "\nHTTP_CODE:%{http_code}" \
     -X POST \
     -H "Content-Type: application/json" \
-    -d "$MANIFEST_CONTENT" \
+    --data-binary @- \
     "$REGISTRY_URL/api/v2/bundles/push")
 
 HTTP_CODE=$(echo "$API_RESPONSE" | grep "HTTP_CODE:" | cut -d':' -f2)
