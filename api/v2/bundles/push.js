@@ -3,6 +3,11 @@
  * POST /api/v2/bundles/push
  */
 
+const {
+  canonicalizeBundle,
+  validateBundleManifest,
+} = require('../../../packages/backend/src/lib/v2-utils');
+
 // Dynamic import for dependencies
 let BundleStorageKV;
 let ed25519;
@@ -14,114 +19,6 @@ function getStorage() {
     } = require('../../../packages/backend/src/lib/bundle-storage-kv'));
   }
   return new BundleStorageKV();
-}
-
-/**
- * Recursively sort object keys for canonicalization
- */
-function sortKeysRecursively(obj) {
-  if (obj === null || typeof obj !== 'object') {
-    return obj;
-  }
-
-  if (Array.isArray(obj)) {
-    return obj.map(sortKeysRecursively);
-  }
-
-  const sorted = {};
-  Object.keys(obj)
-    .sort()
-    .forEach(key => {
-      sorted[key] = sortKeysRecursively(obj[key]);
-    });
-  return sorted;
-}
-
-/**
- * Canonicalize JSON for signature verification
- */
-function canonicalizeJSON(obj) {
-  return JSON.stringify(sortKeysRecursively(obj));
-}
-
-/**
- * Canonicalize bundle for signature verification
- */
-function canonicalizeBundle(manifest) {
-  const { signature, ...rest } = manifest;
-  return canonicalizeJSON({
-    version: rest.version,
-    package: rest.package,
-    appVersion: rest.appVersion,
-    metadata: rest.metadata,
-    wasm: rest.wasm,
-    interfaces: rest.interfaces || null,
-    migrations: rest.migrations || null,
-    links: rest.links || null,
-  });
-}
-
-/**
- * Validate bundle manifest structure
- */
-function validateBundleManifest(manifest) {
-  const errors = [];
-
-  if (!manifest) {
-    errors.push('Missing manifest');
-    return { valid: false, errors };
-  }
-
-  if (!manifest.version || manifest.version !== '1.0') {
-    errors.push('Invalid or missing version (must be "1.0")');
-  }
-
-  if (!manifest.package || typeof manifest.package !== 'string') {
-    errors.push('Missing or invalid package name');
-  }
-
-  if (!manifest.appVersion || typeof manifest.appVersion !== 'string') {
-    errors.push('Missing or invalid appVersion');
-  }
-
-  if (!manifest.metadata || typeof manifest.metadata !== 'object') {
-    errors.push('Missing or invalid metadata object');
-  } else {
-    if (!manifest.metadata.name || typeof manifest.metadata.name !== 'string') {
-      errors.push('Missing or invalid metadata.name');
-    }
-    if (
-      !manifest.metadata.description ||
-      typeof manifest.metadata.description !== 'string'
-    ) {
-      errors.push('Missing or invalid metadata.description');
-    }
-    if (
-      !manifest.metadata.author ||
-      typeof manifest.metadata.author !== 'string'
-    ) {
-      errors.push('Missing or invalid metadata.author');
-    }
-  }
-
-  if (!manifest.wasm || typeof manifest.wasm !== 'object') {
-    errors.push('Missing or invalid wasm object');
-  } else {
-    if (!manifest.wasm.path || typeof manifest.wasm.path !== 'string') {
-      errors.push('Missing or invalid wasm.path');
-    }
-    if (!manifest.wasm.hash || typeof manifest.wasm.hash !== 'string') {
-      errors.push('Missing or invalid wasm.hash');
-    }
-    if (typeof manifest.wasm.size !== 'number' || manifest.wasm.size <= 0) {
-      errors.push('Missing or invalid wasm.size');
-    }
-  }
-
-  return {
-    valid: errors.length === 0,
-    errors,
-  };
 }
 
 /**
@@ -151,8 +48,8 @@ async function verifySignature(manifest, signature) {
   }
 }
 
-// Export the main handler
-const handler = async (req, res) => {
+// The main handler
+module.exports = async (req, res) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -176,18 +73,7 @@ const handler = async (req, res) => {
 
   try {
     const store = getStorage();
-    let bundleManifest;
-
-    // Handle multipart/form-data (future improvement)
-    if (req.headers['content-type']?.includes('multipart/form-data')) {
-      return res.status(501).json({
-        error: 'not_implemented',
-        message: 'File upload not yet implemented for Vercel deployment',
-      });
-    }
-
-    // Handle JSON payload
-    bundleManifest = req.body;
+    let bundleManifest = req.body;
 
     if (!bundleManifest) {
       return res.status(400).json({
@@ -252,29 +138,10 @@ const handler = async (req, res) => {
       version: bundleManifest.appVersion,
     });
   } catch (error) {
-    console.error('Error publishing bundle:', error);
-    return res.status(500).json({
-      error: 'internal_server_error',
-      message: error.message || 'Failed to publish bundle',
-    });
-  }
-};
-
-// Export the main handler directly for Vercel
-module.exports = async (req, res) => {
-  try {
-    return await handler(req, res);
-  } catch (error) {
     console.error('CRITICAL: Serverless function crash:', error);
     return res.status(500).json({
       error: 'function_crash',
       message: error.message,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
     });
   }
 };
-
-// Also export helper for testing if needed
-module.exports.handler = handler;
-module.exports.canonicalizeBundle = canonicalizeBundle;
-module.exports.validateBundleManifest = validateBundleManifest;

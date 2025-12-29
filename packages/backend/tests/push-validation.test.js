@@ -22,7 +22,7 @@ const mockVerify = {
 jest.mock('../../../packages/backend/src/lib/verify', () => mockVerify);
 
 // Import the handler
-const { handler: pushHandler } = require('../../../api/v2/bundles/push');
+const pushHandler = require('../../../api/v2/bundles/push');
 
 describe('Push Endpoint Validation', () => {
   let req;

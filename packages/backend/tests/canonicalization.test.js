@@ -4,8 +4,8 @@
  * Tests that canonicalization recursively sorts nested object keys
  */
 
-// Import from the API endpoint file
-const { canonicalizeBundle } = require('../../../api/v2/bundles/push');
+// Import from the utility file
+const { canonicalizeBundle } = require('../src/lib/v2-utils');
 
 describe('Canonicalization', () => {
   test('should recursively sort nested object keys', () => {
