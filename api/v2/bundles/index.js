@@ -3,7 +3,7 @@
  * GET /api/v2/bundles
  */
 
-module.exports = async function handler(req, res) {
+module.exports = async (req, res) => {
   if (req.method === 'OPTIONS') {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -21,7 +21,6 @@ module.exports = async function handler(req, res) {
 
   try {
     const { kv } = require('../../../packages/backend/src/lib/kv-client');
-    const semver = require('semver');
     const { package: pkg, version, developer } = req.query || {};
 
     if (pkg && version) {
@@ -34,19 +33,15 @@ module.exports = async function handler(req, res) {
     const bundles = [];
     for (const packageName of allPackages) {
       if (pkg && packageName !== pkg) continue;
-
       const versions = await kv.sMembers(`bundle-versions:${packageName}`);
       if (versions.length === 0) continue;
-
       const sorted = versions.sort((a, b) =>
-        semver.rcompare(semver.valid(a) || '0.0.0', semver.valid(b) || '0.0.0')
+        b.localeCompare(a, undefined, { numeric: true })
       );
       const latestVersion = sorted[0];
-
       const data = await kv.get(`bundle:${packageName}/${latestVersion}`);
       if (!data) continue;
       const bundle = JSON.parse(data).json;
-
       if (developer && bundle.signature?.pubkey !== developer) continue;
       bundles.push(bundle);
     }
