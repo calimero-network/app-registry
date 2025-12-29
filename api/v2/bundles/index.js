@@ -64,9 +64,19 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  let kv;
+  try {
+    kv = await getKV();
+  } catch (e) {
+    console.error('KV init failed:', e);
+    return res.status(500).json({
+      error: 'kv_init_failed',
+      message: e?.message ?? String(e),
+    });
+  }
+
   try {
     const semver = (await import('semver')).default;
-    const kv = await getKV();
     const { package: pkg, version, developer } = req.query || {};
 
     if (pkg && version) {

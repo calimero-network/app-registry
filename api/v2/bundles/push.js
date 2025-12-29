@@ -26,31 +26,28 @@ async function getKV() {
       },
       async get(key) {
         await this._ensureConnected();
-        return await redisClient.get(key);
+        return redisClient.get(key);
       },
       async set(key, value) {
         await this._ensureConnected();
-        return await redisClient.set(key, value);
+        return redisClient.set(key, value);
       },
       async setNX(key, value) {
         await this._ensureConnected();
-        return await redisClient.setNX(key, value);
+        return redisClient.setNX(key, value);
       },
       async sAdd(key, ...members) {
         await this._ensureConnected();
-        // node-redis accepts either (...members) or (membersArray) depending on version;
-        // spreading is safest for modern versions
-        return await redisClient.sAdd(key, ...members);
+        return redisClient.sAdd(key, ...members);
       },
     };
 
     return kvClient;
   }
 
-  // Mock for development
+  // Dev/mock
   const mockStore = new Map();
   const mockSets = new Map();
-
   kvClient = {
     async get(key) {
       return mockStore.get(key) ?? null;
@@ -60,7 +57,7 @@ async function getKV() {
       return 'OK';
     },
     async setNX(key, value) {
-      if (mockStore.has(key)) return 0; // align with Redis setNX semantics
+      if (mockStore.has(key)) return 0;
       mockStore.set(key, value);
       return 1;
     },
@@ -82,26 +79,29 @@ async function getKV() {
 }
 
 export default async function handler(req, res) {
-  const kv = await getKV();
-
-  // CORS Preflight
-  if (req.method === 'OPTIONS') {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-    return res.status(200).end();
-  }
-
+  // CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+  let kv;
+  try {
+    kv = await getKV();
+  } catch (e) {
+    console.error('KV init failed:', e);
+    return res.status(500).json({
+      error: 'kv_init_failed',
+      message: e?.message ?? String(e),
+    });
   }
 
   try {
     const bundleManifest = req.body;
 
-    if (!bundleManifest || !bundleManifest.package || !bundleManifest.appVersion) {
+    if (!bundleManifest?.package || !bundleManifest?.appVersion) {
       return res.status(400).json({
         error: 'invalid_manifest',
         message: 'Missing required fields: package, appVersion',
@@ -111,32 +111,23 @@ export default async function handler(req, res) {
     const key = `${bundleManifest.package}/${bundleManifest.appVersion}`;
     const overwrite = bundleManifest._overwrite === true;
 
-    // Optimized Binary Storage
     const binary = bundleManifest._binary;
     const cleanManifest = { ...bundleManifest };
     delete cleanManifest._binary;
     delete cleanManifest._overwrite;
 
-    const manifestData = {
-      json: cleanManifest,
-      created_at: new Date().toISOString(),
-    };
+    const manifestData = { json: cleanManifest, created_at: new Date().toISOString() };
 
     if (overwrite) {
       await kv.set(`bundle:${key}`, JSON.stringify(manifestData));
     } else {
       const wasSet = await kv.setNX(`bundle:${key}`, JSON.stringify(manifestData));
-      if (!wasSet || wasSet === 0) {
-        return res.status(409).json({ error: 'bundle_exists' });
-      }
+      if (!wasSet || wasSet === 0) return res.status(409).json({ error: 'bundle_exists' });
     }
 
     await kv.sAdd(`bundle-versions:${bundleManifest.package}`, bundleManifest.appVersion);
     await kv.sAdd('bundles:all', bundleManifest.package);
-
-    if (binary) {
-      await kv.set(`binary:${key}`, binary);
-    }
+    if (binary) await kv.set(`binary:${key}`, binary);
 
     return res.status(201).json({
       message: 'Bundle published successfully',
