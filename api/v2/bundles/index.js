@@ -7,12 +7,10 @@ module.exports = async (req, res) => {
   if (req.method === 'OPTIONS') {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-    res.setHeader(
-      'Access-Control-Allow-Headers',
-      'Content-Type, Authorization'
-    );
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
     return res.status(200).end();
   }
+
   res.setHeader('Access-Control-Allow-Origin', '*');
 
   if (req.method !== 'GET') {
@@ -21,6 +19,7 @@ module.exports = async (req, res) => {
 
   try {
     const { kv } = require('../../../packages/backend/src/lib/kv-client');
+    const semver = require('semver');
     const { package: pkg, version, developer } = req.query || {};
 
     if (pkg && version) {
@@ -35,9 +34,7 @@ module.exports = async (req, res) => {
       if (pkg && packageName !== pkg) continue;
       const versions = await kv.sMembers(`bundle-versions:${packageName}`);
       if (versions.length === 0) continue;
-      const sorted = versions.sort((a, b) =>
-        b.localeCompare(a, undefined, { numeric: true })
-      );
+      const sorted = versions.sort((a, b) => semver.rcompare(semver.valid(a) || '0.0.0', semver.valid(b) || '0.0.0'));
       const latestVersion = sorted[0];
       const data = await kv.get(`bundle:${packageName}/${latestVersion}`);
       if (!data) continue;
@@ -50,8 +47,6 @@ module.exports = async (req, res) => {
     return res.status(200).json(bundles);
   } catch (error) {
     console.error('List Error:', error);
-    return res
-      .status(500)
-      .json({ error: 'internal_error', message: error.message });
+    return res.status(500).json({ error: 'internal_error', message: error.message });
   }
 };
