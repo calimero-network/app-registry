@@ -33,12 +33,29 @@ module.exports = async function handler(req, res) {
   }
 
   // Vercel passes dynamic route params via req.query
-  const { package: pkg, version, filename } = req.query || {};
+  // Try both req.query and parsing from URL
+  let pkg = req.query?.package;
+  let version = req.query?.version;
+  let filename = req.query?.filename;
+
+  // Fallback: parse from URL path if query params are missing
+  if (!pkg || !version) {
+    const urlPath = req.url || '';
+    const parts = urlPath.split('/').filter(p => p && p !== 'api');
+    // Path format: /artifacts/:package/:version/:filename
+    // After filtering 'api', we should have: ['artifacts', package, version, filename]
+    if (parts.length >= 3 && parts[0] === 'artifacts') {
+      pkg = pkg || parts[1];
+      version = version || parts[2];
+      filename = filename || parts[3];
+    }
+  }
 
   if (!pkg || !version) {
+    console.error('Missing params - query:', req.query, 'url:', req.url);
     return res.status(400).json({
       error: 'missing_params',
-      message: 'Missing package or version parameter',
+      message: `Missing package or version parameter. Received: package=${pkg}, version=${version}`,
     });
   }
 
