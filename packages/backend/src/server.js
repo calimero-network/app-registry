@@ -20,6 +20,8 @@ async function buildServer() {
   await server.register(cors, {
     origin: config.cors.origin,
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
   // Register Swagger
