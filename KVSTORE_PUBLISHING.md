@@ -92,9 +92,8 @@ If you prefer manual control:
 # 2. Verify the bundle
 ./packages/cli/dist/index.js bundle get com.calimero.kvstore 0.2.5 --bundle kvstore-0.2.5.mpk
 
-# 3. Push to production
-./packages/cli/dist/index.js -u https://apps.calimero.network bundle push \
-    kvstore-0.2.5.mpk
+# 3. Push to production (Note: CLI push is local-only, script uses direct API)
+./scripts/publish-kvstore.sh
 ```
 
 ## Production Registry Details
@@ -112,10 +111,8 @@ After publishing, verify the app is available:
 # Check if the bundle exists
 curl "https://apps.calimero.network/api/v2/bundles/com.calimero.kvstore/0.2.5"
 
-# Or use the CLI
-./packages/cli/dist/index.js -u https://apps.calimero.network bundle get \
-    com.calimero.kvstore \
-    0.2.5
+# Or use curl
+curl "https://apps.calimero.network/api/v2/bundles/com.calimero.kvstore/0.2.5"
 ```
 
 ## Troubleshooting

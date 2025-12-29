@@ -7,7 +7,7 @@ set -e
 
 # Configuration
 KVSTORE_DIR="../kv-store"
-REGISTRY_URL="https://registry.calimero.network"  # Production registry URL
+REGISTRY_URL="https://apps.calimero.network"  # Production registry URL
 WASM_FILE="$KVSTORE_DIR/logic/res/kv_store.wasm"
 PACKAGE="com.calimero.kvstore"
 VERSION="0.2.5"
@@ -66,15 +66,70 @@ else
     exit 1
 fi
 
-# Push to production registry
-echo -e "${BLUE}📤 Pushing to production registry: $REGISTRY_URL${NC}"
-./packages/cli/dist/index.js -u "$REGISTRY_URL" bundle push \
-    "$BUNDLE_FILE"
+# Create manifest JSON for API upload
+echo -e "${BLUE}📋 Creating manifest JSON for upload...${NC}"
+MANIFEST_CONTENT=$(cat <<EOF
+{
+  "version": "1.0",
+  "package": "$PACKAGE",
+  "appVersion": "$VERSION",
+  "metadata": {
+    "name": "KV Store - Demo Application",
+    "description": "A simple key-value store application demonstrating Calimero Network capabilities",
+    "author": "Calimero Network"
+  },
+  "wasm": {
+    "path": "logic/res/kv_store.wasm",
+    "hash": "sha256:568f136877f4c1695082cb51247f44b2614d09dd1e888431395d3113e4050a25",
+    "size": 346079
+  },
+  "links": {
+    "frontend": "https://github.com/calimero-network/kv-store",
+    "github": "https://github.com/calimero-network/kv-store",
+    "docs": "https://github.com/calimero-network/kv-store#readme"
+  }
+}
+EOF
+)
 
-echo -e "${GREEN}🎉 Successfully published KV Store v$VERSION to production registry!${NC}"
-echo -e "${GREEN}📋 Package: $PACKAGE${NC}"
-echo -e "${GREEN}🏷️  Version: $VERSION${NC}"
-echo -e "${GREEN}🌐 Registry: $REGISTRY_URL${NC}"
+# Push manifest to production registry via API
+echo -e "${BLUE}📤 Pushing manifest to production registry: $REGISTRY_URL${NC}"
+API_RESPONSE=$(curl -s -w "\nHTTP_CODE:%{http_code}" \
+    -X POST \
+    -H "Content-Type: application/json" \
+    -d "$MANIFEST_CONTENT" \
+    "$REGISTRY_URL/api/v2/bundles")
+
+HTTP_CODE=$(echo "$API_RESPONSE" | grep "HTTP_CODE:" | cut -d':' -f2)
+RESPONSE_BODY=$(echo "$API_RESPONSE" | sed '/HTTP_CODE:/d')
+
+if [ "$HTTP_CODE" -eq 201 ]; then
+    echo -e "${GREEN}✅ Bundle manifest uploaded successfully${NC}"
+
+    # Verify the upload by attempting to get the bundle from remote registry
+    echo -e "${BLUE}🔍 Verifying upload to remote registry...${NC}"
+    VERIFY_RESPONSE=$(curl -s -w "\nHTTP_CODE:%{http_code}" \
+        "$REGISTRY_URL/api/v2/bundles/$PACKAGE/$VERSION")
+
+    VERIFY_CODE=$(echo "$VERIFY_RESPONSE" | grep "HTTP_CODE:" | cut -d':' -f2)
+
+    if [ "$VERIFY_CODE" -eq 200 ]; then
+        echo -e "${GREEN}🎉 Successfully published KV Store v$VERSION to production registry!${NC}"
+        echo -e "${GREEN}📋 Package: $PACKAGE${NC}"
+        echo -e "${GREEN}🏷️  Version: $VERSION${NC}"
+        echo -e "${GREEN}🌐 Registry: $REGISTRY_URL${NC}"
+        echo -e "${GREEN}🔗 Endpoint: $REGISTRY_URL/api/v2/bundles/$PACKAGE/$VERSION${NC}"
+    else
+        echo -e "${RED}❌ Upload verification failed - bundle not found on remote registry${NC}"
+        echo -e "${YELLOW}💡 HTTP Status: $VERIFY_CODE${NC}"
+        exit 1
+    fi
+else
+    echo -e "${RED}❌ Bundle upload failed${NC}"
+    echo -e "${YELLOW}💡 HTTP Status: $HTTP_CODE${NC}"
+    echo -e "${YELLOW}💡 Response: $RESPONSE_BODY${NC}"
+    exit 1
+fi
 
 # Cleanup
 rm -f "$BUNDLE_FILE"
