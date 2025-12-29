@@ -73,6 +73,18 @@ async function buildServer() {
   const v1Routes = new V1Routes();
   v1Routes.registerRoutes(server);
 
+  // Handle OPTIONS requests for CORS preflight (for V2 endpoints used by desktop app)
+  server.options('/api/v2/bundles', async (request, reply) => {
+    return reply.code(200).send();
+  });
+
+  server.options(
+    '/api/v2/bundles/:package/:version',
+    async (request, reply) => {
+      return reply.code(200).send();
+    }
+  );
+
   return server;
 }
 
