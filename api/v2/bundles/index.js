@@ -3,10 +3,54 @@
  * GET /api/v2/bundles
  */
 
-const { kv } = require('../../../packages/backend/src/lib/kv-client');
-const semver = require('semver');
+let kvClient;
 
-module.exports = async (req, res) => {
+async function getKV() {
+  if (kvClient) return kvClient;
+
+  const isProduction = process.env.VERCEL === '1' || !!process.env.REDIS_URL;
+
+  if (isProduction && process.env.REDIS_URL) {
+    const { createClient } = await import('redis');
+    const redisClient = createClient({ url: process.env.REDIS_URL });
+    redisClient.on('error', (err) => console.error('Redis error:', err));
+
+    kvClient = {
+      _connected: false,
+      async _ensureConnected() {
+        if (!this._connected) {
+          await redisClient.connect();
+          this._connected = true;
+        }
+      },
+      async get(key) {
+        await this._ensureConnected();
+        return await redisClient.get(key);
+      },
+      async sMembers(key) {
+        await this._ensureConnected();
+        return await redisClient.sMembers(key);
+      },
+    };
+    return kvClient;
+  }
+
+  // Mock for development
+  const mockStore = new Map();
+  const mockSets = new Map();
+  kvClient = {
+    async get(key) {
+      return mockStore.get(key) ?? null;
+    },
+    async sMembers(key) {
+      const set = mockSets.get(key);
+      return set ? Array.from(set) : [];
+    },
+  };
+  return kvClient;
+}
+
+export default async function handler(req, res) {
   if (req.method === 'OPTIONS') {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -21,6 +65,8 @@ module.exports = async (req, res) => {
   }
 
   try {
+    const semver = (await import('semver')).default;
+    const kv = await getKV();
     const { package: pkg, version, developer } = req.query || {};
 
     if (pkg && version) {
@@ -48,6 +94,6 @@ module.exports = async (req, res) => {
     return res.status(200).json(bundles);
   } catch (error) {
     console.error('List Error:', error);
-    return res.status(500).json({ error: 'internal_error', message: error.message });
+    return res.status(500).json({ error: 'internal_error', message: error?.message ?? String(error) });
   }
-};
+}
