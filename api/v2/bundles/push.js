@@ -3,79 +3,18 @@
  * POST /api/v2/bundles/push
  */
 
-const { createClient } = require('redis');
+const {
+  BundleStorageKV,
+} = require('../../../packages/backend/src/lib/bundle-storage-kv');
 
-let kvClient;
+// Singleton storage instance
+let storage;
 
-async function getKV() {
-  if (kvClient) return kvClient;
-
-  const isProduction = process.env.VERCEL === '1' || !!process.env.REDIS_URL;
-
-  if (isProduction && process.env.REDIS_URL) {
-    const redisClient = createClient({ url: process.env.REDIS_URL });
-    redisClient.on('error', (err) => console.error('Redis error:', err));
-
-    kvClient = {
-      _connected: false,
-      async _ensureConnected() {
-        if (!this._connected) {
-          await redisClient.connect();
-          this._connected = true;
-        }
-      },
-      async get(key) {
-        await this._ensureConnected();
-        return redisClient.get(key);
-      },
-      async set(key, value) {
-        await this._ensureConnected();
-        return redisClient.set(key, value);
-      },
-      async setNX(key, value) {
-        await this._ensureConnected();
-        return redisClient.setNX(key, value);
-      },
-      async sAdd(key, ...members) {
-        await this._ensureConnected();
-        return redisClient.sAdd(key, ...members);
-      },
-    };
-
-    return kvClient;
+function getStorage() {
+  if (!storage) {
+    storage = new BundleStorageKV();
   }
-
-  // Dev/mock
-  const mockStore = new Map();
-  const mockSets = new Map();
-  kvClient = {
-    async get(key) {
-      return mockStore.get(key) ?? null;
-    },
-    async set(key, value) {
-      mockStore.set(key, value);
-      return 'OK';
-    },
-    async setNX(key, value) {
-      if (mockStore.has(key)) return 0;
-      mockStore.set(key, value);
-      return 1;
-    },
-    async sAdd(key, ...members) {
-      if (!mockSets.has(key)) mockSets.set(key, new Set());
-      const set = mockSets.get(key);
-      let added = 0;
-      for (const m of members) {
-        if (!set.has(m)) {
-          set.add(m);
-          added++;
-        }
-      }
-      return added;
-    },
-  };
-
-  return kvClient;
+  return storage;
 }
 
 module.exports = async function handler(req, res) {
@@ -87,18 +26,8 @@ module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  let kv;
   try {
-    kv = await getKV();
-  } catch (e) {
-    console.error('KV init failed:', e);
-    return res.status(500).json({
-      error: 'kv_init_failed',
-      message: e?.message ?? String(e),
-    });
-  }
-
-  try {
+    const store = getStorage();
     const bundleManifest = req.body;
 
     if (!bundleManifest?.package || !bundleManifest?.appVersion) {
@@ -108,26 +37,10 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    const key = `${bundleManifest.package}/${bundleManifest.appVersion}`;
     const overwrite = bundleManifest._overwrite === true;
 
-    const binary = bundleManifest._binary;
-    const cleanManifest = { ...bundleManifest };
-    delete cleanManifest._binary;
-    delete cleanManifest._overwrite;
-
-    const manifestData = { json: cleanManifest, created_at: new Date().toISOString() };
-
-    if (overwrite) {
-      await kv.set(`bundle:${key}`, JSON.stringify(manifestData));
-    } else {
-      const wasSet = await kv.setNX(`bundle:${key}`, JSON.stringify(manifestData));
-      if (!wasSet || wasSet === 0) return res.status(409).json({ error: 'bundle_exists' });
-    }
-
-    await kv.sAdd(`bundle-versions:${bundleManifest.package}`, bundleManifest.appVersion);
-    await kv.sAdd('bundles:all', bundleManifest.package);
-    if (binary) await kv.set(`binary:${key}`, binary);
+    // Store the bundle
+    await store.storeBundleManifest(bundleManifest, overwrite);
 
     return res.status(201).json({
       message: 'Bundle published successfully',
