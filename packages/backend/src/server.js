@@ -5,8 +5,6 @@ const swaggerUi = require('@fastify/swagger-ui');
 const path = require('path');
 const fs = require('fs');
 
-// Import config
-const config = require('./config');
 const { BundleStorageKV } = require('./lib/bundle-storage-kv');
 
 async function buildServer() {
@@ -16,10 +14,9 @@ async function buildServer() {
     },
   });
 
-  // Register CORS
+  // Register CORS - Disabled
   await server.register(cors, {
-    origin: config.cors.origin,
-    credentials: true,
+    origin: false,
   });
 
   // Register Swagger
