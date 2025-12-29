@@ -33,25 +33,25 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // Vercel passes dynamic route params via req.query for direct API calls
-  // For rewrites from /artifacts/... to /api/artifacts/..., params may be in URL path
+  // Vercel passes dynamic route params via req.query
+  // For file structure [package]/[version]/[filename].js
+  // Parameters are: req.query.package, req.query.version, req.query.filename
   let pkg = req.query?.package;
   let version = req.query?.version;
-  const filename = req.query?.filename;
+  let filename = req.query?.filename;
 
-  // If parameters are missing from query (happens with rewrites),
+  // If parameters are missing or contain literal "$package" (Vercel rewrite issue),
   // parse from URL path
-  if (!pkg || !version) {
+  if (!pkg || !version || pkg === '$package' || version === '$version') {
     const url = req.url || '';
     // Match both /api/artifacts/... and /artifacts/... patterns
+    // Also handle cases where the URL might be the rewritten path
     const match = url.match(/\/(?:api\/)?artifacts\/([^\/]+)\/([^\/]+)\/([^\/]+)/);
     if (match) {
-      pkg = pkg || match[1];
-      version = version || match[2];
-      // filename is optional, use from match if not in query
-      if (!filename && match[3]) {
-        // filename is already set from query if present, so we don't override it
-      }
+      // Only use parsed values if query params are missing or invalid
+      if (!pkg || pkg === '$package') pkg = match[1];
+      if (!version || version === '$version') version = match[2];
+      if (!filename || filename === '$filename') filename = match[3];
     }
   }
 
@@ -65,7 +65,7 @@ module.exports = async function handler(req, res) {
     filename,
   });
 
-  if (!pkg || !version) {
+  if (!pkg || !version || pkg === '$package' || version === '$version') {
     return res.status(400).json({
       error: 'missing_params',
       message: `Missing package or version parameter. Received: package=${pkg || 'undefined'}, version=${version || 'undefined'}`,
