@@ -68,6 +68,17 @@ fi
 
 # Create manifest JSON for API upload (v2 format)
 echo -e "${BLUE}📋 Creating manifest JSON for upload...${NC}"
+
+# Read MPK file and convert to hex for JSON transmission
+if [ -f "$BUNDLE_FILE" ]; then
+    echo -e "${BLUE}🔢 Converting bundle to hex for upload...${NC}"
+    BUNDLE_HEX=$(xxd -p "$BUNDLE_FILE" | tr -d '\n')
+    echo -e "${GREEN}✅ Bundle converted to hex (${#BUNDLE_HEX} characters)${NC}"
+else
+    echo -e "${RED}❌ Bundle file not found for hex conversion${NC}"
+    exit 1
+fi
+
 MANIFEST_CONTENT=$(cat <<EOF
 {
   "version": "1.0",
@@ -87,7 +98,8 @@ MANIFEST_CONTENT=$(cat <<EOF
     "frontend": "https://github.com/calimero-network/kv-store",
     "github": "https://github.com/calimero-network/kv-store",
     "docs": "https://github.com/calimero-network/kv-store#readme"
-  }
+  },
+  "_binary": "$BUNDLE_HEX"
 }
 EOF
 )

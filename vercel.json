@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "buildCommand": "pnpm build:frontend && mkdir -p packages/frontend/dist/artifacts && cp -r public/artifacts/* packages/frontend/dist/artifacts/ || true",
+  "buildCommand": "pnpm build:frontend",
   "outputDirectory": "packages/frontend/dist",
   "installCommand": "pnpm install --frozen-lockfile",
   "framework": null,
@@ -16,8 +16,8 @@
       "destination": "/api/$1"
     },
     {
-      "source": "/artifacts/(.*)",
-      "destination": "/artifacts/$1"
+      "source": "/artifacts/:package/:version/:filename",
+      "destination": "/api/artifacts/$package/$version/$filename"
     },
     {
       "source": "/((?!api|artifacts).*)",

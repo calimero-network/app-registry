@@ -91,7 +91,20 @@ class BundleStorageKV {
     // 5. Global bundles list
     await kv.sAdd('bundles:all', manifest.package);
 
+    // 6. Store binary if provided (as hex string)
+    if (manifest._binary) {
+      await kv.set(`binary:${key}`, manifest._binary);
+    }
+
     return manifestData;
+  }
+
+  /**
+   * Get V2 Bundle Binary by package and version
+   */
+  async getBundleBinary(pkg, version) {
+    const key = `binary:${pkg}/${version}`;
+    return await kv.get(key);
   }
 
   /**

@@ -189,6 +189,20 @@ const handler = async (req, res) => {
     // Handle JSON payload
     bundleManifest = req.body;
 
+    if (!bundleManifest) {
+      return res.status(400).json({
+        error: 'invalid_manifest',
+        message: 'Bundle manifest validation failed',
+        details: ['Missing manifest body'],
+      });
+    }
+
+    // Check if binary is attached (as hex)
+    if (bundleManifest._binary) {
+      const binarySize = bundleManifest._binary.length / 2;
+      console.log(`📦 Bundle push includes binary: ${binarySize} bytes`);
+    }
+
     // Validate manifest structure
     const validation = validateBundleManifest(bundleManifest);
     if (!validation.valid) {
