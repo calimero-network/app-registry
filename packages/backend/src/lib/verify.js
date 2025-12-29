@@ -115,7 +115,7 @@ async function verifySignature(publicKey, signature, data) {
     const dataBuffer =
       typeof data === 'string' ? Buffer.from(data, 'utf8') : data;
 
-    return ed25519Module.verify(decodedSig, dataBuffer, decodedPubKey);
+    return ed25519Module.ed25519.verify(decodedSig, dataBuffer, decodedPubKey);
   } catch (error) {
     // eslint-disable-next-line no-console
     console.error('Signature verification error:', error);
