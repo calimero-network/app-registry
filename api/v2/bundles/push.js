@@ -53,7 +53,7 @@ module.exports = async function handler(req, res) {
     // Verify signature if present (signatures are optional but must be valid if provided)
     if (bundleManifest.signature) {
       try {
-        verifyManifest(bundleManifest);
+        await verifyManifest(bundleManifest);
       } catch (error) {
         return res.status(400).json({
           error: 'invalid_signature',

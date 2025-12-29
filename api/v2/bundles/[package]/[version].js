@@ -24,10 +24,17 @@ async function getKV() {
           await this._connecting;
           return;
         }
-        this._connecting = redisClient.connect().then(() => {
-          this._connected = true;
-          this._connecting = null;
-        });
+        this._connecting = redisClient
+          .connect()
+          .then(() => {
+            this._connected = true;
+            this._connecting = null;
+          })
+          .catch(error => {
+            this._connected = false;
+            this._connecting = null;
+            throw error;
+          });
         await this._connecting;
       },
       async get(key) {

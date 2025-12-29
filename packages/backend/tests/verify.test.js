@@ -46,7 +46,7 @@ describe('Verification library', () => {
     expect(validatePublicKey('invalid-key')).toBe(false);
   });
 
-  test('verifyManifest should throw on invalid manifest', () => {
+  test('verifyManifest should throw on invalid manifest', async () => {
     const invalidManifest = {
       manifest_version: '1.0',
       app: {
@@ -73,11 +73,12 @@ describe('Verification library', () => {
       distribution: 'ipfs',
       signature: {
         alg: 'Ed25519',
+        pubkey: '1'.repeat(32),
         sig: 'invalidSignature123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz',
         signed_at: new Date().toISOString(),
       },
     };
 
-    expect(() => verifyManifest(invalidManifest)).toThrow();
+    await expect(verifyManifest(invalidManifest)).rejects.toThrow();
   });
 });
