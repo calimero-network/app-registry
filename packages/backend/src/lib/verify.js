@@ -35,12 +35,19 @@ function canonicalizeJSON(obj) {
 }
 
 /**
- * Remove signature field from manifest for signing
+ * Remove transient fields from manifest for signing/verification
+ * Strips signature, _binary, and _overwrite fields that are added at upload time
  */
-function removeSignature(manifest) {
-  // eslint-disable-next-line no-unused-vars
-  const { signature: _signature, ...manifestWithoutSignature } = manifest;
-  return manifestWithoutSignature;
+function removeTransientFields(manifest) {
+  /* eslint-disable no-unused-vars */
+  const {
+    signature: _signature,
+    _binary: _binaryField,
+    _overwrite: _overwriteField,
+    ...manifestWithoutTransients
+  } = manifest;
+  /* eslint-enable no-unused-vars */
+  return manifestWithoutTransients;
 }
 
 function decodeBase58ToBytes(input) {
@@ -139,8 +146,8 @@ async function verifyManifest(manifest) {
     throw new Error('Unsupported signature algorithm');
   }
 
-  const manifestWithoutSignature = removeSignature(manifest);
-  const canonicalized = canonicalizeJSON(manifestWithoutSignature);
+  const manifestWithoutTransients = removeTransientFields(manifest);
+  const canonicalized = canonicalizeJSON(manifestWithoutTransients);
 
   const publicKey = manifest.signature.pubkey;
   const signature = manifest.signature.sig;
@@ -182,7 +189,8 @@ function validatePublicKey(pubkey) {
 
 module.exports = {
   canonicalizeJSON,
-  removeSignature,
+  removeSignature: removeTransientFields, // Keep for backward compatibility
+  removeTransientFields,
   verifySignature,
   verifyManifest,
   validateSemver,
