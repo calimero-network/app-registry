@@ -3,12 +3,26 @@
  * POST /api/v2/bundles/push
  */
 
-const path = require('path');
+let kv;
+
+function getKV() {
+  if (!kv) {
+    try {
+      const { kv: kvClient } = require('../../../packages/backend/src/lib/kv-client');
+      kv = kvClient;
+    } catch (error) {
+      // Fallback for Vercel build-time analysis
+      const path = require('path');
+      const kvPath = path.resolve(process.cwd(), 'packages/backend/src/lib/kv-client');
+      const { kv: kvClient } = require(kvPath);
+      kv = kvClient;
+    }
+  }
+  return kv;
+}
 
 module.exports = async (req, res) => {
-  // Use process.cwd() for Vercel compatibility - resolve from project root
-  const kvClientPath = path.resolve(process.cwd(), 'packages/backend/src/lib/kv-client');
-  const { kv } = require(kvClientPath);
+  const kvClient = getKV();
 
   // CORS Preflight
   if (req.method === 'OPTIONS') {
@@ -49,18 +63,18 @@ module.exports = async (req, res) => {
     };
 
     if (overwrite) {
-      await kv.set(`bundle:${key}`, JSON.stringify(manifestData));
+      await kvClient.set(`bundle:${key}`, JSON.stringify(manifestData));
     } else {
-      const wasSet = await kv.setNX(`bundle:${key}`, JSON.stringify(manifestData));
+      const wasSet = await kvClient.setNX(`bundle:${key}`, JSON.stringify(manifestData));
       if (!wasSet || wasSet === 0) {
         return res.status(409).json({ error: 'bundle_exists' });
       }
     }
 
-    await kv.sAdd(`bundle-versions:${bundleManifest.package}`, bundleManifest.appVersion);
-    await kv.sAdd('bundles:all', bundleManifest.package);
+    await kvClient.sAdd(`bundle-versions:${bundleManifest.package}`, bundleManifest.appVersion);
+    await kvClient.sAdd('bundles:all', bundleManifest.package);
     if (binary) {
-      await kv.set(`binary:${key}`, binary);
+      await kvClient.set(`binary:${key}`, binary);
     }
 
     return res.status(201).json({
