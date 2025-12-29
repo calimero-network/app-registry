@@ -197,6 +197,8 @@ const handler = async (req, res) => {
       });
     }
 
+    const overwrite = bundleManifest._overwrite === true;
+
     // Check if binary is attached (as hex)
     if (bundleManifest._binary) {
       const binarySize = bundleManifest._binary.length / 2;
@@ -214,15 +216,17 @@ const handler = async (req, res) => {
     }
 
     // Check if bundle already exists (first-come-first-serve)
-    const existing = await store.getBundleManifest(
-      bundleManifest.package,
-      bundleManifest.appVersion
-    );
-    if (existing) {
-      return res.status(409).json({
-        error: 'bundle_exists',
-        message: `Bundle ${bundleManifest.package}@${bundleManifest.appVersion} already exists`,
-      });
+    if (!overwrite) {
+      const existing = await store.getBundleManifest(
+        bundleManifest.package,
+        bundleManifest.appVersion
+      );
+      if (existing) {
+        return res.status(409).json({
+          error: 'bundle_exists',
+          message: `Bundle ${bundleManifest.package}@${bundleManifest.appVersion} already exists`,
+        });
+      }
     }
 
     // Verify signature if present
@@ -240,7 +244,7 @@ const handler = async (req, res) => {
     }
 
     // Store the bundle
-    await store.storeBundleManifest(bundleManifest);
+    await store.storeBundleManifest(bundleManifest, overwrite);
 
     return res.status(201).json({
       message: 'Bundle published successfully',

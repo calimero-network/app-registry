@@ -14,10 +14,11 @@ class BundleStorageKV {
 
   /**
    * Store a V2 Bundle Manifest
-   * Uses atomic SETNX to prevent race conditions
-   * @throws {Error} If bundle already exists (first-come-first-serve)
+   * @param {Object} manifest The bundle manifest
+   * @param {Boolean} overwrite Whether to overwrite existing manifest
+   * @throws {Error} If bundle already exists and overwrite is false
    */
-  async storeBundleManifest(manifest) {
+  async storeBundleManifest(manifest, overwrite = false) {
     const key = `${manifest.package}/${manifest.appVersion}`;
     const manifestData = {
       json: manifest,
@@ -46,17 +47,23 @@ class BundleStorageKV {
       }
     }
 
-    // 1. Atomic check-and-set: Store manifest only if it doesn't exist
     const bundleKey = `bundle:${key}`;
-    const wasSet = await kv.setNX(bundleKey, JSON.stringify(manifestData));
 
-    // setNX returns boolean: true if key was set, false if key already exists
-    // Handle both boolean (node-redis v4+) and integer (legacy) return types
-    if (!wasSet || wasSet === 0) {
-      // Key already exists - first-come-first-serve policy
-      throw new Error(
-        `Bundle ${manifest.package}@${manifest.appVersion} already exists. First-come-first-serve policy.`
-      );
+    if (overwrite) {
+      // Direct set - will overwrite
+      await kv.set(bundleKey, JSON.stringify(manifestData));
+    } else {
+      // 1. Atomic check-and-set: Store manifest only if it doesn't exist
+      const wasSet = await kv.setNX(bundleKey, JSON.stringify(manifestData));
+
+      // setNX returns boolean: true if key was set, false if key already exists
+      // Handle both boolean (node-redis v4+) and integer (legacy) return types
+      if (!wasSet || wasSet === 0) {
+        // Key already exists - first-come-first-serve policy
+        throw new Error(
+          `Bundle ${manifest.package}@${manifest.appVersion} already exists. First-come-first-serve policy.`
+        );
+      }
     }
 
     // 2. Index interfaces (exports) - safe to iterate after validation

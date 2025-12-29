@@ -99,7 +99,8 @@ MANIFEST_CONTENT=$(cat <<EOF
     "github": "https://github.com/calimero-network/kv-store",
     "docs": "https://github.com/calimero-network/kv-store#readme"
   },
-  "_binary": "$BUNDLE_HEX"
+  "_binary": "$BUNDLE_HEX",
+  "_overwrite": true
 }
 EOF
 )
