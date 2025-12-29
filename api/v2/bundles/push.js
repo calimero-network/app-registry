@@ -151,6 +151,24 @@ async function verifySignature(manifest, signature) {
   }
 }
 
+/**
+ * Canonicalize bundle for signature verification
+ * Exported for testing
+ */
+function canonicalizeBundle(manifest) {
+  const { signature, ...rest } = manifest;
+  return canonicalizeJSON({
+    version: rest.version,
+    package: rest.package,
+    appVersion: rest.appVersion,
+    metadata: rest.metadata,
+    wasm: rest.wasm,
+    interfaces: rest.interfaces || null,
+    migrations: rest.migrations || null,
+    links: rest.links || null,
+  });
+}
+
 // Singleton storage instance
 let storage;
 
@@ -256,4 +274,8 @@ const handler = async (req, res) => {
   }
 };
 
-module.exports = handler;
+module.exports = {
+  handler,
+  canonicalizeBundle,
+  validateBundleManifest,
+};

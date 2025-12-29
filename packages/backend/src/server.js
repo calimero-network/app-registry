@@ -385,18 +385,6 @@ async function buildServer() {
     }
   });
 
-  // Handle OPTIONS requests for CORS preflight (for V2 endpoints used by desktop app)
-  server.options('/api/v2/bundles', async (request, reply) => {
-    return reply.code(200).send();
-  });
-
-  server.options(
-    '/api/v2/bundles/:package/:version',
-    async (request, reply) => {
-      return reply.code(200).send();
-    }
-  );
-
   return server;
 }
 

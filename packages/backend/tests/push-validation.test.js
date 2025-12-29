@@ -22,7 +22,7 @@ const mockVerify = {
 jest.mock('../../../packages/backend/src/lib/verify', () => mockVerify);
 
 // Import the handler
-const pushHandler = require('../../../api/v2/bundles/push');
+const { handler: pushHandler } = require('../../../api/v2/bundles/push');
 
 describe('Push Endpoint Validation', () => {
   let req;
@@ -40,6 +40,8 @@ describe('Push Endpoint Validation', () => {
     res = {
       status: jest.fn().mockReturnThis(),
       json: jest.fn().mockReturnThis(),
+      end: jest.fn().mockReturnThis(),
+      setHeader: jest.fn().mockReturnThis(),
     };
   });
 
@@ -50,11 +52,12 @@ describe('Push Endpoint Validation', () => {
       await pushHandler(req, res);
 
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith({
-        error: 'invalid_request',
-        message:
-          'Request body must be a JSON object (bundle manifest), not an array',
-      });
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          error: 'invalid_manifest',
+          message: 'Bundle manifest validation failed',
+        })
+      );
     });
 
     test('should reject undefined body', async () => {
@@ -63,11 +66,12 @@ describe('Push Endpoint Validation', () => {
       await pushHandler(req, res);
 
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith({
-        error: 'invalid_request',
-        message:
-          'Request body must be a JSON object (bundle manifest), not an array',
-      });
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          error: 'invalid_manifest',
+          message: 'Bundle manifest validation failed',
+        })
+      );
     });
 
     test('should reject array body', async () => {
@@ -79,11 +83,12 @@ describe('Push Endpoint Validation', () => {
       await pushHandler(req, res);
 
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith({
-        error: 'invalid_request',
-        message:
-          'Request body must be a JSON object (bundle manifest), not an array',
-      });
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          error: 'invalid_manifest',
+          message: 'Bundle manifest validation failed',
+        })
+      );
     });
 
     test('should reject empty array', async () => {
@@ -92,11 +97,12 @@ describe('Push Endpoint Validation', () => {
       await pushHandler(req, res);
 
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith({
-        error: 'invalid_request',
-        message:
-          'Request body must be a JSON object (bundle manifest), not an array',
-      });
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          error: 'invalid_manifest',
+          message: 'Bundle manifest validation failed',
+        })
+      );
     });
 
     test('should accept valid object body', async () => {

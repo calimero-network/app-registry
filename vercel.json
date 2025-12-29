@@ -12,7 +12,7 @@
   },
   "rewrites": [
     {
-      "source": "/((?!api).*)",
+      "source": "/((?!api|artifacts).*)",
       "destination": "/index.html"
     }
   ],
