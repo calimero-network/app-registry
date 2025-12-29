@@ -1,6 +1,7 @@
 /**
  * Serve Bundle Artifacts from KV
  * GET /api/artifacts/:package/:version/:filename
+ * Also accessible via rewrite: /artifacts/:package/:version/:filename
  */
 
 const {
@@ -32,22 +33,25 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // Vercel passes dynamic route params via req.query
-  // For file structure [package]/[version]/[filename].js
-  // Parameters are: req.query.package, req.query.version, req.query.filename
+  // Vercel passes dynamic route params via req.query for direct API calls
+  // For rewrites from /artifacts/... to /api/artifacts/..., params may be in URL path
   let pkg = req.query?.package;
   let version = req.query?.version;
   const filename = req.query?.filename;
 
-  // If parameters are missing from query (can happen with rewrites),
-  // try parsing from URL path
+  // If parameters are missing from query (happens with rewrites),
+  // parse from URL path
   if (!pkg || !version) {
     const url = req.url || '';
-    // URL format: /api/artifacts/:package/:version/:filename
-    const match = url.match(/\/artifacts\/([^\/]+)\/([^\/]+)\/([^\/]+)/);
+    // Match both /api/artifacts/... and /artifacts/... patterns
+    const match = url.match(/\/(?:api\/)?artifacts\/([^\/]+)\/([^\/]+)\/([^\/]+)/);
     if (match) {
       pkg = pkg || match[1];
       version = version || match[2];
+      // filename is optional, use from match if not in query
+      if (!filename && match[3]) {
+        // filename is already set from query if present, so we don't override it
+      }
     }
   }
 
