@@ -3,9 +3,13 @@
  * POST /api/v2/bundles/push
  */
 
+const path = require('path');
+
+// Use absolute path from project root to avoid Vercel build resolution issues
+const kvClientPath = path.join(__dirname, '../../../packages/backend/src/lib/kv-client');
+
 module.exports = async (req, res) => {
-  // Lazy load kv-client inside handler to avoid Vercel build-time issues
-  const { kv } = require('../../../packages/backend/src/lib/kv-client');
+  const { kv } = require(kvClientPath);
 
   // CORS Preflight
   if (req.method === 'OPTIONS') {
