@@ -17,7 +17,7 @@ function getStorage() {
   return storage;
 }
 
-module.exports = async (req, res) => {
+module.exports = async function handler(req, res) {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -32,7 +32,15 @@ module.exports = async (req, res) => {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { package: pkg, version, filename } = req.query;
+  // Vercel passes dynamic route params via req.query
+  const { package: pkg, version, filename } = req.query || {};
+
+  if (!pkg || !version) {
+    return res.status(400).json({
+      error: 'missing_params',
+      message: 'Missing package or version parameter',
+    });
+  }
 
   try {
     const store = getStorage();
