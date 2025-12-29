@@ -11,7 +11,6 @@ export const appsCommand = new Command('apps')
   .addCommand(
     new Command('list')
       .description('List all applications')
-      .option('-d, --dev <pubkey>', 'Filter by developer public key')
       .option('-n, --name <name>', 'Filter by application name')
       .action(async (options, command) => {
         const globalOpts = command.parent?.parent?.opts();
@@ -26,7 +25,6 @@ export const appsCommand = new Command('apps')
 
         try {
           const apps = await client.getApps({
-            dev: options.dev,
             name: options.name,
           });
 
@@ -38,13 +36,15 @@ export const appsCommand = new Command('apps')
           }
 
           const tableData = [
-            ['Name', 'Developer', 'Latest Version', 'Latest CID', 'Alias'],
+            ['ID', 'Name', 'Latest Version', 'Digest'],
             ...apps.map(app => [
+              app.id,
               app.name,
-              app.developer_pubkey?.substring(0, 12) + '...' || 'Unknown',
-              app.latest_version || 'Unknown',
-              app.latest_cid?.substring(0, 12) + '...' || 'N/A',
-              app.alias || '-',
+              app.latest_version,
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              (app.latest_digest || (app as any).latest_cid || 'N/A')
+                .toString()
+                .substring(0, 12) + '...',
             ]),
           ];
 

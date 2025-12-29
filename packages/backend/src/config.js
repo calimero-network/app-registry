@@ -11,7 +11,15 @@ module.exports = {
   cors: {
     origin: process.env.CORS_ORIGIN
       ? process.env.CORS_ORIGIN.split(',')
-      : ['https://calimero-network.github.io', 'http://localhost:5173'],
+      : [
+          'https://calimero-network.github.io',
+          'http://localhost:5173',
+          'http://localhost:1420',
+          'http://localhost:3000',
+          'http://localhost:8080',
+          'tauri://localhost', // Tauri apps
+          'https://tauri.localhost', // Tauri apps
+        ],
   },
   cdn: {
     headers: {

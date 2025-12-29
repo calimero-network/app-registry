@@ -3,74 +3,95 @@ import path from 'path';
 import { LocalConfig } from './local-config.js';
 
 export interface AppSummary {
-  id?: string;
+  id: string;
   name: string;
-  developer_pubkey: string;
   latest_version: string;
-  latest_cid: string;
+  latest_digest: string;
+  developer_pubkey?: string;
   alias?: string;
 }
 
 export interface VersionInfo {
   semver: string;
-  cid: string;
+  digest: string;
+  cid: string; // Added for compatibility
   yanked: boolean;
 }
 
-export interface AppManifest {
-  manifest_version: string;
-  app: {
-    app_id: string;
-    name: string;
-    developer_pubkey: string;
-  };
-  version: {
-    semver: string;
-  };
-  supported_chains: string[];
-  permissions: Array<{
-    cap: string;
-    bytes: number;
-  }>;
-  artifacts: Array<{
-    type: 'wasm';
-    target: string;
-    path?: string;
-    cid?: string;
-    mirrors?: string[];
-    size: number;
-    sha256?: string;
-  }>;
-  metadata: Record<string, unknown>;
-  distribution: string;
-  signature: {
-    alg: string;
-    sig: string;
-    signed_at: string;
-  };
+// --- V2 / Bundle Manifest Support ---
+
+export interface BundleArtifact {
+  path: string;
+  hash: string | null;
+  size: number;
+}
+
+export interface BundleMetadata {
+  name: string;
+  description?: string;
+  icon?: string;
+  tags?: string[];
+  license?: string;
+}
+
+export interface BundleInterfaces {
+  exports?: string[];
+  uses?: string[];
+}
+
+export interface BundleLinks {
+  frontend?: string;
+  github?: string;
+  docs?: string;
+}
+
+export interface BundleSignature {
+  alg: string;
+  sig: string;
+  pubkey: string;
+  signed_at: string;
+}
+
+export interface BundleManifest {
+  version: string; // "1.0" (internal manifest version)
+  package: string;
+  appVersion: string;
+
+  metadata?: BundleMetadata;
+  interfaces?: BundleInterfaces;
+
+  wasm?: BundleArtifact;
+  abi?: BundleArtifact;
+  migrations: BundleArtifact[];
+
+  links?: BundleLinks;
+  signature?: BundleSignature;
 }
 
 export interface LocalRegistryData {
   apps: Map<string, AppSummary>;
-  manifests: Map<string, AppManifest>;
-  artifacts: Map<string, string>; // hash -> file path
+  bundleManifests: Map<string, BundleManifest>; // Key: "package/version"
+  artifacts: Map<string, string>; // digest -> file path
 }
 
 export class LocalDataStore {
   private config: LocalConfig;
   private data: LocalRegistryData;
   private appsFile: string;
-  private manifestsFile: string;
+  private bundleManifestsFile: string;
   private artifactsFile: string;
 
   constructor(config: LocalConfig) {
     this.config = config;
     this.appsFile = path.join(config.getDataDir(), 'apps.json');
-    this.manifestsFile = path.join(config.getDataDir(), 'manifests.json');
+    this.bundleManifestsFile = path.join(
+      config.getDataDir(),
+      'bundle_manifests.json'
+    );
     this.artifactsFile = path.join(config.getDataDir(), 'artifacts.json');
     this.data = {
       apps: new Map(),
-      manifests: new Map(),
+      bundleManifests: new Map(),
       artifacts: new Map(),
     };
     this.loadData();
@@ -84,12 +105,14 @@ export class LocalDataStore {
         this.data.apps = new Map(Object.entries(appsData));
       }
 
-      // Load manifests
-      if (fs.existsSync(this.manifestsFile)) {
-        const manifestsData = JSON.parse(
-          fs.readFileSync(this.manifestsFile, 'utf8')
+      // Load bundle manifests
+      if (fs.existsSync(this.bundleManifestsFile)) {
+        const bundleManifestsData = JSON.parse(
+          fs.readFileSync(this.bundleManifestsFile, 'utf8')
         );
-        this.data.manifests = new Map(Object.entries(manifestsData));
+        this.data.bundleManifests = new Map(
+          Object.entries(bundleManifestsData)
+        );
       }
 
       // Load artifacts
@@ -113,11 +136,11 @@ export class LocalDataStore {
       const appsObj = Object.fromEntries(this.data.apps);
       fs.writeFileSync(this.appsFile, JSON.stringify(appsObj, null, 2));
 
-      // Save manifests
-      const manifestsObj = Object.fromEntries(this.data.manifests);
+      // Save bundle manifests
+      const bundleManifestsObj = Object.fromEntries(this.data.bundleManifests);
       fs.writeFileSync(
-        this.manifestsFile,
-        JSON.stringify(manifestsObj, null, 2)
+        this.bundleManifestsFile,
+        JSON.stringify(bundleManifestsObj, null, 2)
       );
 
       // Save artifacts
@@ -128,21 +151,23 @@ export class LocalDataStore {
       );
     } catch (error) {
       throw new Error(
-        `Failed to save data: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Failed to save data: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`
       );
     }
   }
 
   // Apps management
-  getApps(filters?: { dev?: string; name?: string }): AppSummary[] {
+  getApps(filters?: { name?: string; dev?: string }): AppSummary[] {
     let apps = Array.from(this.data.apps.values());
-
-    if (filters?.dev) {
-      apps = apps.filter(app => app.developer_pubkey === filters.dev);
-    }
 
     if (filters?.name) {
       apps = apps.filter(app => app.name.includes(filters.name!));
+    }
+
+    if (filters?.dev) {
+      apps = apps.filter(app => app.developer_pubkey === filters.dev);
     }
 
     return apps;
@@ -157,17 +182,20 @@ export class LocalDataStore {
     this.saveData();
   }
 
-  // Versions management
-  getAppVersions(appId: string): VersionInfo[] {
+  // Versions management (bundles only)
+  getAppVersions(packageId: string): VersionInfo[] {
     const versions: VersionInfo[] = [];
 
-    for (const [key, manifest] of this.data.manifests.entries()) {
-      if (key.startsWith(`${appId}/`)) {
+    // Get bundle versions
+    for (const [key, manifest] of this.data.bundleManifests.entries()) {
+      if (key.startsWith(`${packageId}/`)) {
         const semver = key.split('/').pop()!;
+        const digest = manifest.wasm?.hash || '';
         versions.push({
           semver,
-          cid: manifest.artifacts[0]?.cid || '',
-          yanked: false, // TODO: Implement yanking
+          digest,
+          cid: digest, // Compatibility
+          yanked: false,
         });
       }
     }
@@ -177,15 +205,19 @@ export class LocalDataStore {
     );
   }
 
-  // Manifest management
-  getManifest(appId: string, semver: string): AppManifest | undefined {
-    // Use direct key lookup for app_id system
-    const manifestKey = `${appId}/${semver}`;
-    return this.data.manifests.get(manifestKey);
+  // Manifest management (V2 / Bundles)
+  getBundleManifest(pkg: string, version: string): BundleManifest | undefined {
+    const key = `${pkg}/${version}`;
+    return this.data.bundleManifests.get(key);
   }
 
-  setManifest(manifestKey: string, manifest: AppManifest): void {
-    this.data.manifests.set(manifestKey, manifest);
+  setBundleManifest(
+    pkg: string,
+    version: string,
+    manifest: BundleManifest
+  ): void {
+    const key = `${pkg}/${version}`;
+    this.data.bundleManifests.set(key, manifest);
     this.saveData();
   }
 
@@ -203,7 +235,7 @@ export class LocalDataStore {
   getStats() {
     return {
       publishedApps: this.data.apps.size,
-      totalVersions: this.data.manifests.size,
+      totalVersions: this.data.bundleManifests.size,
       totalArtifacts: this.data.artifacts.size,
     };
   }
@@ -228,7 +260,7 @@ export class LocalDataStore {
     const backupData = {
       timestamp: new Date().toISOString(),
       apps: Object.fromEntries(this.data.apps),
-      manifests: Object.fromEntries(this.data.manifests),
+      bundleManifests: Object.fromEntries(this.data.bundleManifests),
       artifacts: Object.fromEntries(this.data.artifacts),
     };
 
@@ -245,7 +277,9 @@ export class LocalDataStore {
 
     // Restore data
     this.data.apps = new Map(Object.entries(backupData.apps || {}));
-    this.data.manifests = new Map(Object.entries(backupData.manifests || {}));
+    this.data.bundleManifests = new Map(
+      Object.entries(backupData.bundleManifests || {})
+    );
     this.data.artifacts = new Map(Object.entries(backupData.artifacts || {}));
 
     this.saveData();
@@ -254,85 +288,56 @@ export class LocalDataStore {
   // Reset data
   reset(): void {
     this.data.apps.clear();
-    this.data.manifests.clear();
+    this.data.bundleManifests.clear();
     this.data.artifacts.clear();
     this.saveData();
   }
 
+  /**
+   * Get all bundle manifests
+   */
+  getAllBundles(): BundleManifest[] {
+    return Array.from(this.data.bundleManifests.values());
+  }
+
   // Seed with sample data
   async seed(): Promise<void> {
-    const sampleApps: AppSummary[] = [
-      {
-        name: 'sample-wallet',
-        developer_pubkey:
-          'ed25519:5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',
-        latest_version: '1.0.0',
-        latest_cid: 'QmSampleWallet123',
-        alias: 'Sample Wallet',
+    // V2 Sample Bundle
+    const bundleManifest: BundleManifest = {
+      version: '1.0',
+      package: 'com.calimero.sample-bundle',
+      appVersion: '1.0.0',
+      metadata: {
+        name: 'Sample Bundle App',
+        description: 'A sample application using V2 Bundle Manifest',
+        tags: ['sample', 'v2'],
+        license: 'MIT',
       },
-      {
-        name: 'demo-dex',
-        developer_pubkey:
-          'ed25519:5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty',
-        latest_version: '2.1.0',
-        latest_cid: 'QmDemoDex456',
-        alias: 'Demo DEX',
+      interfaces: {
+        exports: ['com.calimero.sample.v1'],
+        uses: [],
       },
-    ];
-
-    const sampleManifests: AppManifest[] = [
-      {
-        manifest_version: '1.0',
-        app: {
-          name: 'sample-wallet',
-          namespace: 'com.example',
-          developer_pubkey:
-            'ed25519:5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',
-          id: 'sample-wallet-id',
-          alias: 'Sample Wallet',
-        },
-        version: {
-          semver: '1.0.0',
-        },
-        supported_chains: ['mainnet', 'testnet'],
-        permissions: [
-          { cap: 'wallet', bytes: 1024 },
-          { cap: 'network', bytes: 512 },
-        ],
-        artifacts: [
-          {
-            type: 'wasm',
-            target: 'node',
-            path: '/artifacts/sample-wallet/1.0.0/app.wasm',
-            size: 1024000,
-            sha256: 'abc123def456',
-          },
-        ],
-        metadata: {
-          description: 'A sample wallet application for testing',
-          author: 'Sample Developer',
-        },
-        distribution: 'local',
-        signature: {
-          alg: 'ed25519',
-          sig: 'sample-signature',
-          signed_at: new Date().toISOString(),
-        },
+      links: {
+        frontend: 'https://example.com/app',
+        github: 'https://github.com/example/app',
       },
-    ];
+      wasm: {
+        path: 'app.wasm',
+        size: 1024,
+        hash: null,
+      },
+      abi: {
+        path: 'abi.json',
+        size: 512,
+        hash: null,
+      },
+      migrations: [],
+    };
 
-    // Add sample apps
-    sampleApps.forEach(app => {
-      const appKey = `${app.developer_pubkey}/${app.name}`;
-      this.setApp(appKey, app);
-    });
-
-    // Add sample manifests
-    sampleManifests.forEach(manifest => {
-      const manifestKey = `${manifest.app.app_id}/${manifest.version.semver}`;
-      this.setManifest(manifestKey, manifest);
-    });
-
-    this.saveData();
+    this.setBundleManifest(
+      bundleManifest.package,
+      bundleManifest.appVersion,
+      bundleManifest
+    );
   }
 }

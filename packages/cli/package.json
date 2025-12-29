@@ -40,14 +40,15 @@
     "ipfs-http-client": "^60.0.1",
     "node-fetch": "^3.3.2",
     "ora": "^7.0.1",
-    "table": "^6.8.1"
+    "table": "^6.8.1",
+    "tar": "^6.2.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.33.0",
     "@semantic-release/commit-analyzer": "^10.0.0",
+    "@semantic-release/exec": "^7.0.0",
     "@semantic-release/github": "^9.0.0",
-    "@semantic-release/npm": "^10.0.0",
-    "@semantic-release/release-notes-generator": "^10.0.0",
+    "@semantic-release/release-notes-generator": "10.0.1",
     "@types/node": "^20.0.0",
     "@typescript-eslint/eslint-plugin": "^8.39.1",
     "@typescript-eslint/parser": "^8.39.1",
@@ -55,13 +56,13 @@
     "conventional-changelog-writer": "^6.0.0",
     "eslint": "^9.33.0",
     "eslint-config-prettier": "^9.0.0",
-    "semantic-release": "^22.0.0",
+    "semantic-release": "^25.0.1",
     "tsup": "^8.0.0",
     "typescript": "^5.0.0",
     "vitest": "^0.29.3"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=24.0.0"
   },
   "keywords": [
     "calimero",
@@ -70,6 +71,10 @@
     "command-line",
     "typescript"
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/calimero-network/app-registry.git"
+  },
   "author": "Calimero Network",
   "license": "MIT"
 }

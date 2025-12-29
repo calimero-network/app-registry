@@ -1,11 +1,9 @@
 import fastify, { FastifyInstance } from 'fastify';
 import cors from '@fastify/cors';
 import { LocalConfig } from './local-config.js';
-import { LocalDataStore, AppSummary, AppManifest } from './local-storage.js';
+import { LocalDataStore, BundleManifest } from './local-storage.js';
 import { LocalArtifactServer } from './local-artifacts.js';
-import path from 'path';
 import fs from 'fs';
-import { Buffer } from 'buffer';
 
 export interface ServerStatus {
   running: boolean;
@@ -132,73 +130,6 @@ export class LocalRegistryServer {
       };
     });
 
-    // Apps endpoints
-    this.server.get('/apps', async request => {
-      const query = request.query as { dev?: string; name?: string };
-      return this.dataStore.getApps(query);
-    });
-
-    this.server.get('/apps/:appId', async request => {
-      const { appId } = request.params as { appId: string };
-      return this.dataStore.getAppVersions(appId);
-    });
-
-    this.server.get('/apps/:appId/:semver', async request => {
-      const { appId, semver } = request.params as {
-        appId: string;
-        semver: string;
-      };
-      const manifest = this.dataStore.getManifest(appId, semver);
-
-      if (!manifest) {
-        return {
-          statusCode: 404,
-          error: 'Not Found',
-          message: 'Manifest not found',
-        };
-      }
-
-      // Update artifacts to use local URLs
-      return this.artifactServer.updateManifestArtifacts(manifest);
-    });
-
-    this.server.post('/apps', async request => {
-      const manifest = request.body as AppManifest;
-
-      // Validate manifest structure
-      if (!this.validateManifest(manifest)) {
-        return {
-          statusCode: 400,
-          error: 'Bad Request',
-          message: 'Invalid manifest structure',
-        };
-      }
-
-      // Process artifacts - copy to local storage
-      const processedManifest = await this.processManifestArtifacts(manifest);
-
-      // Store manifest
-      const manifestKey = `${manifest.app.app_id}/${manifest.version.semver}`;
-      this.dataStore.setManifest(manifestKey, processedManifest);
-
-      // Update app summary
-      const appKey = manifest.app.app_id;
-      const appSummary: AppSummary = {
-        name: manifest.app.name,
-        developer_pubkey: manifest.app.developer_pubkey,
-        latest_version: manifest.version.semver,
-        latest_cid: manifest.artifacts[0]?.cid || '',
-        alias: manifest.app.name, // Use name as alias
-      };
-      this.dataStore.setApp(appKey, appSummary);
-
-      return {
-        success: true,
-        message: 'App version registered successfully',
-        manifest_key: manifestKey,
-      };
-    });
-
     // Artifact endpoints
     this.server.get(
       '/artifacts/:appId/:version/:filename',
@@ -280,225 +211,96 @@ export class LocalRegistryServer {
       return { message: 'Sample data seeded successfully' };
     });
 
-    // V1 API endpoints
-    this.server.post('/v1/apps', async (request, reply) => {
-      const manifest = request.body as Record<string, unknown>;
-
-      // Basic validation
-      if (
-        !manifest.manifest_version ||
-        !manifest.id ||
-        !manifest.name ||
-        !manifest.version
-      ) {
-        return reply.code(400).send({
-          error: 'invalid_schema',
-          details: 'Missing required fields',
-        });
-      }
-
-      try {
-        // Process artifacts - copy to local storage
-        const processedManifest = await this.processManifestArtifacts(manifest);
-
-        // Store manifest directly (no conversion needed)
-        const manifestKey = `${manifest.id}/${manifest.version}`;
-        this.dataStore.setManifest(manifestKey, processedManifest);
-
-        // Create app summary
-        const appKey = manifest.id;
-        const appSummary = {
-          id: manifest.id,
-          name: manifest.name,
-          developer_pubkey: 'local-dev-key',
-          latest_version: manifest.version,
-          latest_cid: manifest.artifact?.digest || '',
-        };
-        this.dataStore.setApp(appKey, appSummary);
-
-        return reply.code(201).send({
-          id: manifest.id,
-          version: manifest.version,
-          canonical_uri: `/v1/apps/${manifest.id}/${manifest.version}`,
-        });
-      } catch {
-        return reply.code(409).send({
-          error: 'already_exists',
-          details: `${manifest.id}@${manifest.version}`,
-        });
-      }
-    });
-
-    this.server.get('/v1/apps/:id', async (request, reply) => {
-      const { id } = request.params as { id: string };
-      const versions = this.dataStore.getAppVersions(id);
-
-      if (!versions || versions.length === 0) {
-        return reply
-          .code(404)
-          .send({ error: 'not_found', message: 'App not found' });
-      }
-
-      return {
-        id,
-        versions: versions.map(v => v.semver),
-      };
-    });
-
-    this.server.get('/v1/apps/:id/:version', async (request, reply) => {
-      const { id, version } = request.params as { id: string; version: string };
-      const { canonical } = request.query as { canonical?: string };
-
-      const oldManifest = this.dataStore.getManifest(id, version);
-      if (!oldManifest) {
-        return reply
-          .code(404)
-          .send({ error: 'not_found', message: 'Manifest not found' });
-      }
-
-      // Convert old format to V1 format
-      const v1Manifest = {
-        manifest_version: oldManifest.manifest_version,
-        id: oldManifest.app.app_id,
-        name: oldManifest.app.name,
-        version: oldManifest.version.semver,
-        chains: oldManifest.supported_chains,
-        artifact: oldManifest.artifacts[0]
-          ? {
-              type: oldManifest.artifacts[0].type,
-              target: oldManifest.artifacts[0].target,
-              digest:
-                oldManifest.artifacts[0].cid || `sha256:${'0'.repeat(64)}`,
-              uri:
-                oldManifest.artifacts[0].path ||
-                oldManifest.artifacts[0].mirrors?.[0] ||
-                'https://example.com/artifact',
-            }
-          : {
-              type: 'wasm',
-              target: 'node',
-              digest: `sha256:${'0'.repeat(64)}`,
-              uri: 'https://example.com/artifact',
-            },
-        _warnings: [],
+    // V2 Bundle API endpoints
+    this.server.get('/api/v2/bundles', async (request, reply) => {
+      const query = request.query as {
+        package?: string;
+        version?: string;
+        developer?: string;
       };
 
-      if (canonical === 'true') {
-        // Return canonical JCS format
-        const canonicalJCS = JSON.stringify(
-          v1Manifest,
-          Object.keys(v1Manifest).sort()
-        );
-        return {
-          canonical_jcs: Buffer.from(canonicalJCS, 'utf8').toString('base64'),
-        };
+      const { package: pkg, version, developer } = query;
+
+      // If specific package and version requested, return single bundle
+      if (pkg && version) {
+        const manifest = this.dataStore.getBundleManifest(pkg, version);
+        if (!manifest) {
+          return reply.code(404).send({
+            error: 'bundle_not_found',
+            message: `Bundle ${pkg}@${version} not found`,
+          });
+        }
+        return [manifest];
       }
 
-      return v1Manifest;
-    });
+      // Get all bundles
+      const allBundles = this.dataStore.getAllBundles();
+      const bundles = [];
 
-    this.server.get('/v1/search', async (request, reply) => {
-      const { q } = request.query as { q?: string };
+      for (const bundle of allBundles) {
+        // Filter by package if specified
+        if (pkg && bundle.package !== pkg) {
+          continue;
+        }
 
-      if (!q) {
-        return reply.code(400).send({
-          error: 'bad_request',
-          message: 'Query parameter "q" is required',
-        });
-      }
-
-      // Simple search implementation
-      const apps = this.dataStore.getApps({});
-      const results = apps.filter(
-        app =>
-          app.name.toLowerCase().includes(q.toLowerCase()) ||
-          (app as { id?: string }).id?.toLowerCase().includes(q.toLowerCase())
-      );
-
-      return results.map(app => ({
-        id: app.id || app.name,
-        versions: [app.latest_version],
-      }));
-    });
-
-    this.server.post('/v1/resolve', async (request, reply) => {
-      const { root } = request.body as {
-        root: { id: string; version: string };
-        installed?: Array<{ id: string; version: string }>;
-      };
-
-      if (!root || !root.id || !root.version) {
-        return reply.code(400).send({
-          error: 'bad_request',
-          message: 'Root app ID and version are required',
-        });
-      }
-
-      // Simple resolution - just return the root app for now
-      return {
-        plan: [{ action: 'install', id: root.id, version: root.version }],
-        satisfies: [],
-        missing: [],
-      };
-    });
-  }
-
-  private validateManifest(manifest: AppManifest): boolean {
-    // Basic validation - in production, use proper schema validation
-    return !!(
-      manifest.manifest_version &&
-      manifest.app &&
-      manifest.app.app_id &&
-      manifest.app.name &&
-      manifest.app.developer_pubkey &&
-      manifest.version &&
-      manifest.version.semver &&
-      manifest.artifacts &&
-      manifest.artifacts.length > 0
-    );
-  }
-
-  private async processManifestArtifacts(
-    manifest: AppManifest
-  ): Promise<AppManifest> {
-    const processedManifest = { ...manifest };
-
-    // Handle V1 manifest format (single artifact object)
-    if (manifest.artifact && manifest.artifact.uri) {
-      const artifact = manifest.artifact;
-
-      // Check if it's a file:// URI
-      if (artifact.uri.startsWith('file://')) {
-        const filePath = artifact.uri.replace('file://', '');
-
-        if (fs.existsSync(filePath)) {
-          const filename = path.basename(filePath);
-          const appId = manifest.id;
-
-          try {
-            await this.artifactServer.copyArtifactToLocal(
-              filePath,
-              appId,
-              manifest.version,
-              filename
-            );
-
-            // Update artifact URI to use local URL
-            processedManifest.artifact = {
-              ...artifact,
-              uri: this.artifactServer.getArtifactUrl(
-                appId,
-                manifest.version,
-                filename
-              ),
-            };
-          } catch (error) {
-            console.warn(`Failed to copy artifact ${filePath}:`, error);
+        // Filter by developer pubkey if specified
+        if (developer) {
+          const bundlePubkey = bundle.signature?.pubkey;
+          if (!bundlePubkey || bundlePubkey !== developer) {
+            continue;
           }
         }
-      }
-    }
 
-    return processedManifest;
+        bundles.push(bundle);
+      }
+
+      // Sort by package name, then by version (descending)
+      bundles.sort((a, b) => {
+        const pkgCompare = a.package.localeCompare(b.package);
+        if (pkgCompare !== 0) return pkgCompare;
+        // For same package, sort by version descending
+        return b.appVersion.localeCompare(a.appVersion, undefined, {
+          numeric: true,
+        });
+      });
+
+      // If filtering by package, return all versions
+      // Otherwise, return only latest version per package
+      if (pkg) {
+        return bundles;
+      }
+
+      // Group by package and return only latest version
+      const latestByPackage = new Map<string, BundleManifest>();
+      for (const bundle of bundles) {
+        const existing = latestByPackage.get(bundle.package);
+        if (!existing || bundle.appVersion > existing.appVersion) {
+          latestByPackage.set(bundle.package, bundle);
+        }
+      }
+
+      return Array.from(latestByPackage.values());
+    });
+
+    this.server.get(
+      '/api/v2/bundles/:package/:version',
+      async (request, reply) => {
+        const { package: pkg, version } = request.params as {
+          package: string;
+          version: string;
+        };
+
+        const manifest = this.dataStore.getBundleManifest(pkg, version);
+
+        if (!manifest) {
+          return reply.code(404).send({
+            error: 'manifest_not_found',
+            message: `Manifest not found for ${pkg}@${version}`,
+          });
+        }
+
+        return manifest;
+      }
+    );
   }
 }

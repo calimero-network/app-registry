@@ -28,76 +28,112 @@ export const getApps = async (params?: {
   dev?: string;
   name?: string;
 }): Promise<AppSummary[]> => {
-  const response = await api.get('/apps', { params });
-  // Handle both direct array response and paginated response
-  if (Array.isArray(response.data)) {
-    return response.data;
+  // Use V2 Bundle API
+  const v2Params: Record<string, string> = {};
+  if (params?.dev) {
+    v2Params.developer = params.dev;
   }
-  // If response has apps property (paginated format), return the apps array
-  return response.data.apps || [];
+  if (params?.name) {
+    v2Params.package = params.name;
+  }
+
+  const response = await api.get('/v2/bundles', { params: v2Params });
+  const bundles = Array.isArray(response.data) ? response.data : [];
+
+  // Transform V2 BundleManifest to AppSummary format
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return bundles.map((bundle: any) => ({
+    id: bundle.package,
+    name: bundle.metadata?.name || bundle.package,
+    developer_pubkey: bundle.signature?.pubkey || 'unknown',
+    latest_version: bundle.appVersion,
+    alias: bundle.metadata?.name,
+    developer: bundle.signature?.pubkey
+      ? {
+          display_name: bundle.metadata?.name || bundle.package,
+          pubkey: bundle.signature.pubkey,
+        }
+      : undefined,
+  }));
 };
 
 export const getAppVersions = async (appId: string): Promise<VersionInfo[]> => {
-  // Use existing /apps endpoint with query parameters
-  const response = await api.get('/apps', {
-    params: { id: appId, versions: 'true' },
+  // Use V2 Bundle API - get all bundles for this package
+  const response = await api.get('/v2/bundles', {
+    params: { package: appId },
   });
-  // Transform V1 API response to frontend format
-  const versions = response.data.versions || [];
-  return versions.map((version: string) => ({
-    semver: version,
-    cid: `ipfs://${appId}@${version}`, // Mock CID for development
-    yanked: false,
-  }));
+  const bundles = Array.isArray(response.data) ? response.data : [];
+
+  // Transform V2 bundles to VersionInfo format
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return bundles.map((bundle: any) => {
+    // Get artifact URL (convention: /artifacts/:package/:version/:package-:version.mpk)
+    const artifactUrl = `/artifacts/${bundle.package}/${bundle.appVersion}/${bundle.package}-${bundle.appVersion}.mpk`;
+    return {
+      semver: bundle.appVersion,
+      cid: artifactUrl,
+      yanked: false,
+    };
+  });
 };
 
 export const getAppManifest = async (
   appId: string,
   semver: string
 ): Promise<AppManifest> => {
-  // Use existing /apps endpoint with query parameters
-  const response = await api.get('/apps', {
-    params: { id: appId, version: semver },
-  });
-  const manifest = response.data;
+  // Use V2 Bundle API
+  const response = await api.get(`/v2/bundles/${appId}/${semver}`);
+  const bundle = response.data;
 
-  // Transform V1 API response to frontend AppManifest format
+  // Transform V2 BundleManifest to frontend AppManifest format
+  const artifactUrl = `/artifacts/${bundle.package}/${bundle.appVersion}/${bundle.package}-${bundle.appVersion}.mpk`;
+
   return {
-    manifest_version: manifest.manifest_version,
+    manifest_version: bundle.version,
     app: {
-      name: manifest.name,
-      developer_pubkey: 'dev-key-unknown', // V1 API doesn't have developer info
-      id: manifest.id,
-      alias: manifest.id,
+      name: bundle.metadata?.name || bundle.package,
+      developer_pubkey: bundle.signature?.pubkey || 'unknown',
+      id: bundle.package,
+      alias: bundle.metadata?.name,
     },
     version: {
-      semver: manifest.version,
+      semver: bundle.appVersion,
     },
-    supported_chains: manifest.chains || ['near:testnet'],
+    supported_chains: [], // V2 bundles don't have chains in manifest
     permissions: [
       {
         cap: 'basic',
-        bytes: 1024,
+        bytes: bundle.wasm?.size || 0,
       },
     ],
     artifacts: [
       {
-        type: manifest.artifact.type,
-        target: manifest.artifact.target,
-        cid: manifest.artifact.uri,
-        size: 1024,
+        type: 'mpk',
+        target: 'node',
+        cid: artifactUrl,
+        size: bundle.wasm?.size || 0,
       },
     ],
     metadata: {
-      provides: manifest.provides || [],
-      requires: manifest.requires || [],
+      provides: bundle.interfaces?.exports || [],
+      requires: bundle.interfaces?.uses || [],
+      description: bundle.metadata?.description,
+      tags: bundle.metadata?.tags,
+      license: bundle.metadata?.license,
+      links: bundle.links,
     },
-    distribution: 'ipfs',
-    signature: manifest.signature || {
-      alg: 'ed25519',
-      sig: 'dev-signature',
-      signed_at: new Date().toISOString(),
-    },
+    distribution: 'registry',
+    signature: bundle.signature
+      ? {
+          alg: bundle.signature.alg,
+          sig: bundle.signature.sig,
+          signed_at: bundle.signature.signedAt,
+        }
+      : {
+          alg: 'ed25519',
+          sig: 'unsigned',
+          signed_at: new Date().toISOString(),
+        },
   };
 };
 

@@ -6,7 +6,7 @@ import { attestationsCommand } from './commands/attestations.js';
 import { healthCommand } from './commands/health.js';
 import { ipfsCommand } from './commands/ipfs.js';
 import { localCommand } from './commands/local.js';
-import { v1Command } from './commands/v1.js';
+import { bundleCommand } from './commands/bundle.js';
 
 const program = new Command();
 
@@ -16,6 +16,20 @@ program
     'Calimero Network App Registry CLI - Command-line interface for the App Registry'
   )
   .version('1.0.0');
+
+// Global help text with examples
+program.addHelpText(
+  'after',
+  `
+Examples:
+  $ calimero-registry apps list
+  $ calimero-registry apps create --file manifest.json
+  $ calimero-registry local start
+  $ calimero-registry health --local
+
+For more information, visit: https://github.com/calimero-network/app-registry
+`
+);
 
 // Global options
 program.option('-u, --url <url>', 'Registry API URL', 'http://localhost:8082');
@@ -33,7 +47,7 @@ program.addCommand(attestationsCommand);
 program.addCommand(healthCommand);
 program.addCommand(ipfsCommand);
 program.addCommand(localCommand);
-program.addCommand(v1Command);
+program.addCommand(bundleCommand);
 
 // Global error handler
 program.exitOverride();
