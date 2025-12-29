@@ -3,6 +3,8 @@
  * POST /api/v2/bundles/push
  */
 
+const { createClient } = require('redis');
+
 let kvClient;
 
 async function getKV() {
@@ -11,8 +13,6 @@ async function getKV() {
   const isProduction = process.env.VERCEL === '1' || !!process.env.REDIS_URL;
 
   if (isProduction && process.env.REDIS_URL) {
-    const { createClient } = require('redis');
-
     const redisClient = createClient({ url: process.env.REDIS_URL });
     redisClient.on('error', (err) => console.error('Redis error:', err));
 
