@@ -3,6 +3,8 @@
  * POST /api/v2/bundles/push
  */
 
+const { kv } = require('../../../packages/backend/src/lib/kv-client');
+
 module.exports = async (req, res) => {
   // CORS Preflight
   if (req.method === 'OPTIONS') {
@@ -19,7 +21,6 @@ module.exports = async (req, res) => {
   }
 
   try {
-    const { kv } = require('../../../packages/backend/src/lib/kv-client');
     const bundleManifest = req.body;
 
     if (!bundleManifest || !bundleManifest.package || !bundleManifest.appVersion) {
