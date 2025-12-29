@@ -1,23 +1,20 @@
 /**
  * V2 Bundle Manifest API
  * GET /api/v2/bundles/:package/:version
- * Returns: Bundle Manifest JSON
  */
 
-// Singleton storage instance
-let storage;
+let BundleStorageKV;
 
 function getStorage() {
-  if (!storage) {
-    const {
+  if (!BundleStorageKV) {
+    ({
       BundleStorageKV,
-    } = require('../../../../packages/backend/src/lib/bundle-storage-kv');
-    storage = new BundleStorageKV();
+    } = require('../../../../packages/backend/src/lib/bundle-storage-kv'));
   }
-  return storage;
+  return new BundleStorageKV();
 }
 
-module.exports = async (req, res) => {
+module.exports = async function handler(req, res) {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     res.setHeader('Access-Control-Allow-Origin', '*');
