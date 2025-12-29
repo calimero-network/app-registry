@@ -32,6 +32,17 @@ module.exports = async function handler(req, res) {
     const store = getStorage();
     const bundleManifest = req.body;
 
+    if (
+      !bundleManifest ||
+      bundleManifest === null ||
+      bundleManifest === undefined
+    ) {
+      return res.status(400).json({
+        error: 'invalid_manifest',
+        message: 'Missing body',
+      });
+    }
+
     if (!bundleManifest?.package || !bundleManifest?.appVersion) {
       return res.status(400).json({
         error: 'invalid_manifest',
