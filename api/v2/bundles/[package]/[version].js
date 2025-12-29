@@ -3,9 +3,7 @@
  * GET /api/v2/bundles/:package/:version
  */
 
-const { kv } = require('../../../../packages/backend/src/lib/kv-client');
-
-module.exports = async (req, res) => {
+module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -26,6 +24,7 @@ module.exports = async (req, res) => {
     if (!pkg || !version)
       return res.status(400).json({ error: 'missing_params' });
 
+    const { kv } = require('../../../../packages/backend/src/lib/kv-client');
     const data = await kv.get(`bundle:${pkg}/${version}`);
     if (!data) return res.status(404).json({ error: 'not_found' });
 

@@ -3,10 +3,7 @@
  * GET /api/v2/bundles
  */
 
-const { kv } = require('../../../packages/backend/src/lib/kv-client');
-const semver = require('semver');
-
-module.exports = async (req, res) => {
+module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -23,6 +20,8 @@ module.exports = async (req, res) => {
   }
 
   try {
+    const { kv } = require('../../../packages/backend/src/lib/kv-client');
+    const semver = require('semver');
     const { package: pkg, version, developer } = req.query || {};
 
     if (pkg && version) {
