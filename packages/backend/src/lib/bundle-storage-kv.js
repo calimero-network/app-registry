@@ -20,26 +20,33 @@ class BundleStorageKV {
    */
   async storeBundleManifest(manifest, overwrite = false) {
     const key = `${manifest.package}/${manifest.appVersion}`;
+
+    // Strip binary from manifest before storing JSON metadata
+    const manifestJson = { ...manifest };
+    const _binary = manifestJson._binary;
+    delete manifestJson._binary;
+    delete manifestJson._overwrite;
+
     const manifestData = {
-      json: manifest,
+      json: manifestJson,
       created_at: new Date().toISOString(),
     };
 
     // Validate interfaces structure before storage to prevent partial writes
-    if (manifest.interfaces) {
+    if (manifestJson.interfaces) {
       if (
-        manifest.interfaces.exports !== undefined &&
-        manifest.interfaces.exports !== null &&
-        !Array.isArray(manifest.interfaces.exports)
+        manifestJson.interfaces.exports !== undefined &&
+        manifestJson.interfaces.exports !== null &&
+        !Array.isArray(manifestJson.interfaces.exports)
       ) {
         throw new Error(
           'Invalid interfaces.exports: must be an array or undefined/null'
         );
       }
       if (
-        manifest.interfaces.uses !== undefined &&
-        manifest.interfaces.uses !== null &&
-        !Array.isArray(manifest.interfaces.uses)
+        manifestJson.interfaces.uses !== undefined &&
+        manifestJson.interfaces.uses !== null &&
+        !Array.isArray(manifestJson.interfaces.uses)
       ) {
         throw new Error(
           'Invalid interfaces.uses: must be an array or undefined/null'
@@ -68,11 +75,11 @@ class BundleStorageKV {
 
     // 2. Index interfaces (exports) - safe to iterate after validation
     if (
-      manifest.interfaces &&
-      Array.isArray(manifest.interfaces.exports) &&
-      manifest.interfaces.exports.length > 0
+      manifestJson.interfaces &&
+      Array.isArray(manifestJson.interfaces.exports) &&
+      manifestJson.interfaces.exports.length > 0
     ) {
-      for (const iface of manifest.interfaces.exports) {
+      for (const iface of manifestJson.interfaces.exports) {
         if (typeof iface === 'string' && iface.trim().length > 0) {
           await kv.sAdd(`provides:${iface}`, key);
         }
@@ -81,11 +88,11 @@ class BundleStorageKV {
 
     // 3. Index interfaces (uses) - safe to iterate after validation
     if (
-      manifest.interfaces &&
-      Array.isArray(manifest.interfaces.uses) &&
-      manifest.interfaces.uses.length > 0
+      manifestJson.interfaces &&
+      Array.isArray(manifestJson.interfaces.uses) &&
+      manifestJson.interfaces.uses.length > 0
     ) {
-      for (const iface of manifest.interfaces.uses) {
+      for (const iface of manifestJson.interfaces.uses) {
         if (typeof iface === 'string' && iface.trim().length > 0) {
           await kv.sAdd(`uses:${iface}`, key);
         }
@@ -99,8 +106,8 @@ class BundleStorageKV {
     await kv.sAdd('bundles:all', manifest.package);
 
     // 6. Store binary if provided (as hex string)
-    if (manifest._binary) {
-      await kv.set(`binary:${key}`, manifest._binary);
+    if (_binary) {
+      await kv.set(`binary:${key}`, _binary);
     }
 
     return manifestData;
