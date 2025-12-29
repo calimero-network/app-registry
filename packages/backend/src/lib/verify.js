@@ -2,6 +2,14 @@
 let ed25519;
 const { multibase } = require('multibase');
 
+// Initialize ed25519 module
+async function initEd25519() {
+  if (!ed25519) {
+    ed25519 = await import('@noble/ed25519');
+  }
+  return ed25519;
+}
+
 /**
  * JSON Canonicalization Scheme (JCS) implementation
  * Canonicalizes JSON by sorting keys and removing whitespace
@@ -27,12 +35,19 @@ function canonicalizeJSON(obj) {
 }
 
 /**
- * Remove signature field from manifest for signing
+ * Remove transient fields from manifest for signing/verification
+ * Strips signature, _binary, and _overwrite fields that are added at upload time
  */
-function removeSignature(manifest) {
-  // eslint-disable-next-line no-unused-vars
-  const { signature: _signature, ...manifestWithoutSignature } = manifest;
-  return manifestWithoutSignature;
+function removeTransientFields(manifest) {
+  /* eslint-disable no-unused-vars */
+  const {
+    signature: _signature,
+    _binary: _binaryField,
+    _overwrite: _overwriteField,
+    ...manifestWithoutTransients
+  } = manifest;
+  /* eslint-enable no-unused-vars */
+  return manifestWithoutTransients;
 }
 
 function decodeBase58ToBytes(input) {
@@ -63,8 +78,10 @@ function decodeBase58ToBytes(input) {
 /**
  * Verify Ed25519 signature
  */
-function verifySignature(publicKey, signature, data) {
+async function verifySignature(publicKey, signature, data) {
   try {
+    // Ensure ed25519 is initialized
+    const ed25519Module = await initEd25519();
     // Decode public key from base58 or multibase
     let decodedPubKey;
     try {
@@ -105,7 +122,7 @@ function verifySignature(publicKey, signature, data) {
     const dataBuffer =
       typeof data === 'string' ? Buffer.from(data, 'utf8') : data;
 
-    return ed25519.verify(decodedSig, dataBuffer, decodedPubKey);
+    return ed25519Module.ed25519.verify(decodedSig, dataBuffer, decodedPubKey);
   } catch (error) {
     // eslint-disable-next-line no-console
     console.error('Signature verification error:', error);
@@ -116,7 +133,7 @@ function verifySignature(publicKey, signature, data) {
 /**
  * Verify manifest signature
  */
-function verifyManifest(manifest) {
+async function verifyManifest(manifest) {
   if (
     !manifest.signature ||
     !manifest.signature.sig ||
@@ -129,13 +146,13 @@ function verifyManifest(manifest) {
     throw new Error('Unsupported signature algorithm');
   }
 
-  const manifestWithoutSignature = removeSignature(manifest);
-  const canonicalized = canonicalizeJSON(manifestWithoutSignature);
+  const manifestWithoutTransients = removeTransientFields(manifest);
+  const canonicalized = canonicalizeJSON(manifestWithoutTransients);
 
   const publicKey = manifest.signature.pubkey;
   const signature = manifest.signature.sig;
 
-  const isValid = verifySignature(publicKey, signature, canonicalized);
+  const isValid = await verifySignature(publicKey, signature, canonicalized);
   if (!isValid) {
     throw new Error('Invalid signature');
   }
@@ -172,7 +189,8 @@ function validatePublicKey(pubkey) {
 
 module.exports = {
   canonicalizeJSON,
-  removeSignature,
+  removeSignature: removeTransientFields, // Keep for backward compatibility
+  removeTransientFields,
   verifySignature,
   verifyManifest,
   validateSemver,

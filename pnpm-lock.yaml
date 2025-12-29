@@ -12,18 +12,27 @@ importers:
 
   .:
     dependencies:
+      '@noble/ed25519':
+        specifier: ^2.0.0
+        version: 2.3.0
       ajv:
         specifier: ^8.12.0
         version: 8.17.1
       ajv-formats:
         specifier: ^2.1.1
         version: 2.1.1(ajv@8.17.1)
+      node-fetch:
+        specifier: ^3.3.2
+        version: 3.3.2
       redis:
         specifier: ^5.9.0
         version: 5.10.0
       semver:
         specifier: ^7.5.4
         version: 7.7.3
+      tar:
+        specifier: ^6.2.1
+        version: 6.2.1
     devDependencies:
       '@types/node':
         specifier: ^20.0.0

@@ -14,31 +14,39 @@ class BundleStorageKV {
 
   /**
    * Store a V2 Bundle Manifest
-   * Uses atomic SETNX to prevent race conditions
-   * @throws {Error} If bundle already exists (first-come-first-serve)
+   * @param {Object} manifest The bundle manifest
+   * @param {Boolean} overwrite Whether to overwrite existing manifest
+   * @throws {Error} If bundle already exists and overwrite is false
    */
-  async storeBundleManifest(manifest) {
+  async storeBundleManifest(manifest, overwrite = false) {
     const key = `${manifest.package}/${manifest.appVersion}`;
+
+    // Strip binary from manifest before storing JSON metadata
+    const manifestJson = { ...manifest };
+    const _binary = manifestJson._binary;
+    delete manifestJson._binary;
+    delete manifestJson._overwrite;
+
     const manifestData = {
-      json: manifest,
+      json: manifestJson,
       created_at: new Date().toISOString(),
     };
 
     // Validate interfaces structure before storage to prevent partial writes
-    if (manifest.interfaces) {
+    if (manifestJson.interfaces) {
       if (
-        manifest.interfaces.exports !== undefined &&
-        manifest.interfaces.exports !== null &&
-        !Array.isArray(manifest.interfaces.exports)
+        manifestJson.interfaces.exports !== undefined &&
+        manifestJson.interfaces.exports !== null &&
+        !Array.isArray(manifestJson.interfaces.exports)
       ) {
         throw new Error(
           'Invalid interfaces.exports: must be an array or undefined/null'
         );
       }
       if (
-        manifest.interfaces.uses !== undefined &&
-        manifest.interfaces.uses !== null &&
-        !Array.isArray(manifest.interfaces.uses)
+        manifestJson.interfaces.uses !== undefined &&
+        manifestJson.interfaces.uses !== null &&
+        !Array.isArray(manifestJson.interfaces.uses)
       ) {
         throw new Error(
           'Invalid interfaces.uses: must be an array or undefined/null'
@@ -46,26 +54,32 @@ class BundleStorageKV {
       }
     }
 
-    // 1. Atomic check-and-set: Store manifest only if it doesn't exist
     const bundleKey = `bundle:${key}`;
-    const wasSet = await kv.setNX(bundleKey, JSON.stringify(manifestData));
 
-    // setNX returns boolean: true if key was set, false if key already exists
-    // Handle both boolean (node-redis v4+) and integer (legacy) return types
-    if (!wasSet || wasSet === 0) {
-      // Key already exists - first-come-first-serve policy
-      throw new Error(
-        `Bundle ${manifest.package}@${manifest.appVersion} already exists. First-come-first-serve policy.`
-      );
+    if (overwrite) {
+      // Direct set - will overwrite
+      await kv.set(bundleKey, JSON.stringify(manifestData));
+    } else {
+      // 1. Atomic check-and-set: Store manifest only if it doesn't exist
+      const wasSet = await kv.setNX(bundleKey, JSON.stringify(manifestData));
+
+      // setNX returns boolean: true if key was set, false if key already exists
+      // Handle both boolean (node-redis v4+) and integer (legacy) return types
+      if (!wasSet || wasSet === 0) {
+        // Key already exists - first-come-first-serve policy
+        throw new Error(
+          `Bundle ${manifest.package}@${manifest.appVersion} already exists. First-come-first-serve policy.`
+        );
+      }
     }
 
     // 2. Index interfaces (exports) - safe to iterate after validation
     if (
-      manifest.interfaces &&
-      Array.isArray(manifest.interfaces.exports) &&
-      manifest.interfaces.exports.length > 0
+      manifestJson.interfaces &&
+      Array.isArray(manifestJson.interfaces.exports) &&
+      manifestJson.interfaces.exports.length > 0
     ) {
-      for (const iface of manifest.interfaces.exports) {
+      for (const iface of manifestJson.interfaces.exports) {
         if (typeof iface === 'string' && iface.trim().length > 0) {
           await kv.sAdd(`provides:${iface}`, key);
         }
@@ -74,11 +88,11 @@ class BundleStorageKV {
 
     // 3. Index interfaces (uses) - safe to iterate after validation
     if (
-      manifest.interfaces &&
-      Array.isArray(manifest.interfaces.uses) &&
-      manifest.interfaces.uses.length > 0
+      manifestJson.interfaces &&
+      Array.isArray(manifestJson.interfaces.uses) &&
+      manifestJson.interfaces.uses.length > 0
     ) {
-      for (const iface of manifest.interfaces.uses) {
+      for (const iface of manifestJson.interfaces.uses) {
         if (typeof iface === 'string' && iface.trim().length > 0) {
           await kv.sAdd(`uses:${iface}`, key);
         }
@@ -91,7 +105,20 @@ class BundleStorageKV {
     // 5. Global bundles list
     await kv.sAdd('bundles:all', manifest.package);
 
+    // 6. Store binary if provided (as hex string)
+    if (_binary) {
+      await kv.set(`binary:${key}`, _binary);
+    }
+
     return manifestData;
+  }
+
+  /**
+   * Get V2 Bundle Binary by package and version
+   */
+  async getBundleBinary(pkg, version) {
+    const key = `binary:${pkg}/${version}`;
+    return await kv.get(key);
   }
 
   /**

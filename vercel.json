@@ -12,7 +12,15 @@
   },
   "rewrites": [
     {
-      "source": "/((?!api).*)",
+      "source": "/api/(.*)",
+      "destination": "/api/$1"
+    },
+    {
+      "source": "/artifacts/:package/:version/:filename",
+      "destination": "/api/artifacts/$package/$version/$filename"
+    },
+    {
+      "source": "/((?!api|artifacts).*)",
       "destination": "/index.html"
     }
   ],

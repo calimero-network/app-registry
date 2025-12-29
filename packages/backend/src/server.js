@@ -18,7 +18,15 @@ async function buildServer() {
 
   // Register CORS
   await server.register(cors, {
-    origin: config.cors.origin,
+    origin: [
+      ...(config.cors?.origin || []),
+      'http://localhost:1420', // Desktop app dev
+      'http://localhost:3000', // Alternative dev port
+      'http://localhost:8080', // Registry dev server
+      'tauri://localhost', // Tauri apps
+      'https://tauri.localhost', // Tauri apps
+      'http://localhost:5173', // Vite dev server
+    ],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],

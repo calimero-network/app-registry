@@ -7,7 +7,7 @@ set -e
 
 # Configuration
 KVSTORE_DIR="../kv-store"
-REGISTRY_URL="https://apps.calimero.network"  # Production registry URL
+REGISTRY_URL="https://apps.calimero.network"
 WASM_FILE="$KVSTORE_DIR/logic/res/kv_store.wasm"
 PACKAGE="com.calimero.kvstore"
 VERSION="0.2.5"
@@ -68,6 +68,17 @@ fi
 
 # Create manifest JSON for API upload (v2 format)
 echo -e "${BLUE}📋 Creating manifest JSON for upload...${NC}"
+
+# Read MPK file and convert to hex for JSON transmission
+if [ -f "$BUNDLE_FILE" ]; then
+    echo -e "${BLUE}🔢 Converting bundle to hex for upload...${NC}"
+    BUNDLE_HEX=$(xxd -p "$BUNDLE_FILE" | tr -d '\n')
+    echo -e "${GREEN}✅ Bundle converted to hex (${#BUNDLE_HEX} characters)${NC}"
+else
+    echo -e "${RED}❌ Bundle file not found for hex conversion${NC}"
+    exit 1
+fi
+
 MANIFEST_CONTENT=$(cat <<EOF
 {
   "version": "1.0",
@@ -87,17 +98,19 @@ MANIFEST_CONTENT=$(cat <<EOF
     "frontend": "https://github.com/calimero-network/kv-store",
     "github": "https://github.com/calimero-network/kv-store",
     "docs": "https://github.com/calimero-network/kv-store#readme"
-  }
+  },
+  "_binary": "$BUNDLE_HEX",
+  "_overwrite": true
 }
 EOF
 )
 
 # Push manifest to production registry via the correct v2 endpoint
 echo -e "${BLUE}📤 Pushing manifest to production registry: $REGISTRY_URL${NC}"
-API_RESPONSE=$(curl -s -w "\nHTTP_CODE:%{http_code}" \
+API_RESPONSE=$(echo "$MANIFEST_CONTENT" | curl -s -w "\nHTTP_CODE:%{http_code}" \
     -X POST \
     -H "Content-Type: application/json" \
-    -d "$MANIFEST_CONTENT" \
+    --data-binary @- \
     "$REGISTRY_URL/api/v2/bundles/push")
 
 HTTP_CODE=$(echo "$API_RESPONSE" | grep "HTTP_CODE:" | cut -d':' -f2)
