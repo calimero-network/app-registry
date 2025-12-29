@@ -5,10 +5,9 @@
 
 const path = require('path');
 
-// Use absolute path from project root to avoid Vercel build resolution issues
-const kvClientPath = path.join(__dirname, '../../../packages/backend/src/lib/kv-client');
-
 module.exports = async (req, res) => {
+  // Use process.cwd() for Vercel compatibility - resolve from project root
+  const kvClientPath = path.resolve(process.cwd(), 'packages/backend/src/lib/kv-client');
   const { kv } = require(kvClientPath);
 
   // CORS Preflight
