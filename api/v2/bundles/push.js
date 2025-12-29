@@ -63,11 +63,9 @@ module.exports = async function handler(req, res) {
     });
   } catch (error) {
     console.error('Push Error:', error);
-    return res
-      .status(500)
-      .json({
-        error: 'internal_error',
-        message: error?.message ?? String(error),
-      });
+    return res.status(500).json({
+      error: 'internal_error',
+      message: error?.message ?? String(error),
+    });
   }
 };

@@ -86,11 +86,9 @@ module.exports = async function handler(req, res) {
     return res.status(200).json(JSON.parse(data).json);
   } catch (error) {
     console.error('Get Error:', error);
-    return res
-      .status(500)
-      .json({
-        error: 'internal_error',
-        message: error?.message ?? String(error),
-      });
+    return res.status(500).json({
+      error: 'internal_error',
+      message: error?.message ?? String(error),
+    });
   }
 };

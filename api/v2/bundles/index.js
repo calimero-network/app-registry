@@ -116,11 +116,9 @@ module.exports = async function handler(req, res) {
     return res.status(200).json(bundles);
   } catch (error) {
     console.error('List Error:', error);
-    return res
-      .status(500)
-      .json({
-        error: 'internal_error',
-        message: error?.message ?? String(error),
-      });
+    return res.status(500).json({
+      error: 'internal_error',
+      message: error?.message ?? String(error),
+    });
   }
 };
