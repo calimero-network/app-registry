@@ -3,9 +3,10 @@
  * POST /api/v2/bundles/push
  */
 
-const { kv } = require('../../../packages/backend/src/lib/kv-client');
-
 module.exports = async (req, res) => {
+  // Lazy load kv-client inside handler to avoid Vercel build-time issues
+  const { kv } = require('../../../packages/backend/src/lib/kv-client');
+
   // CORS Preflight
   if (req.method === 'OPTIONS') {
     res.setHeader('Access-Control-Allow-Origin', '*');
