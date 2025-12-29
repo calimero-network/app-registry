@@ -33,16 +33,33 @@ module.exports = async function handler(req, res) {
   }
 
   // Vercel passes dynamic route params via req.query
-  // The file structure [package]/[version]/[filename].js means:
-  // req.query.package, req.query.version, req.query.filename
-  const pkg = req.query?.package;
-  const version = req.query?.version;
+  // For file structure [package]/[version]/[filename].js
+  // Parameters are: req.query.package, req.query.version, req.query.filename
+  let pkg = req.query?.package;
+  let version = req.query?.version;
   const filename = req.query?.filename;
 
+  // If parameters are missing from query (can happen with rewrites),
+  // try parsing from URL path
+  if (!pkg || !version) {
+    const url = req.url || '';
+    // URL format: /api/artifacts/:package/:version/:filename
+    const match = url.match(/\/artifacts\/([^\/]+)\/([^\/]+)\/([^\/]+)/);
+    if (match) {
+      pkg = pkg || match[1];
+      version = version || match[2];
+    }
+  }
+
   // Debug logging
-  console.log('Artifact request - query:', JSON.stringify(req.query));
-  console.log('Artifact request - url:', req.url);
-  console.log('Artifact request - pkg:', pkg, 'version:', version, 'filename:', filename);
+  console.log('Artifact endpoint - Full request info:', {
+    query: req.query,
+    url: req.url,
+    method: req.method,
+    pkg,
+    version,
+    filename,
+  });
 
   if (!pkg || !version) {
     return res.status(400).json({
