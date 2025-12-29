@@ -92,37 +92,13 @@ MANIFEST_CONTENT=$(cat <<EOF
 EOF
 )
 
-# Check what methods are allowed on the v2 bundles endpoint
-echo -e "${BLUE}🔍 Checking API endpoint capabilities...${NC}"
-OPTIONS_RESPONSE=$(curl -s -I "$REGISTRY_URL/api/v2/bundles" | grep -i "allow:" || echo "No Allow header")
-echo -e "${YELLOW}💡 Endpoint capabilities: $OPTIONS_RESPONSE${NC}"
-
-# Try different methods - maybe PUT instead of POST
+# Push manifest to production registry via the correct v2 endpoint
 echo -e "${BLUE}📤 Pushing manifest to production registry: $REGISTRY_URL${NC}"
 API_RESPONSE=$(curl -s -w "\nHTTP_CODE:%{http_code}" \
-    -X PUT \
+    -X POST \
     -H "Content-Type: application/json" \
     -d "$MANIFEST_CONTENT" \
-    "$REGISTRY_URL/api/v2/bundles/$PACKAGE/$VERSION")
-
-# If PUT doesn't work, try POST
-if [ "$(echo "$API_RESPONSE" | grep "HTTP_CODE:" | cut -d':' -f2)" -eq 405 ]; then
-    echo -e "${YELLOW}💡 PUT not allowed, trying POST...${NC}"
-    API_RESPONSE=$(curl -s -w "\nHTTP_CODE:%{http_code}" \
-        -X POST \
-        -H "Content-Type: application/json" \
-        -d "$MANIFEST_CONTENT" \
-        "$REGISTRY_URL/api/v2/bundles")
-fi
-
-# If POST also fails with 405, try sending as form data
-if [ "$(echo "$API_RESPONSE" | grep "HTTP_CODE:" | cut -d':' -f2)" -eq 405 ]; then
-    echo -e "${YELLOW}💡 JSON POST not allowed, trying form data...${NC}"
-    API_RESPONSE=$(curl -s -w "\nHTTP_CODE:%{http_code}" \
-        -X POST \
-        -F "manifest=$MANIFEST_CONTENT" \
-        "$REGISTRY_URL/api/v2/bundles")
-fi
+    "$REGISTRY_URL/api/v2/bundles/push")
 
 HTTP_CODE=$(echo "$API_RESPONSE" | grep "HTTP_CODE:" | cut -d':' -f2)
 RESPONSE_BODY=$(echo "$API_RESPONSE" | sed '/HTTP_CODE:/d')

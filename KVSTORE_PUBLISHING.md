@@ -92,8 +92,10 @@ If you prefer manual control:
 # 2. Verify the bundle
 ./packages/cli/dist/index.js bundle get com.calimero.kvstore 0.2.5 --bundle kvstore-0.2.5.mpk
 
-# 3. Push to production (Note: CLI push is local-only, script uses direct API)
-./scripts/publish-kvstore.sh
+# 3. Push to production
+curl -X POST "https://apps.calimero.network/api/v2/bundles/push" \
+  -H "Content-Type: application/json" \
+  -d @kvstore-manifest.json
 ```
 
 ## Production Registry Details
