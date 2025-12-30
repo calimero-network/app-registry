@@ -30,7 +30,7 @@
     "lru-cache": "^10.0.0",
     "pino": "^8.16.0",
     "ipfs-http-client": "^60.0.1",
-    "js-yaml": "^4.1.0",
+    "js-yaml": "^4.1.1",
     "multibase": "^4.0.6",
     "multiformats": "^12.0.1",
     "node-fetch": "^3.3.2",
