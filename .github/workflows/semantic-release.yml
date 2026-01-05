@@ -50,7 +50,7 @@ jobs:
           token: false # Disable NPM_AUTH_TOKEN to allow OIDC trusted publishing
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v2
+        uses: pnpm/action-setup@v4
         with:
           version: 8
 
