@@ -129,6 +129,7 @@ pnpm dev:all
 - **[Security](SECURITY.md)** - Security policy and vulnerability reporting
 - **[Support](SUPPORT.md)** - Getting help and troubleshooting
 - **[Code of Conduct](CODE_OF_CONDUCT.md)** - Community guidelines
+- **[Bundle Publishing Guide](KVSTORE_PUBLISHING.md)** - Guide for publishing application bundles to the registry
 - **[License](LICENSE.md)** - MIT License
 
 ## 🛠️ Development Workflow
@@ -286,6 +287,10 @@ The repository uses Husky to ensure code quality:
 - [**Frontend**](./packages/frontend/README.md) - Web application documentation
 - [**Client Library**](./packages/client-library/README.md) - TypeScript client docs
 - [**CLI**](./packages/cli/README.md) - Command-line tool documentation
+
+### Publishing & Deployment
+
+- [**Bundle Publishing Guide**](./KVSTORE_PUBLISHING.md) - Complete guide for publishing V2 bundles to the registry
 
 ## 🔧 Configuration
 

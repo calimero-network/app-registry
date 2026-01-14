@@ -7,6 +7,7 @@ import { healthCommand } from './commands/health.js';
 import { ipfsCommand } from './commands/ipfs.js';
 import { localCommand } from './commands/local.js';
 import { bundleCommand } from './commands/bundle.js';
+import { configCommand } from './commands/config.js';
 
 const program = new Command();
 
@@ -48,6 +49,7 @@ program.addCommand(healthCommand);
 program.addCommand(ipfsCommand);
 program.addCommand(localCommand);
 program.addCommand(bundleCommand);
+program.addCommand(configCommand);
 
 // Global error handler
 program.exitOverride();

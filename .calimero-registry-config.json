@@ -1,0 +1,7 @@
+{
+  "registry": {
+    "url": "https://apps.calimero.network",
+    "apiKey": null
+  },
+  "_comment": "This is a project-level config template. Use 'calimero-registry config set registry-url <url>' to configure your CLI."
+}

@@ -14,6 +14,30 @@ import crypto from 'crypto';
 import { LocalDataStore, BundleManifest } from '../lib/local-storage.js';
 import { LocalConfig } from '../lib/local-config.js';
 import { LocalArtifactServer } from '../lib/local-artifacts.js';
+import { RemoteConfig } from '../lib/remote-config.js';
+
+interface BundlePushPayload {
+  version: string;
+  package: string;
+  appVersion: string;
+  _binary: string;
+  _overwrite: boolean;
+  metadata?: BundleManifest['metadata'];
+  interfaces?: BundleManifest['interfaces'];
+  wasm?: BundleManifest['wasm'];
+  abi?: BundleManifest['abi'];
+  migrations?: BundleManifest['migrations'];
+  links?: BundleManifest['links'];
+  signature?: BundleManifest['signature'];
+}
+
+interface ApiResponseBody {
+  message?: string;
+  error?: string;
+  package?: string;
+  version?: string;
+  [key: string]: unknown;
+}
 
 export const bundleCommand = new Command('bundle')
   .description('Manage application bundles (V2)')
@@ -182,11 +206,81 @@ function createCreateCommand(): Command {
 
 function createPushCommand(): Command {
   return new Command('push')
-    .description('Push a bundle (.mpk) to the registry')
+    .description(
+      'Push a bundle (.mpk) to the registry (local or remote). Defaults to local registry.'
+    )
     .argument('<bundle-file>', 'Path to the .mpk bundle file')
-    .option('--local', 'Push to local registry instance', true) // Default to local for now
+    .option('--local', 'Push to local registry instance (default)')
+    .option('--remote', 'Push to remote registry instance')
+    .option(
+      '--url <registry-url>',
+      'Registry URL for remote push (overrides config file)'
+    )
+    .option(
+      '--api-key <key>',
+      'API key for authentication (overrides config file and env var)'
+    )
+    .addHelpText(
+      'after',
+      `
+Examples:
+  $ calimero-registry bundle push bundle.mpk --local
+  $ calimero-registry bundle push bundle.mpk --remote
+  $ calimero-registry bundle push bundle.mpk --remote --url https://apps.calimero.network
+  $ calimero-registry bundle push bundle.mpk --remote --api-key your-api-key
+
+Configuration:
+  Set defaults using the config command:
+  $ calimero-registry config set registry-url https://apps.calimero.network
+  $ calimero-registry config set api-key your-api-key
+  
+  Or use environment variables:
+  $ export CALIMERO_REGISTRY_URL=https://apps.calimero.network
+  $ export CALIMERO_API_KEY=your-api-key
+
+Note:
+  - Use --local for development/testing with local registry
+  - Use --remote for production deployments
+  - Config file values are used unless overridden by flags or environment variables
+  - Priority: flag > environment variable > config file > default
+`
+    )
     .action(async (bundleFile, options) => {
       try {
+        // Warn if remote-only options are used without --remote
+        if (!options.remote && (options.url || options.apiKey)) {
+          console.warn(
+            '⚠️  Warning: --url and --api-key are only used with --remote flag'
+          );
+          console.warn(
+            '   These options will be ignored. Use --remote to push to remote registry.'
+          );
+        }
+
+        // Determine mode: default to local if neither flag is set
+        // Handle explicit false from --no-local flag
+        const useLocal =
+          options.local === false
+            ? false
+            : options.local === true
+              ? true
+              : !options.remote;
+        const useRemote = options.remote === true;
+
+        // Ensure mutually exclusive flags
+        if (options.local && options.remote) {
+          console.error('❌ Cannot use both --local and --remote flags');
+          process.exit(1);
+        }
+
+        // Ensure at least one mode is selected
+        if (!useLocal && !useRemote) {
+          console.error(
+            '❌ No push mode specified. Use --local or --remote flag'
+          );
+          process.exit(1);
+        }
+
         const fullPath = path.resolve(bundleFile);
         if (!fs.existsSync(fullPath)) {
           console.error(`❌ File not found: ${bundleFile}`);
@@ -216,7 +310,7 @@ function createPushCommand(): Command {
         }
 
         // 3. Store (Local Mode)
-        if (options.local) {
+        if (useLocal) {
           const config = new LocalConfig();
           const store = new LocalDataStore(config);
           const artifactServer = new LocalArtifactServer(config, store);
@@ -251,12 +345,24 @@ function createPushCommand(): Command {
           console.log(
             `   Run 'calimero-registry bundle get ${manifest.package} ${manifest.appVersion}' to verify`
           );
-        } else {
-          console.error('❌ Remote push not implemented yet');
-          process.exit(1);
+        } else if (useRemote) {
+          // Remote Mode: Push to remote registry
+          // Get values from config file, with flag/environment variable overrides
+          const remoteConfig = new RemoteConfig();
+          const registryUrl =
+            options.url ||
+            process.env.CALIMERO_REGISTRY_URL ||
+            remoteConfig.getRegistryUrl();
+          const apiKey =
+            options.apiKey ||
+            process.env.CALIMERO_API_KEY ||
+            remoteConfig.getApiKey();
+
+          await pushToRemote(fullPath, manifest, registryUrl, apiKey);
         }
       } catch (error) {
-        console.error('❌ Failed to push bundle:', error);
+        const message = error instanceof Error ? error.message : String(error);
+        console.error('❌ Failed to push bundle:', message);
         process.exit(1);
       }
     });
@@ -290,6 +396,227 @@ function createGetCommand(): Command {
         process.exit(1);
       }
     });
+}
+
+// Helper to push bundle to remote registry
+async function pushToRemote(
+  bundlePath: string,
+  manifest: BundleManifest,
+  registryUrl: string,
+  apiKey?: string
+): Promise<void> {
+  try {
+    console.log(`📤 Pushing to remote registry: ${registryUrl}`);
+
+    // 1. Read bundle file as binary
+    const bundleBuffer = fs.readFileSync(bundlePath);
+    const bundleSize = bundleBuffer.length;
+    console.log(`   Bundle size: ${bundleSize} bytes`);
+
+    // 2. Convert bundle to hex string
+    const bundleHex = bundleBuffer.toString('hex');
+    console.log(`   Converted to hex (${bundleHex.length} characters)`);
+
+    // 3. Build request payload matching API format
+    const payload: BundlePushPayload = {
+      version: manifest.version || '1.0',
+      package: manifest.package,
+      appVersion: manifest.appVersion,
+      _binary: bundleHex,
+      _overwrite: true,
+    };
+
+    // Preserve all manifest fields
+    if (manifest.metadata) {
+      payload.metadata = manifest.metadata;
+    }
+    if (manifest.interfaces) {
+      payload.interfaces = manifest.interfaces;
+    }
+    if (manifest.wasm) {
+      payload.wasm = manifest.wasm;
+    }
+    if (manifest.abi) {
+      payload.abi = manifest.abi;
+    }
+    if (manifest.migrations && manifest.migrations.length > 0) {
+      payload.migrations = manifest.migrations;
+    }
+    if (manifest.links) {
+      payload.links = manifest.links;
+    }
+    if (manifest.signature) {
+      payload.signature = manifest.signature;
+    }
+
+    // 4. Prepare headers
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+
+    // Add API key if provided (from option or environment variable)
+    const finalApiKey = apiKey || process.env.CALIMERO_API_KEY;
+    if (finalApiKey) {
+      headers['Authorization'] = `Bearer ${finalApiKey}`;
+    }
+
+    // 5. POST to remote registry
+    const apiUrl = `${registryUrl.replace(/\/$/, '')}/api/v2/bundles/push`;
+    console.log(`   POST ${apiUrl}`);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
+
+    try {
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      const responseText = await response.text();
+      let responseBody: ApiResponseBody;
+      try {
+        responseBody = JSON.parse(responseText) as ApiResponseBody;
+      } catch {
+        responseBody = { message: responseText };
+      }
+
+      // 6. Handle response
+      if (response.status === 201) {
+        console.log('✅ Bundle manifest uploaded successfully');
+        console.log(`   Package: ${responseBody.package || manifest.package}`);
+        console.log(
+          `   Version: ${responseBody.version || manifest.appVersion}`
+        );
+
+        // 7. Verify bundle was stored correctly
+        await verifyRemotePush(
+          registryUrl,
+          manifest.package,
+          manifest.appVersion
+        );
+      } else {
+        // Handle error responses
+        handlePushError(response.status, responseBody);
+      }
+    } catch (fetchError: unknown) {
+      clearTimeout(timeoutId);
+      if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+        console.error('❌ Request timed out after 60 seconds');
+        console.error('   The bundle may be too large or the server is slow');
+        process.exit(1);
+      }
+      throw fetchError;
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error('❌ Failed to push to remote registry:', message);
+    throw error;
+  }
+}
+
+// Helper to verify bundle was stored correctly
+async function verifyRemotePush(
+  registryUrl: string,
+  packageName: string,
+  version: string
+): Promise<void> {
+  try {
+    console.log('🔍 Verifying upload to remote registry...');
+
+    const verifyUrl = `${registryUrl.replace(/\/$/, '')}/api/v2/bundles/${packageName}/${version}`;
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
+    try {
+      const response = await fetch(verifyUrl, {
+        method: 'GET',
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (response.status === 200) {
+        await response.json(); // Consume response body
+        console.log('✅ Bundle verified and accessible on remote registry');
+        console.log(`🌐 Registry: ${registryUrl}`);
+        console.log(`🔗 Endpoint: ${verifyUrl}`);
+      } else {
+        console.warn(
+          `⚠️  Upload verification failed - bundle not found (HTTP ${response.status})`
+        );
+        console.warn('   The bundle may still be processing, check manually');
+      }
+    } catch (verifyError: unknown) {
+      clearTimeout(timeoutId);
+      if (verifyError instanceof Error && verifyError.name === 'AbortError') {
+        console.warn('⚠️  Verification request timed out');
+      } else {
+        const message =
+          verifyError instanceof Error
+            ? verifyError.message
+            : String(verifyError);
+        console.warn('⚠️  Verification request failed:', message);
+      }
+      console.warn('   The bundle may still be accessible, check manually');
+    }
+  } catch (error) {
+    // Verification failure is not critical
+    console.warn('⚠️  Could not verify bundle:', error);
+  }
+}
+
+// Helper to handle push errors with helpful messages
+function handlePushError(
+  statusCode: number,
+  responseBody: ApiResponseBody
+): void {
+  const errorMessage =
+    responseBody.message || responseBody.error || 'Unknown error';
+
+  switch (statusCode) {
+    case 400:
+      console.error('❌ Bad Request: Invalid manifest');
+      console.error(`   ${errorMessage}`);
+      console.error('   Check that your bundle manifest is valid');
+      break;
+    case 401:
+      console.error('❌ Unauthorized: Authentication required');
+      console.error(`   ${errorMessage}`);
+      console.error(
+        '   Provide an API key with --api-key or CALIMERO_API_KEY env var'
+      );
+      break;
+    case 403:
+      console.error('❌ Forbidden: Namespace ownership required');
+      console.error(`   ${errorMessage}`);
+      console.error(
+        '   Ensure you have permission to publish to this package namespace'
+      );
+      break;
+    case 409:
+      console.error('❌ Conflict: Version already exists');
+      console.error(`   ${errorMessage}`);
+      console.error(
+        '   Increment the version number and try again, or contact registry admin'
+      );
+      break;
+    case 500:
+      console.error('❌ Internal Server Error');
+      console.error(`   ${errorMessage}`);
+      console.error('   The registry server encountered an error');
+      break;
+    default:
+      console.error(`❌ Upload failed with HTTP ${statusCode}`);
+      console.error(`   ${errorMessage}`);
+  }
+
+  process.exit(1);
 }
 
 // Helper to extract manifest.json from .mpk (tar.gz)
