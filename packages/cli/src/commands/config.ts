@@ -155,11 +155,15 @@ function createConfigResetCommand(): Command {
     .action(options => {
       try {
         if (!options.force) {
-          console.log(
-            chalk.yellow('⚠️  This will reset all configuration to defaults.')
+          console.error(
+            chalk.red('❌ Configuration reset requires --force flag')
           );
-          console.log(chalk.gray('Use --force to skip this confirmation.'));
-          // In a real implementation, you might want to add a prompt here
+          console.log(
+            chalk.yellow(
+              '⚠️  This will reset all configuration to defaults. Use --force to confirm.'
+            )
+          );
+          process.exit(1);
         }
 
         const config = new RemoteConfig();

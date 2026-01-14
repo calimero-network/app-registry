@@ -247,6 +247,16 @@ Note:
     )
     .action(async (bundleFile, options) => {
       try {
+        // Warn if remote-only options are used without --remote
+        if (!options.remote && (options.url || options.apiKey)) {
+          console.warn(
+            '⚠️  Warning: --url and --api-key are only used with --remote flag'
+          );
+          console.warn(
+            '   These options will be ignored. Use --remote to push to remote registry.'
+          );
+        }
+
         // Determine mode: default to local if neither flag is set
         const useLocal = options.local ?? !options.remote;
         const useRemote = options.remote ?? false;
@@ -574,7 +584,9 @@ function handlePushError(
     case 409:
       console.error('❌ Conflict: Version already exists');
       console.error(`   ${errorMessage}`);
-      console.error('   Use --overwrite flag or increment the version number');
+      console.error(
+        '   Increment the version number and try again, or contact registry admin'
+      );
       break;
     case 500:
       console.error('❌ Internal Server Error');
