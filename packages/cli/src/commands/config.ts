@@ -1,5 +1,6 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
+import fs from 'fs';
 import { RemoteConfig } from '../lib/remote-config.js';
 
 export const configCommand = new Command('config')
@@ -115,19 +116,33 @@ function createConfigListCommand(): Command {
 
         console.log(chalk.blue('\n📋 Remote Registry Configuration\n'));
 
+        // Check if config file exists
+        const configPath = config.getConfigPath();
+        const configFileExists = fs.existsSync(configPath);
+
         // Registry URL
         const url = config.getRegistryUrl();
-        const urlSource = process.env.CALIMERO_REGISTRY_URL
-          ? chalk.yellow('(from CALIMERO_REGISTRY_URL env var)')
-          : chalk.gray('(from config file)');
+        let urlSource: string;
+        if (process.env.CALIMERO_REGISTRY_URL) {
+          urlSource = chalk.yellow('(from CALIMERO_REGISTRY_URL env var)');
+        } else if (configFileExists) {
+          urlSource = chalk.gray('(from config file)');
+        } else {
+          urlSource = chalk.gray('(default)');
+        }
         console.log(`  ${chalk.bold('Registry URL:')} ${url} ${urlSource}`);
 
         // API Key
         const apiKey = config.getApiKey();
         if (apiKey) {
-          const apiKeySource = process.env.CALIMERO_API_KEY
-            ? chalk.yellow('(from CALIMERO_API_KEY env var)')
-            : chalk.gray('(from config file)');
+          let apiKeySource: string;
+          if (process.env.CALIMERO_API_KEY) {
+            apiKeySource = chalk.yellow('(from CALIMERO_API_KEY env var)');
+          } else if (configFileExists) {
+            apiKeySource = chalk.gray('(from config file)');
+          } else {
+            apiKeySource = chalk.gray('(default)');
+          }
           const masked =
             apiKey.length > 8
               ? `${apiKey.substring(0, 4)}...${apiKey.substring(apiKey.length - 4)}`
@@ -137,9 +152,11 @@ function createConfigListCommand(): Command {
           console.log(`  ${chalk.bold('API Key:')} ${chalk.gray('(not set)')}`);
         }
 
-        console.log(
-          chalk.blue(`\n📁 Config file: ${config.getConfigPath()}\n`)
-        );
+        console.log(chalk.blue(`\n📁 Config file: ${configPath}`));
+        if (!configFileExists) {
+          console.log(chalk.gray('   (file does not exist, using defaults)'));
+        }
+        console.log();
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         console.error(chalk.red('❌ Failed to list configuration:'), message);
