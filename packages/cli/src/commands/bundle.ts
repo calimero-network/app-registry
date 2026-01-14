@@ -280,6 +280,7 @@ Note:
           );
           process.exit(1);
         }
+
         const fullPath = path.resolve(bundleFile);
         if (!fs.existsSync(fullPath)) {
           console.error(`❌ File not found: ${bundleFile}`);

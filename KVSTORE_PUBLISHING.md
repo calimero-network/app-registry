@@ -90,7 +90,7 @@ export CALIMERO_API_KEY=your-api-key
 
 #### Publishing Workflow
 
-**Example: Publishing KV Store v0.2.7**
+**Example: Publishing KV Store v0.2.8**
 
 ```bash
 # 1. Build the WASM file
@@ -100,7 +100,7 @@ cd kv-store
 # 2. Create the bundle
 cd ../registry
 calimero-registry bundle create \
-    --output kvstore-0.2.7.mpk \
+    --output kvstore-0.2.8.mpk \
     --name "KV Store - Demo Application" \
     --description "A simple key-value store application demonstrating Calimero Network capabilities" \
     --author "Calimero Network" \
@@ -109,13 +109,13 @@ calimero-registry bundle create \
     --docs "https://github.com/calimero-network/kv-store#readme" \
     ../kv-store/logic/res/kv_store.wasm \
     com.calimero.kvstore \
-    0.2.7
+    0.2.8
 
 # 3. Push to production registry (uses config file values)
-calimero-registry bundle push kvstore-0.2.7.mpk --remote
+calimero-registry bundle push kvstore-0.2.8.mpk --remote
 
 # Or override config with flags
-calimero-registry bundle push kvstore-0.2.7.mpk \
+calimero-registry bundle push kvstore-0.2.8.mpk \
     --remote \
     --url https://apps.calimero.network \
     --api-key your-api-key
@@ -157,45 +157,7 @@ The CLI will:
 - ✅ Verify bundle was stored correctly
 - ✅ Display success message with registry URL
 
-### Method 2: Convenience Script (Deprecated) ⚠️
-
-~~For KV Store, there's a convenience script that wraps the CLI commands:~~
-
-**⚠️ Deprecated:** The `publish-kvstore.sh` script is deprecated. Use Method 1 (CLI commands) instead.
-
-The script is kept for backwards compatibility only and may be removed in a future version.
-
-If you need automation, you can create your own scripts based on the CLI commands:
-
-```bash
-#!/bin/bash
-# publish-myapp.sh
-
-set -e
-
-VERSION="${1:-1.0.0}"
-WASM_FILE="./app.wasm"
-PACKAGE="com.example.myapp"
-BUNDLE_FILE="myapp-$VERSION.mpk"
-
-# Create bundle
-calimero-registry bundle create \
-    --output "$BUNDLE_FILE" \
-    --name "My Application" \
-    --description "Application description" \
-    --author "Your Name" \
-    "$WASM_FILE" \
-    "$PACKAGE" \
-    "$VERSION"
-
-# Push to registry (uses config file)
-calimero-registry bundle push "$BUNDLE_FILE" --remote
-
-# Cleanup
-rm -f "$BUNDLE_FILE"
-```
-
-### Method 3: Manual Publishing (Advanced)
+### Method 2: Manual Publishing (Advanced)
 
 If you prefer full manual control:
 
@@ -332,16 +294,15 @@ Use reverse domain notation for package names:
 Use semantic versioning (SemVer):
 
 - ✅ `1.0.0`
-- ✅ `0.2.7`
+- ✅ `0.2.8`
 - ✅ `2.1.3-beta.1`
 - ❌ `v1.0.0` (no 'v' prefix)
 - ❌ `1.0` (incomplete)
 
 ## Related Files
 
-- `packages/cli/` - Registry CLI for bundle operations (recommended)
+- `packages/cli/` - Registry CLI for bundle operations
 - `api/v2/bundles/push.js` - API endpoint handler
-- `scripts/publish-kvstore.sh` - ⚠️ Deprecated convenience script (use CLI instead)
 - Your application's `manifest.json` - Application manifest (V2 format)
 - Your application's WASM file - Compiled WASM binary
 
@@ -401,4 +362,4 @@ jobs:
 **Manifest Format**: V2
 **CLI Remote Push**: ✅ Available
 **Config File Support**: ✅ Available
-**Latest KV Store Version**: 0.2.7
+**Latest KV Store Version**: 0.2.8
