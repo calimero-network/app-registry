@@ -57,13 +57,12 @@ export class RemoteConfig {
       fs.mkdirSync(configDir, { recursive: true });
     }
 
-    // Save config - always save API key if it's set in config
-    // (env var takes precedence when reading, but doesn't prevent saving)
+    // Save config (don't save API key if it's from env var)
     const configToSave: RemoteConfigData = {
       registry: {
         url: this.config.registry.url,
-        // Save API key if it exists in config (regardless of env var)
-        ...(this.config.registry.apiKey
+        // Only save API key if it was explicitly set (not from env)
+        ...(this.config.registry.apiKey && !process.env.CALIMERO_API_KEY
           ? { apiKey: this.config.registry.apiKey }
           : {}),
       },
