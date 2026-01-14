@@ -258,12 +258,26 @@ Note:
         }
 
         // Determine mode: default to local if neither flag is set
-        const useLocal = options.local ?? !options.remote;
-        const useRemote = options.remote ?? false;
+        // Handle explicit false from --no-local flag
+        const useLocal =
+          options.local === false
+            ? false
+            : options.local === true
+              ? true
+              : !options.remote;
+        const useRemote = options.remote === true;
 
         // Ensure mutually exclusive flags
         if (options.local && options.remote) {
           console.error('❌ Cannot use both --local and --remote flags');
+          process.exit(1);
+        }
+
+        // Ensure at least one mode is selected
+        if (!useLocal && !useRemote) {
+          console.error(
+            '❌ No push mode specified. Use --local or --remote flag'
+          );
           process.exit(1);
         }
 
@@ -543,7 +557,11 @@ async function verifyRemotePush(
       if (verifyError instanceof Error && verifyError.name === 'AbortError') {
         console.warn('⚠️  Verification request timed out');
       } else {
-        console.warn('⚠️  Verification request failed:', verifyError.message);
+        const message =
+          verifyError instanceof Error
+            ? verifyError.message
+            : String(verifyError);
+        console.warn('⚠️  Verification request failed:', message);
       }
       console.warn('   The bundle may still be accessible, check manually');
     }
