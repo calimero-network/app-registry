@@ -45,16 +45,34 @@ export const bundleCommand = new Command('bundle')
   .addCommand(createPushCommand())
   .addCommand(createGetCommand());
 
+interface BundleConfig {
+  package?: string;
+  version?: string;
+  output?: string;
+  name?: string;
+  description?: string;
+  author?: string;
+  frontend?: string;
+  github?: string;
+  docs?: string;
+  exports?: string[];
+  uses?: string[];
+}
+
 function createCreateCommand(): Command {
   return new Command('create')
     .description('Create an MPK bundle from a WASM file')
     .argument('<wasm-file>', 'Path to the WASM file')
-    .argument('<package>', 'Package name (e.g. com.calimero.myapp)')
-    .argument('<version>', 'Version (e.g. 1.0.0)')
+    .argument('[package]', 'Package name (e.g. com.calimero.myapp)')
+    .argument('[version]', 'Version (e.g. 1.0.0)')
+    .option(
+      '-c, --config <path>',
+      'Path to config JSON file (can contain package, version, and other options)'
+    )
     .option('-o, --output <path>', 'Output path for the MPK file')
     .option('--name <name>', 'Application name')
     .option('--description <description>', 'Application description')
-    .option('--author <author>', 'Application author', 'Calimero Team')
+    .option('--author <author>', 'Application author')
     .option('--frontend <url>', 'Frontend URL')
     .option('--github <url>', 'GitHub URL')
     .option('--docs <url>', 'Documentation URL')
@@ -72,8 +90,111 @@ function createCreateCommand(): Command {
         return [...(prev || []), value];
       }
     )
+    .addHelpText(
+      'after',
+      `
+Examples:
+  $ calimero-registry bundle create app.wasm com.calimero.myapp 1.0.0
+  $ calimero-registry bundle create app.wasm --config bundle-config.json
+  $ calimero-registry bundle create app.wasm --config bundle-config.json -o output.mpk
+  $ calimero-registry bundle create app.wasm com.calimero.myapp 1.0.0 --name "My App" --frontend https://app.example.com
+
+Config File Format (JSON):
+  {
+    "package": "com.calimero.myapp",
+    "version": "1.0.0",
+    "output": "./dist/myapp.mpk",
+    "name": "My Application",
+    "description": "Application description",
+    "author": "Calimero Team",
+    "frontend": "https://app.example.com",
+    "github": "https://github.com/user/repo",
+    "docs": "https://docs.example.com",
+    "exports": ["interface1", "interface2"],
+    "uses": ["interface3"]
+  }
+
+Note:
+  - Package and version can be provided via arguments, config file, or both
+  - CLI arguments take precedence over config file values
+  - If using config file, package and version can be omitted from command line
+  - The -o/--output option overrides config.output if both are provided
+`
+    )
     .action(async (wasmFile, pkg, version, options) => {
       try {
+        // Read config file if provided
+        let config: BundleConfig = {};
+        if (options.config) {
+          const configPath = path.resolve(options.config);
+          if (!fs.existsSync(configPath)) {
+            console.error(`❌ Config file not found: ${options.config}`);
+            process.exit(1);
+          }
+          try {
+            const configContent = fs.readFileSync(configPath, 'utf8');
+            config = JSON.parse(configContent) as BundleConfig;
+          } catch (error) {
+            console.error(`❌ Failed to parse config file: ${options.config}`);
+            console.error(
+              error instanceof Error ? error.message : 'Invalid JSON'
+            );
+            process.exit(1);
+          }
+        }
+
+        // Merge config with CLI options (CLI takes precedence)
+        const finalPackage = pkg || config.package;
+        const finalVersion = version || config.version;
+        const finalOutput = options.output || config.output;
+        const finalName = options.name || config.name;
+        const finalDescription = options.description || config.description;
+        const finalAuthor = options.author || config.author || 'Calimero Team';
+        const finalFrontend = options.frontend || config.frontend;
+        const finalGithub = options.github || config.github;
+        const finalDocs = options.docs || config.docs;
+        const finalExports = [
+          ...(options.export || []),
+          ...(config.exports || []),
+        ];
+        const finalUses = [...(options.use || []), ...(config.uses || [])];
+
+        // Validate required parameters
+        if (!wasmFile) {
+          console.error('❌ WASM file is required');
+          process.exit(1);
+        }
+
+        if (!finalPackage) {
+          console.error(
+            '❌ Package name is required (provide via argument, --config file, or config.package)'
+          );
+          process.exit(1);
+        }
+
+        if (!finalVersion) {
+          console.error(
+            '❌ Version is required (provide via argument, --config file, or config.version)'
+          );
+          process.exit(1);
+        }
+
+        // Validate package name format (basic validation)
+        if (!/^[a-z0-9]+\.[a-z0-9]+(\.[a-z0-9-]+)*$/.test(finalPackage)) {
+          console.error(
+            '❌ Invalid package name format. Expected format: com.calimero.myapp'
+          );
+          process.exit(1);
+        }
+
+        // Validate version format (semver-like)
+        if (!/^\d+\.\d+\.\d+(-[a-z0-9]+)?(\+[a-z0-9]+)?$/i.test(finalVersion)) {
+          console.error(
+            '❌ Invalid version format. Expected format: 1.0.0 or 1.0.0-alpha'
+          );
+          process.exit(1);
+        }
+
         const wasmPath = path.resolve(wasmFile);
         if (!fs.existsSync(wasmPath)) {
           console.error(`❌ WASM file not found: ${wasmFile}`);
@@ -98,9 +219,9 @@ function createCreateCommand(): Command {
           description: string;
           author: string;
         } = {
-          name: options.name || pkg,
-          description: options.description || '',
-          author: options.author || 'Calimero Team',
+          name: finalName || finalPackage,
+          description: finalDescription || '',
+          author: finalAuthor,
         };
 
         // Build links if provided
@@ -109,21 +230,21 @@ function createCreateCommand(): Command {
           github?: string;
           docs?: string;
         } = {};
-        if (options.frontend) links.frontend = options.frontend;
-        if (options.github) links.github = options.github;
-        if (options.docs) links.docs = options.docs;
+        if (finalFrontend) links.frontend = finalFrontend;
+        if (finalGithub) links.github = finalGithub;
+        if (finalDocs) links.docs = finalDocs;
 
         // Build interfaces
         const interfaces = {
-          exports: options.export || [],
-          uses: options.use || [],
+          exports: finalExports,
+          uses: finalUses,
         };
 
         // Create bundle manifest
         const manifest: BundleManifest = {
           version: '1.0',
-          package: pkg,
-          appVersion: version,
+          package: finalPackage,
+          appVersion: finalVersion,
           metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
           interfaces:
             interfaces.exports.length > 0 || interfaces.uses.length > 0
@@ -141,13 +262,20 @@ function createCreateCommand(): Command {
         };
 
         // Determine output path
-        let outputPath = options.output;
+        let outputPath = finalOutput;
         if (!outputPath) {
-          const outputDir = path.join(process.cwd(), pkg, version);
+          const outputDir = path.join(
+            process.cwd(),
+            finalPackage,
+            finalVersion
+          );
           if (!fs.existsSync(outputDir)) {
             fs.mkdirSync(outputDir, { recursive: true });
           }
-          outputPath = path.join(outputDir, `${pkg}-${version}.mpk`);
+          outputPath = path.join(
+            outputDir,
+            `${finalPackage}-${finalVersion}.mpk`
+          );
         } else {
           outputPath = path.resolve(outputPath);
           const outputDir = path.dirname(outputPath);
@@ -185,8 +313,8 @@ function createCreateCommand(): Command {
 
           const outputSize = fs.statSync(outputPath).size;
           console.log(`✅ Created MPK bundle: ${outputPath}`);
-          console.log(`   Package: ${pkg}`);
-          console.log(`   Version: ${version}`);
+          console.log(`   Package: ${finalPackage}`);
+          console.log(`   Version: ${finalVersion}`);
           console.log(`   Size: ${outputSize} bytes`);
           console.log(`   WASM Hash: ${hash}`);
         } finally {
