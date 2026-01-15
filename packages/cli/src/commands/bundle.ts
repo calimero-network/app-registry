@@ -325,53 +325,15 @@ Note:
         ) {
           // If manifest provides ABI as an object (BundleArtifact), we need the actual file
           // to include in the bundle. The object only contains metadata (path, hash, size)
-          // but not the source file location. We require --abi flag to provide the file.
-          if (!options.abi) {
-            console.error(
-              '❌ Manifest provides ABI as object, but --abi flag is required to include the ABI file in bundle'
-            );
-            console.error(
-              '   Provide the ABI file path with --abi flag, or change manifest.abi to a file path string'
-            );
-            process.exit(1);
-          }
-
-          // Use the CLI-provided ABI path to read the file
-          const abiResolvedPath = path.resolve(options.abi);
-          if (!fs.existsSync(abiResolvedPath)) {
-            console.error(`❌ ABI file not found: ${options.abi}`);
-            console.error(`   Resolved path: ${abiResolvedPath}`);
-            process.exit(1);
-          }
-
-          try {
-            abiContent = fs.readFileSync(abiResolvedPath);
-            // Validate it's valid JSON
-            JSON.parse(abiContent.toString('utf8'));
-
-            // Recalculate hash and size from actual file content to ensure accuracy
-            const abiHash = crypto
-              .createHash('sha256')
-              .update(abiContent)
-              .digest('hex');
-
-            abiArtifact = {
-              path: 'abi.json',
-              hash: abiHash,
-              size: abiContent.length,
-            };
-            console.log(
-              `   Including ABI file: ${path.basename(abiResolvedPath)}`
-            );
-          } catch (error) {
-            console.error(
-              `❌ Failed to read or parse ABI file: ${options.abi}`
-            );
-            console.error(
-              error instanceof Error ? error.message : 'Invalid JSON'
-            );
-            process.exit(1);
-          }
+          // but not the source file location. Since we're in this branch, options.abi is falsy
+          // (otherwise we'd be in the first if branch), so we can't include the file.
+          console.error(
+            '❌ Manifest provides ABI as object, but --abi flag is required to include the ABI file in bundle'
+          );
+          console.error(
+            '   Provide the ABI file path with --abi flag, or change manifest.abi to a file path string'
+          );
+          process.exit(1);
         }
 
         // Build metadata
