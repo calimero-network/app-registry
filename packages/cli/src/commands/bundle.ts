@@ -57,7 +57,7 @@ interface BundleManifestConfig {
   docs?: string;
   exports?: string[];
   uses?: string[];
-  abi?: string;
+  abi?: string | BundleManifest['abi']; // Can be file path string or BundleArtifact object
 }
 
 function createCreateCommand(): Command {
@@ -91,7 +91,7 @@ function createCreateCommand(): Command {
         return [...(prev || []), value];
       }
     )
-    .option('--abi <path>', 'Path to ABI JSON file')
+    .option('--abi <path>', 'Path to ABI JSON file to include in bundle')
     .addHelpText(
       'after',
       `
@@ -101,6 +101,7 @@ Examples:
   $ calimero-registry bundle create app.wasm --manifest bundle-manifest.json -o output.mpk
   $ calimero-registry bundle create app.wasm com.calimero.myapp 1.0.0 --name "My App" --frontend https://app.example.com
   $ calimero-registry bundle create app.wasm com.calimero.myapp 1.0.0 --abi abi.json
+  $ calimero-registry bundle create app.wasm --manifest manifest.json --abi res/abi.json
 
 Manifest File Format (JSON):
   {
@@ -115,7 +116,7 @@ Manifest File Format (JSON):
     "docs": "https://docs.example.com",
     "exports": ["interface1", "interface2"],
     "uses": ["interface3"],
-    "abi": "./path/to/abi.json"
+    "abi": "res/abi.json"
   }
 
 Note:
@@ -123,6 +124,8 @@ Note:
   - CLI arguments take precedence over manifest file values
   - If using manifest file, package and version can be omitted from command line
   - The -o/--output option overrides manifest.output if both are provided
+  - ABI can be provided via --abi flag or manifest.abi field (file path string)
+  - ABI file will be included in the bundle and referenced in the manifest
 `
     )
     .action(async (wasmFile, pkg, version, options) => {
@@ -174,7 +177,6 @@ Note:
         const finalFrontend = options.frontend || manifestConfig.frontend;
         const finalGithub = options.github || manifestConfig.github;
         const finalDocs = options.docs || manifestConfig.docs;
-        const finalAbiPath = options.abi || manifestConfig.abi;
 
         // Validate and extract array options (CLI takes precedence - if CLI provides values, use only those)
         const manifestExports = manifestConfig.exports;
@@ -258,36 +260,80 @@ Note:
           .update(wasmContent)
           .digest('hex');
 
-        // Read and process ABI file if provided
-        let abiArtifact: BundleManifest['abi'] = null;
+        // Handle ABI file (CLI option takes precedence over manifest)
+        let abiArtifact: BundleManifest['abi'] = undefined;
         let abiContent: Buffer | null = null;
-        if (finalAbiPath) {
-          const abiPath = path.resolve(finalAbiPath);
-          if (!fs.existsSync(abiPath)) {
-            console.error(`❌ ABI file not found: ${finalAbiPath}`);
+        const abiPathFromOption = options.abi;
+        const abiPathFromManifest =
+          typeof manifestConfig.abi === 'string' ? manifestConfig.abi : null;
+
+        // Determine ABI file path (CLI option takes precedence)
+        const abiFilePath = abiPathFromOption || abiPathFromManifest;
+
+        if (abiFilePath) {
+          // Resolve ABI file path:
+          // - CLI option (--abi) is always relative to cwd (consistent with WASM file handling)
+          // - Manifest abi field is relative to manifest file directory
+          const abiResolvedPath = abiPathFromOption
+            ? path.resolve(abiFilePath) // CLI option: always resolve relative to cwd
+            : options.manifest && abiPathFromManifest
+              ? path.resolve(
+                  path.dirname(path.resolve(options.manifest)),
+                  abiFilePath
+                ) // Manifest field: resolve relative to manifest directory
+              : path.resolve(abiFilePath); // Fallback: resolve relative to cwd
+
+          if (!fs.existsSync(abiResolvedPath)) {
+            console.error(`❌ ABI file not found: ${abiFilePath}`);
+            console.error(`   Resolved path: ${abiResolvedPath}`);
             process.exit(1);
           }
-          abiContent = fs.readFileSync(abiPath);
-          const abiSize = abiContent.length;
-          const abiHash = crypto
-            .createHash('sha256')
-            .update(abiContent)
-            .digest('hex');
 
-          // Validate ABI is valid JSON
+          // Read ABI file
           try {
+            abiContent = fs.readFileSync(abiResolvedPath);
+            // Validate it's valid JSON
             JSON.parse(abiContent.toString('utf8'));
-          } catch {
-            console.error(`❌ Invalid ABI file: ${finalAbiPath}`);
-            console.error('   ABI must be valid JSON');
+
+            // Calculate ABI hash
+            const abiHash = crypto
+              .createHash('sha256')
+              .update(abiContent)
+              .digest('hex');
+
+            // Create ABI artifact
+            abiArtifact = {
+              path: 'abi.json',
+              hash: abiHash,
+              size: abiContent.length,
+            };
+            console.log(
+              `   Including ABI file: ${path.basename(abiResolvedPath)}`
+            );
+          } catch (error) {
+            console.error(
+              `❌ Failed to read or parse ABI file: ${abiFilePath}`
+            );
+            console.error(
+              error instanceof Error ? error.message : 'Invalid JSON'
+            );
             process.exit(1);
           }
-
-          abiArtifact = {
-            path: 'abi.json',
-            hash: abiHash,
-            size: abiSize,
-          };
+        } else if (
+          manifestConfig.abi &&
+          typeof manifestConfig.abi === 'object'
+        ) {
+          // If manifest provides ABI as an object (BundleArtifact), we need the actual file
+          // to include in the bundle. The object only contains metadata (path, hash, size)
+          // but not the source file location. Since we're in this branch, options.abi is falsy
+          // (otherwise we'd be in the first if branch), so we can't include the file.
+          console.error(
+            '❌ Manifest provides ABI as object, but --abi flag is required to include the ABI file in bundle'
+          );
+          console.error(
+            '   Provide the ABI file path with --abi flag, or change manifest.abi to a file path string'
+          );
+          process.exit(1);
         }
 
         // Build metadata
@@ -332,7 +378,7 @@ Note:
             hash: wasmHash,
             size: wasmSize,
           },
-          abi: abiArtifact,
+          abi: abiArtifact || undefined,
           migrations: [],
           links: Object.keys(links).length > 0 ? links : undefined,
           signature: undefined,
