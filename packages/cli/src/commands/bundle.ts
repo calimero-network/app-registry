@@ -45,7 +45,7 @@ export const bundleCommand = new Command('bundle')
   .addCommand(createPushCommand())
   .addCommand(createGetCommand());
 
-interface BundleConfig {
+interface BundleManifestConfig {
   package?: string;
   version?: string;
   output?: string;
@@ -66,8 +66,8 @@ function createCreateCommand(): Command {
     .argument('[package]', 'Package name (e.g. com.calimero.myapp)')
     .argument('[version]', 'Version (e.g. 1.0.0)')
     .option(
-      '-c, --config <path>',
-      'Path to config JSON file (can contain package, version, and other options)'
+      '-m, --manifest <path>',
+      'Path to manifest JSON file (can contain package, version, and other options)'
     )
     .option('-o, --output <path>', 'Output path for the MPK file')
     .option('--name <name>', 'Application name')
@@ -95,11 +95,11 @@ function createCreateCommand(): Command {
       `
 Examples:
   $ calimero-registry bundle create app.wasm com.calimero.myapp 1.0.0
-  $ calimero-registry bundle create app.wasm --config bundle-config.json
-  $ calimero-registry bundle create app.wasm --config bundle-config.json -o output.mpk
+  $ calimero-registry bundle create app.wasm --manifest bundle-manifest.json
+  $ calimero-registry bundle create app.wasm --manifest bundle-manifest.json -o output.mpk
   $ calimero-registry bundle create app.wasm com.calimero.myapp 1.0.0 --name "My App" --frontend https://app.example.com
 
-Config File Format (JSON):
+Manifest File Format (JSON):
   {
     "package": "com.calimero.myapp",
     "version": "1.0.0",
@@ -115,27 +115,31 @@ Config File Format (JSON):
   }
 
 Note:
-  - Package and version can be provided via arguments, config file, or both
-  - CLI arguments take precedence over config file values
-  - If using config file, package and version can be omitted from command line
-  - The -o/--output option overrides config.output if both are provided
+  - Package and version can be provided via arguments, manifest file, or both
+  - CLI arguments take precedence over manifest file values
+  - If using manifest file, package and version can be omitted from command line
+  - The -o/--output option overrides manifest.output if both are provided
 `
     )
     .action(async (wasmFile, pkg, version, options) => {
       try {
-        // Read config file if provided
-        let config: BundleConfig = {};
-        if (options.config) {
-          const configPath = path.resolve(options.config);
-          if (!fs.existsSync(configPath)) {
-            console.error(`❌ Config file not found: ${options.config}`);
+        // Read manifest file if provided
+        let manifestConfig: BundleManifestConfig = {};
+        if (options.manifest) {
+          const manifestPath = path.resolve(options.manifest);
+          if (!fs.existsSync(manifestPath)) {
+            console.error(`❌ Manifest file not found: ${options.manifest}`);
             process.exit(1);
           }
           try {
-            const configContent = fs.readFileSync(configPath, 'utf8');
-            config = JSON.parse(configContent) as BundleConfig;
+            const manifestContent = fs.readFileSync(manifestPath, 'utf8');
+            manifestConfig = JSON.parse(
+              manifestContent
+            ) as BundleManifestConfig;
           } catch (error) {
-            console.error(`❌ Failed to parse config file: ${options.config}`);
+            console.error(
+              `❌ Failed to parse manifest file: ${options.manifest}`
+            );
             console.error(
               error instanceof Error ? error.message : 'Invalid JSON'
             );
@@ -143,21 +147,26 @@ Note:
           }
         }
 
-        // Merge config with CLI options (CLI takes precedence)
-        const finalPackage = pkg || config.package;
-        const finalVersion = version || config.version;
-        const finalOutput = options.output || config.output;
-        const finalName = options.name || config.name;
-        const finalDescription = options.description || config.description;
-        const finalAuthor = options.author || config.author || 'Calimero Team';
-        const finalFrontend = options.frontend || config.frontend;
-        const finalGithub = options.github || config.github;
-        const finalDocs = options.docs || config.docs;
+        // Merge manifest with CLI options (CLI takes precedence)
+        const finalPackage = pkg || manifestConfig.package;
+        const finalVersion = version || manifestConfig.version;
+        const finalOutput = options.output || manifestConfig.output;
+        const finalName = options.name || manifestConfig.name;
+        const finalDescription =
+          options.description || manifestConfig.description;
+        const finalAuthor =
+          options.author || manifestConfig.author || 'Calimero Team';
+        const finalFrontend = options.frontend || manifestConfig.frontend;
+        const finalGithub = options.github || manifestConfig.github;
+        const finalDocs = options.docs || manifestConfig.docs;
         const finalExports = [
           ...(options.export || []),
-          ...(config.exports || []),
+          ...(manifestConfig.exports || []),
         ];
-        const finalUses = [...(options.use || []), ...(config.uses || [])];
+        const finalUses = [
+          ...(options.use || []),
+          ...(manifestConfig.uses || []),
+        ];
 
         // Validate required parameters
         if (!wasmFile) {
@@ -167,14 +176,14 @@ Note:
 
         if (!finalPackage) {
           console.error(
-            '❌ Package name is required (provide via argument, --config file, or config.package)'
+            '❌ Package name is required (provide via argument, --manifest file, or manifest.package)'
           );
           process.exit(1);
         }
 
         if (!finalVersion) {
           console.error(
-            '❌ Version is required (provide via argument, --config file, or config.version)'
+            '❌ Version is required (provide via argument, --manifest file, or manifest.version)'
           );
           process.exit(1);
         }
