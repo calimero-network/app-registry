@@ -100,6 +100,7 @@ Examples:
   $ calimero-registry bundle create app.wasm --manifest bundle-manifest.json
   $ calimero-registry bundle create app.wasm --manifest bundle-manifest.json -o output.mpk
   $ calimero-registry bundle create app.wasm com.calimero.myapp 1.0.0 --name "My App" --frontend https://app.example.com
+  $ calimero-registry bundle create app.wasm com.calimero.myapp 1.0.0 --abi abi.json
   $ calimero-registry bundle create app.wasm --manifest manifest.json --abi res/abi.json
 
 Manifest File Format (JSON):
@@ -254,7 +255,7 @@ Note:
         const wasmSize = wasmContent.length;
 
         // Calculate SHA256 hash
-        const hash = crypto
+        const wasmHash = crypto
           .createHash('sha256')
           .update(wasmContent)
           .digest('hex');
@@ -361,7 +362,7 @@ Note:
               : undefined,
           wasm: {
             path: 'app.wasm',
-            hash: hash,
+            hash: wasmHash,
             size: wasmSize,
           },
           abi: abiArtifact || undefined,
@@ -411,10 +412,10 @@ Note:
           fs.writeFileSync(path.join(tempDir, 'app.wasm'), wasmContent);
 
           // Copy ABI file if provided
-          const bundleFiles = ['manifest.json', 'app.wasm'];
+          const archiveFiles = ['manifest.json', 'app.wasm'];
           if (abiContent) {
             fs.writeFileSync(path.join(tempDir, 'abi.json'), abiContent);
-            bundleFiles.push('abi.json');
+            archiveFiles.push('abi.json');
           }
 
           // Create gzip-compressed tar archive
@@ -424,7 +425,7 @@ Note:
               file: outputPath,
               cwd: tempDir,
             },
-            bundleFiles
+            archiveFiles
           );
 
           const outputSize = fs.statSync(outputPath).size;
@@ -432,7 +433,10 @@ Note:
           console.log(`   Package: ${finalPackage}`);
           console.log(`   Version: ${finalVersion}`);
           console.log(`   Size: ${outputSize} bytes`);
-          console.log(`   WASM Hash: ${hash}`);
+          console.log(`   WASM Hash: ${wasmHash}`);
+          if (abiArtifact) {
+            console.log(`   ABI Hash: ${abiArtifact.hash}`);
+          }
         } finally {
           // Cleanup temp directory
           if (fs.existsSync(tempDir)) {
