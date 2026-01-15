@@ -133,9 +133,20 @@ Note:
           }
           try {
             const manifestContent = fs.readFileSync(manifestPath, 'utf8');
-            manifestConfig = JSON.parse(
-              manifestContent
-            ) as BundleManifestConfig;
+            const parsed = JSON.parse(manifestContent);
+
+            // Validate that parsed JSON is an object
+            if (
+              typeof parsed !== 'object' ||
+              parsed === null ||
+              Array.isArray(parsed)
+            ) {
+              console.error(`❌ Invalid manifest file: ${options.manifest}`);
+              console.error('   Manifest must be a JSON object');
+              process.exit(1);
+            }
+
+            manifestConfig = parsed as BundleManifestConfig;
           } catch (error) {
             console.error(
               `❌ Failed to parse manifest file: ${options.manifest}`
@@ -214,9 +225,12 @@ Note:
         }
 
         // Validate version format (semver-like)
-        if (!/^\d+\.\d+\.\d+(-[a-z0-9]+)?(\+[a-z0-9]+)?$/i.test(finalVersion)) {
+        // Allow dots and hyphens in prerelease and build metadata: 1.0.0-alpha.1, 1.0.0-rc.2+build.1
+        if (
+          !/^\d+\.\d+\.\d+(-[a-z0-9.-]+)?(\+[a-z0-9.-]+)?$/i.test(finalVersion)
+        ) {
           console.error(
-            '❌ Invalid version format. Expected format: 1.0.0 or 1.0.0-alpha'
+            '❌ Invalid version format. Expected format: 1.0.0, 1.0.0-alpha, or 1.0.0-alpha.1'
           );
           process.exit(1);
         }
