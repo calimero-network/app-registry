@@ -45,16 +45,34 @@ export const bundleCommand = new Command('bundle')
   .addCommand(createPushCommand())
   .addCommand(createGetCommand());
 
+interface BundleManifestConfig {
+  package?: string;
+  version?: string;
+  output?: string;
+  name?: string;
+  description?: string;
+  author?: string;
+  frontend?: string;
+  github?: string;
+  docs?: string;
+  exports?: string[];
+  uses?: string[];
+}
+
 function createCreateCommand(): Command {
   return new Command('create')
     .description('Create an MPK bundle from a WASM file')
     .argument('<wasm-file>', 'Path to the WASM file')
-    .argument('<package>', 'Package name (e.g. com.calimero.myapp)')
-    .argument('<version>', 'Version (e.g. 1.0.0)')
+    .argument('[package]', 'Package name (e.g. com.calimero.myapp)')
+    .argument('[version]', 'Version (e.g. 1.0.0)')
+    .option(
+      '-m, --manifest <path>',
+      'Path to manifest JSON file (can contain package, version, and other options)'
+    )
     .option('-o, --output <path>', 'Output path for the MPK file')
     .option('--name <name>', 'Application name')
     .option('--description <description>', 'Application description')
-    .option('--author <author>', 'Application author', 'Calimero Team')
+    .option('--author <author>', 'Application author')
     .option('--frontend <url>', 'Frontend URL')
     .option('--github <url>', 'GitHub URL')
     .option('--docs <url>', 'Documentation URL')
@@ -72,8 +90,151 @@ function createCreateCommand(): Command {
         return [...(prev || []), value];
       }
     )
+    .addHelpText(
+      'after',
+      `
+Examples:
+  $ calimero-registry bundle create app.wasm com.calimero.myapp 1.0.0
+  $ calimero-registry bundle create app.wasm --manifest bundle-manifest.json
+  $ calimero-registry bundle create app.wasm --manifest bundle-manifest.json -o output.mpk
+  $ calimero-registry bundle create app.wasm com.calimero.myapp 1.0.0 --name "My App" --frontend https://app.example.com
+
+Manifest File Format (JSON):
+  {
+    "package": "com.calimero.myapp",
+    "version": "1.0.0",
+    "output": "./dist/myapp.mpk",
+    "name": "My Application",
+    "description": "Application description",
+    "author": "Calimero Team",
+    "frontend": "https://app.example.com",
+    "github": "https://github.com/user/repo",
+    "docs": "https://docs.example.com",
+    "exports": ["interface1", "interface2"],
+    "uses": ["interface3"]
+  }
+
+Note:
+  - Package and version can be provided via arguments, manifest file, or both
+  - CLI arguments take precedence over manifest file values
+  - If using manifest file, package and version can be omitted from command line
+  - The -o/--output option overrides manifest.output if both are provided
+`
+    )
     .action(async (wasmFile, pkg, version, options) => {
       try {
+        // Read manifest file if provided
+        let manifestConfig: BundleManifestConfig = {};
+        if (options.manifest) {
+          const manifestPath = path.resolve(options.manifest);
+          if (!fs.existsSync(manifestPath)) {
+            console.error(`❌ Manifest file not found: ${options.manifest}`);
+            process.exit(1);
+          }
+          try {
+            const manifestContent = fs.readFileSync(manifestPath, 'utf8');
+            const parsed = JSON.parse(manifestContent);
+
+            // Validate that parsed JSON is an object
+            if (
+              typeof parsed !== 'object' ||
+              parsed === null ||
+              Array.isArray(parsed)
+            ) {
+              console.error(`❌ Invalid manifest file: ${options.manifest}`);
+              console.error('   Manifest must be a JSON object');
+              process.exit(1);
+            }
+
+            manifestConfig = parsed as BundleManifestConfig;
+          } catch (error) {
+            console.error(
+              `❌ Failed to parse manifest file: ${options.manifest}`
+            );
+            console.error(
+              error instanceof Error ? error.message : 'Invalid JSON'
+            );
+            process.exit(1);
+          }
+        }
+
+        // Merge manifest with CLI options (CLI takes precedence)
+        const finalPackage = pkg || manifestConfig.package;
+        const finalVersion = version || manifestConfig.version;
+        const finalOutput = options.output || manifestConfig.output;
+        const finalName = options.name || manifestConfig.name;
+        const finalDescription =
+          options.description || manifestConfig.description;
+        const finalAuthor =
+          options.author || manifestConfig.author || 'Calimero Team';
+        const finalFrontend = options.frontend || manifestConfig.frontend;
+        const finalGithub = options.github || manifestConfig.github;
+        const finalDocs = options.docs || manifestConfig.docs;
+
+        // Validate and extract array options (CLI takes precedence - if CLI provides values, use only those)
+        const manifestExports = manifestConfig.exports;
+        const manifestUses = manifestConfig.uses;
+
+        // Validate manifest array fields are actually arrays
+        if (manifestExports !== undefined && !Array.isArray(manifestExports)) {
+          console.error('❌ Invalid manifest: "exports" must be an array');
+          process.exit(1);
+        }
+        if (manifestUses !== undefined && !Array.isArray(manifestUses)) {
+          console.error('❌ Invalid manifest: "uses" must be an array');
+          process.exit(1);
+        }
+
+        // CLI options take precedence - if CLI provides exports/uses, use only those
+        const finalExports =
+          options.export && options.export.length > 0
+            ? options.export
+            : manifestExports || [];
+        const finalUses =
+          options.use && options.use.length > 0
+            ? options.use
+            : manifestUses || [];
+
+        // Validate required parameters
+        if (!wasmFile) {
+          console.error('❌ WASM file is required');
+          process.exit(1);
+        }
+
+        if (!finalPackage) {
+          console.error(
+            '❌ Package name is required (provide via argument, --manifest file, or manifest.package)'
+          );
+          process.exit(1);
+        }
+
+        if (!finalVersion) {
+          console.error(
+            '❌ Version is required (provide via argument, --manifest file, or manifest.version)'
+          );
+          process.exit(1);
+        }
+
+        // Validate package name format (basic validation)
+        // Allow hyphens consistently in all segments: com.calimero.my-app, com.my-org.app, etc.
+        if (!/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(finalPackage)) {
+          console.error(
+            '❌ Invalid package name format. Expected format: com.calimero.myapp or com.my-org.my-app'
+          );
+          process.exit(1);
+        }
+
+        // Validate version format (semver-like)
+        // Allow dots and hyphens in prerelease and build metadata: 1.0.0-alpha.1, 1.0.0-rc.2+build.1
+        if (
+          !/^\d+\.\d+\.\d+(-[a-z0-9.-]+)?(\+[a-z0-9.-]+)?$/i.test(finalVersion)
+        ) {
+          console.error(
+            '❌ Invalid version format. Expected format: 1.0.0, 1.0.0-alpha, or 1.0.0-alpha.1'
+          );
+          process.exit(1);
+        }
+
         const wasmPath = path.resolve(wasmFile);
         if (!fs.existsSync(wasmPath)) {
           console.error(`❌ WASM file not found: ${wasmFile}`);
@@ -98,9 +259,9 @@ function createCreateCommand(): Command {
           description: string;
           author: string;
         } = {
-          name: options.name || pkg,
-          description: options.description || '',
-          author: options.author || 'Calimero Team',
+          name: finalName || finalPackage,
+          description: finalDescription || '',
+          author: finalAuthor,
         };
 
         // Build links if provided
@@ -109,21 +270,21 @@ function createCreateCommand(): Command {
           github?: string;
           docs?: string;
         } = {};
-        if (options.frontend) links.frontend = options.frontend;
-        if (options.github) links.github = options.github;
-        if (options.docs) links.docs = options.docs;
+        if (finalFrontend) links.frontend = finalFrontend;
+        if (finalGithub) links.github = finalGithub;
+        if (finalDocs) links.docs = finalDocs;
 
         // Build interfaces
         const interfaces = {
-          exports: options.export || [],
-          uses: options.use || [],
+          exports: finalExports,
+          uses: finalUses,
         };
 
         // Create bundle manifest
         const manifest: BundleManifest = {
           version: '1.0',
-          package: pkg,
-          appVersion: version,
+          package: finalPackage,
+          appVersion: finalVersion,
           metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
           interfaces:
             interfaces.exports.length > 0 || interfaces.uses.length > 0
@@ -141,13 +302,20 @@ function createCreateCommand(): Command {
         };
 
         // Determine output path
-        let outputPath = options.output;
+        let outputPath = finalOutput;
         if (!outputPath) {
-          const outputDir = path.join(process.cwd(), pkg, version);
+          const outputDir = path.join(
+            process.cwd(),
+            finalPackage,
+            finalVersion
+          );
           if (!fs.existsSync(outputDir)) {
             fs.mkdirSync(outputDir, { recursive: true });
           }
-          outputPath = path.join(outputDir, `${pkg}-${version}.mpk`);
+          outputPath = path.join(
+            outputDir,
+            `${finalPackage}-${finalVersion}.mpk`
+          );
         } else {
           outputPath = path.resolve(outputPath);
           const outputDir = path.dirname(outputPath);
@@ -185,8 +353,8 @@ function createCreateCommand(): Command {
 
           const outputSize = fs.statSync(outputPath).size;
           console.log(`✅ Created MPK bundle: ${outputPath}`);
-          console.log(`   Package: ${pkg}`);
-          console.log(`   Version: ${version}`);
+          console.log(`   Package: ${finalPackage}`);
+          console.log(`   Version: ${finalVersion}`);
           console.log(`   Size: ${outputSize} bytes`);
           console.log(`   WASM Hash: ${hash}`);
         } finally {
