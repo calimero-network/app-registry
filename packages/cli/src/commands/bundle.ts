@@ -57,6 +57,7 @@ interface BundleManifestConfig {
   docs?: string;
   exports?: string[];
   uses?: string[];
+  abi?: string;
 }
 
 function createCreateCommand(): Command {
@@ -90,6 +91,7 @@ function createCreateCommand(): Command {
         return [...(prev || []), value];
       }
     )
+    .option('--abi <path>', 'Path to ABI JSON file')
     .addHelpText(
       'after',
       `
@@ -98,6 +100,7 @@ Examples:
   $ calimero-registry bundle create app.wasm --manifest bundle-manifest.json
   $ calimero-registry bundle create app.wasm --manifest bundle-manifest.json -o output.mpk
   $ calimero-registry bundle create app.wasm com.calimero.myapp 1.0.0 --name "My App" --frontend https://app.example.com
+  $ calimero-registry bundle create app.wasm com.calimero.myapp 1.0.0 --abi abi.json
 
 Manifest File Format (JSON):
   {
@@ -111,7 +114,8 @@ Manifest File Format (JSON):
     "github": "https://github.com/user/repo",
     "docs": "https://docs.example.com",
     "exports": ["interface1", "interface2"],
-    "uses": ["interface3"]
+    "uses": ["interface3"],
+    "abi": "./path/to/abi.json"
   }
 
 Note:
@@ -170,6 +174,7 @@ Note:
         const finalFrontend = options.frontend || manifestConfig.frontend;
         const finalGithub = options.github || manifestConfig.github;
         const finalDocs = options.docs || manifestConfig.docs;
+        const finalAbiPath = options.abi || manifestConfig.abi;
 
         // Validate and extract array options (CLI takes precedence - if CLI provides values, use only those)
         const manifestExports = manifestConfig.exports;
@@ -248,10 +253,42 @@ Note:
         const wasmSize = wasmContent.length;
 
         // Calculate SHA256 hash
-        const hash = crypto
+        const wasmHash = crypto
           .createHash('sha256')
           .update(wasmContent)
           .digest('hex');
+
+        // Read and process ABI file if provided
+        let abiArtifact: BundleManifest['abi'] = null;
+        let abiContent: Buffer | null = null;
+        if (finalAbiPath) {
+          const abiPath = path.resolve(finalAbiPath);
+          if (!fs.existsSync(abiPath)) {
+            console.error(`❌ ABI file not found: ${finalAbiPath}`);
+            process.exit(1);
+          }
+          abiContent = fs.readFileSync(abiPath);
+          const abiSize = abiContent.length;
+          const abiHash = crypto
+            .createHash('sha256')
+            .update(abiContent)
+            .digest('hex');
+
+          // Validate ABI is valid JSON
+          try {
+            JSON.parse(abiContent.toString('utf8'));
+          } catch {
+            console.error(`❌ Invalid ABI file: ${finalAbiPath}`);
+            console.error('   ABI must be valid JSON');
+            process.exit(1);
+          }
+
+          abiArtifact = {
+            path: 'abi.json',
+            hash: abiHash,
+            size: abiSize,
+          };
+        }
 
         // Build metadata
         const metadata: {
@@ -292,10 +329,10 @@ Note:
               : undefined,
           wasm: {
             path: 'app.wasm',
-            hash: hash,
+            hash: wasmHash,
             size: wasmSize,
           },
-          abi: null,
+          abi: abiArtifact,
           migrations: [],
           links: Object.keys(links).length > 0 ? links : undefined,
           signature: undefined,
@@ -341,6 +378,13 @@ Note:
           // Copy WASM file as app.wasm
           fs.writeFileSync(path.join(tempDir, 'app.wasm'), wasmContent);
 
+          // Copy ABI file if provided
+          const archiveFiles = ['manifest.json', 'app.wasm'];
+          if (abiContent) {
+            fs.writeFileSync(path.join(tempDir, 'abi.json'), abiContent);
+            archiveFiles.push('abi.json');
+          }
+
           // Create gzip-compressed tar archive
           await tar.create(
             {
@@ -348,7 +392,7 @@ Note:
               file: outputPath,
               cwd: tempDir,
             },
-            ['manifest.json', 'app.wasm']
+            archiveFiles
           );
 
           const outputSize = fs.statSync(outputPath).size;
@@ -356,7 +400,10 @@ Note:
           console.log(`   Package: ${finalPackage}`);
           console.log(`   Version: ${finalVersion}`);
           console.log(`   Size: ${outputSize} bytes`);
-          console.log(`   WASM Hash: ${hash}`);
+          console.log(`   WASM Hash: ${wasmHash}`);
+          if (abiArtifact) {
+            console.log(`   ABI Hash: ${abiArtifact.hash}`);
+          }
         } finally {
           // Cleanup temp directory
           if (fs.existsSync(tempDir)) {
