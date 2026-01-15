@@ -137,9 +137,6 @@ importers:
 
   packages/cli:
     dependencies:
-      '@calimero-network/registry-client':
-        specifier: workspace:*
-        version: link:../client-library
       '@fastify/cors':
         specifier: ^8.4.0
         version: 8.5.0
