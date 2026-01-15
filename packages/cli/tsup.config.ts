@@ -9,14 +9,7 @@ export default defineConfig({
   clean: true,
   treeshake: true,
   minify: false,
-  external: [
-    '@calimero-network/registry-client',
-    'commander',
-    'chalk',
-    'ora',
-    'table',
-    'tar',
-  ],
+  external: ['commander', 'chalk', 'ora', 'table', 'tar'],
   banner: {
     js: '#!/usr/bin/env node',
   },
