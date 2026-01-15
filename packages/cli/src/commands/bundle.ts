@@ -271,13 +271,17 @@ Note:
         const abiFilePath = abiPathFromOption || abiPathFromManifest;
 
         if (abiFilePath) {
-          // Resolve ABI file path relative to manifest file if manifest was provided, otherwise relative to cwd
-          const abiResolvedPath = options.manifest
-            ? path.resolve(
-                path.dirname(path.resolve(options.manifest)),
-                abiFilePath
-              )
-            : path.resolve(abiFilePath);
+          // Resolve ABI file path:
+          // - CLI option (--abi) is always relative to cwd (consistent with WASM file handling)
+          // - Manifest abi field is relative to manifest file directory
+          const abiResolvedPath = abiPathFromOption
+            ? path.resolve(abiFilePath) // CLI option: always resolve relative to cwd
+            : options.manifest && abiPathFromManifest
+              ? path.resolve(
+                  path.dirname(path.resolve(options.manifest)),
+                  abiFilePath
+                ) // Manifest field: resolve relative to manifest directory
+              : path.resolve(abiFilePath); // Fallback: resolve relative to cwd
 
           if (!fs.existsSync(abiResolvedPath)) {
             console.error(`❌ ABI file not found: ${abiFilePath}`);
@@ -319,8 +323,55 @@ Note:
           manifestConfig.abi &&
           typeof manifestConfig.abi === 'object'
         ) {
-          // If manifest provides ABI as an object (BundleArtifact), use it directly
-          abiArtifact = manifestConfig.abi;
+          // If manifest provides ABI as an object (BundleArtifact), we need the actual file
+          // to include in the bundle. The object only contains metadata (path, hash, size)
+          // but not the source file location. We require --abi flag to provide the file.
+          if (!options.abi) {
+            console.error(
+              '❌ Manifest provides ABI as object, but --abi flag is required to include the ABI file in bundle'
+            );
+            console.error(
+              '   Provide the ABI file path with --abi flag, or change manifest.abi to a file path string'
+            );
+            process.exit(1);
+          }
+
+          // Use the CLI-provided ABI path to read the file
+          const abiResolvedPath = path.resolve(options.abi);
+          if (!fs.existsSync(abiResolvedPath)) {
+            console.error(`❌ ABI file not found: ${options.abi}`);
+            console.error(`   Resolved path: ${abiResolvedPath}`);
+            process.exit(1);
+          }
+
+          try {
+            abiContent = fs.readFileSync(abiResolvedPath);
+            // Validate it's valid JSON
+            JSON.parse(abiContent.toString('utf8'));
+
+            // Recalculate hash and size from actual file content to ensure accuracy
+            const abiHash = crypto
+              .createHash('sha256')
+              .update(abiContent)
+              .digest('hex');
+
+            abiArtifact = {
+              path: 'abi.json',
+              hash: abiHash,
+              size: abiContent.length,
+            };
+            console.log(
+              `   Including ABI file: ${path.basename(abiResolvedPath)}`
+            );
+          } catch (error) {
+            console.error(
+              `❌ Failed to read or parse ABI file: ${options.abi}`
+            );
+            console.error(
+              error instanceof Error ? error.message : 'Invalid JSON'
+            );
+            process.exit(1);
+          }
         }
 
         // Build metadata
