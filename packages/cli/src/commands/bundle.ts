@@ -57,6 +57,7 @@ interface BundleManifestConfig {
   docs?: string;
   exports?: string[];
   uses?: string[];
+  abi?: string | BundleManifest['abi']; // Can be file path string or BundleArtifact object
 }
 
 function createCreateCommand(): Command {
@@ -90,6 +91,7 @@ function createCreateCommand(): Command {
         return [...(prev || []), value];
       }
     )
+    .option('--abi <path>', 'Path to ABI JSON file to include in bundle')
     .addHelpText(
       'after',
       `
@@ -98,6 +100,7 @@ Examples:
   $ calimero-registry bundle create app.wasm --manifest bundle-manifest.json
   $ calimero-registry bundle create app.wasm --manifest bundle-manifest.json -o output.mpk
   $ calimero-registry bundle create app.wasm com.calimero.myapp 1.0.0 --name "My App" --frontend https://app.example.com
+  $ calimero-registry bundle create app.wasm --manifest manifest.json --abi res/abi.json
 
 Manifest File Format (JSON):
   {
@@ -111,7 +114,8 @@ Manifest File Format (JSON):
     "github": "https://github.com/user/repo",
     "docs": "https://docs.example.com",
     "exports": ["interface1", "interface2"],
-    "uses": ["interface3"]
+    "uses": ["interface3"],
+    "abi": "res/abi.json"
   }
 
 Note:
@@ -119,6 +123,8 @@ Note:
   - CLI arguments take precedence over manifest file values
   - If using manifest file, package and version can be omitted from command line
   - The -o/--output option overrides manifest.output if both are provided
+  - ABI can be provided via --abi flag or manifest.abi field (file path string)
+  - ABI file will be included in the bundle and referenced in the manifest
 `
     )
     .action(async (wasmFile, pkg, version, options) => {
@@ -253,6 +259,69 @@ Note:
           .update(wasmContent)
           .digest('hex');
 
+        // Handle ABI file (CLI option takes precedence over manifest)
+        let abiArtifact: BundleManifest['abi'] = undefined;
+        let abiContent: Buffer | null = null;
+        const abiPathFromOption = options.abi;
+        const abiPathFromManifest =
+          typeof manifestConfig.abi === 'string' ? manifestConfig.abi : null;
+
+        // Determine ABI file path (CLI option takes precedence)
+        const abiFilePath = abiPathFromOption || abiPathFromManifest;
+
+        if (abiFilePath) {
+          // Resolve ABI file path relative to manifest file if manifest was provided, otherwise relative to cwd
+          const abiResolvedPath = options.manifest
+            ? path.resolve(
+                path.dirname(path.resolve(options.manifest)),
+                abiFilePath
+              )
+            : path.resolve(abiFilePath);
+
+          if (!fs.existsSync(abiResolvedPath)) {
+            console.error(`❌ ABI file not found: ${abiFilePath}`);
+            console.error(`   Resolved path: ${abiResolvedPath}`);
+            process.exit(1);
+          }
+
+          // Read ABI file
+          try {
+            abiContent = fs.readFileSync(abiResolvedPath);
+            // Validate it's valid JSON
+            JSON.parse(abiContent.toString('utf8'));
+
+            // Calculate ABI hash
+            const abiHash = crypto
+              .createHash('sha256')
+              .update(abiContent)
+              .digest('hex');
+
+            // Create ABI artifact
+            abiArtifact = {
+              path: 'abi.json',
+              hash: abiHash,
+              size: abiContent.length,
+            };
+            console.log(
+              `   Including ABI file: ${path.basename(abiResolvedPath)}`
+            );
+          } catch (error) {
+            console.error(
+              `❌ Failed to read or parse ABI file: ${abiFilePath}`
+            );
+            console.error(
+              error instanceof Error ? error.message : 'Invalid JSON'
+            );
+            process.exit(1);
+          }
+        } else if (
+          manifestConfig.abi &&
+          typeof manifestConfig.abi === 'object'
+        ) {
+          // If manifest provides ABI as an object (BundleArtifact), use it directly
+          abiArtifact = manifestConfig.abi;
+        }
+
         // Build metadata
         const metadata: {
           name: string;
@@ -295,7 +364,7 @@ Note:
             hash: hash,
             size: wasmSize,
           },
-          abi: null,
+          abi: abiArtifact || undefined,
           migrations: [],
           links: Object.keys(links).length > 0 ? links : undefined,
           signature: undefined,
@@ -341,6 +410,13 @@ Note:
           // Copy WASM file as app.wasm
           fs.writeFileSync(path.join(tempDir, 'app.wasm'), wasmContent);
 
+          // Copy ABI file if provided
+          const bundleFiles = ['manifest.json', 'app.wasm'];
+          if (abiContent) {
+            fs.writeFileSync(path.join(tempDir, 'abi.json'), abiContent);
+            bundleFiles.push('abi.json');
+          }
+
           // Create gzip-compressed tar archive
           await tar.create(
             {
@@ -348,7 +424,7 @@ Note:
               file: outputPath,
               cwd: tempDir,
             },
-            ['manifest.json', 'app.wasm']
+            bundleFiles
           );
 
           const outputSize = fs.statSync(outputPath).size;
