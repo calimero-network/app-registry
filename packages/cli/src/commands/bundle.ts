@@ -159,14 +159,30 @@ Note:
         const finalFrontend = options.frontend || manifestConfig.frontend;
         const finalGithub = options.github || manifestConfig.github;
         const finalDocs = options.docs || manifestConfig.docs;
-        const finalExports = [
-          ...(options.export || []),
-          ...(manifestConfig.exports || []),
-        ];
-        const finalUses = [
-          ...(options.use || []),
-          ...(manifestConfig.uses || []),
-        ];
+
+        // Validate and extract array options (CLI takes precedence - if CLI provides values, use only those)
+        const manifestExports = manifestConfig.exports;
+        const manifestUses = manifestConfig.uses;
+
+        // Validate manifest array fields are actually arrays
+        if (manifestExports !== undefined && !Array.isArray(manifestExports)) {
+          console.error('❌ Invalid manifest: "exports" must be an array');
+          process.exit(1);
+        }
+        if (manifestUses !== undefined && !Array.isArray(manifestUses)) {
+          console.error('❌ Invalid manifest: "uses" must be an array');
+          process.exit(1);
+        }
+
+        // CLI options take precedence - if CLI provides exports/uses, use only those
+        const finalExports =
+          options.export && options.export.length > 0
+            ? options.export
+            : manifestExports || [];
+        const finalUses =
+          options.use && options.use.length > 0
+            ? options.use
+            : manifestUses || [];
 
         // Validate required parameters
         if (!wasmFile) {
@@ -189,9 +205,10 @@ Note:
         }
 
         // Validate package name format (basic validation)
-        if (!/^[a-z0-9]+\.[a-z0-9]+(\.[a-z0-9-]+)*$/.test(finalPackage)) {
+        // Allow hyphens consistently in all segments: com.calimero.my-app, com.my-org.app, etc.
+        if (!/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(finalPackage)) {
           console.error(
-            '❌ Invalid package name format. Expected format: com.calimero.myapp'
+            '❌ Invalid package name format. Expected format: com.calimero.myapp or com.my-org.my-app'
           );
           process.exit(1);
         }
