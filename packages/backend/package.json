@@ -20,9 +20,9 @@
     "docker:compose:dev": "docker-compose --profile dev up -d"
   },
   "dependencies": {
-    "@fastify/cors": "^8.4.0",
-    "@fastify/swagger": "^8.12.0",
-    "@fastify/swagger-ui": "^3.0.0",
+    "@fastify/cors": "^10.0.0",
+    "@fastify/swagger": "^9.0.0",
+    "@fastify/swagger-ui": "^5.0.0",
     "@noble/ed25519": "^2.0.0",
     "ajv": "^8.12.0",
     "ajv-formats": "^2.1.1",
