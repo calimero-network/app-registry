@@ -26,14 +26,15 @@
     "@noble/ed25519": "^2.0.0",
     "ajv": "^8.12.0",
     "ajv-formats": "^2.1.1",
+    "dotenv": "^17.2.4",
     "fastify": "^4.24.3",
-    "lru-cache": "^10.0.0",
-    "pino": "^8.16.0",
     "ipfs-http-client": "^60.0.1",
     "js-yaml": "^4.1.0",
+    "lru-cache": "^10.0.0",
     "multibase": "^4.0.6",
     "multiformats": "^12.0.1",
     "node-fetch": "^3.3.2",
+    "pino": "^8.16.0",
     "semver": "^7.5.4"
   },
   "devDependencies": {

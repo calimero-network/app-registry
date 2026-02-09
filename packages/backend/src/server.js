@@ -1,8 +1,10 @@
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
+
 const fastify = require('fastify');
 const cors = require('@fastify/cors');
 const swagger = require('@fastify/swagger');
 const swaggerUi = require('@fastify/swagger-ui');
-const path = require('path');
 const fs = require('fs');
 
 // Import config
