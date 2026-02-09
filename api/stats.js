@@ -45,6 +45,7 @@ module.exports = async (req, res) => {
     return res.status(200).json({
       publishedBundles: totalBundles,
       uniquePackages: uniquePackages,
+      publishedApps: uniquePackages,
       activeDevelopers: developers.size,
       totalDownloads: 0, // TODO: Implement download tracking
     });
@@ -53,6 +54,7 @@ module.exports = async (req, res) => {
     return res.status(200).json({
       publishedBundles: 0,
       uniquePackages: 0,
+      publishedApps: 0,
       activeDevelopers: 0,
       totalDownloads: 0,
     });
