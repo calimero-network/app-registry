@@ -8,6 +8,7 @@ const fs = require('fs');
 // Import config
 const config = require('./config');
 const { BundleStorageKV } = require('./lib/bundle-storage-kv');
+const { verifyManifest } = require('./lib/verify');
 
 async function buildServer() {
   const server = fastify({
@@ -329,6 +330,51 @@ async function buildServer() {
       });
     }
   });
+
+  // POST /api/v2/bundles/push and /v2/bundles/push - Push a new bundle (used by CLI)
+  const pushBundleHandler = async (request, reply) => {
+    const bundleManifest = request.body;
+    if (!bundleManifest || bundleManifest === null || bundleManifest === undefined) {
+      return reply.code(400).send({
+        error: 'invalid_manifest',
+        message: 'Missing body',
+      });
+    }
+    if (!bundleManifest.package || !bundleManifest.appVersion) {
+      return reply.code(400).send({
+        error: 'invalid_manifest',
+        message: 'Missing required fields: package, appVersion',
+      });
+    }
+    if (bundleManifest.signature) {
+      try {
+        await verifyManifest(bundleManifest);
+      } catch (error) {
+        return reply.code(400).send({
+          error: 'invalid_signature',
+          message: error.message || 'Signature verification failed',
+        });
+      }
+    }
+    const overwrite = bundleManifest._overwrite === true;
+    try {
+      await bundleStorage.storeBundleManifest(bundleManifest, overwrite);
+      return reply.code(201).send({
+        message: 'Bundle published successfully',
+        package: bundleManifest.package,
+        version: bundleManifest.appVersion,
+      });
+    } catch (error) {
+      server.log.error('Error pushing bundle:', error);
+      return reply.code(500).send({
+        error: 'internal_error',
+        message: error?.message ?? String(error),
+      });
+    }
+  };
+
+  server.post('/api/v2/bundles/push', pushBundleHandler);
+  server.options('/api/v2/bundles/push', async (_req, reply) => reply.code(200).send());
 
   // Serve artifacts (WASM, MPK, etc.)
   // Supports both flat structure (/artifacts/:filename) and nested structure (/artifacts/:package/:version/:filename)
