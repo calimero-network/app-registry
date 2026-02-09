@@ -18,6 +18,9 @@ VERCEL=1                    # Set automatically by Vercel (enables Redis)
 SEED_TEST_APPS=true         # Seed test apps on startup (default: true in dev, false in prod)
 LOG_LEVEL=info              # Logging level (debug, info, warn, error)
 
+# Bundle overwrite (server-only; client _overwrite is ignored for security)
+ALLOW_BUNDLE_OVERWRITE=false # If true/1, push can overwrite existing package@version (migrations only; keep false in production)
+
 # CORS Configuration
 CORS_ORIGIN=http://localhost:1420,https://app.calimero.network
 

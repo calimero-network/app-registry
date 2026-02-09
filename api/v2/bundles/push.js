@@ -62,7 +62,10 @@ module.exports = async function handler(req, res) {
       }
     }
 
-    const overwrite = bundleManifest._overwrite === true;
+    // Never trust client-controlled _overwrite; only allow overwrite when server config enables it (e.g. migrations).
+    const overwrite =
+      process.env.ALLOW_BUNDLE_OVERWRITE === 'true' ||
+      process.env.ALLOW_BUNDLE_OVERWRITE === '1';
 
     // Store the bundle
     await store.storeBundleManifest(bundleManifest, overwrite);

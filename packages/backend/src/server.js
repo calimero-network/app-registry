@@ -369,7 +369,10 @@ async function buildServer() {
         });
       }
     }
-    const overwrite = bundleManifest._overwrite === true;
+    // Never trust client-controlled _overwrite; only allow overwrite when server config enables it (e.g. migrations).
+    const overwrite =
+      process.env.ALLOW_BUNDLE_OVERWRITE === 'true' ||
+      process.env.ALLOW_BUNDLE_OVERWRITE === '1';
     try {
       await bundleStorage.storeBundleManifest(bundleManifest, overwrite);
       return reply.code(201).send({

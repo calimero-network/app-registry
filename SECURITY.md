@@ -40,6 +40,7 @@ This document also outlines the security measures and configuration options for 
 - **Input Validation** - SemVer and public key validation
 - **CORS Configuration** - Cross-origin request protection
 - **Security Headers** - HTTP security headers
+- **Version immutability** - The push API ignores client-supplied `_overwrite`; overwrite is only allowed when `ALLOW_BUNDLE_OVERWRITE` is set server-side (e.g. for migrations).
 
 ### **Dependency Security**
 

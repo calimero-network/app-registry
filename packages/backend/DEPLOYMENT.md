@@ -71,6 +71,7 @@ ENABLE_CYCLE_DETECTION: 'true' # Enable cycle detection
 DEV_MODE: 'false' # Development mode
 DEBUG_LOGGING: 'false' # Debug logging
 ALLOW_LOCAL_ARTIFACTS: 'false' # Allow local artifacts
+ALLOW_BUNDLE_OVERWRITE: 'false' # If 'true'/'1', push may overwrite existing bundle (migrations only; do not enable in production)
 ```
 
 ### Production Deployment
