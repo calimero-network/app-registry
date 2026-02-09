@@ -25,8 +25,8 @@ export default function UploadPage() {
       {/* Step 0 */}
       <Section step={0} icon={BookOpen} title='Understand Calimero apps'>
         <p className='text-[13px] text-neutral-400 font-light leading-relaxed mb-4'>
-          Before publishing, read the official documentation to understand
-          how self-sovereign applications work on the Calimero runtime.
+          Before publishing, read the official documentation to understand how
+          self-sovereign applications work on the Calimero runtime.
         </p>
         <div className='flex flex-wrap gap-2'>
           <DocLink
@@ -77,8 +77,8 @@ export default function UploadPage() {
 
           <ScriptBlock title='build-bundle.sh'>
             Runs build, creates{' '}
-            <code className='text-brand-600'>bundle-temp/</code> with manifest
-            + artifacts, packages into{' '}
+            <code className='text-brand-600'>bundle-temp/</code> with manifest +
+            artifacts, packages into{' '}
             <code className='text-brand-600'>.mpk</code>.
             <Pre>{`./build-bundle.sh
 # Output: res/your-app-1.0.0.mpk`}</Pre>
@@ -316,9 +316,7 @@ function InlineLink({
   return (
     <a
       href={href}
-      {...(isExternal
-        ? { target: '_blank', rel: 'noopener noreferrer' }
-        : {})}
+      {...(isExternal ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
       className='text-brand-600 hover:text-brand-500 transition-colors'
     >
       {children}

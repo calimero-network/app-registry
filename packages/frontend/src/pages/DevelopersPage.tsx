@@ -14,9 +14,7 @@ export default function DevelopersPage() {
 
   const developers = Array.from(
     new Set(
-      apps
-        .map(app => app.developer_pubkey)
-        .filter(a => a && a !== 'Unknown')
+      apps.map(app => app.developer_pubkey).filter(a => a && a !== 'Unknown')
     )
   ).map(author => {
     const developerApps = apps.filter(app => app.developer_pubkey === author);

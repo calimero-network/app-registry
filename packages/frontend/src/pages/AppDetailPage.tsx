@@ -223,10 +223,7 @@ export default function AppDetailPage() {
           <p className='section-heading mb-3'>Tags</p>
           <div className='flex flex-wrap gap-1.5'>
             {meta.tags.map(tag => (
-              <span
-                key={tag}
-                className='pill bg-neutral-800 text-neutral-300'
-              >
+              <span key={tag} className='pill bg-neutral-800 text-neutral-300'>
                 {tag}
               </span>
             ))}

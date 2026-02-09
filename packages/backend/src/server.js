@@ -343,7 +343,11 @@ async function buildServer() {
   // POST /api/v2/bundles/push and /v2/bundles/push - Push a new bundle (used by CLI)
   const pushBundleHandler = async (request, reply) => {
     const bundleManifest = request.body;
-    if (!bundleManifest || bundleManifest === null || bundleManifest === undefined) {
+    if (
+      !bundleManifest ||
+      bundleManifest === null ||
+      bundleManifest === undefined
+    ) {
       return reply.code(400).send({
         error: 'invalid_manifest',
         message: 'Missing body',
@@ -383,7 +387,9 @@ async function buildServer() {
   };
 
   server.post('/api/v2/bundles/push', pushBundleHandler);
-  server.options('/api/v2/bundles/push', async (_req, reply) => reply.code(200).send());
+  server.options('/api/v2/bundles/push', async (_req, reply) =>
+    reply.code(200).send()
+  );
 
   // Serve artifacts (WASM, MPK, etc.)
   // Supports both flat structure (/artifacts/:filename) and nested structure (/artifacts/:package/:version/:filename)
