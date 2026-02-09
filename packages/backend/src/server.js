@@ -53,12 +53,14 @@ async function buildServer() {
   });
 
   // Health endpoint
-  server.get('/healthz', async (_request, _reply) => {
+  const healthHandler = async (_request, _reply) => {
     return { status: 'ok' };
-  });
+  };
+  server.get('/healthz', healthHandler);
+  server.get('/api/healthz', healthHandler);
 
   // Statistics endpoint (optimized to avoid N+1 queries)
-  server.get('/stats', async (_request, _reply) => {
+  const statsHandler = async (_request, _reply) => {
     try {
       // Get all bundle keys efficiently (parallel queries)
       const bundleKeys = await bundleStorage.getAllBundleKeys();
@@ -69,11 +71,12 @@ async function buildServer() {
       // Batch fetch all manifests in parallel
       const bundles = await bundleStorage.getBundleManifestsBatch(bundleKeys);
 
-      // Count unique developers (from bundle signatures)
+      // Count unique developers (from metadata.author, falling back to signature.pubkey)
       const developers = new Set();
       for (const bundle of bundles) {
-        if (bundle?.signature?.pubkey) {
-          developers.add(bundle.signature.pubkey);
+        const author = bundle?.metadata?.author || bundle?.signature?.pubkey;
+        if (author) {
+          developers.add(author);
         }
       }
 
@@ -85,6 +88,7 @@ async function buildServer() {
       return {
         publishedBundles: totalBundles,
         uniquePackages,
+        publishedApps: uniquePackages,
         activeDevelopers: developers.size,
         totalDownloads: 0, // TODO: Implement download tracking
       };
@@ -93,12 +97,15 @@ async function buildServer() {
       return {
         publishedBundles: 0,
         uniquePackages: 0,
+        publishedApps: 0,
         activeDevelopers: 0,
         totalDownloads: 0,
         error: 'Failed to calculate statistics',
       };
     }
-  });
+  };
+  server.get('/stats', statsHandler);
+  server.get('/api/stats', statsHandler);
 
   // Use BundleStorageKV for v2 bundle storage
   const bundleStorage = new BundleStorageKV();

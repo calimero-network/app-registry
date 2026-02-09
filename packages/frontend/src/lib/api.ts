@@ -41,20 +41,23 @@ export const getApps = async (params?: {
   const bundles = Array.isArray(response.data) ? response.data : [];
 
   // Transform V2 BundleManifest to AppSummary format
+  // Use metadata.author as the developer identity (most bundles don't have signatures)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return bundles.map((bundle: any) => ({
-    id: bundle.package,
-    name: bundle.metadata?.name || bundle.package,
-    developer_pubkey: bundle.signature?.pubkey || 'unknown',
-    latest_version: bundle.appVersion,
-    alias: bundle.metadata?.name,
-    developer: bundle.signature?.pubkey
-      ? {
-          display_name: bundle.metadata?.name || bundle.package,
-          pubkey: bundle.signature.pubkey,
-        }
-      : undefined,
-  }));
+  return bundles.map((bundle: any) => {
+    const author = bundle.metadata?.author || 'Unknown';
+    return {
+      id: bundle.package,
+      name: bundle.metadata?.name || bundle.package,
+      package_name: bundle.package,
+      developer_pubkey: author,
+      latest_version: bundle.appVersion,
+      alias: bundle.metadata?.name,
+      developer: {
+        display_name: author,
+        pubkey: author,
+      },
+    };
+  });
 };
 
 export const getAppVersions = async (appId: string): Promise<VersionInfo[]> => {

@@ -5,6 +5,8 @@ import AppsPage from './pages/AppsPage';
 import AppDetailPage from './pages/AppDetailPage';
 import DevelopersPage from './pages/DevelopersPage';
 import DeveloperDetailPage from './pages/DeveloperDetailPage';
+import UploadPage from './pages/UploadPage';
+import NotFoundPage from './pages/NotFoundPage';
 
 function App() {
   return (
@@ -15,6 +17,8 @@ function App() {
         <Route path='/apps/:appId' element={<AppDetailPage />} />
         <Route path='/developers' element={<DevelopersPage />} />
         <Route path='/developers/:pubkey' element={<DeveloperDetailPage />} />
+        <Route path='/upload' element={<UploadPage />} />
+        <Route path='*' element={<NotFoundPage />} />
       </Routes>
     </Layout>
   );
