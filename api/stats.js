@@ -30,11 +30,12 @@ module.exports = async (req, res) => {
     // Batch fetch all manifests in parallel (O(1) parallel queries instead of sequential)
     const bundles = await store.getBundleManifestsBatch(bundleKeys);
 
-    // Count unique developers (from bundle signatures)
+    // Count unique developers (from metadata.author, falling back to signature.pubkey)
     const developers = new Set();
     for (const bundle of bundles) {
-      if (bundle?.signature?.pubkey) {
-        developers.add(bundle.signature.pubkey);
+      const author = bundle?.metadata?.author || bundle?.signature?.pubkey;
+      if (author) {
+        developers.add(author);
       }
     }
 
@@ -44,6 +45,7 @@ module.exports = async (req, res) => {
     return res.status(200).json({
       publishedBundles: totalBundles,
       uniquePackages: uniquePackages,
+      publishedApps: uniquePackages,
       activeDevelopers: developers.size,
       totalDownloads: 0, // TODO: Implement download tracking
     });
@@ -52,6 +54,7 @@ module.exports = async (req, res) => {
     return res.status(200).json({
       publishedBundles: 0,
       uniquePackages: 0,
+      publishedApps: 0,
       activeDevelopers: 0,
       totalDownloads: 0,
     });

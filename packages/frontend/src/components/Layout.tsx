@@ -1,5 +1,6 @@
+import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Package } from 'lucide-react';
+import { Package, Menu, X } from 'lucide-react';
 import { navigation } from '@/constants/navigation';
 
 interface LayoutProps {
@@ -8,25 +9,28 @@ interface LayoutProps {
 
 export function Layout({ children }: LayoutProps) {
   const location = useLocation();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
-    <div className='min-h-screen bg-background-secondary'>
+    <div className='min-h-screen flex flex-col bg-background-secondary'>
       {/* Header */}
-      <header className='bg-background-primary shadow-sm border-b border-neutral-700'>
-        <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
-          <div className='flex justify-between items-center h-16'>
-            <div className='flex items-center'>
-              <Link to='/' className='flex items-center space-x-2'>
-                <Package className='h-8 w-8 text-brand-600' />
-                <span className='text-xl font-bold text-white'>
-                  SSApp Registry
-                </span>
-              </Link>
-            </div>
+      <header className='sticky top-0 z-50 bg-background-primary/80 backdrop-blur-xl border-b border-neutral-800/60'>
+        <div className='max-w-6xl mx-auto px-4 sm:px-6 lg:px-8'>
+          <div className='flex justify-between items-center h-14'>
+            <Link to='/' className='flex items-center gap-2 group'>
+              <Package className='h-5 w-5 text-brand-600 transition-transform group-hover:scale-110' />
+              <span className='text-sm font-medium text-neutral-200'>
+                SSApp Registry
+              </span>
+            </Link>
 
-            <nav className='hidden md:flex space-x-8'>
+            {/* Desktop nav */}
+            <nav className='hidden md:flex items-center gap-1'>
               {navigation.map(item => {
-                const isActive = location.pathname === item.href;
+                const isActive =
+                  location.pathname === item.href ||
+                  (item.href !== '/' &&
+                    location.pathname.startsWith(item.href));
                 return (
                   <Link
                     key={item.name}
@@ -35,37 +39,90 @@ export function Layout({ children }: LayoutProps) {
                       isActive ? 'nav-link-active' : 'nav-link-inactive'
                     }`}
                   >
-                    <item.icon className='h-4 w-4 mr-2' />
+                    <item.icon className='h-3.5 w-3.5 mr-1.5' />
                     {item.name}
                   </Link>
                 );
               })}
             </nav>
+
+            {/* Mobile menu button */}
+            <button
+              className='md:hidden p-1.5 rounded-md text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800/60 transition-all'
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              aria-label='Toggle menu'
+            >
+              {mobileMenuOpen ? (
+                <X className='h-5 w-5' />
+              ) : (
+                <Menu className='h-5 w-5' />
+              )}
+            </button>
           </div>
         </div>
+
+        {/* Mobile nav */}
+        {mobileMenuOpen && (
+          <nav className='md:hidden border-t border-neutral-800/60 animate-fade-in'>
+            <div className='px-4 py-2 space-y-0.5'>
+              {navigation.map(item => {
+                const isActive =
+                  location.pathname === item.href ||
+                  (item.href !== '/' &&
+                    location.pathname.startsWith(item.href));
+                return (
+                  <Link
+                    key={item.name}
+                    to={item.href}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={`flex items-center px-3 py-2 rounded-md text-[13px] font-normal transition-all ${
+                      isActive
+                        ? 'bg-neutral-800/80 text-brand-600'
+                        : 'text-neutral-400 hover:bg-neutral-800/40 hover:text-neutral-200'
+                    }`}
+                  >
+                    <item.icon className='h-3.5 w-3.5 mr-2.5' />
+                    {item.name}
+                  </Link>
+                );
+              })}
+            </div>
+          </nav>
+        )}
       </header>
 
       {/* Main content */}
-      <main className='max-w-7xl mx-auto py-6 sm:px-6 lg:px-8'>
-        <div className='px-4 py-6 sm:px-0'>{children}</div>
+      <main className='flex-1 max-w-6xl w-full mx-auto py-8 sm:px-6 lg:px-8'>
+        <div className='px-4 sm:px-0 animate-fade-in'>{children}</div>
       </main>
 
       {/* Footer */}
-      <footer className='bg-background-primary border-t border-neutral-700 mt-auto'>
-        <div className='max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8'>
-          <div className='text-center text-sm text-neutral-300'>
-            <p>
-              © 2025 Calimero Network App Registry. Built with ❤️ by the{' '}
-              <a
-                href='https://calimero.network'
-                target='_blank'
-                rel='noopener noreferrer'
-                className='text-brand-600 hover:text-brand-500 transition-colors underline'
-              >
-                Calimero Network
-              </a>{' '}
-              team.
+      <footer className='border-t border-neutral-800/60'>
+        <div className='max-w-6xl mx-auto py-5 px-4 sm:px-6 lg:px-8'>
+          <div className='flex flex-col sm:flex-row items-center justify-between gap-3'>
+            <p className='text-[12px] text-neutral-500 font-light'>
+              &copy; {new Date().getFullYear()} Calimero Network
             </p>
+            <div className='flex items-center gap-5'>
+              {[
+                { href: 'https://calimero.network', label: 'Website' },
+                { href: 'https://docs.calimero.network', label: 'Docs' },
+                {
+                  href: 'https://github.com/calimero-network',
+                  label: 'GitHub',
+                },
+              ].map(link => (
+                <a
+                  key={link.label}
+                  href={link.href}
+                  target='_blank'
+                  rel='noopener noreferrer'
+                  className='text-[12px] text-neutral-500 hover:text-neutral-300 font-light transition-colors'
+                >
+                  {link.label}
+                </a>
+              ))}
+            </div>
           </div>
         </div>
       </footer>

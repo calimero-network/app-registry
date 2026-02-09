@@ -1,6 +1,7 @@
 export interface AppSummary {
   id: string;
   name: string;
+  package_name: string;
   developer_pubkey: string;
   latest_version: string;
   alias?: string;

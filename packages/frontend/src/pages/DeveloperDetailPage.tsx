@@ -1,50 +1,67 @@
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Package, Globe, ExternalLink } from 'lucide-react';
-import { getDeveloper, getApps } from '@/lib/api';
+import { Package, User, ArrowLeft, ArrowUpRight } from 'lucide-react';
+import { api } from '@/lib/api';
+
+interface V2Bundle {
+  version: string;
+  package: string;
+  appVersion: string;
+  metadata?: {
+    name?: string;
+    description?: string;
+    author?: string;
+    tags?: string[];
+    license?: string;
+  };
+  wasm?: { path: string; hash: string | null; size: number };
+  links?: { frontend?: string; github?: string; docs?: string };
+  signature?: { alg: string; sig: string; pubkey: string; signedAt?: string };
+}
 
 export default function DeveloperDetailPage() {
   const { pubkey = '' } = useParams<{ pubkey: string }>();
+  const decodedName = decodeURIComponent(pubkey);
 
-  const { data: profile, isLoading: profileLoading } = useQuery({
-    queryKey: ['developer', pubkey],
-    queryFn: () => getDeveloper(pubkey),
-    enabled: !!pubkey,
+  const { data: allBundles = [], isLoading } = useQuery({
+    queryKey: ['bundles-all'],
+    queryFn: async () => {
+      const response = await api.get('/v2/bundles');
+      return (Array.isArray(response.data) ? response.data : []) as V2Bundle[];
+    },
   });
 
-  const { data: allApps = [] } = useQuery({
-    queryKey: ['apps'],
-    queryFn: () => getApps(),
-  });
+  const developerBundles = allBundles.filter(
+    b => b.metadata?.author === decodedName
+  );
 
-  const developerApps = allApps.filter(app => app.developer_pubkey === pubkey);
+  const uniqueApps = new Map<string, V2Bundle>();
+  for (const b of developerBundles) {
+    if (!uniqueApps.has(b.package)) {
+      uniqueApps.set(b.package, b);
+    }
+  }
+  const apps = Array.from(uniqueApps.values());
 
-  if (profileLoading) {
+  if (isLoading) {
     return (
-      <div className='container mx-auto px-4 py-8'>
-        <div className='animate-pulse'>
-          <div className='h-8 bg-gray-200 rounded w-1/3 mb-4'></div>
-          <div className='h-4 bg-gray-200 rounded w-1/2 mb-8'></div>
-          <div className='space-y-4'>
-            {[1, 2, 3].map(i => (
-              <div key={i} className='h-20 bg-gray-200 rounded'></div>
-            ))}
-          </div>
-        </div>
+      <div className='space-y-5 animate-pulse'>
+        <div className='h-4 bg-neutral-800 rounded w-24'></div>
+        <div className='h-6 bg-neutral-800 rounded w-1/3'></div>
+        <div className='h-3.5 bg-neutral-800 rounded w-1/4'></div>
+        <div className='h-24 bg-neutral-800/50 rounded-lg'></div>
       </div>
     );
   }
 
-  if (!profile) {
+  if (developerBundles.length === 0) {
     return (
-      <div className='container mx-auto px-4 py-8'>
-        <div className='text-center'>
-          <Package className='mx-auto h-12 w-12 text-gray-400' />
-          <h2 className='mt-4 text-lg font-medium text-gray-900'>
-            Developer not found
-          </h2>
-          <p className='mt-2 text-gray-500'>
-            The requested developer profile could not be found.
+      <div className='space-y-6'>
+        <BackLink />
+        <div className='text-center py-16'>
+          <User className='mx-auto h-8 w-8 text-neutral-600' />
+          <p className='mt-3 text-[13px] text-neutral-400'>
+            No published bundles found for &quot;{decodedName}&quot;.
           </p>
         </div>
       </div>
@@ -52,102 +69,106 @@ export default function DeveloperDetailPage() {
   }
 
   return (
-    <div className='container mx-auto px-4 py-8'>
-      <div className='mb-8'>
-        <h1 className='text-3xl font-bold text-gray-900 mb-2'>
-          {profile.display_name}
-        </h1>
-        <p className='text-gray-600 font-mono text-sm'>{pubkey}</p>
-        {profile.website && (
-          <a
-            href={profile.website}
-            target='_blank'
-            rel='noopener noreferrer'
-            className='inline-flex items-center text-blue-600 hover:text-blue-800 mt-2'
-          >
-            <Globe className='w-4 h-4 mr-1' />
-            {profile.website}
-            <ExternalLink className='w-3 h-3 ml-1' />
-          </a>
-        )}
+    <div className='space-y-6'>
+      <BackLink />
+
+      {/* Header */}
+      <div className='flex items-center gap-3'>
+        <div className='flex items-center justify-center w-10 h-10 rounded-full bg-neutral-800'>
+          <User className='w-4 h-4 text-neutral-400' />
+        </div>
+        <div>
+          <h1 className='text-xl font-semibold text-neutral-100'>
+            {decodedName}
+          </h1>
+          <p className='text-[12px] text-neutral-500 font-light'>
+            {apps.length} app{apps.length !== 1 ? 's' : ''} &middot;{' '}
+            {developerBundles.length} bundle
+            {developerBundles.length !== 1 ? 's' : ''}
+          </p>
+        </div>
       </div>
 
-      {profile.proofs.length > 0 && (
-        <div className='bg-white rounded-lg border border-gray-200 p-6 mb-8'>
-          <h2 className='text-xl font-semibold mb-4'>Verification Proofs</h2>
-          <div className='space-y-3'>
-            {profile.proofs.map((proof, index) => (
-              <div
-                key={index}
-                className='flex items-center justify-between p-3 bg-gray-50 rounded-lg'
-              >
-                <div>
-                  <p className='font-medium text-sm'>{proof.type}</p>
-                  <p className='text-xs text-gray-500 font-mono'>
-                    {proof.value}
-                  </p>
-                </div>
-                <span
-                  className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                    proof.verified
-                      ? 'bg-green-100 text-green-800'
-                      : 'bg-red-100 text-red-800'
-                  }`}
-                >
-                  {proof.verified ? 'Verified' : 'Unverified'}
+      {/* Published apps */}
+      <div>
+        <p className='section-heading mb-3'>Published Applications</p>
+        <div className='grid grid-cols-1 sm:grid-cols-2 gap-3'>
+          {apps.map(bundle => (
+            <Link
+              key={bundle.package}
+              to={`/apps/${bundle.package}`}
+              className='card p-4 group hover:border-brand-600/30'
+            >
+              <div className='flex items-start justify-between mb-1.5'>
+                <h3 className='text-[13px] font-medium text-neutral-200 truncate pr-2 group-hover:text-white transition-colors'>
+                  {bundle.metadata?.name || bundle.package}
+                </h3>
+                <ArrowUpRight className='w-3.5 h-3.5 text-neutral-600 group-hover:text-brand-600 transition-all flex-shrink-0 mt-0.5' />
+              </div>
+              <p className='text-[11px] text-neutral-500 font-mono truncate'>
+                {bundle.package}
+              </p>
+              {bundle.metadata?.description && (
+                <p className='text-[11px] text-neutral-500 font-light mt-1.5 line-clamp-2'>
+                  {bundle.metadata.description}
+                </p>
+              )}
+              <p className='text-[11px] text-neutral-600 font-mono mt-2'>
+                v{bundle.appVersion}
+              </p>
+            </Link>
+          ))}
+        </div>
+      </div>
+
+      {/* All bundles */}
+      <div>
+        <p className='section-heading mb-3'>All Bundles</p>
+        <div className='space-y-1.5'>
+          {developerBundles.map(b => (
+            <Link
+              key={`${b.package}-${b.appVersion}`}
+              to={`/apps/${b.package}`}
+              className='card px-4 py-2.5 flex items-center justify-between group hover:border-brand-600/30'
+            >
+              <div className='flex items-center gap-2 min-w-0'>
+                <Package className='w-3 h-3 text-neutral-600 flex-shrink-0' />
+                <span className='text-[13px] text-neutral-300 truncate'>
+                  {b.metadata?.name || b.package}
+                </span>
+                <span className='pill bg-brand-600/10 text-brand-600 font-mono flex-shrink-0'>
+                  v{b.appVersion}
                 </span>
               </div>
-            ))}
-          </div>
+              {b.wasm && (
+                <span className='text-[11px] text-neutral-600 flex-shrink-0 ml-2'>
+                  {formatBytes(b.wasm.size)}
+                </span>
+              )}
+            </Link>
+          ))}
         </div>
-      )}
-
-      <div>
-        <h2 className='text-xl font-semibold mb-4'>Published Applications</h2>
-        {developerApps.length === 0 ? (
-          <div className='text-center py-8'>
-            <Package className='mx-auto h-12 w-12 text-gray-400' />
-            <h3 className='mt-4 text-lg font-medium text-gray-900'>
-              No applications
-            </h3>
-            <p className='mt-2 text-gray-500'>
-              This developer hasn't published any applications yet.
-            </p>
-          </div>
-        ) : (
-          <div className='space-y-3'>
-            {developerApps.map(app => (
-              <AppRow key={`${app.developer_pubkey}-${app.name}`} app={app} />
-            ))}
-          </div>
-        )}
       </div>
     </div>
   );
 }
 
-function AppRow({
-  app,
-}: {
-  app: {
-    name: string;
-    developer_pubkey: string;
-    latest_version: string;
-    alias?: string;
-  };
-}) {
+function BackLink() {
   return (
-    <div className='flex items-center justify-between p-4 bg-white border border-gray-200 rounded-lg'>
-      <div className='flex items-center'>
-        <Package className='w-4 h-4 text-gray-400 mr-3' />
-        <div>
-          <p className='font-medium'>{app.name}</p>
-          {app.alias && <p className='text-sm text-gray-500'>{app.alias}</p>}
-        </div>
-      </div>
-      <div className='text-right'>
-        <p className='text-sm text-gray-600'>Latest: v{app.latest_version}</p>
-      </div>
-    </div>
+    <Link
+      to='/developers'
+      className='inline-flex items-center gap-1 text-[12px] text-neutral-500 hover:text-neutral-300 transition-colors'
+    >
+      <ArrowLeft className='w-3 h-3' />
+      Back to Developers
+    </Link>
   );
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
 }

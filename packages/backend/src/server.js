@@ -1,13 +1,16 @@
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
+
 const fastify = require('fastify');
 const cors = require('@fastify/cors');
 const swagger = require('@fastify/swagger');
 const swaggerUi = require('@fastify/swagger-ui');
-const path = require('path');
 const fs = require('fs');
 
 // Import config
 const config = require('./config');
 const { BundleStorageKV } = require('./lib/bundle-storage-kv');
+const { verifyManifest } = require('./lib/verify');
 
 async function buildServer() {
   const server = fastify({
@@ -50,12 +53,14 @@ async function buildServer() {
   });
 
   // Health endpoint
-  server.get('/healthz', async (_request, _reply) => {
+  const healthHandler = async (_request, _reply) => {
     return { status: 'ok' };
-  });
+  };
+  server.get('/healthz', healthHandler);
+  server.get('/api/healthz', healthHandler);
 
   // Statistics endpoint (optimized to avoid N+1 queries)
-  server.get('/stats', async (_request, _reply) => {
+  const statsHandler = async (_request, _reply) => {
     try {
       // Get all bundle keys efficiently (parallel queries)
       const bundleKeys = await bundleStorage.getAllBundleKeys();
@@ -66,11 +71,12 @@ async function buildServer() {
       // Batch fetch all manifests in parallel
       const bundles = await bundleStorage.getBundleManifestsBatch(bundleKeys);
 
-      // Count unique developers (from bundle signatures)
+      // Count unique developers (from metadata.author, falling back to signature.pubkey)
       const developers = new Set();
       for (const bundle of bundles) {
-        if (bundle?.signature?.pubkey) {
-          developers.add(bundle.signature.pubkey);
+        const author = bundle?.metadata?.author || bundle?.signature?.pubkey;
+        if (author) {
+          developers.add(author);
         }
       }
 
@@ -82,6 +88,7 @@ async function buildServer() {
       return {
         publishedBundles: totalBundles,
         uniquePackages,
+        publishedApps: uniquePackages,
         activeDevelopers: developers.size,
         totalDownloads: 0, // TODO: Implement download tracking
       };
@@ -90,12 +97,15 @@ async function buildServer() {
       return {
         publishedBundles: 0,
         uniquePackages: 0,
+        publishedApps: 0,
         activeDevelopers: 0,
         totalDownloads: 0,
         error: 'Failed to calculate statistics',
       };
     }
-  });
+  };
+  server.get('/stats', statsHandler);
+  server.get('/api/stats', statsHandler);
 
   // Use BundleStorageKV for v2 bundle storage
   const bundleStorage = new BundleStorageKV();
@@ -329,6 +339,60 @@ async function buildServer() {
       });
     }
   });
+
+  // POST /api/v2/bundles/push and /v2/bundles/push - Push a new bundle (used by CLI)
+  const pushBundleHandler = async (request, reply) => {
+    const bundleManifest = request.body;
+    if (
+      !bundleManifest ||
+      bundleManifest === null ||
+      bundleManifest === undefined
+    ) {
+      return reply.code(400).send({
+        error: 'invalid_manifest',
+        message: 'Missing body',
+      });
+    }
+    if (!bundleManifest.package || !bundleManifest.appVersion) {
+      return reply.code(400).send({
+        error: 'invalid_manifest',
+        message: 'Missing required fields: package, appVersion',
+      });
+    }
+    if (bundleManifest.signature) {
+      try {
+        await verifyManifest(bundleManifest);
+      } catch (error) {
+        return reply.code(400).send({
+          error: 'invalid_signature',
+          message: error.message || 'Signature verification failed',
+        });
+      }
+    }
+    // Never trust client-controlled _overwrite; only allow overwrite when server config enables it (e.g. migrations).
+    const overwrite =
+      process.env.ALLOW_BUNDLE_OVERWRITE === 'true' ||
+      process.env.ALLOW_BUNDLE_OVERWRITE === '1';
+    try {
+      await bundleStorage.storeBundleManifest(bundleManifest, overwrite);
+      return reply.code(201).send({
+        message: 'Bundle published successfully',
+        package: bundleManifest.package,
+        version: bundleManifest.appVersion,
+      });
+    } catch (error) {
+      server.log.error('Error pushing bundle:', error);
+      return reply.code(500).send({
+        error: 'internal_error',
+        message: error?.message ?? String(error),
+      });
+    }
+  };
+
+  server.post('/api/v2/bundles/push', pushBundleHandler);
+  server.options('/api/v2/bundles/push', async (_req, reply) =>
+    reply.code(200).send()
+  );
 
   // Serve artifacts (WASM, MPK, etc.)
   // Supports both flat structure (/artifacts/:filename) and nested structure (/artifacts/:package/:version/:filename)
