@@ -21,7 +21,7 @@ export interface VersionInfo {
 export interface AppManifest {
   manifest_version: string;
   /** Minimum runtime version required; defaults to "0.1.0" when missing from bundle. */
-  minRuntimeVersion?: string;
+  min_runtime_version?: string;
   app: {
     name: string;
     developer_pubkey: string;

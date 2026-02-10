@@ -232,10 +232,10 @@ async function buildServer() {
     if (!bundle || typeof bundle !== 'object') return bundle;
     return {
       ...bundle,
-      minRuntimeVersion:
-        bundle.minRuntimeVersion != null &&
-        String(bundle.minRuntimeVersion).trim()
-          ? String(bundle.minRuntimeVersion).trim()
+      min_runtime_version:
+        bundle.min_runtime_version != null &&
+        String(bundle.min_runtime_version).trim()
+          ? String(bundle.min_runtime_version).trim()
           : '0.1.0',
     };
   };

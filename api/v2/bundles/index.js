@@ -95,10 +95,10 @@ module.exports = async function handler(req, res) {
   // Ensure every bundle includes minRuntimeVersion (default for legacy bundles)
   const normalizeBundle = bundle => {
     if (!bundle || typeof bundle !== 'object') return bundle;
-    const v = bundle.minRuntimeVersion;
-    const minRuntimeVersion =
+    const v = bundle.min_runtime_version;
+    const min_runtime_version =
       v != null && String(v).trim() ? String(v).trim() : '0.1.0';
-    return { ...bundle, minRuntimeVersion };
+    return { ...bundle, min_runtime_version };
   };
 
   try {

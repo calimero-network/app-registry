@@ -93,7 +93,7 @@ export const getAppManifest = async (
 
   return {
     manifest_version: bundle.version,
-    minRuntimeVersion: bundle.minRuntimeVersion ?? '0.1.0',
+    min_runtime_version: bundle.min_runtime_version ?? '0.1.0',
     app: {
       name: bundle.metadata?.name || bundle.package,
       developer_pubkey: bundle.signature?.pubkey || 'unknown',
