@@ -92,6 +92,15 @@ module.exports = async function handler(req, res) {
     });
   }
 
+  // Ensure every bundle includes minRuntimeVersion (default for legacy bundles)
+  const normalizeBundle = (bundle) => {
+    if (!bundle || typeof bundle !== 'object') return bundle;
+    const v = bundle.minRuntimeVersion;
+    const minRuntimeVersion =
+      v != null && String(v).trim() ? String(v).trim() : '0.1.0';
+    return { ...bundle, minRuntimeVersion };
+  };
+
   try {
     const semver = require('semver');
     const { package: pkg, version, developer } = req.query || {};
@@ -99,7 +108,8 @@ module.exports = async function handler(req, res) {
     if (pkg && version) {
       const data = await kv.get(`bundle:${pkg}/${version}`);
       if (!data) return res.status(404).json({ error: 'not_found' });
-      return res.status(200).json([JSON.parse(data).json]);
+      const raw = JSON.parse(data).json;
+      return res.status(200).json([normalizeBundle(raw)]);
     }
 
     const allPackages = await kv.sMembers('bundles:all');
@@ -116,7 +126,7 @@ module.exports = async function handler(req, res) {
       if (!data) continue;
       const bundle = JSON.parse(data).json;
       if (developer && bundle.signature?.pubkey !== developer) continue;
-      bundles.push(bundle);
+      bundles.push(normalizeBundle(bundle));
     }
 
     bundles.sort((a, b) => a.package.localeCompare(b.package));

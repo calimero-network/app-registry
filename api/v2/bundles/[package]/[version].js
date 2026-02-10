@@ -83,6 +83,15 @@ module.exports = async function handler(req, res) {
     });
   }
 
+  // Ensure bundle includes minRuntimeVersion (default for legacy bundles)
+  const normalizeBundle = (bundle) => {
+    if (!bundle || typeof bundle !== 'object') return bundle;
+    const v = bundle.minRuntimeVersion;
+    const minRuntimeVersion =
+      v != null && String(v).trim() ? String(v).trim() : '0.1.0';
+    return { ...bundle, minRuntimeVersion };
+  };
+
   try {
     const { package: pkg, version } = req.query;
     if (!pkg || !version)
@@ -90,7 +99,8 @@ module.exports = async function handler(req, res) {
 
     const data = await kv.get(`bundle:${pkg}/${version}`);
     if (!data) return res.status(404).json({ error: 'not_found' });
-    return res.status(200).json(JSON.parse(data).json);
+    const raw = JSON.parse(data).json;
+    return res.status(200).json(normalizeBundle(raw));
   } catch (error) {
     console.error('Get Error:', error);
     return res.status(500).json({
