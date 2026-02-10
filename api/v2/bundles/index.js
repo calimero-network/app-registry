@@ -93,7 +93,7 @@ module.exports = async function handler(req, res) {
   }
 
   // Ensure every bundle includes minRuntimeVersion (default for legacy bundles)
-  const normalizeBundle = (bundle) => {
+  const normalizeBundle = bundle => {
     if (!bundle || typeof bundle !== 'object') return bundle;
     const v = bundle.minRuntimeVersion;
     const minRuntimeVersion =
