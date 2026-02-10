@@ -89,6 +89,16 @@ module.exports = async function handler(req, res) {
       });
     }
 
+    // Expose min_runtime_version for runtime compatibility (Rust expects this)
+    const manifest = await store.getBundleManifest(pkg, version);
+    const minRuntimeVersion =
+      manifest?.minRuntimeVersion ?? manifest?.min_runtime_version;
+    const minRuntimeVersionHeader =
+      minRuntimeVersion != null && String(minRuntimeVersion).trim()
+        ? String(minRuntimeVersion).trim()
+        : '0.1.0';
+    res.setHeader('X-Min-Runtime-Version', minRuntimeVersionHeader);
+
     const binary = Buffer.from(binaryHex, 'hex');
 
     // Set appropriate headers
