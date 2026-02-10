@@ -227,6 +227,18 @@ async function buildServer() {
     );
   }
 
+  // Ensure every bundle response includes minRuntimeVersion (default for legacy bundles)
+  const normalizeBundle = (bundle) => {
+    if (!bundle || typeof bundle !== 'object') return bundle;
+    return {
+      ...bundle,
+      minRuntimeVersion:
+        bundle.minRuntimeVersion != null && String(bundle.minRuntimeVersion).trim()
+          ? String(bundle.minRuntimeVersion).trim()
+          : '0.1.0',
+    };
+  };
+
   // V2 Bundle API endpoints
 
   // Handle OPTIONS requests for CORS preflight
@@ -255,7 +267,7 @@ async function buildServer() {
             message: `Bundle ${pkg}@${version} not found`,
           });
         }
-        return [bundle];
+        return [normalizeBundle(bundle)];
       }
 
       // Get all bundle packages
@@ -293,7 +305,7 @@ async function buildServer() {
           }
         }
 
-        bundles.push(bundle);
+        bundles.push(normalizeBundle(bundle));
       }
 
       // Sort by package name
@@ -330,7 +342,7 @@ async function buildServer() {
         });
       }
 
-      return bundle;
+      return normalizeBundle(bundle);
     } catch (error) {
       server.log.error('Error getting bundle:', error);
       return reply.code(500).send({
