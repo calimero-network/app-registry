@@ -230,13 +230,14 @@ async function buildServer() {
   // Ensure every bundle response includes minRuntimeVersion (default for legacy bundles)
   const normalizeBundle = bundle => {
     if (!bundle || typeof bundle !== 'object') return bundle;
+    const raw =
+      bundle.min_runtime_version ?? bundle.minRuntimeVersion ?? '0.1.0';
+    const minRuntimeVersion =
+      raw != null && String(raw).trim() ? String(raw).trim() : '0.1.0';
     return {
       ...bundle,
-      min_runtime_version:
-        bundle.min_runtime_version != null &&
-        String(bundle.min_runtime_version).trim()
-          ? String(bundle.min_runtime_version).trim()
-          : '0.1.0',
+      min_runtime_version: minRuntimeVersion,
+      minRuntimeVersion,
     };
   };
 
