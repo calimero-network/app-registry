@@ -709,6 +709,9 @@ async function pushToRemote(
     if (manifest.signature) {
       payload.signature = manifest.signature;
     }
+    if (manifest.minRuntimeVersion != null && String(manifest.minRuntimeVersion).trim()) {
+      payload.minRuntimeVersion = String(manifest.minRuntimeVersion).trim();
+    }
 
     // 4. Prepare headers
     const headers: Record<string, string> = {

@@ -66,6 +66,9 @@ export interface BundleManifest {
 
   links?: BundleLinks;
   signature?: BundleSignature;
+
+  /** Minimum runtime version required by this bundle (e.g. "0.2.0"). Preserved when pushing. */
+  minRuntimeVersion?: string;
 }
 
 export interface LocalRegistryData {
