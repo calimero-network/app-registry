@@ -174,7 +174,7 @@ calimero-registry config set registry-url https://apps.calimero.network
 calimero-registry config set api-key <your-api-key>
 
 # Push
-calimero-registry bundle push --remote curb-1.0.1.mpk`}</Pre>
+calimero-registry bundle push --remote application-1.0.0.mpk`}</Pre>
 
         <p className='text-[12px] text-neutral-500 font-light mt-3'>
           Once pushed, your app appears on the{' '}
