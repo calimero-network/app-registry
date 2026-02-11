@@ -31,7 +31,8 @@
     "quality:fix": "pnpm format && pnpm lint:fix",
     "cli:release:patch": "pnpm --filter registry-cli release:patch",
     "cli:release:minor": "pnpm --filter registry-cli release:minor",
-    "cli:release:major": "pnpm --filter registry-cli release:major"
+    "cli:release:major": "pnpm --filter registry-cli release:major",
+    "clean-registry": "node scripts/cleanup-registry.js"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
