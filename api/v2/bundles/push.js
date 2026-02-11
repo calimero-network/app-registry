@@ -6,7 +6,10 @@
 const {
   BundleStorageKV,
 } = require('../../../packages/backend/src/lib/bundle-storage-kv');
-const { verifyManifest } = require('../../../packages/backend/src/lib/verify');
+const {
+  verifyManifest,
+  normalizeSignature,
+} = require('../../../packages/backend/src/lib/verify');
 
 // Singleton storage instance
 let storage;
@@ -52,6 +55,15 @@ module.exports = async function handler(req, res) {
 
     // Verify signature if present (signatures are optional but must be valid if provided)
     if (bundleManifest.signature) {
+      const normalized = normalizeSignature(bundleManifest.signature);
+      if (!normalized) {
+        return res.status(400).json({
+          error: 'invalid_signature',
+          message: 'Missing signature information',
+        });
+      }
+      // Store canonical shape (alg, pubkey, sig) so downstream consumers work
+      bundleManifest.signature = normalized;
       try {
         await verifyManifest(bundleManifest);
       } catch (error) {

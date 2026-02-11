@@ -131,26 +131,36 @@ async function verifySignature(publicKey, signature, data) {
 }
 
 /**
+ * Normalize signature object to canonical keys (alg, pubkey, sig)
+ * Accepts both core format (algorithm, publicKey, signature) and API format (alg, pubkey, sig)
+ */
+function normalizeSignature(signatureObj) {
+  if (!signatureObj) return null;
+  const alg = signatureObj.alg ?? signatureObj.algorithm;
+  const pubkey = signatureObj.pubkey ?? signatureObj.publicKey;
+  const sig = signatureObj.sig ?? signatureObj.signature;
+  if (!alg || !pubkey || !sig) return null;
+  return { alg, pubkey, sig };
+}
+
+/**
  * Verify manifest signature
  */
 async function verifyManifest(manifest) {
-  if (
-    !manifest.signature ||
-    !manifest.signature.sig ||
-    !manifest.signature.alg
-  ) {
+  const normalized = normalizeSignature(manifest?.signature);
+  if (!normalized) {
     throw new Error('Missing signature information');
   }
 
-  if ((manifest.signature.alg || '').toLowerCase() !== 'ed25519') {
+  if ((normalized.alg || '').toLowerCase() !== 'ed25519') {
     throw new Error('Unsupported signature algorithm');
   }
 
   const manifestWithoutTransients = removeTransientFields(manifest);
   const canonicalized = canonicalizeJSON(manifestWithoutTransients);
 
-  const publicKey = manifest.signature.pubkey;
-  const signature = manifest.signature.sig;
+  const publicKey = normalized.pubkey;
+  const signature = normalized.sig;
 
   const isValid = await verifySignature(publicKey, signature, canonicalized);
   if (!isValid) {
@@ -189,6 +199,7 @@ function validatePublicKey(pubkey) {
 
 module.exports = {
   canonicalizeJSON,
+  normalizeSignature,
   removeSignature: removeTransientFields, // Keep for backward compatibility
   removeTransientFields,
   verifySignature,
