@@ -20,7 +20,7 @@ export default function HomePage() {
       {/* Hero */}
       <div className='text-center max-w-2xl mx-auto'>
         <h1 className='text-3xl sm:text-4xl font-semibold text-neutral-100 tracking-tight'>
-          SSApp Registry
+          Calimero Registry
         </h1>
         <p className='mt-3 text-[15px] text-neutral-400 font-light leading-relaxed'>
           Discover, verify, and deploy self-sovereign applications with

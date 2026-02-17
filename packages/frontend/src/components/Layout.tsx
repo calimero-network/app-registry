@@ -20,7 +20,7 @@ export function Layout({ children }: LayoutProps) {
             <Link to='/' className='flex items-center gap-2 group'>
               <Package className='h-5 w-5 text-brand-600 transition-transform group-hover:scale-110' />
               <span className='text-sm font-medium text-neutral-200'>
-                SSApp Registry
+                Calimero Registry
               </span>
             </Link>
 

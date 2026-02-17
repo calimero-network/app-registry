@@ -1,6 +1,6 @@
-# SSApp Registry Frontend
+# Calimero Registry Frontend
 
-A modern React-based web application for the SSApp (Smart Contract Application) Registry, built with TypeScript, Vite, and Tailwind CSS. Provides an intuitive interface for browsing, searching, and managing SSApp manifests.
+A modern React-based web application for the Calimero Registry (self-sovereign application registry), built with TypeScript, Vite, and Tailwind CSS. Provides an intuitive interface for browsing, searching, and managing self-sovereign application manifests.
 
 ## 🚀 Features
 
@@ -40,7 +40,7 @@ VITE_API_URL=http://localhost:3000          # Backend API URL
 VITE_IPFS_GATEWAY=https://ipfs.io/ipfs/     # IPFS gateway for artifacts
 
 # Application Configuration
-VITE_APP_NAME=SSApp Registry               # Application name
+VITE_APP_NAME=Calimero Registry            # Application name
 VITE_APP_VERSION=1.0.0                     # Application version
 
 # Feature Flags
@@ -166,7 +166,7 @@ export default function Home() {
 
   return (
     <div className='container mx-auto px-4'>
-      <h1 className='text-4xl font-bold mb-8'>Welcome to SSApp Registry</h1>
+      <h1 className='text-4xl font-bold mb-8'>Welcome to Calimero Registry</h1>
 
       <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'>
         {featuredApps?.map(app => (
