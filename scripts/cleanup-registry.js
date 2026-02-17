@@ -21,7 +21,9 @@ const PATTERNS = [
 const SINGLE_KEYS = ['bundles:all'];
 
 async function main() {
-  const client = createClient({ url: "redis://default:6NJB22CPkmhy0AsULTF6Lro8rwHHfvlq@redis-14502.c300.eu-central-1-1.ec2.redns.redis-cloud.com:14502" });
+  const client = createClient({
+    url: 'redis://default:6NJB22CPkmhy0AsULTF6Lro8rwHHfvlq@redis-14502.c300.eu-central-1-1.ec2.redns.redis-cloud.com:14502',
+  });
   client.on('error', err => {
     console.error('Redis error:', err);
   });
@@ -33,7 +35,10 @@ async function main() {
 
   for (const pattern of PATTERNS) {
     let count = 0;
-    for await (const key of client.scanIterator({ MATCH: pattern, COUNT: 100 })) {
+    for await (const key of client.scanIterator({
+      MATCH: pattern,
+      COUNT: 100,
+    })) {
       await client.del(key);
       count++;
     }
