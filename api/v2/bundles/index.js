@@ -103,7 +103,7 @@ module.exports = async function handler(req, res) {
 
   try {
     const semver = require('semver');
-    const { package: pkg, version, developer } = req.query || {};
+    const { package: pkg, version, developer, author } = req.query || {};
 
     if (pkg && version) {
       const data = await kv.get(`bundle:${pkg}/${version}`);
@@ -126,6 +126,7 @@ module.exports = async function handler(req, res) {
       if (!data) continue;
       const bundle = JSON.parse(data).json;
       if (developer && bundle.signature?.pubkey !== developer) continue;
+      if (author && bundle.metadata?.author !== author) continue;
       bundles.push(normalizeBundle(bundle));
     }
 
