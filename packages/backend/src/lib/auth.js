@@ -1,4 +1,4 @@
-const { SignJWT, jwtVerify } = require('jose');
+const jwt = require('jsonwebtoken');
 
 const GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
@@ -75,17 +75,16 @@ async function exchangeCodeForUser(code, redirectUri, clientId, clientSecret) {
  * Create a JWT for the session (payload: { sub, email, name }).
  */
 async function createSessionToken(payload, secret, maxAgeSeconds) {
-  const key = new TextEncoder().encode(secret);
-  return new SignJWT({
-    sub: payload.id,
-    email: payload.email,
-    name: payload.name,
-    picture: payload.picture,
-  })
-    .setProtectedHeader({ alg: 'HS256' })
-    .setIssuedAt()
-    .setExpirationTime(Math.floor(Date.now() / 1000) + maxAgeSeconds)
-    .sign(key);
+  return jwt.sign(
+    {
+      sub: payload.id,
+      email: payload.email,
+      name: payload.name,
+      picture: payload.picture,
+    },
+    secret,
+    { algorithm: 'HS256', expiresIn: maxAgeSeconds }
+  );
 }
 
 /**
@@ -94,8 +93,7 @@ async function createSessionToken(payload, secret, maxAgeSeconds) {
 async function verifySessionToken(token, secret) {
   if (!token) return null;
   try {
-    const key = new TextEncoder().encode(secret);
-    const { payload } = await jwtVerify(token, key);
+    const payload = jwt.verify(token, secret, { algorithms: ['HS256'] });
     return {
       id: payload.sub,
       email: payload.email,
