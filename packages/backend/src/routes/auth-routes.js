@@ -15,7 +15,7 @@ async function authRoutes(server, options) {
   await server.register(rateLimit, {
     max: 20,
     timeWindow: '1 minute',
-    keyGenerator: (request) => request.ip,
+    keyGenerator: request => request.ip,
     errorResponseBuilder: () => ({
       error: 'too_many_requests',
       message: 'Too many auth requests. Please wait before trying again.',
@@ -115,9 +115,18 @@ async function authRoutes(server, options) {
     const token = request.cookies?.[cookieName];
     const user = await verifySessionToken(token, sessionSecret);
     if (!user) {
-      return reply.code(401).send({ error: 'unauthorized', message: 'Not signed in' });
+      return reply
+        .code(401)
+        .send({ error: 'unauthorized', message: 'Not signed in' });
     }
-    return { user: { id: user.id, email: user.email, name: user.name, picture: user.picture } };
+    return {
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        picture: user.picture,
+      },
+    };
   });
 
   // POST /api/auth/logout — clear session cookie

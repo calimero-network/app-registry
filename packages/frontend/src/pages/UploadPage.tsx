@@ -19,7 +19,10 @@ export default function UploadPage() {
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<{ package: string; version: string } | null>(null);
+  const [success, setSuccess] = useState<{
+    package: string;
+    version: string;
+  } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handlePublish = async () => {
@@ -35,7 +38,8 @@ export default function UploadPage() {
     } catch (err: unknown) {
       const msg =
         err && typeof err === 'object' && err !== null && 'response' in err
-          ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
+          ? (err as { response?: { data?: { message?: string } } }).response
+              ?.data?.message
           : (err as Error)?.message;
       setError(msg ?? 'Publish failed');
     } finally {
@@ -77,9 +81,9 @@ export default function UploadPage() {
           </h2>
         </div>
         <p className='text-[13px] text-neutral-400 font-light mb-4'>
-          Select a signed <code className='text-brand-600'>.mpk</code> bundle
-          to publish to the registry. Your session (if logged in) will be used
-          as the package author.
+          Select a signed <code className='text-brand-600'>.mpk</code> bundle to
+          publish to the registry. Your session (if logged in) will be used as
+          the package author.
         </p>
         {user ? (
           <>
@@ -106,16 +110,24 @@ export default function UploadPage() {
               </button>
             </div>
             {error && (
-              <p className='mt-3 text-[13px] text-red-400 font-light'>{error}</p>
+              <p className='mt-3 text-[13px] text-red-400 font-light'>
+                {error}
+              </p>
             )}
             {success && (
               <p className='mt-3 text-[13px] text-green-400 font-light'>
                 Published <strong>{success.package}</strong>@{success.version}.{' '}
-                <Link to='/apps' className='text-brand-600 hover:text-brand-500'>
+                <Link
+                  to='/apps'
+                  className='text-brand-600 hover:text-brand-500'
+                >
                   View apps
                 </Link>
                 {' · '}
-                <Link to='/my-packages' className='text-brand-600 hover:text-brand-500'>
+                <Link
+                  to='/my-packages'
+                  className='text-brand-600 hover:text-brand-500'
+                >
                   My packages
                 </Link>
               </p>

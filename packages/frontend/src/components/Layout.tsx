@@ -46,8 +46,8 @@ export function Layout({ children }: LayoutProps) {
                   </Link>
                 );
               })}
-              {!loading && (
-                user ? (
+              {!loading &&
+                (user ? (
                   <button
                     type='button'
                     onClick={() => logout()}
@@ -62,8 +62,7 @@ export function Layout({ children }: LayoutProps) {
                   >
                     Sign in
                   </Link>
-                )
-              )}
+                ))}
             </nav>
 
             {/* Mobile menu button */}

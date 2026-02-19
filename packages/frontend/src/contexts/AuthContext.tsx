@@ -77,7 +77,5 @@ export function AuthProvider({ children }: AuthProviderProps) {
     refetchUser,
   };
 
-  return (
-    <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

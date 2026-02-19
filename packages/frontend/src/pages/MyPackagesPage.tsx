@@ -82,7 +82,7 @@ export default function MyPackagesPage() {
           </div>
         ) : (
           <ul className='space-y-2'>
-            {packages.map((pkg) => (
+            {packages.map(pkg => (
               <li key={pkg.id}>
                 <Link
                   to={`/apps/${pkg.package_name}`}

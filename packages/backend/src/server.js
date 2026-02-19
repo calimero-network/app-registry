@@ -388,7 +388,10 @@ async function buildServer() {
       bundleManifest === null ||
       bundleManifest === undefined
     ) {
-      throw { statusCode: 400, body: { error: 'invalid_manifest', message: 'Missing body' } };
+      throw {
+        statusCode: 400,
+        body: { error: 'invalid_manifest', message: 'Missing body' },
+      };
     }
     if (!bundleManifest.package || !bundleManifest.appVersion) {
       throw {
@@ -415,7 +418,11 @@ async function buildServer() {
       await verifyManifest(bundleManifest);
       server.log.info('[push-file] Signature valid');
     } catch (error) {
-      server.log.warn({ err: error }, '[push-file] Signature invalid: %s', error?.message ?? error);
+      server.log.warn(
+        { err: error },
+        '[push-file] Signature invalid: %s',
+        error?.message ?? error
+      );
       throw {
         statusCode: 400,
         body: {
@@ -430,7 +437,9 @@ async function buildServer() {
       bundleManifest.metadata.author = userEmail;
     }
     const incomingKey = getPublicKeyFromManifest(bundleManifest);
-    const versions = await bundleStorage.getBundleVersions(bundleManifest.package);
+    const versions = await bundleStorage.getBundleVersions(
+      bundleManifest.package
+    );
     if (versions.length > 0) {
       const existingManifest = await bundleStorage.getBundleManifest(
         bundleManifest.package,
@@ -452,7 +461,10 @@ async function buildServer() {
       process.env.ALLOW_BUNDLE_OVERWRITE === 'true' ||
       process.env.ALLOW_BUNDLE_OVERWRITE === '1';
     await bundleStorage.storeBundleManifest(bundleManifest, overwrite);
-    return { package: bundleManifest.package, version: bundleManifest.appVersion };
+    return {
+      package: bundleManifest.package,
+      version: bundleManifest.appVersion,
+    };
   }
 
   // POST /api/v2/bundles/push - Push a new bundle (used by CLI)
@@ -510,7 +522,7 @@ async function buildServer() {
         file: mpkPath,
         gzip: true,
         cwd: tempDir,
-        filter: (name) => path.basename(name) === 'manifest.json',
+        filter: name => path.basename(name) === 'manifest.json',
       });
       function findManifest(dir) {
         const entries = fs.readdirSync(dir, { withFileTypes: true });
@@ -541,7 +553,10 @@ async function buildServer() {
       const cookieName = config.auth?.cookieName || 'app_registry_session';
       const sessionSecret = config.auth?.sessionSecret;
       const token = request.cookies?.[cookieName];
-      const user = sessionSecret && token ? await verifySessionToken(token, sessionSecret) : null;
+      const user =
+        sessionSecret && token
+          ? await verifySessionToken(token, sessionSecret)
+          : null;
 
       const result = await processPushBody(body, { userEmail: user?.email });
       return reply.code(201).send({

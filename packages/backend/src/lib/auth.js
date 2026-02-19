@@ -43,7 +43,9 @@ async function exchangeCodeForUser(code, redirectUri, clientId, clientSecret) {
 
   if (!tokenRes.ok) {
     const errText = await tokenRes.text();
-    throw new Error(`Google token exchange failed: ${tokenRes.status} ${errText}`);
+    throw new Error(
+      `Google token exchange failed: ${tokenRes.status} ${errText}`
+    );
   }
 
   const tokens = await tokenRes.json();
@@ -107,7 +109,10 @@ async function verifySessionToken(token, secret) {
 
 function generateState() {
   const array = new Uint8Array(24);
-  if (typeof globalThis.crypto !== 'undefined' && globalThis.crypto.getRandomValues) {
+  if (
+    typeof globalThis.crypto !== 'undefined' &&
+    globalThis.crypto.getRandomValues
+  ) {
     globalThis.crypto.getRandomValues(array);
   } else {
     const NodeCrypto = require('crypto');

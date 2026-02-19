@@ -19,7 +19,7 @@ jest.mock('../../../packages/backend/src/lib/kv-client', () => ({
 jest.mock('../../../packages/backend/src/lib/verify', () => ({
   verifyManifest: jest.fn().mockResolvedValue(undefined),
   getPublicKeyFromManifest: jest.fn().mockReturnValue('mock-pubkey'),
-  normalizeSignature: jest.fn((sig) => sig || null),
+  normalizeSignature: jest.fn(sig => sig || null),
 }));
 
 // Import the handler

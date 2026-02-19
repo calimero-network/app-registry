@@ -58,9 +58,15 @@ async function main() {
   } catch (err) {
     console.error('\nError:', err.message);
     if (process.env.VERIFY_DEBUG) console.error(err.stack);
-    console.error('\nTip: If the signature was produced over a different manifest (e.g. by mero-sign),');
-    console.error('     run with that manifest file to see the payload hash we verify against:');
-    console.error('     node scripts/verify-signature-standalone.js path/to/manifest.json');
+    console.error(
+      '\nTip: If the signature was produced over a different manifest (e.g. by mero-sign),'
+    );
+    console.error(
+      '     run with that manifest file to see the payload hash we verify against:'
+    );
+    console.error(
+      '     node scripts/verify-signature-standalone.js path/to/manifest.json'
+    );
     process.exit(1);
   }
 }

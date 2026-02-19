@@ -2,7 +2,8 @@ import { useSearchParams } from 'react-router-dom';
 import { Package } from 'lucide-react';
 
 const ERROR_MESSAGES: Record<string, string> = {
-  auth_not_configured: 'Sign-in is not configured (missing Google credentials).',
+  auth_not_configured:
+    'Sign-in is not configured (missing Google credentials).',
   invalid_state: 'Invalid OAuth state. Please try again.',
   missing_code: 'No authorization code received. Please try again.',
   oauth_failed: 'Google sign-in failed. Please try again.',
@@ -11,7 +12,9 @@ const ERROR_MESSAGES: Record<string, string> = {
 export default function LoginPage() {
   const [searchParams] = useSearchParams();
   const errorCode = searchParams.get('error');
-  const message = errorCode ? ERROR_MESSAGES[errorCode] ?? 'Something went wrong.' : null;
+  const message = errorCode
+    ? (ERROR_MESSAGES[errorCode] ?? 'Something went wrong.')
+    : null;
 
   return (
     <div className='max-w-md mx-auto text-center'>

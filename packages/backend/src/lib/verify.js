@@ -85,7 +85,8 @@ function decodeBase58ToBytes(input) {
   return Buffer.from(bytes);
 }
 
-const VERIFY_DEBUG = process.env.VERIFY_DEBUG === '1' || process.env.VERIFY_DEBUG === 'true';
+const VERIFY_DEBUG =
+  process.env.VERIFY_DEBUG === '1' || process.env.VERIFY_DEBUG === 'true';
 
 function verifyLog(...args) {
   if (VERIFY_DEBUG) {
@@ -126,7 +127,12 @@ async function verifySignature(publicKey, signature, data) {
       verifyLog('publicKey decode failed: length', decodedPubKey?.length);
       throw new Error('Invalid public key length');
     }
-    verifyLog('publicKey decoded:', pubKeyEncoding, 'length', decodedPubKey.length);
+    verifyLog(
+      'publicKey decoded:',
+      pubKeyEncoding,
+      'length',
+      decodedPubKey.length
+    );
 
     // Decode signature: try base64url first (mero-sign), then base64, then base58
     let decodedSig;
@@ -153,9 +159,13 @@ async function verifySignature(publicKey, signature, data) {
     }
     verifyLog('signature decoded:', sigEncoding, 'length', decodedSig.length);
 
-    const dataBuffer =
-      Buffer.isBuffer(data) ? data : Buffer.from(data, 'utf8');
-    verifyLog('payload length', dataBuffer.length, 'payloadHash(hex)', dataBuffer.length === 32 ? dataBuffer.toString('hex') : '(not 32 bytes)');
+    const dataBuffer = Buffer.isBuffer(data) ? data : Buffer.from(data, 'utf8');
+    verifyLog(
+      'payload length',
+      dataBuffer.length,
+      'payloadHash(hex)',
+      dataBuffer.length === 32 ? dataBuffer.toString('hex') : '(not 32 bytes)'
+    );
 
     // @noble/ed25519 exports verify/verifyAsync at top level (no .ed25519)
     const verifyFn = ed25519Module.verifyAsync ?? ed25519Module.verify;
@@ -220,7 +230,10 @@ async function verifyManifest(manifest) {
   }
 
   const manifestWithoutTransients = removeTransientFields(manifest);
-  verifyLog('manifest without transients keys:', Object.keys(manifestWithoutTransients).sort().join(', '));
+  verifyLog(
+    'manifest without transients keys:',
+    Object.keys(manifestWithoutTransients).sort().join(', ')
+  );
 
   // RFC 8785 (JCS) canonicalization
   const canonicalStr = canonicalize(manifestWithoutTransients);
@@ -228,9 +241,17 @@ async function verifyManifest(manifest) {
     throw new Error('Canonicalization failed');
   }
   const canonicalBytes = Buffer.from(canonicalStr, 'utf8');
-  const signingPayload = crypto.createHash('sha256').update(canonicalBytes).digest();
+  const signingPayload = crypto
+    .createHash('sha256')
+    .update(canonicalBytes)
+    .digest();
 
-  verifyLog('canonical length', canonicalBytes.length, 'signingPayloadHash(hex)', signingPayload.toString('hex'));
+  verifyLog(
+    'canonical length',
+    canonicalBytes.length,
+    'signingPayloadHash(hex)',
+    signingPayload.toString('hex')
+  );
 
   const publicKey = normalized.pubkey;
   const signature = normalized.sig;
