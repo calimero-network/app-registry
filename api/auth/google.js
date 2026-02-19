@@ -20,10 +20,14 @@ module.exports = async function handler(req, res) {
   if (!clientId) {
     return res
       .status(503)
-      .json({ error: 'auth_not_configured', message: 'GOOGLE_CLIENT_ID not set' });
+      .json({
+        error: 'auth_not_configured',
+        message: 'GOOGLE_CLIENT_ID not set',
+      });
   }
 
-  const frontendUrl = process.env.FRONTEND_URL || 'https://apps.calimero.network';
+  const frontendUrl =
+    process.env.FRONTEND_URL || 'https://apps.calimero.network';
   const redirectUri = `${frontendUrl}/api/auth/google/callback`;
   const state = generateState();
 

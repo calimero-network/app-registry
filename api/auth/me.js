@@ -24,7 +24,9 @@ module.exports = async function handler(req, res) {
   const token = cookies[cookieName];
 
   if (!token) {
-    return res.status(401).json({ error: 'unauthorized', message: 'Not signed in' });
+    return res
+      .status(401)
+      .json({ error: 'unauthorized', message: 'Not signed in' });
   }
 
   try {
@@ -38,6 +40,8 @@ module.exports = async function handler(req, res) {
       },
     });
   } catch {
-    return res.status(401).json({ error: 'unauthorized', message: 'Invalid or expired session' });
+    return res
+      .status(401)
+      .json({ error: 'unauthorized', message: 'Invalid or expired session' });
   }
 };

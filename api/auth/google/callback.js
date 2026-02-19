@@ -22,7 +22,8 @@ function parseCookies(req) {
 module.exports = async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).end();
 
-  const frontendUrl = process.env.FRONTEND_URL || 'https://apps.calimero.network';
+  const frontendUrl =
+    process.env.FRONTEND_URL || 'https://apps.calimero.network';
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
   const sessionSecret = process.env.SESSION_SECRET;
@@ -67,7 +68,8 @@ module.exports = async function handler(req, res) {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: body.toString(),
     });
-    if (!tokenRes.ok) throw new Error(`Token exchange failed: ${tokenRes.status}`);
+    if (!tokenRes.ok)
+      throw new Error(`Token exchange failed: ${tokenRes.status}`);
     const tokens = await tokenRes.json();
     if (!tokens.access_token) throw new Error('No access_token returned');
 
