@@ -2,15 +2,24 @@ const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
 const fastify = require('fastify');
+const cookie = require('@fastify/cookie');
 const cors = require('@fastify/cors');
+const multipart = require('@fastify/multipart');
 const swagger = require('@fastify/swagger');
 const swaggerUi = require('@fastify/swagger-ui');
 const fs = require('fs');
+const os = require('os');
+const tar = require('tar');
 
 // Import config
 const config = require('./config');
 const { BundleStorageKV } = require('./lib/bundle-storage-kv');
-const { verifyManifest } = require('./lib/verify');
+const {
+  verifyManifest,
+  getPublicKeyFromManifest,
+  normalizeSignature,
+} = require('./lib/verify');
+const { verifySessionToken } = require('./lib/auth');
 
 async function buildServer() {
   const server = fastify({
@@ -18,6 +27,9 @@ async function buildServer() {
       level: process.env.LOG_LEVEL || 'info',
     },
   });
+
+  // Register cookie (required for auth session and OAuth state)
+  await server.register(cookie);
 
   // Register CORS
   await server.register(cors, {
@@ -33,6 +45,10 @@ async function buildServer() {
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
+  });
+
+  await server.register(multipart, {
+    limits: { fileSize: 100 * 1024 * 1024 }, // 100 MB max for .mpk
   });
 
   // Register Swagger
@@ -51,6 +67,9 @@ async function buildServer() {
       deepLinking: false,
     },
   });
+
+  // Auth routes (Google OAuth, session cookie, /api/auth/me, /api/auth/logout)
+  await server.register(require('./routes/auth-routes'), { config });
 
   // Health endpoint
   const healthHandler = async (_request, _reply) => {
@@ -258,7 +277,7 @@ async function buildServer() {
   // GET /api/v2/bundles - List all bundles
   server.get('/api/v2/bundles', async (request, reply) => {
     try {
-      const { package: pkg, version, developer } = request.query || {};
+      const { package: pkg, version, developer, author } = request.query || {};
 
       // If specific package and version requested, return single bundle
       if (pkg && version) {
@@ -303,6 +322,14 @@ async function buildServer() {
         if (developer) {
           const bundlePubkey = bundle.signature?.pubkey;
           if (!bundlePubkey || bundlePubkey !== developer) {
+            continue;
+          }
+        }
+
+        // Filter by metadata.author (e.g. for "My packages" by email)
+        if (author) {
+          const bundleAuthor = bundle.metadata?.author;
+          if (!bundleAuthor || bundleAuthor !== author) {
             continue;
           }
         }
@@ -354,51 +381,122 @@ async function buildServer() {
     }
   });
 
-  // POST /api/v2/bundles/push and /v2/bundles/push - Push a new bundle (used by CLI)
-  const pushBundleHandler = async (request, reply) => {
-    const bundleManifest = request.body;
+  // Shared: validate manifest, verify signature, check ownership, store. Returns { package, appVersion } or throws { statusCode, body }.
+  async function processPushBody(bundleManifest, { userEmail } = {}) {
     if (
       !bundleManifest ||
       bundleManifest === null ||
       bundleManifest === undefined
     ) {
-      return reply.code(400).send({
-        error: 'invalid_manifest',
-        message: 'Missing body',
-      });
+      throw {
+        statusCode: 400,
+        body: { error: 'invalid_manifest', message: 'Missing body' },
+      };
     }
     if (!bundleManifest.package || !bundleManifest.appVersion) {
-      return reply.code(400).send({
-        error: 'invalid_manifest',
-        message: 'Missing required fields: package, appVersion',
-      });
+      throw {
+        statusCode: 400,
+        body: {
+          error: 'invalid_manifest',
+          message: 'Missing required fields: package, appVersion',
+        },
+      };
     }
-    if (bundleManifest.signature) {
-      try {
-        await verifyManifest(bundleManifest);
-      } catch (error) {
-        return reply.code(400).send({
+    const sig = normalizeSignature(bundleManifest?.signature);
+    if (!sig) {
+      throw {
+        statusCode: 400,
+        body: {
+          error: 'missing_signature',
+          message:
+            'Missing signature. All publishes require a valid signature (algorithm, publicKey, signature).',
+        },
+      };
+    }
+    server.log.info('[push-file] Verifying manifest signature');
+    try {
+      await verifyManifest(bundleManifest);
+      server.log.info('[push-file] Signature valid');
+    } catch (error) {
+      server.log.warn(
+        { err: error },
+        '[push-file] Signature invalid: %s',
+        error?.message ?? error
+      );
+      throw {
+        statusCode: 400,
+        body: {
           error: 'invalid_signature',
           message: error.message || 'Signature verification failed',
-        });
+        },
+      };
+    }
+    // Apply user metadata AFTER signature verification so it doesn't affect the signed payload
+    if (userEmail) {
+      bundleManifest.metadata = bundleManifest.metadata || {};
+      bundleManifest.metadata.author = userEmail;
+    }
+    const incomingKey = getPublicKeyFromManifest(bundleManifest);
+    const versions = await bundleStorage.getBundleVersions(
+      bundleManifest.package
+    );
+    if (versions.length > 0) {
+      const existingManifest = await bundleStorage.getBundleManifest(
+        bundleManifest.package,
+        versions[0]
+      );
+      const ownerKey = getPublicKeyFromManifest(existingManifest);
+      if (ownerKey != null && ownerKey !== incomingKey) {
+        throw {
+          statusCode: 403,
+          body: {
+            error: 'not_owner',
+            message:
+              'Package name is already registered to a different key; you are not the owner.',
+          },
+        };
       }
     }
-    // Never trust client-controlled _overwrite; only allow overwrite when server config enables it (e.g. migrations).
     const overwrite =
       process.env.ALLOW_BUNDLE_OVERWRITE === 'true' ||
       process.env.ALLOW_BUNDLE_OVERWRITE === '1';
+    await bundleStorage.storeBundleManifest(bundleManifest, overwrite);
+    return {
+      package: bundleManifest.package,
+      version: bundleManifest.appVersion,
+    };
+  }
+
+  function findManifest(dir) {
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    for (const e of entries) {
+      const full = path.join(dir, e.name);
+      if (e.isFile() && e.name === 'manifest.json') return full;
+      if (e.isDirectory()) {
+        const r = findManifest(full);
+        if (r) return r;
+      }
+    }
+    return null;
+  }
+
+  // POST /api/v2/bundles/push - Push a new bundle (used by CLI)
+  const pushBundleHandler = async (request, reply) => {
     try {
-      await bundleStorage.storeBundleManifest(bundleManifest, overwrite);
+      const result = await processPushBody(request.body);
       return reply.code(201).send({
         message: 'Bundle published successfully',
-        package: bundleManifest.package,
-        version: bundleManifest.appVersion,
+        package: result.package,
+        version: result.version,
       });
-    } catch (error) {
-      server.log.error('Error pushing bundle:', error);
+    } catch (err) {
+      if (err && typeof err.statusCode === 'number' && err.body) {
+        return reply.code(err.statusCode).send(err.body);
+      }
+      server.log.error('Error pushing bundle:', err);
       return reply.code(500).send({
         error: 'internal_error',
-        message: error?.message ?? String(error),
+        message: err?.message ?? String(err),
       });
     }
   };
@@ -407,6 +505,85 @@ async function buildServer() {
   server.options('/api/v2/bundles/push', async (_req, reply) =>
     reply.code(200).send()
   );
+
+  // POST /api/v2/bundles/push-file - Push a bundle from .mpk file (used by frontend)
+  server.post('/api/v2/bundles/push-file', async (request, reply) => {
+    server.log.info('[push-file] Request received');
+    let tempDir;
+    try {
+      const data = await request.file();
+      if (!data) {
+        return reply.code(400).send({
+          error: 'invalid_request',
+          message: 'Missing file. Upload a .mpk file in field "bundle".',
+        });
+      }
+      const buffer = await data.toBuffer();
+      const filename = data.filename || '';
+      if (!filename.toLowerCase().endsWith('.mpk')) {
+        return reply.code(400).send({
+          error: 'invalid_request',
+          message: 'File must be a .mpk bundle.',
+        });
+      }
+
+      tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'registry-push-'));
+      const mpkPath = path.join(tempDir, 'bundle.mpk');
+      fs.writeFileSync(mpkPath, buffer);
+
+      await tar.x({
+        file: mpkPath,
+        gzip: true,
+        cwd: tempDir,
+        filter: name => path.basename(name) === 'manifest.json',
+      });
+      const manifestPath = findManifest(tempDir);
+      if (!manifestPath) {
+        return reply.code(400).send({
+          error: 'invalid_bundle',
+          message: 'Bundle must contain manifest.json.',
+        });
+      }
+      const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+      const body = {
+        ...manifest,
+        _binary: buffer.toString('hex'),
+        _overwrite: true,
+      };
+
+      const cookieName = config.auth?.cookieName || 'app_registry_session';
+      const sessionSecret = config.auth?.sessionSecret;
+      const token = request.cookies?.[cookieName];
+      const user =
+        sessionSecret && token
+          ? await verifySessionToken(token, sessionSecret)
+          : null;
+
+      const result = await processPushBody(body, { userEmail: user?.email });
+      return reply.code(201).send({
+        message: 'Bundle published successfully',
+        package: result.package,
+        version: result.version,
+      });
+    } catch (err) {
+      if (err && typeof err.statusCode === 'number' && err.body) {
+        return reply.code(err.statusCode).send(err.body);
+      }
+      server.log.error('Error push-file:', err);
+      return reply.code(500).send({
+        error: 'internal_error',
+        message: err?.message ?? String(err),
+      });
+    } finally {
+      if (tempDir && fs.existsSync(tempDir)) {
+        try {
+          fs.rmSync(tempDir, { recursive: true });
+        } catch (e) {
+          server.log.warn('Cleanup temp dir failed:', e);
+        }
+      }
+    }
+  });
 
   // Serve artifacts (WASM, MPK, etc.)
   // Supports both flat structure (/artifacts/:filename) and nested structure (/artifacts/:package/:version/:filename)

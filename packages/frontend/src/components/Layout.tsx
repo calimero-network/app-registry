@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Package, Menu, X } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 import { navigation } from '@/constants/navigation';
 
 interface LayoutProps {
@@ -10,6 +11,7 @@ interface LayoutProps {
 export function Layout({ children }: LayoutProps) {
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { user, loading, logout } = useAuth();
 
   return (
     <div className='min-h-screen flex flex-col bg-background-secondary'>
@@ -44,6 +46,23 @@ export function Layout({ children }: LayoutProps) {
                   </Link>
                 );
               })}
+              {!loading &&
+                (user ? (
+                  <button
+                    type='button'
+                    onClick={() => logout()}
+                    className='nav-link nav-link-inactive ml-2'
+                  >
+                    Log out
+                  </button>
+                ) : (
+                  <Link
+                    to='/login'
+                    className={`nav-link ${location.pathname === '/login' ? 'nav-link-active' : 'nav-link-inactive'} ml-2`}
+                  >
+                    Sign in
+                  </Link>
+                ))}
             </nav>
 
             {/* Mobile menu button */}
@@ -86,6 +105,31 @@ export function Layout({ children }: LayoutProps) {
                   </Link>
                 );
               })}
+              {!loading &&
+                (user ? (
+                  <button
+                    type='button'
+                    onClick={() => {
+                      logout();
+                      setMobileMenuOpen(false);
+                    }}
+                    className='flex items-center px-3 py-2 rounded-md text-[13px] font-normal text-neutral-400 hover:bg-neutral-800/40 hover:text-neutral-200 w-full text-left'
+                  >
+                    Log out
+                  </button>
+                ) : (
+                  <Link
+                    to='/login'
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={`flex items-center px-3 py-2 rounded-md text-[13px] font-normal transition-all ${
+                      location.pathname === '/login'
+                        ? 'bg-neutral-800/80 text-brand-600'
+                        : 'text-neutral-400 hover:bg-neutral-800/40 hover:text-neutral-200'
+                    }`}
+                  >
+                    Sign in
+                  </Link>
+                ))}
             </div>
           </nav>
         )}
