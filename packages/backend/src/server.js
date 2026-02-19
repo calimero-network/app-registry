@@ -467,6 +467,19 @@ async function buildServer() {
     };
   }
 
+  function findManifest(dir) {
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    for (const e of entries) {
+      const full = path.join(dir, e.name);
+      if (e.isFile() && e.name === 'manifest.json') return full;
+      if (e.isDirectory()) {
+        const r = findManifest(full);
+        if (r) return r;
+      }
+    }
+    return null;
+  }
+
   // POST /api/v2/bundles/push - Push a new bundle (used by CLI)
   const pushBundleHandler = async (request, reply) => {
     try {
@@ -524,18 +537,6 @@ async function buildServer() {
         cwd: tempDir,
         filter: name => path.basename(name) === 'manifest.json',
       });
-      function findManifest(dir) {
-        const entries = fs.readdirSync(dir, { withFileTypes: true });
-        for (const e of entries) {
-          const full = path.join(dir, e.name);
-          if (e.isFile() && e.name === 'manifest.json') return full;
-          if (e.isDirectory()) {
-            const r = findManifest(full);
-            if (r) return r;
-          }
-        }
-        return null;
-      }
       const manifestPath = findManifest(tempDir);
       if (!manifestPath) {
         return reply.code(400).send({

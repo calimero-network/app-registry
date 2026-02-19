@@ -40,6 +40,7 @@ module.exports = {
             'SESSION_SECRET environment variable is required in production'
           );
         }
+        // eslint-disable-next-line no-console
         console.warn(
           '[config] SESSION_SECRET not set — using insecure default (dev only)'
         );
