@@ -1,6 +1,6 @@
 {
   "name": "@calimero-network/registry-cli",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "Calimero Network App Registry CLI - Command-line interface for interacting with the App Registry",
   "type": "module",
   "main": "dist/index.js",
