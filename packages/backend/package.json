@@ -31,7 +31,7 @@
     "ajv-formats": "^2.1.1",
     "canonicalize": "^2.1.0",
     "dotenv": "^17.2.4",
-    "fastify": "^4.24.3",
+    "fastify": "^5.7.3",
     "ipfs-http-client": "^60.0.1",
     "js-yaml": "^4.1.0",
     "jsonwebtoken": "^9.0.3",
