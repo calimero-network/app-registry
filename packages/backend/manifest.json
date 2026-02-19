@@ -1,0 +1,31 @@
+{
+  "abi": {
+    "hash": null,
+    "path": "abi.json",
+    "size": 0
+  },
+  "appVersion": "0.1.2",
+  "links": {
+    "frontend": "https://calimero-curb-rs.vercel.app/"
+  },
+  "metadata": {
+    "author": "fran d",
+    "description": "Calimero Curb Chat is a P2P chat application built on top of the Calimero Network.",
+    "name": "Curb Chat"
+  },
+  "migrations": [],
+  "minRuntimeVersion": "0.1.2",
+  "package": "com.fran.curb",
+  "signature": {
+    "algorithm": "ed25519",
+    "publicKey": "I0-kEyTMUZI-YjW_DnC90iefjWGqbpnJlr4djOZ0IBE",
+    "signature": "3L4vBuis_DEGPMp_uRareaaL7M0azNvlM8i_oKVVThLl7tUFDS"
+  },
+  "signerId": "did:key:z6Mkgq6kSMMeruLjZkpfcauwnvDTZH3v6PfEH51hwCcgaGSL",
+  "version": "1.0",
+  "wasm": {
+    "hash": null,
+    "path": "app.wasm",
+    "size": 884129
+  }
+}

@@ -1,11 +1,17 @@
 /**
  * V2 Bundle Push API
  * POST /api/v2/bundles/push
+ * Requires signature; verifies and enforces package ownership (same key as existing versions).
  */
 
 const {
   BundleStorageKV,
 } = require('../../../packages/backend/src/lib/bundle-storage-kv');
+const {
+  verifyManifest,
+  getPublicKeyFromManifest,
+  normalizeSignature,
+} = require('../../../packages/backend/src/lib/verify');
 
 // Singleton storage instance
 let storage;
@@ -49,12 +55,48 @@ module.exports = async function handler(req, res) {
       });
     }
 
+    // Require signature for all publishes
+    const sig = normalizeSignature(bundleManifest?.signature);
+    if (!sig) {
+      return res.status(400).json({
+        error: 'missing_signature',
+        message:
+          'Missing signature. All publishes require a valid signature (algorithm, publicKey, signature).',
+      });
+    }
+
+    try {
+      await verifyManifest(bundleManifest);
+    } catch (err) {
+      return res.status(400).json({
+        error: 'invalid_signature',
+        message: err.message || 'Signature verification failed',
+      });
+    }
+
+    // Ownership: same package must be published by the same key
+    const incomingKey = getPublicKeyFromManifest(bundleManifest);
+    const versions = await store.getBundleVersions(bundleManifest.package);
+    if (versions.length > 0) {
+      const existingManifest = await store.getBundleManifest(
+        bundleManifest.package,
+        versions[0]
+      );
+      const ownerKey = getPublicKeyFromManifest(existingManifest);
+      if (ownerKey != null && incomingKey != null && ownerKey !== incomingKey) {
+        return res.status(403).json({
+          error: 'not_owner',
+          message:
+            'Package name is already registered to a different key; you are not the owner.',
+        });
+      }
+    }
+
     // Never trust client-controlled _overwrite; only allow overwrite when server config enables it (e.g. migrations).
     const overwrite =
       process.env.ALLOW_BUNDLE_OVERWRITE === 'true' ||
       process.env.ALLOW_BUNDLE_OVERWRITE === '1';
 
-    // Store the bundle
     await store.storeBundleManifest(bundleManifest, overwrite);
 
     return res.status(201).json({

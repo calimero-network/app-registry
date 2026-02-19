@@ -15,9 +15,11 @@ jest.mock('../../../packages/backend/src/lib/kv-client', () => ({
   kv: mockKv,
 }));
 
-// Mock noble ed25519
-jest.mock('@noble/ed25519', () => ({
-  verify: jest.fn(),
+// Mock verify so push accepts when we pass a fake signature (we only test body shape + flow here)
+jest.mock('../../../packages/backend/src/lib/verify', () => ({
+  verifyManifest: jest.fn().mockResolvedValue(undefined),
+  getPublicKeyFromManifest: jest.fn().mockReturnValue('mock-pubkey'),
+  normalizeSignature: jest.fn((sig) => sig || null),
 }));
 
 // Import the handler
@@ -80,11 +82,17 @@ describe('Push Endpoint Validation', () => {
           author: 'Test Author',
         },
         wasm: { path: 'app.wasm', size: 100, hash: 'abc123' },
+        signature: {
+          algorithm: 'ed25519',
+          publicKey: 'dGVzdC1wdWJrZXk',
+          signature: 'dGVzdC1zaWduYXR1cmU',
+        },
       };
 
       mockKv.get.mockResolvedValue(null);
       mockKv.setNX.mockResolvedValue(true);
       mockKv.sAdd.mockResolvedValue(1);
+      mockKv.sMembers.mockResolvedValue([]); // no existing versions
 
       await pushHandler(req, res);
 

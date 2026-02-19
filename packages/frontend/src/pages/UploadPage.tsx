@@ -1,3 +1,6 @@
+import { useState, useRef } from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   BookOpen,
   ExternalLink,
@@ -8,8 +11,38 @@ import {
   Package,
   ArrowRight,
 } from 'lucide-react';
+import { pushBundleFile } from '@/lib/api';
 
 export default function UploadPage() {
+  const { user } = useAuth();
+  const location = useLocation();
+  const [file, setFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<{ package: string; version: string } | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handlePublish = async () => {
+    if (!file) return;
+    setError(null);
+    setSuccess(null);
+    setUploading(true);
+    try {
+      const result = await pushBundleFile(file);
+      setSuccess(result);
+      setFile(null);
+      if (inputRef.current) inputRef.current.value = '';
+    } catch (err: unknown) {
+      const msg =
+        err && typeof err === 'object' && err !== null && 'response' in err
+          ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
+          : (err as Error)?.message;
+      setError(msg ?? 'Publish failed');
+    } finally {
+      setUploading(false);
+    }
+  };
+
   return (
     <div className='space-y-8'>
       {/* Header */}
@@ -20,7 +53,86 @@ export default function UploadPage() {
         <p className='mt-1 text-[13px] text-neutral-500 font-light'>
           Build, bundle, and publish your application step by step.
         </p>
+        <p className='mt-2 text-[12px] text-neutral-400 font-light'>
+          Upload your application here or from{' '}
+          <Link
+            to='/my-packages'
+            className='text-brand-600 hover:text-brand-500 transition-colors'
+          >
+            My packages
+          </Link>
+          , where you can start an upload and see your authored packages.
+        </p>
       </div>
+
+      {/* Upload & Publish */}
+      <section className='card p-5'>
+        <div className='flex items-center gap-2.5 mb-4'>
+          <span className='flex-shrink-0 w-6 h-6 rounded-full bg-brand-600/10 text-brand-600 text-[11px] font-medium flex items-center justify-center'>
+            •
+          </span>
+          <Upload className='w-4 h-4 text-neutral-500' />
+          <h2 className='text-[14px] font-medium text-neutral-200'>
+            Publish new package
+          </h2>
+        </div>
+        <p className='text-[13px] text-neutral-400 font-light mb-4'>
+          Select a signed <code className='text-brand-600'>.mpk</code> bundle
+          to publish to the registry. Your session (if logged in) will be used
+          as the package author.
+        </p>
+        {user ? (
+          <>
+            <div className='flex flex-wrap items-center gap-3'>
+              <input
+                ref={inputRef}
+                type='file'
+                accept='.mpk'
+                className='text-[13px] text-neutral-300 file:mr-3 file:py-2 file:px-3 file:rounded-md file:border-0 file:bg-brand-600 file:text-neutral-950 file:font-medium file:cursor-pointer cursor-pointer'
+                onChange={e => {
+                  const f = e.target.files?.[0];
+                  setFile(f ?? null);
+                  setError(null);
+                  setSuccess(null);
+                }}
+              />
+              <button
+                type='button'
+                disabled={!file || uploading}
+                onClick={handlePublish}
+                className='px-4 py-2 rounded-md bg-brand-600 text-neutral-950 font-medium text-[13px] disabled:opacity-50 disabled:cursor-not-allowed hover:bg-brand-500 transition-colors'
+              >
+                {uploading ? 'Publishing…' : 'Publish'}
+              </button>
+            </div>
+            {error && (
+              <p className='mt-3 text-[13px] text-red-400 font-light'>{error}</p>
+            )}
+            {success && (
+              <p className='mt-3 text-[13px] text-green-400 font-light'>
+                Published <strong>{success.package}</strong>@{success.version}.{' '}
+                <Link to='/apps' className='text-brand-600 hover:text-brand-500'>
+                  View apps
+                </Link>
+                {' · '}
+                <Link to='/my-packages' className='text-brand-600 hover:text-brand-500'>
+                  My packages
+                </Link>
+              </p>
+            )}
+          </>
+        ) : (
+          <p className='text-[13px] text-neutral-500 font-light'>
+            <Link
+              to={`/login?from=${encodeURIComponent(location.pathname)}`}
+              className='text-brand-600 hover:text-brand-500 transition-colors'
+            >
+              Login first
+            </Link>{' '}
+            to upload an application through the application.
+          </p>
+        )}
+      </section>
 
       {/* Step 0 */}
       <Section step={0} icon={BookOpen} title='Understand Calimero apps'>

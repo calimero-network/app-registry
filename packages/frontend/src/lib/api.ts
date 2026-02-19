@@ -12,12 +12,18 @@ export const api = axios.create({
     (import.meta as { env?: { VITE_API_URL?: string } }).env?.VITE_API_URL ||
     '/api',
   timeout: 10000,
+  withCredentials: true, // send cookies (session) with requests
 });
 
 // Error interceptor
 api.interceptors.response.use(
   response => response,
   error => {
+    // Friendly message when backend is not running (proxy returns ECONNREFUSED)
+    if (error.code === 'ERR_NETWORK' || !error.response) {
+      error.message =
+        'Backend is not running. Start both backend and frontend: pnpm dev:all';
+    }
     // eslint-disable-next-line no-console
     console.error('API Error:', error.response?.data || error.message);
     return Promise.reject(error);
@@ -42,6 +48,33 @@ export const getApps = async (params?: {
 
   // Transform V2 BundleManifest to AppSummary format
   // Use metadata.author as the developer identity (most bundles don't have signatures)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return bundles.map((bundle: any) => {
+    const author = bundle.metadata?.author || 'Unknown';
+    return {
+      id: bundle.package,
+      name: bundle.metadata?.name || bundle.package,
+      package_name: bundle.package,
+      developer_pubkey: author,
+      latest_version: bundle.appVersion,
+      alias: bundle.metadata?.name,
+      developer: {
+        display_name: author,
+        pubkey: author,
+      },
+    };
+  });
+};
+
+/** Fetch bundles filtered by metadata.author (e.g. current user email for "My packages"). */
+export const getMyPackages = async (
+  authorEmail: string
+): Promise<AppSummary[]> => {
+  if (!authorEmail?.trim()) return [];
+  const response = await api.get('/v2/bundles', {
+    params: { author: authorEmail.trim() },
+  });
+  const bundles = Array.isArray(response.data) ? response.data : [];
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return bundles.map((bundle: any) => {
     const author = bundle.metadata?.author || 'Unknown';
@@ -157,4 +190,19 @@ export const getAttestation = async (
     `/attestations/${pubkey}/${appName}/${semver}`
   );
   return response.data;
+};
+
+/** Push a .mpk bundle file to the registry (multipart). Returns { package, version } on success. */
+export const pushBundleFile = async (
+  file: File
+): Promise<{ package: string; version: string }> => {
+  const form = new FormData();
+  form.append('bundle', file);
+  const response = await api.post('/v2/bundles/push-file', form, {
+    timeout: 120000,
+  });
+  return {
+    package: response.data.package,
+    version: response.data.version,
+  };
 };

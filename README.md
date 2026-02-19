@@ -158,12 +158,12 @@ pnpm quality
 # Fix code quality issues
 pnpm quality:fix
 
-# Start development servers
+# Start development servers (backend + frontend; required for upload and auth)
 pnpm dev:all
 
-# Start specific package in dev mode
-pnpm --filter backend dev
-pnpm --filter frontend dev
+# Start specific package in dev mode (frontend alone will show "Backend unavailable" for /api)
+pnpm dev
+pnpm dev:frontend
 ```
 
 ### Package-Specific Commands
