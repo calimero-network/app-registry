@@ -18,12 +18,10 @@ module.exports = async function handler(req, res) {
 
   const clientId = process.env.GOOGLE_CLIENT_ID;
   if (!clientId) {
-    return res
-      .status(503)
-      .json({
-        error: 'auth_not_configured',
-        message: 'GOOGLE_CLIENT_ID not set',
-      });
+    return res.status(503).json({
+      error: 'auth_not_configured',
+      message: 'GOOGLE_CLIENT_ID not set',
+    });
   }
 
   const frontendUrl =
