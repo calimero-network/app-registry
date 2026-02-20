@@ -184,7 +184,7 @@ calimero-registry apps create --file app-manifest.json
 
 # Create with inline data
 calimero-registry apps create \
-  --name "My SSApp" \
+  --name "My self-sovereign application" \
   --description "A smart contract application" \
   --version "1.0.0" \
   --developer-id "developer-id"

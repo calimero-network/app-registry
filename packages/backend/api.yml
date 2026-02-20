@@ -1,7 +1,7 @@
 openapi: 3.0.0
 info:
-  title: Calimero SSApp Registry V2 API
-  description: V2 Bundle API for Calimero SSApp Registry (MPK format)
+  title: Calimero Registry V2 API
+  description: V2 Bundle API for Calimero Registry (MPK format)
   version: 2.0.0
 servers:
   - url: http://localhost:8080
@@ -64,6 +64,18 @@ paths:
           description: Bundle created successfully
         '400':
           description: Invalid bundle manifest
+        '403':
+          description: Not the package owner (only signer or a key in manifest.owners can push)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: not_owner
+                  message:
+                    type: string
         '409':
           description: Bundle already exists
   /api/v2/bundles/{package}/{version}:

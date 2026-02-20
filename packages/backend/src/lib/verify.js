@@ -213,6 +213,23 @@ function getPublicKeyFromManifest(manifest) {
 }
 
 /**
+ * Check if an incoming key is allowed to publish or edit (ownership).
+ * If manifest.owners is a non-empty array, any key in that array is allowed.
+ * Otherwise, only the signer key of the manifest (first publisher) is allowed.
+ */
+function isAllowedOwner(existingManifest, incomingKey) {
+  if (incomingKey == null) return false;
+  const owners = existingManifest?.owners;
+  if (Array.isArray(owners) && owners.length > 0) {
+    return owners.some(
+      k => typeof k === 'string' && k.trim() !== '' && k === incomingKey
+    );
+  }
+  const ownerKey = getPublicKeyFromManifest(existingManifest);
+  return ownerKey != null && ownerKey === incomingKey;
+}
+
+/**
  * Verify manifest signature (matches mero-sign flow).
  * 1. Remove signature and all _*-prefixed keys.
  * 2. RFC 8785 canonicalize -> canonical bytes.
@@ -296,6 +313,7 @@ function validatePublicKey(pubkey) {
 module.exports = {
   canonicalizeJSON,
   getPublicKeyFromManifest,
+  isAllowedOwner,
   normalizeSignature,
   removeSignature: removeTransientFields, // Keep for backward compatibility
   removeTransientFields,

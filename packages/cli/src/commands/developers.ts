@@ -2,7 +2,7 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import ora from 'ora';
 import { table } from 'table';
-import { SSAppRegistryClient } from '@calimero-network/registry-client';
+import { CalimeroRegistryClient } from '@calimero-network/registry-client';
 
 export const developersCommand = new Command('developers')
   .description('Manage developer profiles')
@@ -12,7 +12,7 @@ export const developersCommand = new Command('developers')
       .argument('<pubkey>', 'Developer public key')
       .action(async (pubkey, options, command) => {
         const globalOpts = command.parent?.parent?.opts();
-        const client = new SSAppRegistryClient({
+        const client = new CalimeroRegistryClient({
           baseURL: globalOpts?.url || 'http://localhost:8082',
           timeout: parseInt(globalOpts?.timeout || '10000'),
         });
@@ -62,7 +62,7 @@ export const developersCommand = new Command('developers')
       .option('-p, --proofs <proofs>', 'JSON string of proofs array')
       .action(async (pubkey, displayName, options, command) => {
         const globalOpts = command.parent?.parent?.opts();
-        const client = new SSAppRegistryClient({
+        const client = new CalimeroRegistryClient({
           baseURL: globalOpts?.url || 'http://localhost:8082',
           timeout: parseInt(globalOpts?.timeout || '10000'),
         });

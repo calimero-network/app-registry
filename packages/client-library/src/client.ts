@@ -10,16 +10,16 @@ import type {
 } from './types';
 
 /**
- * SSApp Registry Client
+ * Calimero Registry Client
  *
- * A TypeScript client for interacting with the SSApp (Smart Contract Application) Registry API.
+ * A TypeScript client for interacting with the Calimero Registry (Self-Sovereign Application Registry) API.
  * Provides type-safe methods for managing applications, developers, and attestations.
  *
  * @example
  * ```typescript
- * import { SSAppRegistryClient } from '@calimero-network/registry-client';
+ * import { CalimeroRegistryClient } from '@calimero-network/registry-client';
  *
- * const client = new SSAppRegistryClient({
+ * const client = new CalimeroRegistryClient({
  *   baseURL: 'https://api.calimero.network',
  *   timeout: 10000,
  * });
@@ -31,11 +31,11 @@ import type {
  * const versions = await client.getAppVersions('developer-pubkey', 'app-name');
  * ```
  */
-export class SSAppRegistryClient {
+export class CalimeroRegistryClient {
   private api: AxiosInstance;
 
   /**
-   * Creates a new SSApp Registry client instance.
+   * Creates a new Calimero Registry client instance.
    *
    * @param config - Configuration options for the client
    * @param config.baseURL - Base URL for the API (default: 'http://localhost:8082')
@@ -45,10 +45,10 @@ export class SSAppRegistryClient {
    * @example
    * ```typescript
    * // Basic configuration
-   * const client = new SSAppRegistryClient();
+   * const client = new CalimeroRegistryClient();
    *
    * // Custom configuration
-   * const client = new SSAppRegistryClient({
+   * const client = new CalimeroRegistryClient({
    *   baseURL: 'https://api.calimero.network',
    *   timeout: 30000,
    *   headers: {

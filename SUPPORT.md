@@ -1,6 +1,6 @@
 # Support
 
-Thank you for using the SSApp Registry! This document provides information on how to get help and support.
+Thank you for using the Calimero Registry! This document provides information on how to get help and support.
 
 ## Getting Help
 
@@ -279,4 +279,4 @@ Use the [Bug Report template](https://github.com/calimero-network/app-registry/i
 
 ---
 
-Thank you for using the SSApp Registry! We're here to help you succeed.
+Thank you for using the Calimero Registry! We're here to help you succeed.
