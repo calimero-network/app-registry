@@ -7,7 +7,9 @@
 const {
   BundleStorageKV,
 } = require('../../../../packages/backend/src/lib/bundle-storage-kv');
-const { validateBundleManifest } = require('../../../../packages/backend/src/lib/v2-utils');
+const {
+  validateBundleManifest,
+} = require('../../../../packages/backend/src/lib/v2-utils');
 const {
   verifyManifest,
   getPublicKeyFromManifest,
@@ -157,10 +159,7 @@ async function handlePatch(req, res, pkg, version) {
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader(
-    'Access-Control-Allow-Headers',
-    'Content-Type, Authorization'
-  );
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   if (req.method === 'OPTIONS') {
     res.setHeader('Access-Control-Allow-Methods', 'GET, PATCH, OPTIONS');

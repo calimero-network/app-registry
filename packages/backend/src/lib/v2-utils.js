@@ -102,7 +102,7 @@ function validateBundleManifest(manifest) {
       errors.push('owners must be an array when present');
     } else {
       const bad = manifest.owners.some(
-        (k) => typeof k !== 'string' || k.trim() === ''
+        k => typeof k !== 'string' || k.trim() === ''
       );
       if (bad) errors.push('owners must be an array of non-empty strings');
     }

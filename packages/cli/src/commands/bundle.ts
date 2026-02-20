@@ -737,7 +737,9 @@ Examples:
           try {
             manifest = JSON.parse(raw) as BundleManifest;
           } catch {
-            console.error(`❌ Invalid JSON in manifest file: ${options.manifest}`);
+            console.error(
+              `❌ Invalid JSON in manifest file: ${options.manifest}`
+            );
             process.exit(1);
           }
           if (manifest.package !== pkg || manifest.appVersion !== version) {
@@ -764,7 +766,9 @@ Examples:
             console.log(`   Package: ${(body.package as string) || pkg}`);
             console.log(`   Version: ${(body.version as string) || version}`);
           } else {
-            console.error(`❌ PATCH failed (${res.status}): ${body.error ?? body.message ?? text}`);
+            console.error(
+              `❌ PATCH failed (${res.status}): ${body.error ?? body.message ?? text}`
+            );
             process.exit(1);
           }
           return;
@@ -780,27 +784,34 @@ Examples:
           } catch {
             err = { message: t };
           }
-          console.error(`❌ GET failed (${res.status}): ${err.error ?? err.message ?? t}`);
+          console.error(
+            `❌ GET failed (${res.status}): ${err.error ?? err.message ?? t}`
+          );
           process.exit(1);
         }
 
         const manifest = (await res.json()) as BundleManifest;
         if (manifest.package !== pkg || manifest.appVersion !== version) {
-          console.error('❌ Response manifest package/version does not match URL.');
+          console.error(
+            '❌ Response manifest package/version does not match URL.'
+          );
           process.exit(1);
         }
 
         // Apply options (only editable fields)
         if (options.name !== undefined) {
-          if (!manifest.metadata) manifest.metadata = { name: '', description: '', author: '' };
+          if (!manifest.metadata)
+            manifest.metadata = { name: '', description: '', author: '' };
           manifest.metadata.name = options.name;
         }
         if (options.description !== undefined) {
-          if (!manifest.metadata) manifest.metadata = { name: '', description: '', author: '' };
+          if (!manifest.metadata)
+            manifest.metadata = { name: '', description: '', author: '' };
           manifest.metadata.description = options.description;
         }
         if (options.author !== undefined) {
-          if (!manifest.metadata) manifest.metadata = { name: '', description: '', author: '' };
+          if (!manifest.metadata)
+            manifest.metadata = { name: '', description: '', author: '' };
           manifest.metadata.author = options.author;
         }
         if (options.frontend !== undefined) {
@@ -824,7 +835,9 @@ Examples:
         console.log('  1. Sign the manifest with mero-sign:');
         console.log(`     mero-sign sign ${outputPath} --key your-key.json`);
         console.log('  2. PATCH the signed manifest:');
-        console.log(`     calimero-registry bundle edit '${pkg}' '${version}' --remote --manifest signed-manifest.json`);
+        console.log(
+          `     calimero-registry bundle edit '${pkg}' '${version}' --remote --manifest signed-manifest.json`
+        );
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         console.error('❌ Edit failed:', message);

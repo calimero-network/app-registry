@@ -20,7 +20,11 @@ export default function EditPackagePage() {
     docs: '',
   });
 
-  const { data: manifest, isLoading, error } = useQuery({
+  const {
+    data: manifest,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ['bundle-manifest', appId, version],
     queryFn: () => getBundleManifestRaw(appId, version),
     enabled: !!appId && !!version,
@@ -49,7 +53,10 @@ export default function EditPackagePage() {
         ...manifest.metadata,
         name: form.name || manifest.metadata?.name,
         description: form.description ?? manifest.metadata?.description,
-        author: form.author === '' ? undefined : form.author || manifest.metadata?.author,
+        author:
+          form.author === ''
+            ? undefined
+            : form.author || manifest.metadata?.author,
       },
       links: {
         ...manifest.links,
@@ -121,8 +128,8 @@ export default function EditPackagePage() {
       <form onSubmit={handleSubmit} className='card p-5 space-y-4'>
         <p className='text-[13px] text-neutral-400 font-light'>
           Change name, description, author, or links. After saving, you will
-          download <code className='text-brand-600'>manifest.json</code>. Sign it
-          with mero-sign and run the CLI to publish the update.
+          download <code className='text-brand-600'>manifest.json</code>. Sign
+          it with mero-sign and run the CLI to publish the update.
         </p>
 
         <div>
@@ -171,9 +178,7 @@ export default function EditPackagePage() {
             <input
               type='url'
               value={form.frontend}
-              onChange={e =>
-                setForm(f => ({ ...f, frontend: e.target.value }))
-              }
+              onChange={e => setForm(f => ({ ...f, frontend: e.target.value }))}
               className='w-full px-3 py-2 rounded-md bg-neutral-800 border border-neutral-700 text-neutral-200 text-[13px] focus:border-brand-600 focus:outline-none'
               placeholder='Frontend URL'
             />
@@ -211,16 +216,17 @@ export default function EditPackagePage() {
             <Download className='w-4 h-4 text-green-500' />
             manifest.json downloaded
           </p>
-          <p className='text-[12px] text-neutral-400 font-light'>
-            Next steps:
-          </p>
+          <p className='text-[12px] text-neutral-400 font-light'>Next steps:</p>
           <ol className='list-decimal list-inside space-y-2 text-[12px] text-neutral-300 font-mono bg-neutral-900/60 rounded-lg p-4'>
             <li>Sign the file with mero-sign:</li>
           </ol>
           <pre className='text-[11px] text-neutral-400 bg-neutral-900 rounded-md p-3 overflow-x-auto'>
             {`mero-sign sign manifest.json --key your-key.json`}
           </pre>
-          <ol start={2} className='list-decimal list-inside space-y-2 text-[12px] text-neutral-300 font-mono mt-3'>
+          <ol
+            start={2}
+            className='list-decimal list-inside space-y-2 text-[12px] text-neutral-300 font-mono mt-3'
+          >
             <li>Publish the signed manifest with the CLI:</li>
           </ol>
           <pre className='text-[11px] text-neutral-400 bg-neutral-900 rounded-md p-3 overflow-x-auto flex items-center gap-2'>

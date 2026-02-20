@@ -222,7 +222,7 @@ function isAllowedOwner(existingManifest, incomingKey) {
   const owners = existingManifest?.owners;
   if (Array.isArray(owners) && owners.length > 0) {
     return owners.some(
-      (k) => typeof k === 'string' && k.trim() !== '' && k === incomingKey
+      k => typeof k === 'string' && k.trim() !== '' && k === incomingKey
     );
   }
   const ownerKey = getPublicKeyFromManifest(existingManifest);

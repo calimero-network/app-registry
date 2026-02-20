@@ -116,12 +116,12 @@ pnpm dev:all
 
 ## 📦 Packages
 
-| Package                                     | Description                   | Tech Stack               | Status              |
-| ------------------------------------------- | ----------------------------- | ------------------------ | ------------------- |
+| Package                                     | Description                      | Tech Stack               | Status              |
+| ------------------------------------------- | -------------------------------- | ------------------------ | ------------------- |
 | [Backend](./packages/backend)               | API server for Calimero Registry | Fastify, Node.js         | ✅ Production Ready |
-| [Frontend](./packages/frontend)             | Web interface for registry    | React, TypeScript, Vite  | ✅ Production Ready |
-| [Client Library](./packages/client-library) | TypeScript client for API     | TypeScript, Axios        | ✅ Production Ready |
-| [CLI](./packages/cli)                       | Command-line interface        | TypeScript, Commander.js | ✅ Production Ready |
+| [Frontend](./packages/frontend)             | Web interface for registry       | React, TypeScript, Vite  | ✅ Production Ready |
+| [Client Library](./packages/client-library) | TypeScript client for API        | TypeScript, Axios        | ✅ Production Ready |
+| [CLI](./packages/cli)                       | Command-line interface           | TypeScript, Commander.js | ✅ Production Ready |
 
 ## 📚 Documentation
 
