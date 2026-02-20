@@ -460,7 +460,11 @@ async function buildServer() {
       // Reject if new version is not greater than latest
       const latest = versions[0];
       const incoming = bundleManifest.appVersion;
-      if (semver.valid(incoming) && semver.valid(latest) && semver.lte(incoming, latest)) {
+      if (
+        semver.valid(incoming) &&
+        semver.valid(latest) &&
+        semver.lte(incoming, latest)
+      ) {
         throw {
           statusCode: 400,
           body: {
