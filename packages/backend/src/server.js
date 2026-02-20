@@ -9,6 +9,7 @@ const swagger = require('@fastify/swagger');
 const swaggerUi = require('@fastify/swagger-ui');
 const fs = require('fs');
 const os = require('os');
+const semver = require('semver');
 const tar = require('tar');
 
 // Import config
@@ -453,6 +454,18 @@ async function buildServer() {
             error: 'not_owner',
             message:
               'Only the package owner (signer or a key in manifest.owners) can publish new versions.',
+          },
+        };
+      }
+      // Reject if new version is not greater than latest
+      const latest = versions[0];
+      const incoming = bundleManifest.appVersion;
+      if (semver.valid(incoming) && semver.valid(latest) && semver.lte(incoming, latest)) {
+        throw {
+          statusCode: 400,
+          body: {
+            error: 'version_not_allowed',
+            message: `New version (${incoming}) must be greater than latest (${latest}).`,
           },
         };
       }
