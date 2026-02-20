@@ -192,6 +192,16 @@ export const getAttestation = async (
   return response.data;
 };
 
+/** Get raw V2 bundle manifest for a single version (for edit page). */
+export const getBundleManifestRaw = async (
+  packageName: string,
+  version: string
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+): Promise<Record<string, any>> => {
+  const response = await api.get(`/v2/bundles/${packageName}/${version}`);
+  return response.data;
+};
+
 /** Push a .mpk bundle file to the registry (multipart). Returns { package, version } on success. */
 export const pushBundleFile = async (
   file: File

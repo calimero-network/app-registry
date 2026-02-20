@@ -1,8 +1,8 @@
-# Calimero SSApp Registry v1 API Specification
+# Calimero Registry v1 API Specification
 
 ## Overview
 
-The Calimero SSApp Registry v1 is a minimal, production-ready HTTP service that stores, verifies, resolves, and serves Calimero SSApp manifests following the v1 specification.
+The Calimero Registry v1 is a minimal, production-ready HTTP service that stores, verifies, resolves, and serves self-sovereign application manifests following the v1 specification.
 
 ## Manifest v1 Schema
 

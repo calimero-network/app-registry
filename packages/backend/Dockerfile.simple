@@ -1,4 +1,4 @@
-# Simple Dockerfile for Calimero SSApp Registry V1 API
+# Simple Dockerfile for Calimero Registry V1 API
 FROM node:18-alpine
 
 # Install pnpm

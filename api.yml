@@ -1,7 +1,7 @@
 openapi: 3.0.0
 info:
-  title: Calimero SSApp Registry V1 API
-  description: V1 API for Calimero SSApp Registry
+  title: Calimero Registry V1 API
+  description: V1 API for Calimero Registry
   version: 1.0.0
 servers:
   - url: http://localhost:8080

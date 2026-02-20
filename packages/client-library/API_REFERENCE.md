@@ -1,6 +1,6 @@
-# SSApp Registry Client Library - API Reference
+# Calimero Registry Client Library - API Reference
 
-This document provides a comprehensive reference for the SSApp Registry Client Library, including all public methods, types, and usage examples.
+This document provides a comprehensive reference for the Calimero Registry Client Library, including all public methods, types, and usage examples.
 
 ## 📦 Installation
 
@@ -11,9 +11,9 @@ npm install @calimero-network/registry-client
 ## 🚀 Quick Start
 
 ```typescript
-import { SSAppRegistryClient } from '@calimero-network/registry-client';
+import { CalimeroRegistryClient } from '@calimero-network/registry-client';
 
-const client = new SSAppRegistryClient({
+const client = new CalimeroRegistryClient({
   baseURL: 'https://api.calimero.network',
   timeout: 10000,
 });
@@ -21,14 +21,14 @@ const client = new SSAppRegistryClient({
 
 ## 📚 Class Reference
 
-### SSAppRegistryClient
+### CalimeroRegistryClient
 
-The main client class for interacting with the SSApp Registry API.
+The main client class for interacting with the Calimero Registry API.
 
 #### Constructor
 
 ```typescript
-new SSAppRegistryClient(config?: ClientConfig)
+new CalimeroRegistryClient(config?: ClientConfig)
 ```
 
 **Parameters:**
@@ -45,10 +45,10 @@ new SSAppRegistryClient(config?: ClientConfig)
 
 ```typescript
 // Basic configuration
-const client = new SSAppRegistryClient();
+const client = new CalimeroRegistryClient();
 
 // Custom configuration
-const client = new SSAppRegistryClient({
+const client = new CalimeroRegistryClient({
   baseURL: 'https://api.calimero.network',
   timeout: 30000,
   headers: {
@@ -641,7 +641,7 @@ const apiError: ApiError = {
 
 ### ClientConfig
 
-Configuration options for the SSApp Registry client.
+Configuration options for the Calimero Registry client.
 
 ```typescript
 interface ClientConfig {
@@ -669,11 +669,11 @@ const config: ClientConfig = {
 Here's a complete example showing how to use the client library:
 
 ```typescript
-import { SSAppRegistryClient } from '@calimero-network/registry-client';
+import { CalimeroRegistryClient } from '@calimero-network/registry-client';
 
 async function main() {
   // Create client
-  const client = new SSAppRegistryClient({
+  const client = new CalimeroRegistryClient({
     baseURL: 'https://api.calimero.network',
     timeout: 10000,
   });

@@ -13,6 +13,7 @@ import {
   BookOpen,
   Globe,
   Shield,
+  Pencil,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 
@@ -99,13 +100,20 @@ export default function AppDetailPage() {
 
       {/* Header */}
       <div>
-        <div className='flex items-center gap-2.5 mb-1'>
+        <div className='flex flex-wrap items-center gap-2.5 mb-1'>
           <h1 className='text-xl font-semibold text-neutral-100'>
             {meta?.name || appId}
           </h1>
           <span className='pill bg-brand-600/10 text-brand-600 font-mono'>
             v{bundle.appVersion}
           </span>
+          <Link
+            to={`/apps/${appId}/${bundle.appVersion}/edit`}
+            className='inline-flex items-center gap-1.5 text-[12px] text-neutral-400 hover:text-neutral-200 transition-colors'
+          >
+            <Pencil className='w-3.5 h-3.5' />
+            Edit metadata
+          </Link>
         </div>
         <p className='text-[12px] text-neutral-500 font-mono'>
           {bundle.package}
@@ -267,9 +275,18 @@ export default function AppDetailPage() {
                     v{b.appVersion}
                   </span>
                 </div>
-                <span className='text-[11px] text-neutral-500 font-mono'>
-                  {b.metadata?.author || ''}
-                </span>
+                <div className='flex items-center gap-3'>
+                  <span className='text-[11px] text-neutral-500 font-mono'>
+                    {b.metadata?.author || ''}
+                  </span>
+                  <Link
+                    to={`/apps/${appId}/${b.appVersion}/edit`}
+                    className='inline-flex items-center gap-1 text-[11px] text-neutral-500 hover:text-neutral-300 transition-colors'
+                  >
+                    <Pencil className='w-3 h-3' />
+                    Edit
+                  </Link>
+                </div>
               </div>
             ))}
           </div>

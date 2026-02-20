@@ -43,7 +43,8 @@ export const bundleCommand = new Command('bundle')
   .description('Manage application bundles (V2)')
   .addCommand(createCreateCommand())
   .addCommand(createPushCommand())
-  .addCommand(createGetCommand());
+  .addCommand(createGetCommand())
+  .addCommand(createEditCommand());
 
 interface BundleManifestConfig {
   package?: string;
@@ -654,6 +655,179 @@ function createGetCommand(): Command {
         }
       } catch (error) {
         console.error('❌ Error:', error);
+        process.exit(1);
+      }
+    });
+}
+
+function createEditCommand(): Command {
+  return new Command('edit')
+    .description(
+      'Edit package metadata (name, description, author, links). Use --remote to talk to the registry. Either supply --manifest (signed manifest file to PATCH) or use options to fetch, modify, and output a manifest for you to sign.'
+    )
+    .argument('<package>', 'Package name (e.g. com.calimero.myapp)')
+    .argument('<version>', 'Version (e.g. 1.0.0)')
+    .option('--remote', 'Use remote registry (required for edit)')
+    .option('--url <registry-url>', 'Registry URL (overrides config)')
+    .option('--api-key <key>', 'API key for remote (overrides config and env)')
+    .option(
+      '--manifest <path>',
+      'Path to signed manifest to PATCH (if omitted, GET + apply options + write file + instructions)'
+    )
+    .option(
+      '-o, --output <path>',
+      'Where to write modified manifest when not using --manifest (default: manifest.json)'
+    )
+    .option('--name <name>', 'Set metadata.name')
+    .option('--description <description>', 'Set metadata.description')
+    .option('--author <author>', 'Set metadata.author (use "" to clear)')
+    .option('--frontend <url>', 'Set links.frontend')
+    .option('--github <url>', 'Set links.github')
+    .option('--docs <url>', 'Set links.docs')
+    .addHelpText(
+      'after',
+      `
+Examples:
+  # 1) Get current manifest, apply edits, write manifest.json and show sign instructions:
+  $ calimero-registry bundle edit com.calimero.myapp 1.0.0 --remote --name "New Name" --description "New desc" -o manifest.json
+
+  # 2) After signing with mero-sign, PATCH the signed manifest:
+  $ calimero-registry bundle edit com.calimero.myapp 1.0.0 --remote --manifest signed-manifest.json
+
+  # 3) With custom registry URL:
+  $ calimero-registry bundle edit com.calimero.myapp 1.0.0 --remote --url https://apps.calimero.network --manifest signed-manifest.json
+`
+    )
+    .action(async (pkg, version, options) => {
+      try {
+        if (!options.remote) {
+          console.error(
+            '❌ Edit requires --remote (editing is only supported against the remote registry).'
+          );
+          process.exit(1);
+        }
+
+        const remoteConfig = new RemoteConfig();
+        const registryUrl =
+          options.url ||
+          process.env.CALIMERO_REGISTRY_URL ||
+          remoteConfig.getRegistryUrl();
+        const apiKey =
+          options.apiKey ||
+          process.env.CALIMERO_API_KEY ||
+          remoteConfig.getApiKey();
+
+        const baseUrl = registryUrl.replace(/\/$/, '');
+        const bundleUrl = `${baseUrl}/api/v2/bundles/${encodeURIComponent(pkg)}/${encodeURIComponent(version)}`;
+
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+        };
+        if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+
+        if (options.manifest) {
+          // PATCH path: read manifest from file and PATCH
+          const manifestPath = path.resolve(options.manifest);
+          if (!fs.existsSync(manifestPath)) {
+            console.error(`❌ Manifest file not found: ${options.manifest}`);
+            process.exit(1);
+          }
+          const raw = fs.readFileSync(manifestPath, 'utf8');
+          let manifest: BundleManifest;
+          try {
+            manifest = JSON.parse(raw) as BundleManifest;
+          } catch {
+            console.error(`❌ Invalid JSON in manifest file: ${options.manifest}`);
+            process.exit(1);
+          }
+          if (manifest.package !== pkg || manifest.appVersion !== version) {
+            console.error(
+              `❌ Manifest package/version (${manifest.package}@${manifest.appVersion}) does not match command args (${pkg}@${version}).`
+            );
+            process.exit(1);
+          }
+
+          const res = await fetch(bundleUrl, {
+            method: 'PATCH',
+            headers,
+            body: JSON.stringify(manifest),
+          });
+          const text = await res.text();
+          let body: ApiResponseBody;
+          try {
+            body = JSON.parse(text) as ApiResponseBody;
+          } catch {
+            body = { message: text };
+          }
+          if (res.ok) {
+            console.log('✅ Bundle metadata updated.');
+            console.log(`   Package: ${(body.package as string) || pkg}`);
+            console.log(`   Version: ${(body.version as string) || version}`);
+          } else {
+            console.error(`❌ PATCH failed (${res.status}): ${body.error ?? body.message ?? text}`);
+            process.exit(1);
+          }
+          return;
+        }
+
+        // GET path: fetch manifest, apply options, write to file, print instructions
+        const res = await fetch(bundleUrl, { method: 'GET', headers });
+        if (!res.ok) {
+          const t = await res.text();
+          let err: ApiResponseBody;
+          try {
+            err = JSON.parse(t) as ApiResponseBody;
+          } catch {
+            err = { message: t };
+          }
+          console.error(`❌ GET failed (${res.status}): ${err.error ?? err.message ?? t}`);
+          process.exit(1);
+        }
+
+        const manifest = (await res.json()) as BundleManifest;
+        if (manifest.package !== pkg || manifest.appVersion !== version) {
+          console.error('❌ Response manifest package/version does not match URL.');
+          process.exit(1);
+        }
+
+        // Apply options (only editable fields)
+        if (options.name !== undefined) {
+          if (!manifest.metadata) manifest.metadata = { name: '', description: '', author: '' };
+          manifest.metadata.name = options.name;
+        }
+        if (options.description !== undefined) {
+          if (!manifest.metadata) manifest.metadata = { name: '', description: '', author: '' };
+          manifest.metadata.description = options.description;
+        }
+        if (options.author !== undefined) {
+          if (!manifest.metadata) manifest.metadata = { name: '', description: '', author: '' };
+          manifest.metadata.author = options.author;
+        }
+        if (options.frontend !== undefined) {
+          if (!manifest.links) manifest.links = {};
+          manifest.links.frontend = options.frontend;
+        }
+        if (options.github !== undefined) {
+          if (!manifest.links) manifest.links = {};
+          manifest.links.github = options.github;
+        }
+        if (options.docs !== undefined) {
+          if (!manifest.links) manifest.links = {};
+          manifest.links.docs = options.docs;
+        }
+
+        const outputPath = path.resolve(options.output || 'manifest.json');
+        fs.writeFileSync(outputPath, JSON.stringify(manifest, null, 2));
+        console.log(`✅ Wrote modified manifest to: ${outputPath}`);
+        console.log('');
+        console.log('Next steps:');
+        console.log('  1. Sign the manifest with mero-sign:');
+        console.log(`     mero-sign sign ${outputPath} --key your-key.json`);
+        console.log('  2. PATCH the signed manifest:');
+        console.log(`     calimero-registry bundle edit '${pkg}' '${version}' --remote --manifest signed-manifest.json`);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.error('❌ Edit failed:', message);
         process.exit(1);
       }
     });

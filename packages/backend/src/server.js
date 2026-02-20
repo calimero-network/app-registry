@@ -17,6 +17,7 @@ const { BundleStorageKV } = require('./lib/bundle-storage-kv');
 const {
   verifyManifest,
   getPublicKeyFromManifest,
+  isAllowedOwner,
   normalizeSignature,
 } = require('./lib/verify');
 const { verifySessionToken } = require('./lib/auth');
@@ -445,14 +446,13 @@ async function buildServer() {
         bundleManifest.package,
         versions[0]
       );
-      const ownerKey = getPublicKeyFromManifest(existingManifest);
-      if (ownerKey != null && ownerKey !== incomingKey) {
+      if (!isAllowedOwner(existingManifest, incomingKey)) {
         throw {
           statusCode: 403,
           body: {
             error: 'not_owner',
             message:
-              'Package name is already registered to a different key; you are not the owner.',
+              'Only the package owner (signer or a key in manifest.owners) can publish new versions.',
           },
         };
       }
