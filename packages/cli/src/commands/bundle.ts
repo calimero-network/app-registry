@@ -29,6 +29,8 @@ interface BundlePushPayload {
   migrations?: BundleManifest['migrations'];
   links?: BundleManifest['links'];
   signature?: BundleManifest['signature'];
+  signerId?: string;
+  minRuntimeVersion?: string;
 }
 
 interface ApiResponseBody {
@@ -884,12 +886,11 @@ async function pushToRemote(
     if (manifest.wasm) {
       payload.wasm = manifest.wasm;
     }
-    if (manifest.abi) {
+    if (manifest.abi !== undefined) {
       payload.abi = manifest.abi;
     }
-    if (manifest.migrations && manifest.migrations.length > 0) {
-      payload.migrations = manifest.migrations;
-    }
+    // Always include migrations even if empty — dropping [] changes the signed payload
+    payload.migrations = manifest.migrations ?? [];
     if (manifest.links) {
       payload.links = manifest.links;
     }
@@ -901,6 +902,9 @@ async function pushToRemote(
       String(manifest.minRuntimeVersion).trim()
     ) {
       payload.minRuntimeVersion = String(manifest.minRuntimeVersion).trim();
+    }
+    if (manifest.signerId) {
+      payload.signerId = manifest.signerId;
     }
 
     // 4. Prepare headers
