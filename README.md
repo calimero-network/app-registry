@@ -1,4 +1,4 @@
-# SSApp Registry Monorepo
+# Calimero Registry Monorepo
 
 [![CI](https://github.com/calimero-network/app-registry/workflows/CI/badge.svg)](https://github.com/calimero-network/app-registry/actions/workflows/basic-ci.yml)
 [![Lint](https://img.shields.io/badge/Lint-ESLint-blue.svg)](https://eslint.org/)
@@ -8,7 +8,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![pnpm](https://img.shields.io/badge/pnpm-workspace-orange.svg)](https://pnpm.io/workspaces)
 
-A comprehensive monorepo for the SSApp (Self Sovereign Application) Registry system, featuring a backend API, frontend web application, client library, and CLI tool.
+A comprehensive monorepo for the Calimero Registry (self-sovereign application registry) system, featuring a backend API, frontend web application, client library, and CLI tool.
 
 ## 🏗️ Monorepo Structure
 
@@ -116,12 +116,12 @@ pnpm dev:all
 
 ## 📦 Packages
 
-| Package                                     | Description                   | Tech Stack               | Status              |
-| ------------------------------------------- | ----------------------------- | ------------------------ | ------------------- |
-| [Backend](./packages/backend)               | API server for SSApp registry | Fastify, Node.js         | ✅ Production Ready |
-| [Frontend](./packages/frontend)             | Web interface for registry    | React, TypeScript, Vite  | ✅ Production Ready |
-| [Client Library](./packages/client-library) | TypeScript client for API     | TypeScript, Axios        | ✅ Production Ready |
-| [CLI](./packages/cli)                       | Command-line interface        | TypeScript, Commander.js | ✅ Production Ready |
+| Package                                     | Description                      | Tech Stack               | Status              |
+| ------------------------------------------- | -------------------------------- | ------------------------ | ------------------- |
+| [Backend](./packages/backend)               | API server for Calimero Registry | Fastify, Node.js         | ✅ Production Ready |
+| [Frontend](./packages/frontend)             | Web interface for registry       | React, TypeScript, Vite  | ✅ Production Ready |
+| [Client Library](./packages/client-library) | TypeScript client for API        | TypeScript, Axios        | ✅ Production Ready |
+| [CLI](./packages/cli)                       | Command-line interface           | TypeScript, Commander.js | ✅ Production Ready |
 
 ## 📚 Documentation
 
@@ -275,6 +275,22 @@ The repository uses Husky to ensure code quality:
 - **Dry-Run Mode**: Safe testing without actual releases
 
 ## 📚 Documentation
+
+### Package ownership and multi-author publishing
+
+Only the **package owner** can create or update a package. Ownership is defined as:
+
+- The **signer** of the manifest (the key that produced the Ed25519 signature), or
+- Any public key listed in **`manifest.owners`** (array of base58 strings).
+
+Any other key receives **403** with `error: 'not_owner'` when pushing a new version or PATCHing metadata.
+
+**Multi-author models:**
+
+- **Same key**: One keypair (e.g. CI or shared team key) is used by everyone. No `owners` array is required; the single signer is the owner.
+- **Multiple keys**: Each author has their own keypair. List each other (or a team key) in `manifest.owners`. Any listed key can push or PATCH. Only an existing owner (signer or in `owners`) can add or remove entries in `owners` by publishing an updated manifest.
+
+See [Organizations and multi-author design](docs/ORGANIZATIONS_DESIGN.md) for the full design (current `owners[]`-only model and optional future Organization entity).
 
 ### Core Documentation
 

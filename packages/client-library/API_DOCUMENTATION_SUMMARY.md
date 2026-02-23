@@ -2,13 +2,13 @@
 
 ## 🎯 **Objective Completed: Comprehensive API Reference Documentation**
 
-This document summarizes the implementation of comprehensive API documentation for the SSApp Registry Client Library.
+This document summarizes the implementation of comprehensive API documentation for the Calimero Registry Client Library.
 
 ## ✅ **What Was Accomplished**
 
 ### **1. JSDoc Documentation Added to All Public Methods**
 
-#### **SSAppRegistryClient Class**
+#### **CalimeroRegistryClient Class**
 
 - ✅ **Constructor**: Complete documentation with configuration options and examples
 - ✅ **getApps()**: Method documentation with filtering parameters and usage examples
@@ -152,7 +152,7 @@ interface TypeName {
 
 1. **Installation Guide** - Package installation instructions
 2. **Quick Start** - Basic setup and usage
-3. **Class Reference** - SSAppRegistryClient documentation
+3. **Class Reference** - CalimeroRegistryClient documentation
 4. **Methods Reference** - All 9 public methods with examples
 5. **Type Definitions** - All 7 types with examples
 6. **Complete Example** - Full application example
@@ -310,7 +310,7 @@ interface TypeName {
 
 ## 🎉 **Conclusion**
 
-The SSApp Registry Client Library now has **comprehensive, production-ready API documentation** that provides:
+The Calimero Registry Client Library now has **comprehensive, production-ready API documentation** that provides:
 
 1. **Complete Method Documentation** with examples for all 9 public methods
 2. **Full Type Documentation** with examples for all 7 type definitions

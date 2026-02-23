@@ -1,6 +1,6 @@
-# SSApp Registry Client Library
+# Calimero Registry Client Library
 
-A TypeScript client library for the SSApp (Smart Contract Application) Registry API. Provides type-safe methods for interacting with the registry, including application management, developer operations, and attestation handling.
+A TypeScript client library for the Calimero Registry (Self-Sovereign Application Registry) API. Provides type-safe methods for interacting with the registry, including application management, developer operations, and attestation handling.
 
 ## 🚀 Features
 
@@ -30,9 +30,9 @@ yarn add @calimero-network/registry-client
 ### Basic Setup
 
 ```typescript
-import { SSAppRegistryClient } from '@calimero-network/registry-client';
+import { CalimeroRegistryClient } from '@calimero-network/registry-client';
 
-const client = new SSAppRegistryClient({
+const client = new CalimeroRegistryClient({
   baseURL: 'https://api.calimero.network',
   apiKey: 'your-api-key', // Optional
   timeout: 10000, // 10 seconds
@@ -104,7 +104,7 @@ interface Application {
 
 ```typescript
 const newApp = await client.apps.create({
-  name: 'My SSApp',
+  name: 'My self-sovereign application',
   description: 'A smart contract application',
   version: '1.0.0',
   developerId: 'developer-id',
@@ -201,9 +201,9 @@ const attestation = await client.attestations.create({
 ### Complete Application Management
 
 ```typescript
-import { SSAppRegistryClient } from '@calimero-network/registry-client';
+import { CalimeroRegistryClient } from '@calimero-network/registry-client';
 
-const client = new SSAppRegistryClient({
+const client = new CalimeroRegistryClient({
   baseURL: 'https://api.calimero.network',
 });
 
@@ -246,7 +246,7 @@ async function manageApplication() {
 
     console.log('Found apps:', allApps.apps.length);
   } catch (error) {
-    if (error instanceof SSAppRegistryError) {
+    if (error instanceof CalimeroRegistryError) {
       console.error('API Error:', error.message);
       console.error('Status:', error.status);
       console.error('Code:', error.code);
@@ -261,11 +261,11 @@ async function manageApplication() {
 
 ```typescript
 import {
-  SSAppRegistryClient,
-  SSAppRegistryError,
+  CalimeroRegistryClient,
+  CalimeroRegistryError,
 } from '@calimero-network/registry-client';
 
-const client = new SSAppRegistryClient({
+const client = new CalimeroRegistryClient({
   baseURL: 'https://api.calimero.network',
 });
 
@@ -273,7 +273,7 @@ async function handleErrors() {
   try {
     const app = await client.apps.getById('non-existent-id');
   } catch (error) {
-    if (error instanceof SSAppRegistryError) {
+    if (error instanceof CalimeroRegistryError) {
       switch (error.status) {
         case 404:
           console.log('Application not found');
@@ -327,14 +327,14 @@ async function batchOperations() {
 ### Unit Testing
 
 ```typescript
-import { SSAppRegistryClient } from '@calimero-network/registry-client';
+import { CalimeroRegistryClient } from '@calimero-network/registry-client';
 import { mockApiResponse } from './test-utils';
 
-describe('SSAppRegistryClient', () => {
-  let client: SSAppRegistryClient;
+describe('CalimeroRegistryClient', () => {
+  let client: CalimeroRegistryClient;
 
   beforeEach(() => {
-    client = new SSAppRegistryClient({
+    client = new CalimeroRegistryClient({
       baseURL: 'https://api.test.com',
     });
   });
@@ -352,7 +352,7 @@ describe('SSAppRegistryClient', () => {
     mockApiResponse('/apps/non-existent', null, 404);
 
     await expect(client.apps.getById('non-existent')).rejects.toThrow(
-      SSAppRegistryError
+      CalimeroRegistryError
     );
   });
 });
@@ -362,10 +362,10 @@ describe('SSAppRegistryClient', () => {
 
 ```typescript
 describe('Integration Tests', () => {
-  let client: SSAppRegistryClient;
+  let client: CalimeroRegistryClient;
 
   beforeAll(() => {
-    client = new SSAppRegistryClient({
+    client = new CalimeroRegistryClient({
       baseURL: process.env.TEST_API_URL,
       apiKey: process.env.TEST_API_KEY,
     });
@@ -399,7 +399,7 @@ describe('Integration Tests', () => {
 ```typescript
 import axios from 'axios';
 
-const client = new SSAppRegistryClient({
+const client = new CalimeroRegistryClient({
   baseURL: 'https://api.calimero.network',
 });
 
@@ -441,7 +441,7 @@ class CustomLogger implements Logger {
   }
 }
 
-const client = new SSAppRegistryClient({
+const client = new CalimeroRegistryClient({
   baseURL: 'https://api.calimero.network',
   logger: new CustomLogger(),
 });
@@ -450,7 +450,7 @@ const client = new SSAppRegistryClient({
 ### Retry Configuration
 
 ```typescript
-const client = new SSAppRegistryClient({
+const client = new CalimeroRegistryClient({
   baseURL: 'https://api.calimero.network',
   retries: 3,
   retryDelay: 1000, // 1 second
@@ -506,7 +506,7 @@ interface Artifact {
 ### Error Types
 
 ```typescript
-class SSAppRegistryError extends Error {
+class CalimeroRegistryError extends Error {
   status: number;
   code: string;
   details?: any;

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { SSAppRegistryClient } from '../client';
+import { CalimeroRegistryClient } from '../client';
 
 // Mock axios
 vi.mock('axios', () => ({
@@ -16,22 +16,22 @@ vi.mock('axios', () => ({
   },
 }));
 
-describe('SSAppRegistryClient', () => {
-  let client: SSAppRegistryClient;
+describe('CalimeroRegistryClient', () => {
+  let client: CalimeroRegistryClient;
 
   beforeEach(() => {
-    client = new SSAppRegistryClient();
+    client = new CalimeroRegistryClient();
   });
 
   it('should create a client instance with default config', () => {
-    expect(client).toBeInstanceOf(SSAppRegistryClient);
+    expect(client).toBeInstanceOf(CalimeroRegistryClient);
   });
 
   it('should create a client instance with custom config', () => {
-    const customClient = new SSAppRegistryClient({
+    const customClient = new CalimeroRegistryClient({
       baseURL: 'https://api.example.com',
       timeout: 5000,
     });
-    expect(customClient).toBeInstanceOf(SSAppRegistryClient);
+    expect(customClient).toBeInstanceOf(CalimeroRegistryClient);
   });
 });

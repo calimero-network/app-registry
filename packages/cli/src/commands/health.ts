@@ -4,7 +4,7 @@ import ora from 'ora';
 import { createRegistryClient } from '../lib/registry-client.js';
 
 export const healthCommand = new Command('health')
-  .description('Check the health of the SSApp Registry API')
+  .description('Check the health of the Calimero Registry API')
   .action(async (options, command) => {
     const globalOpts = command.parent?.opts();
     const useLocal = globalOpts?.local || false;

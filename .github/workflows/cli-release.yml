@@ -70,7 +70,7 @@ jobs:
           body: |
             ## CLI Release ${{ github.ref_name }}
 
-            This release contains updates to the SSApp Registry CLI tool.
+            This release contains updates to the Calimero Registry CLI tool.
 
             ### Installation
             ```bash

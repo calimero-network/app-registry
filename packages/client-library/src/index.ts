@@ -1,4 +1,4 @@
-export { SSAppRegistryClient } from './client';
+export { CalimeroRegistryClient } from './client';
 export type {
   AppSummary,
   VersionInfo,

@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import ora from 'ora';
-import { SSAppRegistryClient } from '@calimero-network/registry-client';
+import { CalimeroRegistryClient } from '@calimero-network/registry-client';
 
 export const attestationsCommand = new Command('attestations')
   .description('Manage application attestations')
@@ -13,7 +13,7 @@ export const attestationsCommand = new Command('attestations')
       .argument('<version>', 'Application version')
       .action(async (pubkey, name, version, options, command) => {
         const globalOpts = command.parent?.parent?.opts();
-        const client = new SSAppRegistryClient({
+        const client = new CalimeroRegistryClient({
           baseURL: globalOpts?.url || 'http://localhost:8082',
           timeout: parseInt(globalOpts?.timeout || '10000'),
         });

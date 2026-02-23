@@ -1,6 +1,6 @@
-# Calimero SSApp Registry V1 - Deployment Guide
+# Calimero Registry V1 - Deployment Guide
 
-This guide covers deploying the Calimero SSApp Registry V1 API using Docker and Docker Compose.
+This guide covers deploying the Calimero Registry V1 API using Docker and Docker Compose.
 
 ## 🐳 Docker Deployment
 

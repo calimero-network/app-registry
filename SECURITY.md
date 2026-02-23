@@ -29,7 +29,7 @@ We take security seriously. If you discover a security vulnerability, please fol
 
 ## Security Configuration Guide
 
-This document also outlines the security measures and configuration options for the SSApp Registry.
+This document also outlines the security measures and configuration options for the Calimero Registry.
 
 ## 🔐 **Security Features**
 

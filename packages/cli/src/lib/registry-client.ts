@@ -1,4 +1,4 @@
-import { SSAppRegistryClient } from '@calimero-network/registry-client';
+import { CalimeroRegistryClient } from '@calimero-network/registry-client';
 import { LocalConfig } from './local-config.js';
 import {
   LocalDataStore,
@@ -21,10 +21,10 @@ export interface RegistryClient {
 }
 
 export class RemoteRegistryClient implements RegistryClient {
-  private client: SSAppRegistryClient;
+  private client: CalimeroRegistryClient;
 
   constructor(baseURL: string, timeout: number) {
-    this.client = new SSAppRegistryClient({
+    this.client = new CalimeroRegistryClient({
       baseURL,
       timeout,
     });

@@ -1,4 +1,4 @@
-# Multi-stage build for Calimero SSApp Registry V1 API
+# Multi-stage build for Calimero Registry V1 API
 FROM node:18-alpine AS base
 
 # Install pnpm

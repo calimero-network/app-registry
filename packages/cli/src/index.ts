@@ -1,5 +1,6 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
+import { createRequire } from 'module';
 import { appsCommand } from './commands/apps.js';
 import { developersCommand } from './commands/developers.js';
 import { attestationsCommand } from './commands/attestations.js';
@@ -9,6 +10,9 @@ import { localCommand } from './commands/local.js';
 import { bundleCommand } from './commands/bundle.js';
 import { configCommand } from './commands/config.js';
 
+const require = createRequire(import.meta.url);
+const { version } = require('../package.json');
+
 const program = new Command();
 
 program
@@ -16,7 +20,7 @@ program
   .description(
     'Calimero Network App Registry CLI - Command-line interface for the App Registry'
   )
-  .version('1.0.0');
+  .version(version);
 
 // Global help text with examples
 program.addHelpText(

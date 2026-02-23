@@ -28,6 +28,15 @@ This guide covers the complete workflow for publishing Calimero Network applicat
    pnpm --filter registry-cli build
    ```
 
+## Package ownership
+
+Only the **package owner** can create or update a package. Ownership is:
+
+- The **signer** of the manifest (the key that produced the Ed25519 signature), or
+- Any public key listed in **`manifest.owners`** (array of base58 strings).
+
+Any other key receives **403** with `{ "error": "not_owner", "message": "..." }`. To work as a team, add teammates’ public keys to `manifest.owners`; each member signs with their own key when pushing. See the main [README](./README.md#package-ownership-and-multi-author-publishing) and [Organizations design](./docs/ORGANIZATIONS_DESIGN.md) for details.
+
 ## Manifest V2 Format
 
 Applications use the Manifest V2 format:

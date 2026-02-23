@@ -7,7 +7,7 @@ import fs from 'fs';
 import path from 'path';
 
 export const appsCommand = new Command('apps')
-  .description('Manage SSApp applications')
+  .description('Manage self-sovereign applications')
   .addCommand(
     new Command('list')
       .description('List all applications')

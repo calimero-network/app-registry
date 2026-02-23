@@ -1,6 +1,6 @@
-# Contributing to SSApp Registry
+# Contributing to Calimero Registry
 
-Thank you for your interest in contributing to the SSApp Registry! This document provides comprehensive guidelines for contributing to this project.
+Thank you for your interest in contributing to the Calimero Registry! This document provides comprehensive guidelines for contributing to this project.
 
 ## Table of Contents
 
@@ -428,4 +428,4 @@ For security issues:
 
 ---
 
-Thank you for contributing to the SSApp Registry! Your contributions help make this project better for everyone.
+Thank you for contributing to the Calimero Registry! Your contributions help make this project better for everyone.

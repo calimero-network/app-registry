@@ -10,6 +10,7 @@ const {
 const {
   verifyManifest,
   getPublicKeyFromManifest,
+  isAllowedOwner,
   normalizeSignature,
 } = require('../../../packages/backend/src/lib/verify');
 
@@ -74,7 +75,7 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // Ownership: same package must be published by the same key
+    // Ownership: same package must be published by the same key or by a key in owners[]
     const incomingKey = getPublicKeyFromManifest(bundleManifest);
     const versions = await store.getBundleVersions(bundleManifest.package);
     if (versions.length > 0) {
@@ -82,8 +83,7 @@ module.exports = async function handler(req, res) {
         bundleManifest.package,
         versions[0]
       );
-      const ownerKey = getPublicKeyFromManifest(existingManifest);
-      if (ownerKey != null && incomingKey != null && ownerKey !== incomingKey) {
+      if (!isAllowedOwner(existingManifest, incomingKey)) {
         return res.status(403).json({
           error: 'not_owner',
           message:

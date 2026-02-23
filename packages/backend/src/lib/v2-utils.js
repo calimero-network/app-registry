@@ -88,11 +88,23 @@ function validateBundleManifest(manifest) {
     ) {
       errors.push('Missing or invalid metadata.description');
     }
+    // author is optional (may be omitted or empty string for edit/delete author)
     if (
-      !manifest.metadata.author ||
+      manifest.metadata.author !== undefined &&
       typeof manifest.metadata.author !== 'string'
     ) {
-      errors.push('Missing or invalid metadata.author');
+      errors.push('metadata.author must be a string when present');
+    }
+  }
+
+  if (manifest.owners !== undefined) {
+    if (!Array.isArray(manifest.owners)) {
+      errors.push('owners must be an array when present');
+    } else {
+      const bad = manifest.owners.some(
+        k => typeof k !== 'string' || k.trim() === ''
+      );
+      if (bad) errors.push('owners must be an array of non-empty strings');
     }
   }
 

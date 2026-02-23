@@ -242,7 +242,7 @@ export interface ApiError {
 }
 
 /**
- * Configuration options for the SSApp Registry client.
+ * Configuration options for the Calimero Registry client.
  *
  * @example
  * ```typescript

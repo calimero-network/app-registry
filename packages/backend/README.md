@@ -1,6 +1,6 @@
-# SSApp Registry Backend
+# Calimero Registry Backend
 
-A high-performance Fastify-based API server for the SSApp (Smart Contract Application) Registry, featuring JCS canonicalization, Ed25519 signature verification, and IPFS integration.
+A high-performance Fastify-based API server for the Calimero Registry (self-sovereign application registry), featuring JCS canonicalization, Ed25519 signature verification, and IPFS integration.
 
 ## 🚀 Features
 
@@ -70,7 +70,7 @@ packages/backend/
 │   ├── lib/
 │   │   └── verify.js       # JCS + Ed25519 verification
 │   ├── schemas/            # JSON schemas for validation
-│   │   └── manifest.js     # SSApp manifest schema
+│   │   └── manifest.js     # self-sovereign application manifest schema
 │   └── routes/             # API endpoints
 │       ├── apps.js         # Application management
 │       ├── developers.js   # Developer management
@@ -93,14 +93,14 @@ packages/backend/
 
 #### 2. **API Routes**
 
-- **Applications**: CRUD operations for SSApp manifests
+- **Applications**: CRUD operations for self-sovereign application manifests
 - **Developers**: Developer registration and management
 - **Attestations**: Attestation creation and verification
 - **Health**: System health monitoring
 
 #### 3. **JSON Schemas**
 
-- **Manifest Schema**: SSApp manifest validation
+- **Manifest Schema**: self-sovereign application manifest validation
 - **Request/Response Schemas**: API input/output validation
 
 ## 📚 API Documentation
