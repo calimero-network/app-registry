@@ -13,12 +13,14 @@ const {
   addOrgMember,
   removeOrgMember,
   getOrgMemberRole,
+  updateOrgMemberRole,
   isOrgAdmin,
   getOrgsByMember,
   getPkg2Org,
   setPkg2Org,
   deletePkg2Org,
   getPackagesByOrg,
+  deleteOrg,
 } = require('../lib/org-storage');
 const { verifySignature, validatePublicKey } = require('../lib/verify');
 
@@ -190,6 +192,22 @@ async function orgRoutes(server) {
     return reply.send(updated);
   });
 
+  // DELETE /api/v2/orgs/:orgId — delete org and all its data (admin only)
+  server.delete('/api/v2/orgs/:orgId', async (request, reply) => {
+    const { orgId } = request.params;
+    const org = await getOrg(orgId);
+    if (!org) {
+      return reply.code(404).send({
+        error: 'not_found',
+        message: 'Organization not found',
+      });
+    }
+    await requireOrgAdmin(request, reply, orgId);
+    if (reply.sent) return;
+    await deleteOrg(orgId);
+    return reply.code(204).send();
+  });
+
   // POST /api/v2/orgs/:orgId/members — add member (admin only)
   server.post('/api/v2/orgs/:orgId/members', async (request, reply) => {
     const { orgId } = request.params;
@@ -220,6 +238,51 @@ async function orgRoutes(server) {
     return reply.code(204).send();
   });
 
+  // PATCH /api/v2/orgs/:orgId/members/:pubkey — update member role (admin only)
+  server.patch(
+    '/api/v2/orgs/:orgId/members/:pubkey',
+    async (request, reply) => {
+      const { orgId, pubkey } = request.params;
+      const org = await getOrg(orgId);
+      if (!org) {
+        return reply.code(404).send({
+          error: 'not_found',
+          message: 'Organization not found',
+        });
+      }
+      await requireOrgAdmin(request, reply, orgId);
+      if (reply.sent) return;
+      const { role } = request.body || {};
+      if (role !== 'admin' && role !== 'member') {
+        return reply.code(400).send({
+          error: 'bad_request',
+          message: 'role must be "admin" or "member"',
+        });
+      }
+      // Guard: cannot demote the last admin
+      if (role === 'member') {
+        const currentRole = await getOrgMemberRole(orgId, pubkey);
+        if (currentRole === 'admin') {
+          const allMembers = await getOrgMembers(orgId);
+          let adminCount = 0;
+          for (const pk of allMembers) {
+            const r = await getOrgMemberRole(orgId, pk);
+            if (r === 'admin') adminCount++;
+          }
+          if (adminCount <= 1) {
+            return reply.code(409).send({
+              error: 'last_admin',
+              message:
+                'Cannot demote the last admin. Promote another member to admin first.',
+            });
+          }
+        }
+      }
+      await updateOrgMemberRole(orgId, pubkey, role);
+      return reply.code(204).send();
+    }
+  );
+
   // DELETE /api/v2/orgs/:orgId/members/:pubkey — remove member (admin only)
   server.delete(
     '/api/v2/orgs/:orgId/members/:pubkey',
@@ -234,6 +297,23 @@ async function orgRoutes(server) {
       }
       await requireOrgAdmin(request, reply, orgId);
       if (reply.sent) return;
+      // Guard: cannot remove the last admin — org would become unmanageable
+      const targetRole = await getOrgMemberRole(orgId, pubkey);
+      if (targetRole === 'admin') {
+        const allMembers = await getOrgMembers(orgId);
+        let adminCount = 0;
+        for (const pk of allMembers) {
+          const role = await getOrgMemberRole(orgId, pk);
+          if (role === 'admin') adminCount++;
+        }
+        if (adminCount <= 1) {
+          return reply.code(409).send({
+            error: 'last_admin',
+            message:
+              'Cannot remove the last admin. Promote another member to admin first.',
+          });
+        }
+      }
       await removeOrgMember(orgId, pubkey);
       return reply.code(204).send();
     }

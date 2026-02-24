@@ -44,7 +44,7 @@ export interface KeypairLoadOptions {
 
 /**
  * Load Ed25519 keypair from env CALIMERO_REGISTRY_KEYPAIR (base58 64 bytes) or from file (JSON array of 64 numbers).
- * Returns { publicKey: 32 bytes, secretKey: 32 bytes } for @noble/ed25519 (secretKey = first 32 bytes of Solana keypair).
+ * Returns { publicKey: 32 bytes, secretKey: 32 bytes } for @noble/ed25519 (secretKey = first 32 bytes of keypair).
  */
 export function loadKeypair(options?: KeypairLoadOptions): {
   publicKey: Uint8Array;
@@ -61,7 +61,7 @@ export function loadKeypair(options?: KeypairLoadOptions): {
     const arr = JSON.parse(raw) as number[];
     if (!Array.isArray(arr) || arr.length !== 64) {
       throw new Error(
-        'Keypair file must be a JSON array of 64 numbers (Solana keypair)'
+        'Keypair file must be a JSON array of 64 numbers (Ed25519 keypair)'
       );
     }
     bytes = new Uint8Array(arr);
@@ -69,7 +69,7 @@ export function loadKeypair(options?: KeypairLoadOptions): {
     const env = process.env[ENV_KEYPAIR];
     if (!env || typeof env !== 'string' || !env.trim()) {
       throw new Error(
-        `Missing keypair: set ${ENV_KEYPAIR} (base58 64-byte Solana keypair) or use --keypair <path>`
+        `Missing keypair: set ${ENV_KEYPAIR} (base58 64-byte keypair) or use --keypair <path>`
       );
     }
     const decoded = bs58.decode(env.trim());
@@ -125,8 +125,16 @@ export async function getSignedHeaders(
 }
 
 /**
- * Encode 32-byte public key to base58 (for display or ?member= in GET /orgs).
+ * Encode 32-byte public key to base58 (for display).
  */
 export function publicKeyToBase58(publicKey: Uint8Array): string {
   return bs58.encode(publicKey);
+}
+
+/**
+ * Encode 32-byte public key to base64url (matches X-Pubkey header format used in signed requests,
+ * and is how pubkeys are stored in Redis — use this for ?member= queries).
+ */
+export function publicKeyToBase64url(publicKey: Uint8Array): string {
+  return base64urlEncode(publicKey);
 }

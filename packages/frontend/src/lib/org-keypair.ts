@@ -1,0 +1,139 @@
+/**
+ * Ed25519 keypair for org write API (signed requests).
+ * Randomly generated, stored in localStorage; not Solana or blockchain-related.
+ */
+
+import * as ed25519 from '@noble/ed25519';
+import canonicalize from 'canonicalize';
+
+const STORAGE_KEY = 'calimero_registry_org_keypair';
+
+function base64urlEncode(bytes: Uint8Array): string {
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  const base64 = typeof btoa !== 'undefined' ? btoa(binary) : Buffer.from(bytes).toString('base64');
+  return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function base64urlDecode(str: string): Uint8Array {
+  const base64 = str.replace(/-/g, '+').replace(/_/g, '/');
+  const pad = base64.length % 4;
+  const padded = pad === 0 ? base64 : base64 + '='.repeat(4 - pad);
+  if (typeof atob !== 'undefined') {
+    const binary = atob(padded);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return bytes;
+  }
+  return new Uint8Array(Buffer.from(padded, 'base64'));
+}
+
+export interface OrgKeypair {
+  publicKey: Uint8Array;
+  secretKey: Uint8Array;
+}
+
+/** Generate a new random Ed25519 keypair and optionally store it. */
+export async function generateKeypair(store = true): Promise<OrgKeypair> {
+  const secretKey = crypto.getRandomValues(new Uint8Array(32));
+  const publicKey = await ed25519.getPublicKeyAsync(secretKey);
+  const keypair: OrgKeypair = { publicKey, secretKey };
+  if (store) {
+    try {
+      localStorage.setItem(STORAGE_KEY, base64urlEncode(secretKey));
+    } catch {
+      // localStorage full or private mode
+    }
+  }
+  return keypair;
+}
+
+/** Load keypair from localStorage. Returns null if none stored. */
+export async function getStoredKeypair(): Promise<OrgKeypair | null> {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (!stored) return null;
+    const secretKey = base64urlDecode(stored);
+    if (secretKey.length !== 32) return null;
+    const publicKey = await ed25519.getPublicKeyAsync(secretKey);
+    return { publicKey, secretKey };
+  } catch {
+    return null;
+  }
+}
+
+/** Remove stored keypair. */
+export function clearStoredKeypair(): void {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // ignore
+  }
+}
+
+/**
+ * Store an existing secret key (base64url-encoded 32 bytes) as the active keypair.
+ * Returns the resulting keypair, or null if the input is invalid.
+ */
+export async function importSecretKey(
+  secretKeyBase64url: string
+): Promise<OrgKeypair | null> {
+  try {
+    const secretKey = base64urlDecode(secretKeyBase64url.trim());
+    if (secretKey.length !== 32) return null;
+    const publicKey = await ed25519.getPublicKeyAsync(secretKey);
+    localStorage.setItem(STORAGE_KEY, base64urlEncode(secretKey));
+    return { publicKey, secretKey };
+  } catch {
+    return null;
+  }
+}
+
+/** Return the raw secret key as base64url for backup/export. Returns null if no keypair stored. */
+export function exportSecretKeyBase64url(): string | null {
+  try {
+    return localStorage.getItem(STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+/** Encode 32-byte public key as base64url (for X-Pubkey and ?member=). */
+export function publicKeyToBase64url(publicKey: Uint8Array): string {
+  return base64urlEncode(publicKey);
+}
+
+/**
+ * Build the payload string the backend expects: method + "\n" + pathname + "\n" + canonicalize(body).
+ */
+export function buildSignedPayload(
+  method: string,
+  pathname: string,
+  body: Record<string, unknown> | null | undefined
+): string {
+  const bodyObj = body != null && typeof body === 'object' ? body : {};
+  const bodyStr =
+    Object.keys(bodyObj).length > 0 ? (canonicalize(bodyObj) as string) : '';
+  return `${method}\n${pathname}\n${bodyStr}`;
+}
+
+/**
+ * Get X-Pubkey and X-Signature headers for a signed request.
+ * pathname must not include query string (e.g. /api/v2/orgs).
+ */
+export async function getSignedHeaders(
+  method: string,
+  pathname: string,
+  body: Record<string, unknown> | null | undefined,
+  keypair: OrgKeypair
+): Promise<{ 'X-Pubkey': string; 'X-Signature': string }> {
+  const payload = buildSignedPayload(method, pathname, body);
+  const message = new TextEncoder().encode(payload);
+  const signature = await ed25519.signAsync(message, keypair.secretKey);
+  return {
+    'X-Pubkey': base64urlEncode(keypair.publicKey),
+    'X-Signature': base64urlEncode(signature),
+  };
+}

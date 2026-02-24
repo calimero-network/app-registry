@@ -10,9 +10,10 @@ import {
   loadKeypair,
   getSignedHeaders,
   publicKeyToBase58,
+  publicKeyToBase64url,
 } from '../lib/signed-request.js';
 
-const DEFAULT_URL = 'http://localhost:8082';
+const DEFAULT_URL = 'http://localhost:8080';
 const DEFAULT_TIMEOUT = 10000;
 
 function getGlobalOpts(command: Command): {
@@ -57,7 +58,7 @@ export const orgCommand = new Command('org')
   .description('Manage organizations (create, list, members, packages)')
   .option(
     '-k, --keypair <path>',
-    'Path to Solana keypair JSON (64 bytes). Overrides CALIMERO_REGISTRY_KEYPAIR.'
+    'Path to Ed25519 keypair JSON (64 bytes). Overrides CALIMERO_REGISTRY_KEYPAIR.'
   )
   .addCommand(
     new Command('list')
@@ -69,7 +70,7 @@ export const orgCommand = new Command('org')
         let pubkey: string;
         try {
           const kp = loadKeypair({ keypairPath });
-          pubkey = publicKeyToBase58(kp.publicKey);
+          pubkey = publicKeyToBase64url(kp.publicKey);
           spinner.text = 'Fetching organizations...';
         } catch (e) {
           spinner.fail('Keypair required');
@@ -88,16 +89,32 @@ export const orgCommand = new Command('org')
             console.error(chalk.red(JSON.stringify(data)));
             process.exit(1);
           }
-          spinner.succeed(`Found ${(data ?? []).length} organization(s)`);
-          if (!Array.isArray(data) || data.length === 0) {
+          const orgs = Array.isArray(data) ? data as Array<{ id: string; name: string; slug: string }> : [];
+          spinner.succeed(`Found ${orgs.length} organization(s)`);
+          if (orgs.length === 0) {
             console.log(chalk.yellow('No organizations found'));
             return;
           }
-          console.log(
-            (data as Array<{ id: string; name: string; slug: string }>)
-              .map((o) => `${o.slug} (${o.name})`)
-              .join('\n')
+          // Fetch members for each org in parallel to show count + role
+          const memberResults = await Promise.all(
+            orgs.map(o =>
+              fetchJson<{ members: Array<{ pubkey: string; role: string }> }>(
+                `${base}/api/v2/orgs/${encodeURIComponent(o.id)}/members`,
+                { method: 'GET', timeout }
+              ).catch(() => ({ data: { members: [] }, status: 0 }))
+            )
           );
+          const lines = orgs.map((o, i) => {
+            const members = memberResults[i].data?.members ?? [];
+            const myMember = members.find(m => m.pubkey === pubkey);
+            const role = myMember?.role ?? '?';
+            const count = members.length;
+            const roleLabel = role === 'admin'
+              ? chalk.yellow('admin')
+              : chalk.gray(role);
+            return `${chalk.white(o.slug)}  ${chalk.gray(o.name)}  ${chalk.gray(`${count} member${count !== 1 ? 's' : ''}`)}  ${roleLabel}`;
+          });
+          console.log(lines.join('\n'));
         } catch (e) {
           spinner.fail('Request failed');
           console.error(chalk.red(e instanceof Error ? e.message : String(e)));
@@ -225,6 +242,52 @@ export const orgCommand = new Command('org')
       })
   )
   .addCommand(
+    new Command('delete')
+      .description('Delete an organization and all its data (irreversible)')
+      .argument('<orgId>', 'Organization id or slug')
+      .option('-y, --yes', 'Skip confirmation prompt')
+      .action(async (orgId: string, options: { yes?: boolean }, command: Command) => {
+        const { url, timeout } = getGlobalOpts(command);
+        const keypairPath = getKeypairPath(command);
+        if (!options.yes) {
+          const { createInterface } = await import('readline');
+          const rl = createInterface({ input: process.stdin, output: process.stdout });
+          const confirmed = await new Promise<boolean>(resolve => {
+            rl.question(
+              chalk.yellow(`Delete organization "${orgId}" and all its members/packages? This cannot be undone. Type "yes" to confirm: `),
+              answer => { rl.close(); resolve(answer.trim().toLowerCase() === 'yes'); }
+            );
+          });
+          if (!confirmed) {
+            console.log(chalk.gray('Aborted.'));
+            return;
+          }
+        }
+        const spinner = ora('Deleting organization...').start();
+        try {
+          const kp = loadKeypair({ keypairPath });
+          const pathname = `/api/v2/orgs/${encodeURIComponent(orgId)}`;
+          const headers = await getSignedHeaders('DELETE', pathname, undefined, kp);
+          const base = url.replace(/\/$/, '');
+          const { data, status } = await fetchJson(`${base}${pathname}`, {
+            method: 'DELETE',
+            timeout,
+            headers: { ...headers },
+          });
+          if (status >= 400) {
+            spinner.fail((data as { message?: string })?.message || `HTTP ${status}`);
+            console.error(chalk.red(JSON.stringify(data)));
+            process.exit(1);
+          }
+          spinner.succeed('Organization deleted');
+        } catch (e) {
+          spinner.fail('Failed');
+          console.error(chalk.red(e instanceof Error ? e.message : String(e)));
+          process.exit(1);
+        }
+      })
+  )
+  .addCommand(
     new Command('members')
       .description('List, add, or remove organization members')
       .argument('<orgId>', 'Organization id or slug')
@@ -288,6 +351,42 @@ export const orgCommand = new Command('org')
                 process.exit(1);
               }
               spinner.succeed('Member added');
+            } catch (e) {
+              spinner.fail('Failed');
+              console.error(chalk.red(e instanceof Error ? e.message : String(e)));
+              process.exit(1);
+            }
+          })
+      )
+      .addCommand(
+        new Command('update')
+          .description('Update a member role (admin or member)')
+          .argument('<pubkey>', 'Member public key')
+          .requiredOption('-r, --role <role>', 'New role: admin or member')
+          .action(async (pubkey: string, options: { role: string }, command: Command) => {
+            const orgId = (command.parent as Command).args[0] as string;
+            const { url, timeout } = getGlobalOpts(command);
+            const keypairPath = getKeypairPath(command);
+            const role = options.role === 'admin' ? 'admin' : 'member';
+            const spinner = ora('Updating member role...').start();
+            try {
+              const kp = loadKeypair({ keypairPath });
+              const pathname = `/api/v2/orgs/${encodeURIComponent(orgId)}/members/${encodeURIComponent(pubkey.trim())}`;
+              const body = { role };
+              const headers = await getSignedHeaders('PATCH', pathname, body, kp);
+              const base = url.replace(/\/$/, '');
+              const { data, status } = await fetchJson(`${base}${pathname}`, {
+                method: 'PATCH',
+                body: JSON.stringify(body),
+                timeout,
+                headers: { ...headers },
+              });
+              if (status >= 400) {
+                spinner.fail((data as { message?: string })?.message || `HTTP ${status}`);
+                console.error(chalk.red(JSON.stringify(data)));
+                process.exit(1);
+              }
+              spinner.succeed(`Role updated to "${role}"`);
             } catch (e) {
               spinner.fail('Failed');
               console.error(chalk.red(e instanceof Error ? e.message : String(e)));

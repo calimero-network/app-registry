@@ -131,6 +131,18 @@ async function getOrgMemberRole(orgId, pubkey) {
 }
 
 /**
+ * Update a member's role without touching their membership.
+ * @param {string} orgId
+ * @param {string} pubkey
+ * @param {string} role 'admin' | 'member'
+ */
+async function updateOrgMemberRole(orgId, pubkey, role) {
+  if (!orgId || !pubkey || !role) throw new Error('orgId, pubkey and role required');
+  const rolesKey = ORG_PREFIX + orgId + ROLES_SUFFIX;
+  await kv.hSet(rolesKey, { [pubkey]: role });
+}
+
+/**
  * @param {string} orgId
  * @param {string} pubkey
  * @returns {Promise<boolean>} true if pubkey is admin of org
@@ -210,6 +222,41 @@ async function getOrgsByMember(pubkey) {
 }
 
 /**
+ * Delete an org and clean up all associated Redis keys.
+ * Removes: org document, slug mapping, member sets/roles, package links, and reverse indexes.
+ * @param {string} orgId
+ */
+async function deleteOrg(orgId) {
+  if (!orgId) return;
+
+  // Load org to get slug for by_slug cleanup
+  const org = await getOrg(orgId);
+
+  // Remove all member reverse indexes
+  const members = await getOrgMembers(orgId);
+  for (const pk of members) {
+    await kv.sRem(MEMBER2ORGS_PREFIX + pk, orgId);
+  }
+
+  // Remove all package reverse indexes
+  const packages = await getPackagesByOrg(orgId);
+  for (const pkg of packages) {
+    await kv.del(PKG2ORG_PREFIX + pkg);
+  }
+
+  // Delete org data keys
+  await kv.del(ORG_PREFIX + orgId + MEMBERS_SUFFIX);
+  await kv.del(ORG_PREFIX + orgId + ROLES_SUFFIX);
+  await kv.del(ORG_PREFIX + orgId + ORG_PACKAGES_SUFFIX);
+  await kv.del(ORG_PREFIX + orgId);
+
+  // Delete slug mapping
+  if (org?.slug) {
+    await kv.del(ORG_BY_SLUG_PREFIX + org.slug);
+  }
+}
+
+/**
  * Check if incomingKey can publish to package: either owner (existing rule) or org member when package is linked to org.
  * @param {object} existingManifest - current bundle manifest (for owner check)
  * @param {string} incomingKey - pubkey from request
@@ -234,6 +281,7 @@ module.exports = {
   addOrgMember,
   removeOrgMember,
   getOrgMemberRole,
+  updateOrgMemberRole,
   isOrgAdmin,
   getOrgIdsByMember,
   getOrgsByMember,
@@ -241,5 +289,6 @@ module.exports = {
   setPkg2Org,
   deletePkg2Org,
   getPackagesByOrg,
+  deleteOrg,
   isAllowedToPublish,
 };
