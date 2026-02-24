@@ -5,6 +5,9 @@ import type {
   AppManifest,
   DeveloperProfile,
   Attestation,
+  Org,
+  OrgMember,
+  OrgPackageList,
 } from '@/types/api';
 
 export const api = axios.create({
@@ -214,5 +217,48 @@ export const pushBundleFile = async (
   return {
     package: response.data.package,
     version: response.data.version,
+  };
+};
+
+// ——— Organizations (V2 org API) ———
+
+/** List orgs the given member (pubkey) belongs to. */
+export const getOrgsByMember = async (
+  memberPubkey: string
+): Promise<Org[]> => {
+  if (!memberPubkey?.trim()) return [];
+  const response = await api.get<Org[]>('/v2/orgs', {
+    params: { member: memberPubkey.trim() },
+  });
+  return Array.isArray(response.data) ? response.data : [];
+};
+
+/** Get a single org by id. */
+export const getOrg = async (orgId: string): Promise<Org | null> => {
+  const response = await api.get<Org>(`/v2/orgs/${encodeURIComponent(orgId)}`);
+  return response.data ?? null;
+};
+
+/** List members of an org. */
+export const getOrgMembers = async (
+  orgId: string
+): Promise<{ members: OrgMember[] }> => {
+  const response = await api.get<{ members: OrgMember[] }>(
+    `/v2/orgs/${encodeURIComponent(orgId)}/members`
+  );
+  return {
+    members: Array.isArray(response.data?.members) ? response.data.members : [],
+  };
+};
+
+/** List packages linked to an org. */
+export const getOrgPackages = async (
+  orgId: string
+): Promise<OrgPackageList> => {
+  const response = await api.get<OrgPackageList>(
+    `/v2/orgs/${encodeURIComponent(orgId)}/packages`
+  );
+  return {
+    packages: Array.isArray(response.data?.packages) ? response.data.packages : [],
   };
 };

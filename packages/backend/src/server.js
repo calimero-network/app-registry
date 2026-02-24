@@ -18,9 +18,9 @@ const { BundleStorageKV } = require('./lib/bundle-storage-kv');
 const {
   verifyManifest,
   getPublicKeyFromManifest,
-  isAllowedOwner,
   normalizeSignature,
 } = require('./lib/verify');
+const { isAllowedToPublish } = require('./lib/org-storage');
 const { verifySessionToken } = require('./lib/auth');
 
 async function buildServer() {
@@ -45,8 +45,13 @@ async function buildServer() {
       'http://localhost:5173', // Vite dev server
     ],
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'X-Pubkey',
+      'X-Signature',
+    ],
   });
 
   await server.register(multipart, {
@@ -72,6 +77,9 @@ async function buildServer() {
 
   // Auth routes (Google OAuth, session cookie, /api/auth/me, /api/auth/logout)
   await server.register(require('./routes/auth-routes'), { config });
+
+  // Org routes (NPM-style organizations: CRUD orgs, members, package link)
+  await server.register(require('./routes/org-routes'));
 
   // Health endpoint
   const healthHandler = async (_request, _reply) => {
@@ -447,13 +455,18 @@ async function buildServer() {
         bundleManifest.package,
         versions[0]
       );
-      if (!isAllowedOwner(existingManifest, incomingKey)) {
+      const allowed = await isAllowedToPublish(
+        existingManifest,
+        incomingKey,
+        bundleManifest.package
+      );
+      if (!allowed) {
         throw {
           statusCode: 403,
           body: {
             error: 'not_owner',
             message:
-              'Only the package owner (signer or a key in manifest.owners) can publish new versions.',
+              'Only the package owner (signer or a key in manifest.owners) or an organization member can publish new versions.',
           },
         };
       }

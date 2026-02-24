@@ -9,6 +9,7 @@ import { ipfsCommand } from './commands/ipfs.js';
 import { localCommand } from './commands/local.js';
 import { bundleCommand } from './commands/bundle.js';
 import { configCommand } from './commands/config.js';
+import { orgCommand } from './commands/org.js';
 
 const require = createRequire(import.meta.url);
 const { version } = require('../package.json');
@@ -54,6 +55,7 @@ program.addCommand(ipfsCommand);
 program.addCommand(localCommand);
 program.addCommand(bundleCommand);
 program.addCommand(configCommand);
+program.addCommand(orgCommand);
 
 // Global error handler
 program.exitOverride();

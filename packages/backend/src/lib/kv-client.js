@@ -79,6 +79,11 @@ if (isProduction && process.env.REDIS_URL) {
       return await redisClient.hGet(key, field);
     },
 
+    async hDel(key, ...fields) {
+      await this._ensureConnected();
+      return await redisClient.hDel(key, ...fields);
+    },
+
     // Set operations
     async sAdd(key, ...members) {
       await this._ensureConnected();
@@ -154,6 +159,19 @@ if (isProduction && process.env.REDIS_URL) {
     async hGet(key, field) {
       const data = mockHashes.get(key);
       return data ? data[field] : null;
+    },
+
+    async hDel(key, ...fields) {
+      const data = mockHashes.get(key);
+      if (!data) return 0;
+      let removed = 0;
+      fields.forEach(f => {
+        if (data[f] !== undefined) {
+          delete data[f];
+          removed++;
+        }
+      });
+      return removed;
     },
 
     // Set operations
