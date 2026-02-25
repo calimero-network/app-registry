@@ -277,6 +277,10 @@ async function buildServer() {
     return reply.code(200).send();
   });
 
+  server.options('/api/v2/bundles/:package', async (request, reply) => {
+    return reply.code(200).send();
+  });
+
   server.options(
     '/api/v2/bundles/:package/:version',
     async (request, reply) => {
@@ -304,7 +308,9 @@ async function buildServer() {
       // Get all bundle packages
       const allPackages = await bundleStorage.getAllBundles();
 
-      // Fetch all bundles with their latest versions
+      // Fetch bundles. When a specific package is requested, return all its
+      // versions (for version history). Otherwise return only the latest
+      // version per package (for the browse/list views).
       const bundles = [];
       for (const packageName of allPackages) {
         // Filter by package if specified
@@ -317,34 +323,37 @@ async function buildServer() {
           continue;
         }
 
-        // Get latest version (first in sorted descending list)
-        const latestVersion = versions[0];
-        const bundle = await bundleStorage.getBundleManifest(
-          packageName,
-          latestVersion
-        );
+        // When querying a specific package return all versions; otherwise latest only
+        const versionList = pkg ? versions : [versions[0]];
 
-        if (!bundle) {
-          continue;
-        }
+        for (const ver of versionList) {
+          const bundle = await bundleStorage.getBundleManifest(
+            packageName,
+            ver
+          );
 
-        // Filter by developer pubkey if specified
-        if (developer) {
-          const bundlePubkey = bundle.signature?.pubkey;
-          if (!bundlePubkey || bundlePubkey !== developer) {
+          if (!bundle) {
             continue;
           }
-        }
 
-        // Filter by metadata.author (e.g. for "My packages" by email)
-        if (author) {
-          const bundleAuthor = bundle.metadata?.author;
-          if (!bundleAuthor || bundleAuthor !== author) {
-            continue;
+          // Filter by developer pubkey if specified
+          if (developer) {
+            const bundlePubkey = bundle.signature?.pubkey;
+            if (!bundlePubkey || bundlePubkey !== developer) {
+              continue;
+            }
           }
-        }
 
-        bundles.push(normalizeBundle(bundle));
+          // Filter by metadata.author (e.g. for "My packages" by email)
+          if (author) {
+            const bundleAuthor = bundle.metadata?.author;
+            if (!bundleAuthor || bundleAuthor !== author) {
+              continue;
+            }
+          }
+
+          bundles.push(normalizeBundle(bundle));
+        }
       }
 
       // Sort by package name
@@ -387,6 +396,184 @@ async function buildServer() {
       return reply.code(500).send({
         error: 'internal_server_error',
         message: error.message || 'Failed to get bundle',
+      });
+    }
+  });
+
+  // PATCH /api/v2/bundles/:package/:version - Update bundle metadata (name, description, links, etc.)
+  server.patch('/api/v2/bundles/:package/:version', async (request, reply) => {
+    try {
+      const { package: pkg, version } = request.params;
+
+      if (!pkg || !version) {
+        return reply.code(400).send({
+          error: 'invalid_request',
+          message: 'Package and version are required',
+        });
+      }
+
+      // 1. Confirm the bundle exists
+      const existing = await bundleStorage.getBundleManifest(pkg, version);
+      if (!existing) {
+        return reply.code(404).send({
+          error: 'bundle_not_found',
+          message: `Bundle ${pkg}@${version} not found`,
+        });
+      }
+
+      const incoming = request.body;
+      if (!incoming || typeof incoming !== 'object') {
+        return reply.code(400).send({
+          error: 'invalid_request',
+          message: 'Request body must be a JSON manifest object',
+        });
+      }
+
+      // 2. Verify that the incoming manifest is signed and signature is valid
+      const sig = normalizeSignature(incoming?.signature);
+      if (!sig) {
+        return reply.code(400).send({
+          error: 'missing_signature',
+          message:
+            'Missing signature. Edits must be signed (algorithm, publicKey, signature).',
+        });
+      }
+      try {
+        await verifyManifest(incoming);
+      } catch (err) {
+        return reply.code(400).send({
+          error: 'invalid_signature',
+          message: err.message || 'Signature verification failed',
+        });
+      }
+
+      // 3. Check ownership: the signer must be allowed to publish to this package
+      const incomingKey = getPublicKeyFromManifest(incoming);
+      const allowed = await isAllowedToPublish(existing, incomingKey, pkg);
+      if (!allowed) {
+        return reply.code(403).send({
+          error: 'not_owner',
+          message:
+            'Only the package owner or an organization member can edit bundle metadata.',
+        });
+      }
+
+      // 4. Merge: preserve immutable artifact fields from stored manifest,
+      //    update only mutable fields from the incoming manifest.
+      const updated = {
+        ...existing,
+        metadata: incoming.metadata ?? existing.metadata,
+        links: incoming.links ?? existing.links,
+        interfaces: incoming.interfaces ?? existing.interfaces,
+        signature: incoming.signature,
+      };
+
+      await bundleStorage.storeBundleManifest(updated, /* overwrite= */ true);
+
+      return reply.code(200).send({
+        package: updated.package,
+        version: updated.appVersion,
+      });
+    } catch (error) {
+      server.log.error('Error patching bundle:', error);
+      return reply.code(500).send({
+        error: 'internal_server_error',
+        message: error.message || 'Failed to update bundle',
+      });
+    }
+  });
+
+  // Helper: resolve session user from cookie
+  async function getSessionUser(request) {
+    const cookieName = config.auth?.cookieName || 'app_registry_session';
+    const sessionSecret = config.auth?.sessionSecret;
+    const token = request.cookies?.[cookieName];
+    if (!sessionSecret || !token) return null;
+    try {
+      return await verifySessionToken(token, sessionSecret);
+    } catch {
+      return null;
+    }
+  }
+
+  // DELETE /api/v2/bundles/:package/:version - Delete a specific version
+  server.delete('/api/v2/bundles/:package/:version', async (request, reply) => {
+    try {
+      const { package: pkg, version } = request.params;
+
+      const user = await getSessionUser(request);
+      if (!user?.email) {
+        return reply.code(401).send({
+          error: 'unauthorized',
+          message: 'Login required to delete bundles.',
+        });
+      }
+
+      const existing = await bundleStorage.getBundleManifest(pkg, version);
+      if (!existing) {
+        return reply.code(404).send({
+          error: 'bundle_not_found',
+          message: `Bundle ${pkg}@${version} not found`,
+        });
+      }
+
+      const author = existing.metadata?.author;
+      if (!author || author !== user.email) {
+        return reply.code(403).send({
+          error: 'not_owner',
+          message: 'Only the package author can delete this version.',
+        });
+      }
+
+      await bundleStorage.deleteBundleVersion(pkg, version);
+      return reply.code(200).send({ message: `Deleted ${pkg}@${version}` });
+    } catch (error) {
+      server.log.error('Error deleting bundle version:', error);
+      return reply.code(500).send({
+        error: 'internal_server_error',
+        message: error.message || 'Failed to delete bundle version',
+      });
+    }
+  });
+
+  // DELETE /api/v2/bundles/:package - Delete an entire package (all versions)
+  server.delete('/api/v2/bundles/:package', async (request, reply) => {
+    try {
+      const { package: pkg } = request.params;
+
+      const user = await getSessionUser(request);
+      if (!user?.email) {
+        return reply.code(401).send({
+          error: 'unauthorized',
+          message: 'Login required to delete packages.',
+        });
+      }
+
+      const versions = await bundleStorage.getBundleVersions(pkg);
+      if (versions.length === 0) {
+        return reply.code(404).send({
+          error: 'package_not_found',
+          message: `Package ${pkg} not found`,
+        });
+      }
+
+      // Check ownership from the latest version
+      const latest = await bundleStorage.getBundleManifest(pkg, versions[0]);
+      const author = latest?.metadata?.author;
+      if (!author || author !== user.email) {
+        return reply.code(403).send({
+          error: 'not_owner',
+          message: 'Only the package author can delete this package.',
+        });
+      }
+
+      await bundleStorage.deletePackage(pkg);
+      return reply.code(200).send({ message: `Deleted package ${pkg}` });
+    } catch (error) {
+      server.log.error('Error deleting package:', error);
+      return reply.code(500).send({
+        error: 'internal_server_error',
+        message: error.message || 'Failed to delete package',
       });
     }
   });

@@ -12,6 +12,7 @@ import type {
   DeveloperProfile,
   Attestation,
   Org,
+  OrgMetadata,
   OrgMember,
   OrgPackageList,
 } from '@/types/api';
@@ -211,6 +212,21 @@ export const getBundleManifestRaw = async (
   return response.data;
 };
 
+/** Delete a specific version of a package. Requires login as the package author. */
+export const deleteBundleVersion = async (
+  packageName: string,
+  version: string
+): Promise<void> => {
+  await api.delete(
+    `/v2/bundles/${encodeURIComponent(packageName)}/${encodeURIComponent(version)}`
+  );
+};
+
+/** Delete an entire package (all versions). Requires login as the package author. */
+export const deletePackage = async (packageName: string): Promise<void> => {
+  await api.delete(`/v2/bundles/${encodeURIComponent(packageName)}`);
+};
+
 /** Push a .mpk bundle file to the registry (multipart). Returns { package, version } on success. */
 export const pushBundleFile = async (
   file: File
@@ -235,6 +251,17 @@ export const getOrgsByMember = async (memberPubkey: string): Promise<Org[]> => {
     params: { member: memberPubkey.trim() },
   });
   return Array.isArray(response.data) ? response.data : [];
+};
+
+/** Get the org that owns a package (reverse lookup). Returns null if unlinked. */
+export const getOrgByPackage = async (
+  packageName: string
+): Promise<Org | null> => {
+  if (!packageName?.trim()) return null;
+  const response = await api.get<Org | null>('/v2/orgs', {
+    params: { package: packageName.trim() },
+  });
+  return response.data ?? null;
 };
 
 /** Get a single org by id. */
@@ -304,7 +331,7 @@ export const createOrg = async (name: string, slug: string): Promise<Org> => {
 /** Update org (signed, admin). */
 export const updateOrg = async (
   orgId: string,
-  updates: { name?: string; metadata?: Record<string, unknown> }
+  updates: { name?: string; metadata?: OrgMetadata }
 ): Promise<Org> => {
   const body = { ...updates };
   const headers = await withSignedHeaders(
@@ -383,6 +410,16 @@ export const unlinkOrgPackage = async (
     `/v2/orgs/${encodeURIComponent(orgId)}/packages/${encodeURIComponent(packageName)}`,
     { headers }
   );
+};
+
+/** Delete an org and all its data (signed, admin). */
+export const deleteOrg = async (orgId: string): Promise<void> => {
+  const headers = await withSignedHeaders(
+    'DELETE',
+    `/v2/orgs/${encodeURIComponent(orgId)}`,
+    null
+  );
+  await api.delete(`/v2/orgs/${encodeURIComponent(orgId)}`, { headers });
 };
 
 /**

@@ -21,7 +21,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Building2,
   ArrowRight,
-  Search,
   Info,
   Key,
   Plus,
@@ -45,7 +44,6 @@ function getApiErrorMessage(error: unknown): string {
 }
 
 export default function MyOrgsPage() {
-  const [pubkey, setPubkey] = useState('');
   const [hasKeypair, setHasKeypair] = useState<boolean | null>(null);
   const [hasPubkeyOnly, setHasPubkeyOnly] = useState(false);
   const [myPubkey, setMyPubkey] = useState<string | null>(null);
@@ -139,12 +137,10 @@ export default function MyOrgsPage() {
     createOrgMutation.mutate({ name: createName, slug: createSlug });
   };
 
-  const effectivePubkey = pubkey.trim() || myPubkey || '';
-
   const { data: orgs = [], isLoading } = useQuery({
-    queryKey: ['orgs-by-member', effectivePubkey],
-    queryFn: () => getOrgsByMember(effectivePubkey),
-    enabled: effectivePubkey.length > 0,
+    queryKey: ['orgs-by-member', myPubkey],
+    queryFn: () => getOrgsByMember(myPubkey || ''),
+    enabled: !!myPubkey,
   });
 
   return (
@@ -415,33 +411,16 @@ export default function MyOrgsPage() {
         </div>
       )}
 
-      {/* Pubkey input */}
-      <div className='rounded-xl border border-neutral-800 bg-neutral-900/40 p-6'>
-        <div className='flex items-center gap-2 mb-3'>
-          <Search className='w-4 h-4 text-brand-600' />
-          <h2 className='text-[14px] font-medium text-neutral-200'>
-            Look up organizations by member
-          </h2>
-        </div>
-        <input
-          type='text'
-          value={pubkey}
-          onChange={e => setPubkey(e.target.value)}
-          placeholder='e.g. 5ZWj7a1f8tWkjBESHKgrLmXshuXxqeY9c...'
-          className='w-full rounded-lg border border-neutral-700 bg-neutral-800/60 px-4 py-2.5 text-[13px] text-neutral-200 placeholder:text-neutral-500 focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600'
-        />
-      </div>
-
       {/* Org list */}
       <div>
         <h2 className='text-[14px] font-medium text-neutral-200 mb-3'>
           Organizations
         </h2>
-        {!effectivePubkey ? (
+        {!myPubkey ? (
           <div className='rounded-xl border border-neutral-800 bg-neutral-900/40 p-8 text-center'>
             <Building2 className='h-12 w-12 text-neutral-600 mx-auto mb-4' />
             <p className='text-neutral-400 text-sm'>
-              Enter a member public key above to see their organizations.
+              Set up your org identity above to see your organizations.
             </p>
           </div>
         ) : isLoading ? (

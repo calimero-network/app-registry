@@ -201,6 +201,54 @@ class BundleStorageKV {
     );
     return Promise.all(manifestPromises);
   }
+
+  /**
+   * Delete a specific version of a bundle package.
+   * Cleans up the manifest, binary, version index, interface indexes,
+   * and the global package list if no versions remain.
+   */
+  async deleteBundleVersion(pkg, version) {
+    const key = `${pkg}/${version}`;
+
+    // Read manifest before deletion so we can clean up interface indexes
+    const manifest = await this.getBundleManifest(pkg, version);
+
+    // Remove manifest and binary
+    await kv.del(`bundle:${key}`);
+    await kv.del(`binary:${key}`);
+
+    // Remove from version set
+    await kv.sRem(`bundle-versions:${pkg}`, version);
+
+    // Clean up interface indexes
+    if (manifest?.interfaces?.exports) {
+      for (const iface of manifest.interfaces.exports) {
+        if (typeof iface === 'string') await kv.sRem(`provides:${iface}`, key);
+      }
+    }
+    if (manifest?.interfaces?.uses) {
+      for (const iface of manifest.interfaces.uses) {
+        if (typeof iface === 'string') await kv.sRem(`uses:${iface}`, key);
+      }
+    }
+
+    // If no versions remain, remove package from global list and clean up version set
+    const remaining = await kv.sMembers(`bundle-versions:${pkg}`);
+    if (remaining.length === 0) {
+      await kv.del(`bundle-versions:${pkg}`);
+      await kv.sRem('bundles:all', pkg);
+    }
+  }
+
+  /**
+   * Delete all versions of a bundle package.
+   */
+  async deletePackage(pkg) {
+    const versions = await this.getBundleVersions(pkg);
+    for (const version of versions) {
+      await this.deleteBundleVersion(pkg, version);
+    }
+  }
 }
 
 module.exports = { BundleStorageKV };

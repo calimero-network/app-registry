@@ -37,7 +37,14 @@ function App() {
             </ProtectedRoute>
           }
         />
-        <Route path='/orgs' element={<MyOrgsPage />} />
+        <Route
+          path='/orgs'
+          element={
+            <ProtectedRoute>
+              <MyOrgsPage />
+            </ProtectedRoute>
+          }
+        />
         <Route path='/orgs/:orgId' element={<OrgDetailPage />} />
         <Route path='*' element={<NotFoundPage />} />
       </Routes>

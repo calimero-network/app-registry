@@ -6,9 +6,33 @@
 import * as ed25519 from '@noble/ed25519';
 import canonicalize from 'canonicalize';
 
-const STORAGE_KEY = 'calimero_registry_org_keypair';
-/** Stores a raw public key (base64url) for read-only identity (no signing capability). */
-const PUBKEY_STORAGE_KEY = 'calimero_registry_org_pubkey';
+const STORAGE_KEY_BASE = 'calimero_registry_org_keypair';
+const PUBKEY_STORAGE_KEY_BASE = 'calimero_registry_org_pubkey';
+
+/**
+ * Active user identifier (Google email, e.g. alice@example.com).
+ * When set, all keypair storage is scoped to this value so that different
+ * Google accounts each keep their own independent org identity in localStorage.
+ * localStorage keys look like: calimero_registry_org_keypair_alice@example.com
+ */
+let _currentUserId: string | null = null;
+
+/** Call this from AuthContext whenever the logged-in Google account changes. */
+export function setCurrentUserId(userId: string | null): void {
+  _currentUserId = userId;
+}
+
+function STORAGE_KEY(): string {
+  return _currentUserId
+    ? `${STORAGE_KEY_BASE}_${_currentUserId}`
+    : STORAGE_KEY_BASE;
+}
+
+function PUBKEY_STORAGE_KEY(): string {
+  return _currentUserId
+    ? `${PUBKEY_STORAGE_KEY_BASE}_${_currentUserId}`
+    : PUBKEY_STORAGE_KEY_BASE;
+}
 
 function base64urlEncode(bytes: Uint8Array): string {
   let binary = '';
@@ -47,7 +71,7 @@ export async function generateKeypair(store = true): Promise<OrgKeypair> {
   const keypair: OrgKeypair = { publicKey, secretKey };
   if (store) {
     try {
-      localStorage.setItem(STORAGE_KEY, base64urlEncode(secretKey));
+      localStorage.setItem(STORAGE_KEY(), base64urlEncode(secretKey));
     } catch {
       // localStorage full or private mode
     }
@@ -58,7 +82,7 @@ export async function generateKeypair(store = true): Promise<OrgKeypair> {
 /** Load keypair from localStorage. Returns null if none stored. */
 export async function getStoredKeypair(): Promise<OrgKeypair | null> {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
+    const stored = localStorage.getItem(STORAGE_KEY());
     if (!stored) return null;
     const secretKey = base64urlDecode(stored);
     if (secretKey.length !== 32) return null;
@@ -72,7 +96,7 @@ export async function getStoredKeypair(): Promise<OrgKeypair | null> {
 /** Remove stored keypair. */
 export function clearStoredKeypair(): void {
   try {
-    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(STORAGE_KEY());
   } catch {
     // ignore
   }
@@ -87,7 +111,7 @@ export function importPublicKey(pubkeyBase64url: string): boolean {
   try {
     const bytes = base64urlDecode(pubkeyBase64url.trim());
     if (bytes.length !== 32) return false;
-    localStorage.setItem(PUBKEY_STORAGE_KEY, base64urlEncode(bytes));
+    localStorage.setItem(PUBKEY_STORAGE_KEY(), base64urlEncode(bytes));
     return true;
   } catch {
     return false;
@@ -97,7 +121,7 @@ export function importPublicKey(pubkeyBase64url: string): boolean {
 /** Return the stored read-only public key as base64url, or null if none. */
 export function getStoredPublicKeyBase64url(): string | null {
   try {
-    return localStorage.getItem(PUBKEY_STORAGE_KEY);
+    return localStorage.getItem(PUBKEY_STORAGE_KEY());
   } catch {
     return null;
   }
@@ -106,7 +130,7 @@ export function getStoredPublicKeyBase64url(): string | null {
 /** Remove the stored read-only public key. */
 export function clearStoredPublicKey(): void {
   try {
-    localStorage.removeItem(PUBKEY_STORAGE_KEY);
+    localStorage.removeItem(PUBKEY_STORAGE_KEY());
   } catch {
     // ignore
   }
@@ -115,7 +139,7 @@ export function clearStoredPublicKey(): void {
 /** Return the signing keypair's secret key as base64url for backup/export. Returns null if no keypair stored. */
 export function exportSecretKeyBase64url(): string | null {
   try {
-    return localStorage.getItem(STORAGE_KEY);
+    return localStorage.getItem(STORAGE_KEY());
   } catch {
     return null;
   }

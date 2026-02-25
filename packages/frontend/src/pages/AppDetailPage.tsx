@@ -1,5 +1,6 @@
-import { useParams, Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Package,
   ArrowLeft,
@@ -14,8 +15,16 @@ import {
   Globe,
   Shield,
   Pencil,
+  Trash2,
+  Building2,
+  ArrowRight,
 } from 'lucide-react';
-import { api } from '@/lib/api';
+import {
+  api,
+  deleteBundleVersion,
+  deletePackage,
+  getOrgByPackage,
+} from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface V2Bundle {
@@ -49,6 +58,14 @@ interface V2Bundle {
 export default function AppDetailPage() {
   const { appId = '' } = useParams<{ appId: string }>();
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+
+  const [confirmDeleteVersion, setConfirmDeleteVersion] = useState<
+    string | null
+  >(null);
+  const [confirmDeletePackage, setConfirmDeletePackage] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const { data: allBundles = [], isLoading } = useQuery({
     queryKey: ['app-bundles', appId],
@@ -58,6 +75,49 @@ export default function AppDetailPage() {
       });
       return (Array.isArray(response.data) ? response.data : []) as V2Bundle[];
     },
+    enabled: !!appId,
+  });
+
+  const deleteVersionMutation = useMutation({
+    mutationFn: (version: string) => deleteBundleVersion(appId, version),
+    onSuccess: (_data, version) => {
+      setConfirmDeleteVersion(null);
+      setDeleteError(null);
+      const remaining = allBundles.filter(b => b.appVersion !== version);
+      if (remaining.length === 0) {
+        navigate('/apps');
+      } else {
+        queryClient.invalidateQueries({ queryKey: ['app-bundles', appId] });
+      }
+    },
+    onError: (err: unknown) => {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data
+          ?.message || (err instanceof Error ? err.message : 'Delete failed');
+      setDeleteError(msg);
+      setConfirmDeleteVersion(null);
+    },
+  });
+
+  const deletePackageMutation = useMutation({
+    mutationFn: () => deletePackage(appId),
+    onSuccess: () => {
+      setConfirmDeletePackage(false);
+      setDeleteError(null);
+      navigate('/apps');
+    },
+    onError: (err: unknown) => {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data
+          ?.message || (err instanceof Error ? err.message : 'Delete failed');
+      setDeleteError(msg);
+      setConfirmDeletePackage(false);
+    },
+  });
+
+  const { data: linkedOrg = null } = useQuery({
+    queryKey: ['org-by-package', appId],
+    queryFn: () => getOrgByPackage(appId),
     enabled: !!appId,
   });
 
@@ -130,6 +190,13 @@ export default function AppDetailPage() {
         )}
       </div>
 
+      {/* Delete error */}
+      {deleteError && (
+        <p className='text-[12px] text-red-400 bg-red-900/20 border border-red-800/40 rounded-lg px-3 py-2'>
+          {deleteError}
+        </p>
+      )}
+
       {/* Info grid */}
       <div className='grid grid-cols-2 md:grid-cols-4 gap-3'>
         {meta?.author && (
@@ -161,6 +228,34 @@ export default function AppDetailPage() {
               <LinkPill href={links.docs} icon={BookOpen} label='Docs' />
             )}
           </div>
+        </div>
+      )}
+
+      {/* Organization */}
+      {linkedOrg && (
+        <div className='card p-4'>
+          <p className='section-heading mb-3'>Organization</p>
+          <Link
+            to={`/orgs/${encodeURIComponent(linkedOrg.id)}`}
+            className='flex items-center justify-between rounded-lg border border-neutral-800 bg-neutral-900/40 px-4 py-3 hover:border-neutral-700 hover:bg-neutral-800/40 transition-colors'
+          >
+            <div className='flex items-center gap-3'>
+              <div className='flex items-center justify-center w-8 h-8 rounded-full bg-neutral-800'>
+                <Building2 className='w-4 h-4 text-neutral-400' />
+              </div>
+              <div>
+                <span className='text-[13px] font-medium text-neutral-200'>
+                  {linkedOrg.name}
+                </span>
+                {linkedOrg.slug && (
+                  <span className='text-neutral-500 text-[12px] ml-2 font-mono'>
+                    {linkedOrg.slug}
+                  </span>
+                )}
+              </div>
+            </div>
+            <ArrowRight className='w-4 h-4 text-neutral-500' />
+          </Link>
         </div>
       )}
 
@@ -265,39 +360,123 @@ export default function AppDetailPage() {
       )}
 
       {/* Version history */}
-      {allBundles.length > 1 && (
+      {allBundles.length > 0 && (
         <div>
-          <p className='section-heading mb-3'>Version History</p>
+          <p className='section-heading mb-3'>
+            {allBundles.length > 1 ? 'Version History' : 'Version'}
+          </p>
           <div className='space-y-1.5'>
-            {allBundles.map(b => (
-              <div
-                key={b.appVersion}
-                className='card px-4 py-2.5 flex items-center justify-between'
-              >
-                <div className='flex items-center gap-2'>
-                  <Clock className='w-3 h-3 text-neutral-600' />
-                  <span className='text-[13px] font-medium text-neutral-200'>
-                    v{b.appVersion}
-                  </span>
-                </div>
-                <div className='flex items-center gap-3'>
-                  <span className='text-[11px] text-neutral-500 font-mono'>
-                    {b.metadata?.author || ''}
-                  </span>
-                  {user?.email &&
-                    b.metadata?.author &&
-                    user.email === b.metadata.author && (
-                      <Link
-                        to={`/apps/${appId}/${b.appVersion}/edit`}
-                        className='inline-flex items-center gap-1 text-[11px] text-neutral-500 hover:text-neutral-300 transition-colors'
-                      >
-                        <Pencil className='w-3 h-3' />
-                        Edit
-                      </Link>
+            {allBundles.map(b => {
+              const isVersionOwner =
+                !!user?.email &&
+                !!b.metadata?.author &&
+                user.email === b.metadata.author;
+              const isConfirmingThisVersion =
+                confirmDeleteVersion === b.appVersion;
+              return (
+                <div
+                  key={b.appVersion}
+                  className='card px-4 py-2.5 flex items-center justify-between gap-3'
+                >
+                  <div className='flex items-center gap-2'>
+                    <Clock className='w-3 h-3 text-neutral-600' />
+                    <span className='text-[13px] font-medium text-neutral-200'>
+                      v{b.appVersion}
+                    </span>
+                  </div>
+                  <div className='flex items-center gap-3'>
+                    <span className='text-[11px] text-neutral-500 font-mono'>
+                      {b.metadata?.author || ''}
+                    </span>
+                    {isVersionOwner && (
+                      <>
+                        <Link
+                          to={`/apps/${appId}/${b.appVersion}/edit`}
+                          className='inline-flex items-center gap-1 text-[11px] text-neutral-500 hover:text-neutral-300 transition-colors'
+                        >
+                          <Pencil className='w-3 h-3' />
+                          Edit
+                        </Link>
+                        {isConfirmingThisVersion ? (
+                          <span className='flex items-center gap-1.5 text-[11px]'>
+                            <span className='text-red-400'>Delete?</span>
+                            <button
+                              onClick={() =>
+                                deleteVersionMutation.mutate(b.appVersion)
+                              }
+                              disabled={deleteVersionMutation.isPending}
+                              className='text-red-400 hover:text-red-300 font-medium transition-colors disabled:opacity-50'
+                            >
+                              Yes
+                            </button>
+                            <button
+                              onClick={() => setConfirmDeleteVersion(null)}
+                              className='text-neutral-500 hover:text-neutral-300 transition-colors'
+                            >
+                              Cancel
+                            </button>
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() =>
+                              setConfirmDeleteVersion(b.appVersion)
+                            }
+                            className='inline-flex items-center gap-1 text-[11px] text-neutral-600 hover:text-red-400 transition-colors'
+                          >
+                            <Trash2 className='w-3 h-3' />
+                            Delete
+                          </button>
+                        )}
+                      </>
                     )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Delete entire package — owner only */}
+      {isOwner && (
+        <div className='card p-4 border-red-900/30'>
+          <p className='section-heading mb-3 text-red-400/80'>Danger Zone</p>
+          <div className='flex items-center justify-between gap-4'>
+            <div>
+              <p className='text-[13px] text-neutral-300'>Delete package</p>
+              <p className='text-[12px] text-neutral-500'>
+                Permanently removes all {allBundles.length} version
+                {allBundles.length !== 1 ? 's' : ''} of{' '}
+                <span className='font-mono'>{appId}</span>. This cannot be
+                undone.
+              </p>
+            </div>
+            {confirmDeletePackage ? (
+              <span className='flex items-center gap-2 text-[12px] flex-shrink-0'>
+                <span className='text-red-400'>Are you sure?</span>
+                <button
+                  onClick={() => deletePackageMutation.mutate()}
+                  disabled={deletePackageMutation.isPending}
+                  className='text-red-400 hover:text-red-300 font-medium transition-colors disabled:opacity-50'
+                >
+                  Yes, delete all
+                </button>
+                <button
+                  onClick={() => setConfirmDeletePackage(false)}
+                  className='text-neutral-500 hover:text-neutral-300 transition-colors'
+                >
+                  Cancel
+                </button>
+              </span>
+            ) : (
+              <button
+                onClick={() => setConfirmDeletePackage(true)}
+                className='inline-flex items-center gap-1.5 text-[12px] text-red-500 hover:text-red-400 border border-red-900/50 hover:border-red-700/60 px-3 py-1.5 rounded-lg transition-all flex-shrink-0'
+              >
+                <Trash2 className='w-3.5 h-3.5' />
+                Delete package
+              </button>
+            )}
           </div>
         </div>
       )}

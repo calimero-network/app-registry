@@ -22,6 +22,23 @@ const {
   deleteOrg,
 } = require('../lib/org-storage');
 const { verifySignature, validatePublicKey } = require('../lib/verify');
+const { verifySessionToken } = require('../lib/auth');
+const { BundleStorageKV } = require('../lib/bundle-storage-kv');
+const config = require('../config');
+
+const bundleStorage = new BundleStorageKV();
+
+async function getSessionUser(request) {
+  const cookieName = config.auth?.cookieName || 'app_registry_session';
+  const sessionSecret = config.auth?.sessionSecret;
+  const token = request.cookies?.[cookieName];
+  if (!sessionSecret || !token) return null;
+  try {
+    return await verifySessionToken(token, sessionSecret);
+  } catch {
+    return null;
+  }
+}
 
 const SLUG_REGEX = /^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$/;
 
@@ -101,7 +118,15 @@ async function requireOrgAdmin(request, reply, orgId) {
 
 async function orgRoutes(server) {
   // GET /api/v2/orgs?member=<pubkey> — list orgs the member belongs to (no auth)
+  // GET /api/v2/orgs?package=<name>  — get single org that owns a package (no auth)
   server.get('/api/v2/orgs', async (request, reply) => {
+    const pkg = request.query?.package;
+    if (pkg && typeof pkg === 'string') {
+      const orgId = await getPkg2Org(pkg.trim());
+      if (!orgId) return reply.send(null);
+      const org = await getOrg(orgId);
+      return reply.send(org ?? null);
+    }
     const member = request.query?.member;
     if (!member || typeof member !== 'string') {
       return reply.send([]);
@@ -349,6 +374,36 @@ async function orgRoutes(server) {
         message: 'package cannot be empty',
       });
     }
+
+    // Verify the package exists
+    const versions = await bundleStorage.getBundleVersions(pkgName);
+    if (!versions || versions.length === 0) {
+      return reply.code(404).send({
+        error: 'not_found',
+        message: `Package '${pkgName}' does not exist in the registry`,
+      });
+    }
+
+    // Verify the requester owns the package (session email must match metadata.author)
+    const sessionUser = await getSessionUser(request);
+    if (!sessionUser?.email) {
+      return reply.code(401).send({
+        error: 'unauthorized',
+        message: 'You must be logged in to link a package to an organization',
+      });
+    }
+    const latestManifest = await bundleStorage.getBundleManifest(
+      pkgName,
+      versions[0]
+    );
+    const packageAuthor = latestManifest?.metadata?.author;
+    if (!packageAuthor || packageAuthor !== sessionUser.email) {
+      return reply.code(403).send({
+        error: 'forbidden',
+        message: `You do not own package '${pkgName}'. Only the package author can link it to an organization`,
+      });
+    }
+
     await setPkg2Org(pkgName, orgId);
     return reply.code(204).send();
   });

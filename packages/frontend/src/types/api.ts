@@ -75,13 +75,22 @@ export interface ApiError {
 }
 
 // Organizations (NPM-style)
+export interface OrgMetadata {
+  description?: string;
+  website?: string;
+  email?: string;
+  github?: string;
+  twitter?: string;
+  location?: string;
+}
+
 export interface Org {
   id: string;
   name: string;
   slug: string;
   created_at?: string;
   updated_at?: string;
-  metadata?: Record<string, unknown>;
+  metadata?: OrgMetadata;
 }
 
 export interface OrgMember {

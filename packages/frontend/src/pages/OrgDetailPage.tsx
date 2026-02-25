@@ -1,4 +1,4 @@
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
@@ -11,6 +11,7 @@ import {
   linkOrgPackage,
   unlinkOrgPackage,
   updateOrg,
+  deleteOrg,
   getMyOrgPubkeyBase64url,
   api,
 } from '@/lib/api';
@@ -35,6 +36,12 @@ import {
   Save,
   X,
   AlertTriangle,
+  Globe,
+  Mail,
+  Github,
+  Twitter,
+  MapPin,
+  ExternalLink,
 } from 'lucide-react';
 
 /** Extract a readable message from an Axios or generic error. */
@@ -60,6 +67,7 @@ function isValidPubkeyFormat(input: string): boolean {
 export default function OrgDetailPage() {
   const { orgId = '' } = useParams<{ orgId: string }>();
   const decodedOrgId = decodeURIComponent(orgId);
+  const navigate = useNavigate();
   const [myPubkey, setMyPubkey] = useState<string | null>(null);
   const [hasKeypair, setHasKeypair] = useState(false);
 
@@ -76,16 +84,24 @@ export default function OrgDetailPage() {
   const [packageNameError, setPackageNameError] = useState<string | null>(null);
   const [checkingPackage, setCheckingPackage] = useState(false);
 
-  // Metadata edit
-  const [isEditingMetadata, setIsEditingMetadata] = useState(false);
-  const [metadataJson, setMetadataJson] = useState('{}');
-  const [metadataError, setMetadataError] = useState('');
+  // Settings edit (name + structured metadata fields)
+  const [isEditingSettings, setIsEditingSettings] = useState(false);
+  const [settingsForm, setSettingsForm] = useState({
+    name: '',
+    description: '',
+    website: '',
+    email: '',
+    github: '',
+    twitter: '',
+    location: '',
+  });
 
   // Confirmation dialogs for destructive actions
   const [confirmRemovePubkey, setConfirmRemovePubkey] = useState<string | null>(
     null
   );
   const [confirmUnlinkPkg, setConfirmUnlinkPkg] = useState<string | null>(null);
+  const [confirmDeleteOrg, setConfirmDeleteOrg] = useState(false);
 
   const queryClient = useQueryClient();
 
@@ -121,6 +137,8 @@ export default function OrgDetailPage() {
   const isAdmin =
     !!myPubkey &&
     members.some(m => m.pubkey === myPubkey && m.role === 'admin');
+  /** Any member of the org (admin or regular member). */
+  const isMember = !!myPubkey && members.some(m => m.pubkey === myPubkey);
   /** Admin identity is confirmed but only a public key is stored — can't sign writes. */
   const isAdminReadOnly = isAdmin && !hasKeypair;
   /** Admin with a full signing keypair — full write access. */
@@ -178,39 +196,57 @@ export default function OrgDetailPage() {
   });
 
   const updateOrgMutation = useMutation({
-    mutationFn: (metadata: Record<string, unknown>) =>
-      updateOrg(decodedOrgId, { metadata }),
+    mutationFn: ({
+      name,
+      metadata,
+    }: {
+      name: string;
+      metadata: Record<string, string>;
+    }) => updateOrg(decodedOrgId, { name, metadata }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['org', decodedOrgId] });
-      setIsEditingMetadata(false);
-      setMetadataError('');
+      setIsEditingSettings(false);
     },
   });
 
-  const handleOpenMetadataEdit = () => {
-    setMetadataJson(JSON.stringify(org?.metadata ?? {}, null, 2));
-    setMetadataError('');
-    setIsEditingMetadata(true);
+  const deleteOrgMutation = useMutation({
+    mutationFn: () => deleteOrg(decodedOrgId),
+    onSuccess: () => {
+      navigate('/orgs');
+    },
+  });
+
+  const handleOpenSettingsEdit = () => {
+    const m = org?.metadata ?? {};
+    setSettingsForm({
+      name: org?.name ?? '',
+      description: String(m.description ?? ''),
+      website: String(m.website ?? ''),
+      email: String(m.email ?? ''),
+      github: String(m.github ?? ''),
+      twitter: String(m.twitter ?? ''),
+      location: String(m.location ?? ''),
+    });
+    setIsEditingSettings(true);
   };
 
-  const handleSaveMetadata = () => {
-    setMetadataError('');
-    let parsed: Record<string, unknown>;
-    try {
-      parsed = JSON.parse(metadataJson);
-      if (
-        typeof parsed !== 'object' ||
-        Array.isArray(parsed) ||
-        parsed === null
-      ) {
-        setMetadataError('Must be a JSON object, e.g. {"key": "value"}');
-        return;
-      }
-    } catch {
-      setMetadataError('Invalid JSON');
-      return;
-    }
-    updateOrgMutation.mutate(parsed);
+  const handleSaveSettings = () => {
+    const metadata: Record<string, string> = {};
+    if (settingsForm.description.trim())
+      metadata.description = settingsForm.description.trim();
+    if (settingsForm.website.trim())
+      metadata.website = settingsForm.website.trim();
+    if (settingsForm.email.trim()) metadata.email = settingsForm.email.trim();
+    if (settingsForm.github.trim())
+      metadata.github = settingsForm.github.trim();
+    if (settingsForm.twitter.trim())
+      metadata.twitter = settingsForm.twitter.trim();
+    if (settingsForm.location.trim())
+      metadata.location = settingsForm.location.trim();
+    updateOrgMutation.mutate({
+      name: settingsForm.name.trim() || (org?.name ?? ''),
+      metadata,
+    });
   };
 
   const handleAddMember = (e: React.FormEvent) => {
@@ -301,8 +337,15 @@ export default function OrgDetailPage() {
     );
   }
 
-  const hasMetadata =
-    org!.metadata != null && Object.keys(org!.metadata).length > 0;
+  const m = org!.metadata ?? {};
+  const hasOrgInfo = !!(
+    m.description ||
+    m.website ||
+    m.email ||
+    m.github ||
+    m.twitter ||
+    m.location
+  );
 
   return (
     <div className='space-y-6'>
@@ -322,6 +365,29 @@ export default function OrgDetailPage() {
           </p>
         </div>
       </div>
+
+      {/* Member notice — shown to regular members (non-admin) */}
+      {isMember && !isAdmin && (
+        <div className='rounded-lg border border-brand-900/50 bg-brand-950/20 px-4 py-3 flex gap-3'>
+          <Users className='w-4 h-4 text-brand-500 flex-shrink-0 mt-0.5' />
+          <div className='space-y-1'>
+            <p className='text-[13px] text-neutral-200 font-medium'>
+              You are a member of this organization
+            </p>
+            <p className='text-[12px] text-neutral-400'>
+              As a member you can publish new versions and edit metadata for any
+              of the{' '}
+              {packages.length > 0 ? (
+                <strong className='text-neutral-300'>{packages.length}</strong>
+              ) : (
+                'linked'
+              )}{' '}
+              package{packages.length !== 1 ? 's' : ''} linked to this org via
+              the CLI. Package deletion and org management require admin access.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Members */}
       <section>
@@ -656,18 +722,18 @@ export default function OrgDetailPage() {
         )}
       </section>
 
-      {/* Metadata */}
-      {(hasMetadata || isAdminWithKeypair) && (
+      {/* About / Settings */}
+      {(hasOrgInfo || isAdminWithKeypair) && (
         <section>
           <div className='flex items-center justify-between mb-3'>
             <p className='section-heading'>
               <Settings className='w-3.5 h-3.5 inline mr-1.5' />
-              Metadata
+              About
             </p>
-            {isAdminWithKeypair && !isEditingMetadata && (
+            {isAdminWithKeypair && !isEditingSettings && (
               <button
                 type='button'
-                onClick={handleOpenMetadataEdit}
+                onClick={handleOpenSettingsEdit}
                 className='text-[12px] text-neutral-500 hover:text-neutral-300 inline-flex items-center gap-1 transition-colors'
               >
                 <Settings className='w-3 h-3' />
@@ -676,31 +742,62 @@ export default function OrgDetailPage() {
             )}
           </div>
 
-          {isEditingMetadata ? (
+          {isEditingSettings ? (
             <div className='rounded-xl border border-neutral-800 bg-neutral-900/40 p-4 space-y-3'>
-              <textarea
-                value={metadataJson}
-                onChange={e => {
-                  setMetadataJson(e.target.value);
-                  setMetadataError('');
-                }}
-                rows={6}
-                spellCheck={false}
-                className='w-full rounded-lg border border-neutral-700 bg-neutral-800/60 px-3 py-2.5 text-[12px] font-mono text-neutral-200 placeholder:text-neutral-500 focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600 resize-y'
-                placeholder='{"key": "value"}'
+              <SettingsField
+                label='Display name'
+                value={settingsForm.name}
+                onChange={v => setSettingsForm(f => ({ ...f, name: v }))}
+                placeholder={org!.name}
               />
-              {metadataError && (
-                <p className='text-[12px] text-red-400'>{metadataError}</p>
-              )}
+              <SettingsField
+                label='Description'
+                value={settingsForm.description}
+                onChange={v => setSettingsForm(f => ({ ...f, description: v }))}
+                placeholder='What does this org build?'
+                multiline
+              />
+              <div className='grid grid-cols-1 sm:grid-cols-2 gap-3'>
+                <SettingsField
+                  label='Website'
+                  value={settingsForm.website}
+                  onChange={v => setSettingsForm(f => ({ ...f, website: v }))}
+                  placeholder='https://example.com'
+                />
+                <SettingsField
+                  label='Email'
+                  value={settingsForm.email}
+                  onChange={v => setSettingsForm(f => ({ ...f, email: v }))}
+                  placeholder='contact@example.com'
+                />
+                <SettingsField
+                  label='GitHub'
+                  value={settingsForm.github}
+                  onChange={v => setSettingsForm(f => ({ ...f, github: v }))}
+                  placeholder='https://github.com/my-org'
+                />
+                <SettingsField
+                  label='Twitter / X'
+                  value={settingsForm.twitter}
+                  onChange={v => setSettingsForm(f => ({ ...f, twitter: v }))}
+                  placeholder='https://x.com/myorg'
+                />
+                <SettingsField
+                  label='Location'
+                  value={settingsForm.location}
+                  onChange={v => setSettingsForm(f => ({ ...f, location: v }))}
+                  placeholder='City, Country'
+                />
+              </div>
               {updateOrgMutation.isError && (
                 <p className='text-[12px] text-red-400'>
                   {getApiErrorMessage(updateOrgMutation.error)}
                 </p>
               )}
-              <div className='flex gap-2'>
+              <div className='flex gap-2 pt-1'>
                 <button
                   type='button'
-                  onClick={handleSaveMetadata}
+                  onClick={handleSaveSettings}
                   disabled={updateOrgMutation.isPending}
                   className='inline-flex items-center gap-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 disabled:opacity-50 disabled:cursor-not-allowed text-neutral-900 px-4 py-2 text-[13px] font-medium transition-colors'
                 >
@@ -709,10 +806,7 @@ export default function OrgDetailPage() {
                 </button>
                 <button
                   type='button'
-                  onClick={() => {
-                    setIsEditingMetadata(false);
-                    setMetadataError('');
-                  }}
+                  onClick={() => setIsEditingSettings(false)}
                   className='inline-flex items-center gap-1.5 text-[13px] text-neutral-400 hover:text-neutral-200 px-3 py-2 rounded-lg border border-neutral-700 hover:border-neutral-600 transition-colors'
                 >
                   <X className='w-3.5 h-3.5' />
@@ -720,37 +814,114 @@ export default function OrgDetailPage() {
                 </button>
               </div>
             </div>
-          ) : hasMetadata ? (
-            <div className='rounded-xl border border-neutral-800 bg-neutral-900/40 overflow-hidden'>
-              <table className='w-full text-[13px]'>
-                <tbody>
-                  {Object.entries(org!.metadata!).map(([k, v]) => (
-                    <tr
-                      key={k}
-                      className='border-b border-neutral-800/80 last:border-0'
-                    >
-                      <td className='py-2.5 px-5 font-mono text-neutral-500 w-1/3'>
-                        {k}
-                      </td>
-                      <td className='py-2.5 px-5 text-neutral-300 break-all'>
-                        {typeof v === 'object' ? JSON.stringify(v) : String(v)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          ) : hasOrgInfo ? (
+            <div className='card p-4 space-y-2'>
+              {m.description && (
+                <p className='text-[13px] text-neutral-300 leading-relaxed mb-3'>
+                  {m.description}
+                </p>
+              )}
+              {m.website && (
+                <OrgInfoRow
+                  icon={Globe}
+                  label='Website'
+                  value={m.website}
+                  href={m.website}
+                />
+              )}
+              {m.email && (
+                <OrgInfoRow
+                  icon={Mail}
+                  label='Email'
+                  value={m.email}
+                  href={`mailto:${m.email}`}
+                />
+              )}
+              {m.github && (
+                <OrgInfoRow
+                  icon={Github}
+                  label='GitHub'
+                  value={m.github}
+                  href={m.github}
+                />
+              )}
+              {m.twitter && (
+                <OrgInfoRow
+                  icon={Twitter}
+                  label='Twitter / X'
+                  value={m.twitter}
+                  href={m.twitter}
+                />
+              )}
+              {m.location && (
+                <OrgInfoRow icon={MapPin} label='Location' value={m.location} />
+              )}
             </div>
           ) : (
             <div className='rounded-xl border border-neutral-800 bg-neutral-900/40 p-4 text-[13px] text-neutral-500'>
-              No metadata set.{' '}
+              No info set.{' '}
               <button
                 type='button'
-                onClick={handleOpenMetadataEdit}
+                onClick={handleOpenSettingsEdit}
                 className='text-brand-600 hover:underline'
               >
-                Add metadata
+                Add info
               </button>
             </div>
+          )}
+        </section>
+      )}
+
+      {/* Danger Zone — admin with keypair only */}
+      {isAdminWithKeypair && (
+        <section className='card p-4 border-red-900/30'>
+          <p className='section-heading mb-3 text-red-400/80'>Danger Zone</p>
+          <div className='flex items-center justify-between gap-4'>
+            <div>
+              <p className='text-[13px] text-neutral-300'>
+                Delete organization
+              </p>
+              <p className='text-[12px] text-neutral-500'>
+                Permanently deletes{' '}
+                <span className='font-mono'>{org!.slug || org!.name}</span> and
+                all its members and package links. This cannot be undone.
+              </p>
+            </div>
+            {confirmDeleteOrg ? (
+              <span className='flex items-center gap-2 text-[12px] flex-shrink-0'>
+                <span className='text-red-400'>Are you sure?</span>
+                <button
+                  type='button'
+                  onClick={() => deleteOrgMutation.mutate()}
+                  disabled={deleteOrgMutation.isPending}
+                  className='text-red-400 hover:text-red-300 font-medium transition-colors disabled:opacity-50'
+                >
+                  {deleteOrgMutation.isPending ? 'Deleting…' : 'Yes, delete'}
+                </button>
+                <button
+                  type='button'
+                  onClick={() => setConfirmDeleteOrg(false)}
+                  disabled={deleteOrgMutation.isPending}
+                  className='text-neutral-500 hover:text-neutral-300 transition-colors'
+                >
+                  Cancel
+                </button>
+              </span>
+            ) : (
+              <button
+                type='button'
+                onClick={() => setConfirmDeleteOrg(true)}
+                className='inline-flex items-center gap-1.5 text-[12px] text-red-500 hover:text-red-400 border border-red-900/50 hover:border-red-700/60 px-3 py-1.5 rounded-lg transition-all flex-shrink-0'
+              >
+                <Trash2 className='w-3.5 h-3.5' />
+                Delete org
+              </button>
+            )}
+          </div>
+          {deleteOrgMutation.isError && (
+            <p className='mt-2 text-[12px] text-red-400'>
+              {getApiErrorMessage(deleteOrgMutation.error)}
+            </p>
           )}
         </section>
       )}
@@ -782,5 +953,78 @@ function BackLink() {
       <ArrowLeft className='w-3 h-3' />
       Back to Organizations
     </Link>
+  );
+}
+
+function SettingsField({
+  label,
+  value,
+  onChange,
+  placeholder,
+  multiline,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  multiline?: boolean;
+}) {
+  const cls =
+    'w-full rounded-lg border border-neutral-700 bg-neutral-800/60 px-3 py-2 text-[13px] text-neutral-200 placeholder:text-neutral-500 focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600 transition-colors';
+  return (
+    <div>
+      <label className='block text-[11px] text-neutral-500 mb-1'>{label}</label>
+      {multiline ? (
+        <textarea
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          placeholder={placeholder}
+          rows={3}
+          className={`${cls} resize-y`}
+        />
+      ) : (
+        <input
+          type='text'
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          placeholder={placeholder}
+          className={cls}
+        />
+      )}
+    </div>
+  );
+}
+
+function OrgInfoRow({
+  icon: Icon,
+  label,
+  value,
+  href,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  value: string;
+  href?: string;
+}) {
+  return (
+    <div className='flex items-center gap-2.5 text-[13px]'>
+      <Icon className='w-3.5 h-3.5 text-neutral-500 flex-shrink-0' />
+      <span className='text-neutral-500 w-20 flex-shrink-0 text-[12px]'>
+        {label}
+      </span>
+      {href ? (
+        <a
+          href={href}
+          target='_blank'
+          rel='noopener noreferrer'
+          className='text-brand-500 hover:text-brand-400 hover:underline truncate inline-flex items-center gap-1 transition-colors'
+        >
+          {value}
+          <ExternalLink className='w-3 h-3 flex-shrink-0' />
+        </a>
+      ) : (
+        <span className='text-neutral-300 truncate'>{value}</span>
+      )}
+    </div>
   );
 }
