@@ -7,6 +7,8 @@ import * as ed25519 from '@noble/ed25519';
 import canonicalize from 'canonicalize';
 
 const STORAGE_KEY = 'calimero_registry_org_keypair';
+/** Stores a raw public key (base64url) for read-only identity (no signing capability). */
+const PUBKEY_STORAGE_KEY = 'calimero_registry_org_pubkey';
 
 function base64urlEncode(bytes: Uint8Array): string {
   let binary = '';
@@ -77,24 +79,40 @@ export function clearStoredKeypair(): void {
 }
 
 /**
- * Store an existing secret key (base64url-encoded 32 bytes) as the active keypair.
- * Returns the resulting keypair, or null if the input is invalid.
+ * Import a public key (base64url-encoded 32 bytes) for read-only org identity.
+ * Stores it separately from the signing keypair — no private key is stored.
+ * Returns true on success, false if the input is not a valid 32-byte base64url value.
  */
-export async function importSecretKey(
-  secretKeyBase64url: string
-): Promise<OrgKeypair | null> {
+export function importPublicKey(pubkeyBase64url: string): boolean {
   try {
-    const secretKey = base64urlDecode(secretKeyBase64url.trim());
-    if (secretKey.length !== 32) return null;
-    const publicKey = await ed25519.getPublicKeyAsync(secretKey);
-    localStorage.setItem(STORAGE_KEY, base64urlEncode(secretKey));
-    return { publicKey, secretKey };
+    const bytes = base64urlDecode(pubkeyBase64url.trim());
+    if (bytes.length !== 32) return false;
+    localStorage.setItem(PUBKEY_STORAGE_KEY, base64urlEncode(bytes));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Return the stored read-only public key as base64url, or null if none. */
+export function getStoredPublicKeyBase64url(): string | null {
+  try {
+    return localStorage.getItem(PUBKEY_STORAGE_KEY);
   } catch {
     return null;
   }
 }
 
-/** Return the raw secret key as base64url for backup/export. Returns null if no keypair stored. */
+/** Remove the stored read-only public key. */
+export function clearStoredPublicKey(): void {
+  try {
+    localStorage.removeItem(PUBKEY_STORAGE_KEY);
+  } catch {
+    // ignore
+  }
+}
+
+/** Return the signing keypair's secret key as base64url for backup/export. Returns null if no keypair stored. */
 export function exportSecretKeyBase64url(): string | null {
   try {
     return localStorage.getItem(STORAGE_KEY);

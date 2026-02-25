@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { User, Box, Building2, LogOut } from 'lucide-react';
+import { Box, Building2, LogOut } from 'lucide-react';
 import type { AuthUser } from '@/contexts/AuthContext';
 
 interface ProfileDropdownProps {
@@ -12,6 +12,16 @@ interface ProfileDropdownProps {
   onNavigate?: () => void;
 }
 
+function getInitials(name?: string | null, email?: string | null): string {
+  if (name) {
+    const parts = name.trim().split(/\s+/);
+    if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+    return parts[0][0].toUpperCase();
+  }
+  if (email) return email[0].toUpperCase();
+  return '?';
+}
+
 export function ProfileDropdown({
   user,
   loading,
@@ -20,6 +30,7 @@ export function ProfileDropdown({
   onNavigate,
 }: ProfileDropdownProps) {
   const [open, setOpen] = useState(false);
+  const [imgError, setImgError] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -52,17 +63,25 @@ export function ProfileDropdown({
   }
 
   const displayName = user.email ?? user.name ?? 'Signed in';
-  const avatar = user.picture ? (
-    <img
-      src={user.picture}
-      alt=''
-      className='h-7 w-7 rounded-full object-cover ring-1 ring-neutral-700'
-    />
-  ) : (
-    <div className='flex h-7 w-7 items-center justify-center rounded-full bg-neutral-700 ring-1 ring-neutral-600'>
-      <User className='h-3.5 w-3.5 text-neutral-400' />
+  const initials = getInitials(user.name, user.email);
+  const initialsAvatar = (
+    <div className='flex h-7 w-7 items-center justify-center rounded-full bg-brand-600/80 ring-1 ring-brand-500/60 select-none'>
+      <span className='text-[11px] font-semibold text-white leading-none'>
+        {initials}
+      </span>
     </div>
   );
+  const avatar =
+    user.picture && !imgError ? (
+      <img
+        src={user.picture}
+        alt=''
+        className='h-7 w-7 rounded-full object-cover ring-1 ring-neutral-700'
+        onError={() => setImgError(true)}
+      />
+    ) : (
+      initialsAvatar
+    );
 
   if (compact) {
     return (
@@ -107,14 +126,14 @@ export function ProfileDropdown({
       <button
         type='button'
         onClick={() => setOpen(!open)}
-        className='flex items-center gap-2 rounded-lg border border-transparent px-2 py-1.5 text-[13px] font-normal text-neutral-300 hover:border-neutral-700 hover:bg-neutral-800/60 hover:text-neutral-100 transition-all'
+        className='flex items-center gap-1.5 rounded-lg border border-transparent p-1.5 hover:border-neutral-700 hover:bg-neutral-800/60 transition-all'
         aria-expanded={open}
         aria-haspopup='true'
+        aria-label={displayName}
       >
         {avatar}
-        <span className='max-w-[140px] truncate'>{displayName}</span>
         <svg
-          className={`h-3.5 w-3.5 text-neutral-500 transition-transform ${open ? 'rotate-180' : ''}`}
+          className={`h-3 w-3 text-neutral-500 transition-transform ${open ? 'rotate-180' : ''}`}
           fill='none'
           viewBox='0 0 24 24'
           stroke='currentColor'

@@ -3,6 +3,7 @@ import {
   getStoredKeypair,
   getSignedHeaders,
   publicKeyToBase64url,
+  getStoredPublicKeyBase64url,
 } from './org-keypair';
 import type {
   AppSummary,
@@ -384,8 +385,12 @@ export const unlinkOrgPackage = async (
   );
 };
 
-/** Current org identity public key as base64url (for ?member= and UI). */
+/**
+ * Current org identity public key as base64url (for ?member= and UI).
+ * Prefers the full signing keypair; falls back to the imported read-only public key.
+ */
 export const getMyOrgPubkeyBase64url = async (): Promise<string | null> => {
   const keypair = await getStoredKeypair();
-  return keypair ? publicKeyToBase64url(keypair.publicKey) : null;
+  if (keypair) return publicKeyToBase64url(keypair.publicKey);
+  return getStoredPublicKeyBase64url();
 };

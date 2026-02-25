@@ -1,11 +1,21 @@
 import { useState, useEffect } from 'react';
+import axios from 'axios';
 import { getOrgsByMember, createOrg, getMyOrgPubkeyBase64url } from '@/lib/api';
 import {
   getStoredKeypair,
   generateKeypair,
   exportSecretKeyBase64url,
-  importSecretKey,
+  importPublicKey,
+  getStoredPublicKeyBase64url,
+  clearStoredPublicKey,
 } from '@/lib/org-keypair';
+import {
+  sanitizeText,
+  validateOrgName,
+  validateOrgSlug,
+  ORG_NAME_MAX,
+  ORG_SLUG_MAX,
+} from '@/lib/utils';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -22,12 +32,28 @@ import {
   Check,
 } from 'lucide-react';
 
+function getApiErrorMessage(error: unknown): string {
+  if (axios.isAxiosError(error)) {
+    const data = error.response?.data;
+    if (typeof data?.message === 'string') return data.message;
+    if (typeof data?.error === 'string') return data.error;
+    if (error.response?.status === 409)
+      return 'An organization with this slug already exists.';
+  }
+  if (error instanceof Error) return error.message;
+  return 'Failed to create organization.';
+}
+
 export default function MyOrgsPage() {
   const [pubkey, setPubkey] = useState('');
   const [hasKeypair, setHasKeypair] = useState<boolean | null>(null);
+  const [hasPubkeyOnly, setHasPubkeyOnly] = useState(false);
   const [myPubkey, setMyPubkey] = useState<string | null>(null);
   const [createName, setCreateName] = useState('');
   const [createSlug, setCreateSlug] = useState('');
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [slugError, setSlugError] = useState<string | null>(null);
+  const [touched, setTouched] = useState({ name: false, slug: false });
   const [showSecretKey, setShowSecretKey] = useState(false);
   const [copied, setCopied] = useState(false);
   const [showImport, setShowImport] = useState(false);
@@ -36,33 +62,33 @@ export default function MyOrgsPage() {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    getStoredKeypair().then(kp => setHasKeypair(!!kp));
+    getStoredKeypair().then(kp => {
+      setHasKeypair(!!kp);
+      if (!kp) setHasPubkeyOnly(!!getStoredPublicKeyBase64url());
+    });
     getMyOrgPubkeyBase64url().then(pk => {
-      if (pk) {
-        setMyPubkey(pk);
-        setPubkey(prev => (prev.trim() ? prev : pk));
-      }
+      if (pk) setMyPubkey(pk);
     });
   }, []);
 
   const createOrgMutation = useMutation({
     mutationFn: ({ name, slug }: { name: string; slug: string }) =>
-      createOrg(name.trim(), slug.trim()),
+      createOrg(sanitizeText(name), sanitizeText(slug).toLowerCase()),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['orgs-by-member'] });
       setCreateName('');
       setCreateSlug('');
+      setTouched({ name: false, slug: false });
     },
   });
 
   const handleCreateIdentity = async () => {
+    clearStoredPublicKey();
     await generateKeypair(true);
     setHasKeypair(true);
+    setHasPubkeyOnly(false);
     const pk = await getMyOrgPubkeyBase64url();
-    if (pk) {
-      setMyPubkey(pk);
-      setPubkey(pk);
-    }
+    if (pk) setMyPubkey(pk);
   };
 
   const handleCopySecretKey = async () => {
@@ -73,39 +99,52 @@ export default function MyOrgsPage() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleImportKey = async () => {
+  const handleImportPublicKey = () => {
     setImportError('');
-    const kp = await importSecretKey(importValue);
-    if (!kp) {
+    const ok = importPublicKey(importValue);
+    if (!ok) {
       setImportError(
-        'Invalid key — must be a base64url-encoded 32-byte secret.'
+        'Invalid public key — must be a base64url-encoded 32-byte Ed25519 public key (43 characters).'
       );
       return;
     }
-    setHasKeypair(true);
+    setHasPubkeyOnly(true);
     setShowImport(false);
     setImportValue('');
-    const pk = await getMyOrgPubkeyBase64url();
-    if (pk) {
-      setMyPubkey(pk);
-      setPubkey(pk);
-    }
+    const pk = getStoredPublicKeyBase64url();
+    if (pk) setMyPubkey(pk);
     queryClient.invalidateQueries({ queryKey: ['orgs-by-member'] });
+  };
+
+  const handleNameChange = (value: string) => {
+    setCreateName(value);
+    if (touched.name) setNameError(validateOrgName(value));
+  };
+
+  const handleSlugChange = (value: string) => {
+    // Auto-lowercase slug as the user types
+    const lower = value.toLowerCase();
+    setCreateSlug(lower);
+    if (touched.slug) setSlugError(validateOrgSlug(lower));
   };
 
   const handleCreateOrg = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!createName.trim() || !createSlug.trim()) return;
-    createOrgMutation.mutate({
-      name: createName.trim(),
-      slug: createSlug.trim(),
-    });
+    const nErr = validateOrgName(createName);
+    const sErr = validateOrgSlug(createSlug);
+    setNameError(nErr);
+    setSlugError(sErr);
+    setTouched({ name: true, slug: true });
+    if (nErr || sErr) return;
+    createOrgMutation.mutate({ name: createName, slug: createSlug });
   };
 
+  const effectivePubkey = pubkey.trim() || myPubkey || '';
+
   const { data: orgs = [], isLoading } = useQuery({
-    queryKey: ['orgs-by-member', pubkey.trim()],
-    queryFn: () => getOrgsByMember(pubkey.trim()),
-    enabled: pubkey.trim().length > 0,
+    queryKey: ['orgs-by-member', effectivePubkey],
+    queryFn: () => getOrgsByMember(effectivePubkey),
+    enabled: effectivePubkey.length > 0,
   });
 
   return (
@@ -123,28 +162,25 @@ export default function MyOrgsPage() {
           <p className='text-[13px] text-neutral-300'>
             Org write operations use a <strong>local Ed25519 keypair</strong>{' '}
             stored in this browser. Create an org identity below to create orgs
-            and manage members and packages. See{' '}
-            <code className='text-neutral-400'>setup.md</code> and{' '}
-            <code className='text-neutral-400'>docs/organizations.md</code> for
-            details.
+            and manage members and packages.
           </p>
         </div>
       </div>
 
-      {/* Create org identity (no keypair) */}
-      {hasKeypair === false && (
+      {/* No identity yet — offer generate or import public key */}
+      {hasKeypair === false && !hasPubkeyOnly && (
         <div className='rounded-xl border border-amber-900/60 bg-amber-950/20 p-6'>
           <div className='flex items-center gap-2 mb-3'>
             <Key className='w-4 h-4 text-amber-500' />
             <h2 className='text-[14px] font-medium text-neutral-200'>
-              Create org identity
+              Set up org identity
             </h2>
           </div>
           <p className='text-neutral-400 text-sm mb-4'>
-            Generate a local Ed25519 keypair to sign org requests. It is stored
-            in this browser only —{' '}
-            <strong className='text-amber-400'>export and back it up</strong>{' '}
-            after creating.
+            To view and manage organizations you need an Ed25519 identity.
+            Import your <strong className='text-neutral-200'>public key</strong>{' '}
+            to view orgs, or generate a full keypair to also create and manage
+            orgs from this browser.
           </p>
           <div className='flex flex-wrap gap-2'>
             <button
@@ -152,7 +188,7 @@ export default function MyOrgsPage() {
               onClick={handleCreateIdentity}
               className='rounded-lg bg-amber-600 hover:bg-amber-500 text-white px-4 py-2 text-sm font-medium transition-colors'
             >
-              Create org identity
+              Generate keypair
             </button>
             <button
               type='button'
@@ -160,11 +196,22 @@ export default function MyOrgsPage() {
               className='rounded-lg border border-neutral-700 hover:border-neutral-600 text-neutral-300 px-4 py-2 text-sm font-medium transition-colors inline-flex items-center gap-1.5'
             >
               <Upload className='w-3.5 h-3.5' />
-              Import existing key
+              Import public key
             </button>
           </div>
           {showImport && (
             <div className='mt-4 space-y-2'>
+              <p className='text-[12px] text-neutral-500'>
+                Paste the{' '}
+                <code className='bg-neutral-800 px-1 py-0.5 rounded text-neutral-300'>
+                  public_key
+                </code>{' '}
+                value from{' '}
+                <code className='bg-neutral-800 px-1 py-0.5 rounded text-neutral-300'>
+                  mero-sign
+                </code>{' '}
+                — base64url, 43 characters. No private key is stored.
+              </p>
               <input
                 type='text'
                 value={importValue}
@@ -172,7 +219,7 @@ export default function MyOrgsPage() {
                   setImportValue(e.target.value);
                   setImportError('');
                 }}
-                placeholder='Paste base64url secret key…'
+                placeholder='e.g. 4Vqj1sfgZ_jFKFtq8b2e-Fnc8_1FVwFzwwjr73xiqQg'
                 className='w-full rounded-lg border border-neutral-700 bg-neutral-800/60 px-4 py-2.5 text-[13px] text-neutral-200 placeholder:text-neutral-500 focus:border-brand-600 focus:outline-none font-mono'
               />
               {importError && (
@@ -180,11 +227,11 @@ export default function MyOrgsPage() {
               )}
               <button
                 type='button'
-                onClick={handleImportKey}
+                onClick={handleImportPublicKey}
                 disabled={!importValue.trim()}
-                className='rounded-lg bg-brand-600 hover:bg-brand-500 disabled:opacity-50 text-white px-4 py-2 text-sm font-medium transition-colors'
+                className='rounded-lg bg-brand-600 hover:bg-brand-500 disabled:opacity-50 text-neutral-900 px-4 py-2 text-sm font-medium transition-colors'
               >
-                Import key
+                Import public key
               </button>
             </div>
           )}
@@ -261,38 +308,73 @@ export default function MyOrgsPage() {
             </h2>
           </div>
           <form onSubmit={handleCreateOrg} className='space-y-3'>
-            <input
-              type='text'
-              value={createName}
-              onChange={e => setCreateName(e.target.value)}
-              placeholder='Organization name'
-              className='w-full rounded-lg border border-neutral-700 bg-neutral-800/60 px-4 py-2.5 text-[13px] text-neutral-200 placeholder:text-neutral-500 focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600'
-            />
-            <input
-              type='text'
-              value={createSlug}
-              onChange={e => setCreateSlug(e.target.value)}
-              placeholder='Slug (e.g. my-org)'
-              className='w-full rounded-lg border border-neutral-700 bg-neutral-800/60 px-4 py-2.5 text-[13px] text-neutral-200 placeholder:text-neutral-500 focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600'
-            />
+            <div>
+              <div className='relative'>
+                <input
+                  type='text'
+                  value={createName}
+                  onChange={e => handleNameChange(e.target.value)}
+                  onBlur={() => {
+                    setTouched(t => ({ ...t, name: true }));
+                    setNameError(validateOrgName(createName));
+                  }}
+                  placeholder='Organization name'
+                  maxLength={ORG_NAME_MAX}
+                  className={`w-full rounded-lg border bg-neutral-800/60 px-4 py-2.5 text-[13px] text-neutral-200 placeholder:text-neutral-500 focus:outline-none focus:ring-1 transition-colors ${
+                    nameError
+                      ? 'border-red-500/70 focus:border-red-500 focus:ring-red-500/30'
+                      : 'border-neutral-700 focus:border-brand-600 focus:ring-brand-600'
+                  }`}
+                />
+                <span className='absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-neutral-600 pointer-events-none'>
+                  {createName.length}/{ORG_NAME_MAX}
+                </span>
+              </div>
+              {nameError && (
+                <p className='mt-1 text-[12px] text-red-400'>{nameError}</p>
+              )}
+            </div>
+            <div>
+              <div className='relative'>
+                <input
+                  type='text'
+                  value={createSlug}
+                  onChange={e => handleSlugChange(e.target.value)}
+                  onBlur={() => {
+                    setTouched(t => ({ ...t, slug: true }));
+                    setSlugError(validateOrgSlug(createSlug));
+                  }}
+                  placeholder='Slug (e.g. my-org)'
+                  maxLength={ORG_SLUG_MAX}
+                  className={`w-full rounded-lg border bg-neutral-800/60 px-4 py-2.5 text-[13px] text-neutral-200 placeholder:text-neutral-500 focus:outline-none focus:ring-1 font-mono transition-colors ${
+                    slugError
+                      ? 'border-red-500/70 focus:border-red-500 focus:ring-red-500/30'
+                      : 'border-neutral-700 focus:border-brand-600 focus:ring-brand-600'
+                  }`}
+                />
+                <span className='absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-neutral-600 pointer-events-none'>
+                  {createSlug.length}/{ORG_SLUG_MAX}
+                </span>
+              </div>
+              <p className='mt-1 text-[11px] text-neutral-600'>
+                Lowercase letters, numbers, and hyphens only.
+              </p>
+              {slugError && (
+                <p className='mt-0.5 text-[12px] text-red-400'>{slugError}</p>
+              )}
+            </div>
             <button
               type='submit'
-              disabled={
-                !createName.trim() ||
-                !createSlug.trim() ||
-                createOrgMutation.isPending
-              }
-              className='rounded-lg bg-brand-600 hover:bg-brand-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 text-sm font-medium transition-colors'
+              disabled={createOrgMutation.isPending}
+              className='rounded-lg bg-brand-600 hover:bg-brand-500 disabled:opacity-50 disabled:cursor-not-allowed text-neutral-900 px-4 py-2 text-sm font-medium transition-colors'
             >
               {createOrgMutation.isPending
                 ? 'Creating…'
                 : 'Create organization'}
             </button>
             {createOrgMutation.isError && (
-              <p className='text-red-400 text-sm'>
-                {createOrgMutation.error instanceof Error
-                  ? createOrgMutation.error.message
-                  : 'Failed to create organization'}
+              <p className='text-red-400 text-[13px]'>
+                {getApiErrorMessage(createOrgMutation.error)}
               </p>
             )}
           </form>
@@ -321,7 +403,7 @@ export default function MyOrgsPage() {
         <h2 className='text-[14px] font-medium text-neutral-200 mb-3'>
           Organizations
         </h2>
-        {!pubkey.trim() ? (
+        {!effectivePubkey ? (
           <div className='rounded-xl border border-neutral-800 bg-neutral-900/40 p-8 text-center'>
             <Building2 className='h-12 w-12 text-neutral-600 mx-auto mb-4' />
             <p className='text-neutral-400 text-sm'>
