@@ -80,6 +80,9 @@ public
 tmp/
 temp/
 
+# Vite runtime temp files
+*.timestamp-*.mjs
+
 # Editor directories and files
 .vscode/
 .idea/
