@@ -330,9 +330,7 @@ export default function OrgDetailPage() {
           Members
         </p>
 
-        {isAdminReadOnly && (
-          <ReadOnlyAdminNotice />
-        )}
+        {isAdminReadOnly && <ReadOnlyAdminNotice />}
 
         {isAdminWithKeypair && (
           <form
