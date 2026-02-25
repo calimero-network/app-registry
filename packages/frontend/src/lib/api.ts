@@ -228,9 +228,7 @@ export const pushBundleFile = async (
 // ——— Organizations (V2 org API) ———
 
 /** List orgs the given member (pubkey) belongs to. */
-export const getOrgsByMember = async (
-  memberPubkey: string
-): Promise<Org[]> => {
+export const getOrgsByMember = async (memberPubkey: string): Promise<Org[]> => {
   if (!memberPubkey?.trim()) return [];
   const response = await api.get<Org[]>('/v2/orgs', {
     params: { member: memberPubkey.trim() },
@@ -264,14 +262,17 @@ export const getOrgPackages = async (
     `/v2/orgs/${encodeURIComponent(orgId)}/packages`
   );
   return {
-    packages: Array.isArray(response.data?.packages) ? response.data.packages : [],
+    packages: Array.isArray(response.data?.packages)
+      ? response.data.packages
+      : [],
   };
 };
 
 // ——— Signed org writes (Ed25519 keypair) ———
 
-const API_BASE = (import.meta as { env?: { VITE_API_URL?: string } }).env
-  ?.VITE_API_URL || '/api';
+const API_BASE =
+  (import.meta as { env?: { VITE_API_URL?: string } }).env?.VITE_API_URL ||
+  '/api';
 
 function pathname(axiosPath: string): string {
   const base = API_BASE.replace(/\/$/, '');
@@ -330,11 +331,9 @@ export const addOrgMember = async (
     `/v2/orgs/${encodeURIComponent(orgId)}/members`,
     body
   );
-  await api.post(
-    `/v2/orgs/${encodeURIComponent(orgId)}/members`,
-    body,
-    { headers }
-  );
+  await api.post(`/v2/orgs/${encodeURIComponent(orgId)}/members`, body, {
+    headers,
+  });
 };
 
 /** Remove member from org (signed, admin). */
@@ -364,11 +363,9 @@ export const linkOrgPackage = async (
     `/v2/orgs/${encodeURIComponent(orgId)}/packages`,
     body
   );
-  await api.post(
-    `/v2/orgs/${encodeURIComponent(orgId)}/packages`,
-    body,
-    { headers }
-  );
+  await api.post(`/v2/orgs/${encodeURIComponent(orgId)}/packages`, body, {
+    headers,
+  });
 };
 
 /** Unlink package from org (signed, admin). */

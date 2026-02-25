@@ -13,7 +13,10 @@ function base64urlEncode(bytes: Uint8Array): string {
   for (let i = 0; i < bytes.length; i++) {
     binary += String.fromCharCode(bytes[i]);
   }
-  const base64 = typeof btoa !== 'undefined' ? btoa(binary) : Buffer.from(bytes).toString('base64');
+  const base64 =
+    typeof btoa !== 'undefined'
+      ? btoa(binary)
+      : Buffer.from(bytes).toString('base64');
   return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 

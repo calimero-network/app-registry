@@ -53,6 +53,7 @@
     "@semantic-release/github": "^9.0.0",
     "@semantic-release/release-notes-generator": "10.0.1",
     "@types/node": "^20.0.0",
+    "@types/tar": "^7.0.87",
     "@typescript-eslint/eslint-plugin": "^8.39.1",
     "@typescript-eslint/parser": "^8.39.1",
     "conventional-changelog-conventionalcommits": "^8.0.0",

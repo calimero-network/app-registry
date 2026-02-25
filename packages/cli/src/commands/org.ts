@@ -9,7 +9,6 @@ import ora from 'ora';
 import {
   loadKeypair,
   getSignedHeaders,
-  publicKeyToBase58,
   publicKeyToBase64url,
 } from '../lib/signed-request.js';
 
@@ -23,7 +22,8 @@ function getGlobalOpts(command: Command): {
   const opts = command.parent?.parent?.opts() ?? {};
   return {
     url: opts.url ?? DEFAULT_URL,
-    timeout: parseInt(String(opts.timeout ?? DEFAULT_TIMEOUT), 10) || DEFAULT_TIMEOUT,
+    timeout:
+      parseInt(String(opts.timeout ?? DEFAULT_TIMEOUT), 10) || DEFAULT_TIMEOUT,
   };
 }
 
@@ -33,9 +33,16 @@ function getKeypairPath(command: Command): string | undefined {
   return orgCmd?.opts()?.keypair;
 }
 
+interface FetchOptions {
+  method?: string;
+  body?: string;
+  headers?: Record<string, string>;
+  timeout?: number;
+}
+
 async function fetchJson<T>(
   url: string,
-  options: RequestInit & { timeout?: number } = {}
+  options: FetchOptions = {}
 ): Promise<{ data: T; status: number }> {
   const { timeout = DEFAULT_TIMEOUT, ...init } = options;
   const controller = new AbortController();
@@ -45,7 +52,7 @@ async function fetchJson<T>(
     signal: controller.signal,
     headers: {
       'Content-Type': 'application/json',
-      ...(init.headers as Record<string, string>),
+      ...init.headers,
     },
   });
   clearTimeout(id);
@@ -62,7 +69,9 @@ export const orgCommand = new Command('org')
   )
   .addCommand(
     new Command('list')
-      .description('List organizations you belong to (uses keypair pubkey as member)')
+      .description(
+        'List organizations you belong to (uses keypair pubkey as member)'
+      )
       .action(async (_options, command: Command) => {
         const { url, timeout } = getGlobalOpts(command);
         const keypairPath = getKeypairPath(command);
@@ -80,7 +89,9 @@ export const orgCommand = new Command('org')
         const base = url.replace(/\/$/, '');
         const apiUrl = `${base}/api/v2/orgs?member=${encodeURIComponent(pubkey)}`;
         try {
-          const { data, status } = await fetchJson<Array<{ id: string; name: string; slug: string }>>(apiUrl, {
+          const { data, status } = await fetchJson<
+            Array<{ id: string; name: string; slug: string }>
+          >(apiUrl, {
             method: 'GET',
             timeout,
           });
@@ -89,7 +100,9 @@ export const orgCommand = new Command('org')
             console.error(chalk.red(JSON.stringify(data)));
             process.exit(1);
           }
-          const orgs = Array.isArray(data) ? data as Array<{ id: string; name: string; slug: string }> : [];
+          const orgs = Array.isArray(data)
+            ? (data as Array<{ id: string; name: string; slug: string }>)
+            : [];
           spinner.succeed(`Found ${orgs.length} organization(s)`);
           if (orgs.length === 0) {
             console.log(chalk.yellow('No organizations found'));
@@ -109,9 +122,8 @@ export const orgCommand = new Command('org')
             const myMember = members.find(m => m.pubkey === pubkey);
             const role = myMember?.role ?? '?';
             const count = members.length;
-            const roleLabel = role === 'admin'
-              ? chalk.yellow('admin')
-              : chalk.gray(role);
+            const roleLabel =
+              role === 'admin' ? chalk.yellow('admin') : chalk.gray(role);
             return `${chalk.white(o.slug)}  ${chalk.gray(o.name)}  ${chalk.gray(`${count} member${count !== 1 ? 's' : ''}`)}  ${roleLabel}`;
           });
           console.log(lines.join('\n'));
@@ -127,39 +139,46 @@ export const orgCommand = new Command('org')
       .description('Create a new organization')
       .requiredOption('-n, --name <name>', 'Organization display name')
       .requiredOption('-s, --slug <slug>', 'Organization slug (e.g. my-org)')
-      .action(async (options: { name: string; slug: string }, command: Command) => {
-        const { url, timeout } = getGlobalOpts(command);
-        const keypairPath = getKeypairPath(command);
-        const spinner = ora('Creating organization...').start();
-        try {
-          const kp = loadKeypair({ keypairPath });
-          const pathname = '/api/v2/orgs';
-          const body = { name: options.name.trim(), slug: options.slug.trim().toLowerCase() };
-          const headers = await getSignedHeaders('POST', pathname, body, kp);
-          const base = url.replace(/\/$/, '');
-          const { data, status } = await fetchJson<{ id: string; name: string; slug: string } | { error: string; message: string }>(
-            `${base}${pathname}`,
-            {
+      .action(
+        async (options: { name: string; slug: string }, command: Command) => {
+          const { url, timeout } = getGlobalOpts(command);
+          const keypairPath = getKeypairPath(command);
+          const spinner = ora('Creating organization...').start();
+          try {
+            const kp = loadKeypair({ keypairPath });
+            const pathname = '/api/v2/orgs';
+            const body = {
+              name: options.name.trim(),
+              slug: options.slug.trim().toLowerCase(),
+            };
+            const headers = await getSignedHeaders('POST', pathname, body, kp);
+            const base = url.replace(/\/$/, '');
+            const { data, status } = await fetchJson<
+              | { id: string; name: string; slug: string }
+              | { error: string; message: string }
+            >(`${base}${pathname}`, {
               method: 'POST',
               body: JSON.stringify(body),
               timeout,
               headers: { ...headers },
+            });
+            if (status >= 400) {
+              const err = data as { error?: string; message?: string };
+              spinner.fail(err?.message || `HTTP ${status}`);
+              console.error(chalk.red(JSON.stringify(data)));
+              process.exit(1);
             }
-          );
-          if (status >= 400) {
-            const err = data as { error?: string; message?: string };
-            spinner.fail(err?.message || `HTTP ${status}`);
-            console.error(chalk.red(JSON.stringify(data)));
+            spinner.succeed('Organization created');
+            console.log(chalk.green(JSON.stringify(data, null, 2)));
+          } catch (e) {
+            spinner.fail('Failed');
+            console.error(
+              chalk.red(e instanceof Error ? e.message : String(e))
+            );
             process.exit(1);
           }
-          spinner.succeed('Organization created');
-          console.log(chalk.green(JSON.stringify(data, null, 2)));
-        } catch (e) {
-          spinner.fail('Failed');
-          console.error(chalk.red(e instanceof Error ? e.message : String(e)));
-          process.exit(1);
         }
-      })
+      )
   )
   .addCommand(
     new Command('get')
@@ -171,10 +190,9 @@ export const orgCommand = new Command('org')
         const pathname = `/api/v2/orgs/${encodeURIComponent(orgId)}`;
         const spinner = ora('Fetching organization...').start();
         try {
-          const { data, status } = await fetchJson<Record<string, unknown> | { error: string; message: string }>(
-            `${base}${pathname}`,
-            { method: 'GET', timeout }
-          );
+          const { data, status } = await fetchJson<
+            Record<string, unknown> | { error: string; message: string }
+          >(`${base}${pathname}`, { method: 'GET', timeout });
           if (status === 404) {
             spinner.fail('Organization not found');
             process.exit(1);
@@ -199,93 +217,120 @@ export const orgCommand = new Command('org')
       .argument('<orgId>', 'Organization id or slug')
       .option('-n, --name <name>', 'New display name')
       .option('-m, --metadata <json>', 'Metadata JSON object')
-      .action(async (orgId: string, options: { name?: string; metadata?: string }, command: Command) => {
-        const { url, timeout } = getGlobalOpts(command);
-        const keypairPath = getKeypairPath(command);
-        const spinner = ora('Updating organization...').start();
-        try {
-          const kp = loadKeypair({ keypairPath });
-          const pathname = `/api/v2/orgs/${encodeURIComponent(orgId)}`;
-          const body: Record<string, unknown> = {};
-          if (options.name !== undefined) body.name = options.name;
-          if (options.metadata !== undefined) {
-            try {
-              body.metadata = JSON.parse(options.metadata);
-            } catch {
-              spinner.fail('--metadata must be valid JSON');
-              process.exit(1);
+      .action(
+        async (
+          orgId: string,
+          options: { name?: string; metadata?: string },
+          command: Command
+        ) => {
+          const { url, timeout } = getGlobalOpts(command);
+          const keypairPath = getKeypairPath(command);
+          const spinner = ora('Updating organization...').start();
+          try {
+            const kp = loadKeypair({ keypairPath });
+            const pathname = `/api/v2/orgs/${encodeURIComponent(orgId)}`;
+            const body: Record<string, unknown> = {};
+            if (options.name !== undefined) body.name = options.name;
+            if (options.metadata !== undefined) {
+              try {
+                body.metadata = JSON.parse(options.metadata);
+              } catch {
+                spinner.fail('--metadata must be valid JSON');
+                process.exit(1);
+              }
             }
-          }
-          const headers = await getSignedHeaders('PATCH', pathname, body, kp);
-          const base = url.replace(/\/$/, '');
-          const { data, status } = await fetchJson(
-            `${base}${pathname}`,
-            {
+            const headers = await getSignedHeaders('PATCH', pathname, body, kp);
+            const base = url.replace(/\/$/, '');
+            const { data, status } = await fetchJson(`${base}${pathname}`, {
               method: 'PATCH',
-              body: Object.keys(body).length > 0 ? JSON.stringify(body) : undefined,
+              body:
+                Object.keys(body).length > 0 ? JSON.stringify(body) : undefined,
               timeout,
               headers: { ...headers },
+            });
+            if (status >= 400) {
+              spinner.fail(
+                (data as { message?: string })?.message || `HTTP ${status}`
+              );
+              console.error(chalk.red(JSON.stringify(data)));
+              process.exit(1);
             }
-          );
-          if (status >= 400) {
-            spinner.fail((data as { message?: string })?.message || `HTTP ${status}`);
-            console.error(chalk.red(JSON.stringify(data)));
+            spinner.succeed('Updated');
+            console.log(JSON.stringify(data, null, 2));
+          } catch (e) {
+            spinner.fail('Failed');
+            console.error(
+              chalk.red(e instanceof Error ? e.message : String(e))
+            );
             process.exit(1);
           }
-          spinner.succeed('Updated');
-          console.log(JSON.stringify(data, null, 2));
-        } catch (e) {
-          spinner.fail('Failed');
-          console.error(chalk.red(e instanceof Error ? e.message : String(e)));
-          process.exit(1);
         }
-      })
+      )
   )
   .addCommand(
     new Command('delete')
       .description('Delete an organization and all its data (irreversible)')
       .argument('<orgId>', 'Organization id or slug')
       .option('-y, --yes', 'Skip confirmation prompt')
-      .action(async (orgId: string, options: { yes?: boolean }, command: Command) => {
-        const { url, timeout } = getGlobalOpts(command);
-        const keypairPath = getKeypairPath(command);
-        if (!options.yes) {
-          const { createInterface } = await import('readline');
-          const rl = createInterface({ input: process.stdin, output: process.stdout });
-          const confirmed = await new Promise<boolean>(resolve => {
-            rl.question(
-              chalk.yellow(`Delete organization "${orgId}" and all its members/packages? This cannot be undone. Type "yes" to confirm: `),
-              answer => { rl.close(); resolve(answer.trim().toLowerCase() === 'yes'); }
-            );
-          });
-          if (!confirmed) {
-            console.log(chalk.gray('Aborted.'));
-            return;
+      .action(
+        async (orgId: string, options: { yes?: boolean }, command: Command) => {
+          const { url, timeout } = getGlobalOpts(command);
+          const keypairPath = getKeypairPath(command);
+          if (!options.yes) {
+            const { createInterface } = await import('readline');
+            const rl = createInterface({
+              input: process.stdin,
+              output: process.stdout,
+            });
+            const confirmed = await new Promise<boolean>(resolve => {
+              rl.question(
+                chalk.yellow(
+                  `Delete organization "${orgId}" and all its members/packages? This cannot be undone. Type "yes" to confirm: `
+                ),
+                answer => {
+                  rl.close();
+                  resolve(answer.trim().toLowerCase() === 'yes');
+                }
+              );
+            });
+            if (!confirmed) {
+              console.log(chalk.gray('Aborted.'));
+              return;
+            }
           }
-        }
-        const spinner = ora('Deleting organization...').start();
-        try {
-          const kp = loadKeypair({ keypairPath });
-          const pathname = `/api/v2/orgs/${encodeURIComponent(orgId)}`;
-          const headers = await getSignedHeaders('DELETE', pathname, undefined, kp);
-          const base = url.replace(/\/$/, '');
-          const { data, status } = await fetchJson(`${base}${pathname}`, {
-            method: 'DELETE',
-            timeout,
-            headers: { ...headers },
-          });
-          if (status >= 400) {
-            spinner.fail((data as { message?: string })?.message || `HTTP ${status}`);
-            console.error(chalk.red(JSON.stringify(data)));
+          const spinner = ora('Deleting organization...').start();
+          try {
+            const kp = loadKeypair({ keypairPath });
+            const pathname = `/api/v2/orgs/${encodeURIComponent(orgId)}`;
+            const headers = await getSignedHeaders(
+              'DELETE',
+              pathname,
+              undefined,
+              kp
+            );
+            const base = url.replace(/\/$/, '');
+            const { data, status } = await fetchJson(`${base}${pathname}`, {
+              method: 'DELETE',
+              timeout,
+              headers: { ...headers },
+            });
+            if (status >= 400) {
+              spinner.fail(
+                (data as { message?: string })?.message || `HTTP ${status}`
+              );
+              console.error(chalk.red(JSON.stringify(data)));
+              process.exit(1);
+            }
+            spinner.succeed('Organization deleted');
+          } catch (e) {
+            spinner.fail('Failed');
+            console.error(
+              chalk.red(e instanceof Error ? e.message : String(e))
+            );
             process.exit(1);
           }
-          spinner.succeed('Organization deleted');
-        } catch (e) {
-          spinner.fail('Failed');
-          console.error(chalk.red(e instanceof Error ? e.message : String(e)));
-          process.exit(1);
         }
-      })
+      )
   )
   .addCommand(
     new Command('members')
@@ -301,21 +346,24 @@ export const orgCommand = new Command('org')
             const pathname = `/api/v2/orgs/${encodeURIComponent(orgId)}/members`;
             const spinner = ora('Fetching members...').start();
             try {
-              const { data, status } = await fetchJson<{ members: Array<{ pubkey: string; role: string }> }>(
-                `${base}${pathname}`,
-                { method: 'GET', timeout }
-              );
+              const { data, status } = await fetchJson<{
+                members: Array<{ pubkey: string; role: string }>;
+              }>(`${base}${pathname}`, { method: 'GET', timeout });
               if (status !== 200) {
                 spinner.fail('Failed');
                 console.error(chalk.red(JSON.stringify(data)));
                 process.exit(1);
               }
               spinner.succeed('OK');
-              const members = (data as { members?: Array<{ pubkey: string; role: string }> })?.members ?? [];
+              const members =
+                (data as { members?: Array<{ pubkey: string; role: string }> })
+                  ?.members ?? [];
               console.log(JSON.stringify(members, null, 2));
             } catch (e) {
               spinner.fail('Request failed');
-              console.error(chalk.red(e instanceof Error ? e.message : String(e)));
+              console.error(
+                chalk.red(e instanceof Error ? e.message : String(e))
+              );
               process.exit(1);
             }
           })
@@ -325,74 +373,104 @@ export const orgCommand = new Command('org')
           .description('Add a member by pubkey')
           .argument('<pubkey>', 'Member public key (base58)')
           .option('-r, --role <role>', 'Role: member or admin', 'member')
-          .action(async (pubkey: string, options: { role: string }, command: Command) => {
-            const orgId = (command.parent as Command).args[0] as string;
-            const { url, timeout } = getGlobalOpts(command);
-            const keypairPath = getKeypairPath(command);
-            const spinner = ora('Adding member...').start();
-            try {
-              const kp = loadKeypair({ keypairPath });
-              const pathname = `/api/v2/orgs/${encodeURIComponent(orgId)}/members`;
-              const body = { pubkey: pubkey.trim(), role: options.role === 'admin' ? 'admin' : 'member' };
-              const headers = await getSignedHeaders('POST', pathname, body, kp);
-              const base = url.replace(/\/$/, '');
-              const { data, status } = await fetchJson(
-                `${base}${pathname}`,
-                {
+          .action(
+            async (
+              pubkey: string,
+              options: { role: string },
+              command: Command
+            ) => {
+              const orgId = (command.parent as Command).args[0] as string;
+              const { url, timeout } = getGlobalOpts(command);
+              const keypairPath = getKeypairPath(command);
+              const spinner = ora('Adding member...').start();
+              try {
+                const kp = loadKeypair({ keypairPath });
+                const pathname = `/api/v2/orgs/${encodeURIComponent(orgId)}/members`;
+                const body = {
+                  pubkey: pubkey.trim(),
+                  role: options.role === 'admin' ? 'admin' : 'member',
+                };
+                const headers = await getSignedHeaders(
+                  'POST',
+                  pathname,
+                  body,
+                  kp
+                );
+                const base = url.replace(/\/$/, '');
+                const { data, status } = await fetchJson(`${base}${pathname}`, {
                   method: 'POST',
                   body: JSON.stringify(body),
                   timeout,
                   headers: { ...headers },
+                });
+                if (status >= 400) {
+                  spinner.fail(
+                    (data as { message?: string })?.message || `HTTP ${status}`
+                  );
+                  console.error(chalk.red(JSON.stringify(data)));
+                  process.exit(1);
                 }
-              );
-              if (status >= 400) {
-                spinner.fail((data as { message?: string })?.message || `HTTP ${status}`);
-                console.error(chalk.red(JSON.stringify(data)));
+                spinner.succeed('Member added');
+              } catch (e) {
+                spinner.fail('Failed');
+                console.error(
+                  chalk.red(e instanceof Error ? e.message : String(e))
+                );
                 process.exit(1);
               }
-              spinner.succeed('Member added');
-            } catch (e) {
-              spinner.fail('Failed');
-              console.error(chalk.red(e instanceof Error ? e.message : String(e)));
-              process.exit(1);
             }
-          })
+          )
       )
       .addCommand(
         new Command('update')
           .description('Update a member role (admin or member)')
           .argument('<pubkey>', 'Member public key')
           .requiredOption('-r, --role <role>', 'New role: admin or member')
-          .action(async (pubkey: string, options: { role: string }, command: Command) => {
-            const orgId = (command.parent as Command).args[0] as string;
-            const { url, timeout } = getGlobalOpts(command);
-            const keypairPath = getKeypairPath(command);
-            const role = options.role === 'admin' ? 'admin' : 'member';
-            const spinner = ora('Updating member role...').start();
-            try {
-              const kp = loadKeypair({ keypairPath });
-              const pathname = `/api/v2/orgs/${encodeURIComponent(orgId)}/members/${encodeURIComponent(pubkey.trim())}`;
-              const body = { role };
-              const headers = await getSignedHeaders('PATCH', pathname, body, kp);
-              const base = url.replace(/\/$/, '');
-              const { data, status } = await fetchJson(`${base}${pathname}`, {
-                method: 'PATCH',
-                body: JSON.stringify(body),
-                timeout,
-                headers: { ...headers },
-              });
-              if (status >= 400) {
-                spinner.fail((data as { message?: string })?.message || `HTTP ${status}`);
-                console.error(chalk.red(JSON.stringify(data)));
+          .action(
+            async (
+              pubkey: string,
+              options: { role: string },
+              command: Command
+            ) => {
+              const orgId = (command.parent as Command).args[0] as string;
+              const { url, timeout } = getGlobalOpts(command);
+              const keypairPath = getKeypairPath(command);
+              const role = options.role === 'admin' ? 'admin' : 'member';
+              const spinner = ora('Updating member role...').start();
+              try {
+                const kp = loadKeypair({ keypairPath });
+                const pathname = `/api/v2/orgs/${encodeURIComponent(orgId)}/members/${encodeURIComponent(pubkey.trim())}`;
+                const body = { role };
+                const headers = await getSignedHeaders(
+                  'PATCH',
+                  pathname,
+                  body,
+                  kp
+                );
+                const base = url.replace(/\/$/, '');
+                const { data, status } = await fetchJson(`${base}${pathname}`, {
+                  method: 'PATCH',
+                  body: JSON.stringify(body),
+                  timeout,
+                  headers: { ...headers },
+                });
+                if (status >= 400) {
+                  spinner.fail(
+                    (data as { message?: string })?.message || `HTTP ${status}`
+                  );
+                  console.error(chalk.red(JSON.stringify(data)));
+                  process.exit(1);
+                }
+                spinner.succeed(`Role updated to "${role}"`);
+              } catch (e) {
+                spinner.fail('Failed');
+                console.error(
+                  chalk.red(e instanceof Error ? e.message : String(e))
+                );
                 process.exit(1);
               }
-              spinner.succeed(`Role updated to "${role}"`);
-            } catch (e) {
-              spinner.fail('Failed');
-              console.error(chalk.red(e instanceof Error ? e.message : String(e)));
-              process.exit(1);
             }
-          })
+          )
       )
       .addCommand(
         new Command('remove')
@@ -406,7 +484,12 @@ export const orgCommand = new Command('org')
             try {
               const kp = loadKeypair({ keypairPath });
               const pathname = `/api/v2/orgs/${encodeURIComponent(orgId)}/members/${encodeURIComponent(pubkey.trim())}`;
-              const headers = await getSignedHeaders('DELETE', pathname, undefined, kp);
+              const headers = await getSignedHeaders(
+                'DELETE',
+                pathname,
+                undefined,
+                kp
+              );
               const base = url.replace(/\/$/, '');
               const { data, status } = await fetchJson(`${base}${pathname}`, {
                 method: 'DELETE',
@@ -414,14 +497,18 @@ export const orgCommand = new Command('org')
                 headers: { ...headers },
               });
               if (status >= 400) {
-                spinner.fail((data as { message?: string })?.message || `HTTP ${status}`);
+                spinner.fail(
+                  (data as { message?: string })?.message || `HTTP ${status}`
+                );
                 console.error(chalk.red(JSON.stringify(data)));
                 process.exit(1);
               }
               spinner.succeed('Member removed');
             } catch (e) {
               spinner.fail('Failed');
-              console.error(chalk.red(e instanceof Error ? e.message : String(e)));
+              console.error(
+                chalk.red(e instanceof Error ? e.message : String(e))
+              );
               process.exit(1);
             }
           })
@@ -444,26 +531,32 @@ export const orgCommand = new Command('org')
               const kp = loadKeypair({ keypairPath });
               const pathname = `/api/v2/orgs/${encodeURIComponent(orgId)}/packages`;
               const body = { package: pkg.trim() };
-              const headers = await getSignedHeaders('POST', pathname, body, kp);
-              const base = url.replace(/\/$/, '');
-              const { data, status } = await fetchJson(
-                `${base}${pathname}`,
-                {
-                  method: 'POST',
-                  body: JSON.stringify(body),
-                  timeout,
-                  headers: { ...headers },
-                }
+              const headers = await getSignedHeaders(
+                'POST',
+                pathname,
+                body,
+                kp
               );
+              const base = url.replace(/\/$/, '');
+              const { data, status } = await fetchJson(`${base}${pathname}`, {
+                method: 'POST',
+                body: JSON.stringify(body),
+                timeout,
+                headers: { ...headers },
+              });
               if (status >= 400) {
-                spinner.fail((data as { message?: string })?.message || `HTTP ${status}`);
+                spinner.fail(
+                  (data as { message?: string })?.message || `HTTP ${status}`
+                );
                 console.error(chalk.red(JSON.stringify(data)));
                 process.exit(1);
               }
               spinner.succeed('Package linked');
             } catch (e) {
               spinner.fail('Failed');
-              console.error(chalk.red(e instanceof Error ? e.message : String(e)));
+              console.error(
+                chalk.red(e instanceof Error ? e.message : String(e))
+              );
               process.exit(1);
             }
           })
@@ -480,7 +573,12 @@ export const orgCommand = new Command('org')
             try {
               const kp = loadKeypair({ keypairPath });
               const pathname = `/api/v2/orgs/${encodeURIComponent(orgId)}/packages/${encodeURIComponent(pkg.trim())}`;
-              const headers = await getSignedHeaders('DELETE', pathname, undefined, kp);
+              const headers = await getSignedHeaders(
+                'DELETE',
+                pathname,
+                undefined,
+                kp
+              );
               const base = url.replace(/\/$/, '');
               const { data, status } = await fetchJson(`${base}${pathname}`, {
                 method: 'DELETE',
@@ -488,14 +586,18 @@ export const orgCommand = new Command('org')
                 headers: { ...headers },
               });
               if (status >= 400) {
-                spinner.fail((data as { message?: string })?.message || `HTTP ${status}`);
+                spinner.fail(
+                  (data as { message?: string })?.message || `HTTP ${status}`
+                );
                 console.error(chalk.red(JSON.stringify(data)));
                 process.exit(1);
               }
               spinner.succeed('Package unlinked');
             } catch (e) {
               spinner.fail('Failed');
-              console.error(chalk.red(e instanceof Error ? e.message : String(e)));
+              console.error(
+                chalk.red(e instanceof Error ? e.message : String(e))
+              );
               process.exit(1);
             }
           })

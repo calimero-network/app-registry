@@ -119,7 +119,12 @@ export function ProfileDropdown({
           viewBox='0 0 24 24'
           stroke='currentColor'
         >
-          <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M19 9l-7 7-7-7' />
+          <path
+            strokeLinecap='round'
+            strokeLinejoin='round'
+            strokeWidth={2}
+            d='M19 9l-7 7-7-7'
+          />
         </svg>
       </button>
       {open && (
@@ -128,7 +133,9 @@ export function ProfileDropdown({
           role='menu'
         >
           <div className='border-b border-neutral-700/80 px-3 py-2'>
-            <p className='truncate text-[12px] text-neutral-400'>Signed in as</p>
+            <p className='truncate text-[12px] text-neutral-400'>
+              Signed in as
+            </p>
             <p className='truncate text-[13px] font-medium text-neutral-200'>
               {displayName}
             </p>

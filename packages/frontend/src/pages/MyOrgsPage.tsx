@@ -1,9 +1,5 @@
 import { useState, useEffect } from 'react';
-import {
-  getOrgsByMember,
-  createOrg,
-  getMyOrgPubkeyBase64url,
-} from '@/lib/api';
+import { getOrgsByMember, createOrg, getMyOrgPubkeyBase64url } from '@/lib/api';
 import {
   getStoredKeypair,
   generateKeypair,
@@ -12,7 +8,19 @@ import {
 } from '@/lib/org-keypair';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Building2, ArrowRight, Search, Info, Key, Plus, Download, Upload, Eye, EyeOff, Copy, Check } from 'lucide-react';
+import {
+  Building2,
+  ArrowRight,
+  Search,
+  Info,
+  Key,
+  Plus,
+  Upload,
+  Eye,
+  EyeOff,
+  Copy,
+  Check,
+} from 'lucide-react';
 
 export default function MyOrgsPage() {
   const [pubkey, setPubkey] = useState('');
@@ -69,7 +77,9 @@ export default function MyOrgsPage() {
     setImportError('');
     const kp = await importSecretKey(importValue);
     if (!kp) {
-      setImportError('Invalid key — must be a base64url-encoded 32-byte secret.');
+      setImportError(
+        'Invalid key — must be a base64url-encoded 32-byte secret.'
+      );
       return;
     }
     setHasKeypair(true);
@@ -86,7 +96,10 @@ export default function MyOrgsPage() {
   const handleCreateOrg = (e: React.FormEvent) => {
     e.preventDefault();
     if (!createName.trim() || !createSlug.trim()) return;
-    createOrgMutation.mutate({ name: createName.trim(), slug: createSlug.trim() });
+    createOrgMutation.mutate({
+      name: createName.trim(),
+      slug: createSlug.trim(),
+    });
   };
 
   const { data: orgs = [], isLoading } = useQuery({
@@ -129,7 +142,9 @@ export default function MyOrgsPage() {
           </div>
           <p className='text-neutral-400 text-sm mb-4'>
             Generate a local Ed25519 keypair to sign org requests. It is stored
-            in this browser only — <strong className='text-amber-400'>export and back it up</strong> after creating.
+            in this browser only —{' '}
+            <strong className='text-amber-400'>export and back it up</strong>{' '}
+            after creating.
           </p>
           <div className='flex flex-wrap gap-2'>
             <button
@@ -153,11 +168,16 @@ export default function MyOrgsPage() {
               <input
                 type='text'
                 value={importValue}
-                onChange={e => { setImportValue(e.target.value); setImportError(''); }}
+                onChange={e => {
+                  setImportValue(e.target.value);
+                  setImportError('');
+                }}
                 placeholder='Paste base64url secret key…'
                 className='w-full rounded-lg border border-neutral-700 bg-neutral-800/60 px-4 py-2.5 text-[13px] text-neutral-200 placeholder:text-neutral-500 focus:border-brand-600 focus:outline-none font-mono'
               />
-              {importError && <p className='text-red-400 text-[12px]'>{importError}</p>}
+              {importError && (
+                <p className='text-red-400 text-[12px]'>{importError}</p>
+              )}
               <button
                 type='button'
                 onClick={handleImportKey}
@@ -177,7 +197,9 @@ export default function MyOrgsPage() {
           <div className='flex items-center justify-between mb-2'>
             <div className='flex items-center gap-2'>
               <Key className='w-3.5 h-3.5 text-brand-600' />
-              <span className='text-[13px] font-medium text-neutral-300'>Your org identity</span>
+              <span className='text-[13px] font-medium text-neutral-300'>
+                Your org identity
+              </span>
             </div>
             <div className='flex items-center gap-2'>
               <button
@@ -186,18 +208,26 @@ export default function MyOrgsPage() {
                 className='text-[12px] text-neutral-500 hover:text-neutral-300 inline-flex items-center gap-1 transition-colors'
                 title='Show / hide secret key for backup'
               >
-                {showSecretKey ? <EyeOff className='w-3.5 h-3.5' /> : <Eye className='w-3.5 h-3.5' />}
+                {showSecretKey ? (
+                  <EyeOff className='w-3.5 h-3.5' />
+                ) : (
+                  <Eye className='w-3.5 h-3.5' />
+                )}
                 {showSecretKey ? 'Hide key' : 'Export key'}
               </button>
             </div>
           </div>
-          <p className='text-[11px] text-neutral-500 font-mono truncate mb-1' title={myPubkey}>
+          <p
+            className='text-[11px] text-neutral-500 font-mono truncate mb-1'
+            title={myPubkey}
+          >
             pubkey: {myPubkey}
           </p>
           {showSecretKey && (
             <div className='mt-3 rounded-lg border border-amber-900/50 bg-amber-950/20 p-3'>
               <p className='text-[11px] text-amber-400 mb-2'>
-                Secret key — store this safely. Anyone with this key can manage your organizations.
+                Secret key — store this safely. Anyone with this key can manage
+                your organizations.
               </p>
               <div className='flex items-center gap-2'>
                 <code className='flex-1 text-[11px] font-mono text-neutral-300 bg-neutral-800 rounded px-2 py-1.5 truncate'>
@@ -209,7 +239,11 @@ export default function MyOrgsPage() {
                   className='flex-shrink-0 text-neutral-400 hover:text-neutral-200 p-1.5 rounded transition-colors'
                   title='Copy secret key'
                 >
-                  {copied ? <Check className='w-3.5 h-3.5 text-green-400' /> : <Copy className='w-3.5 h-3.5' />}
+                  {copied ? (
+                    <Check className='w-3.5 h-3.5 text-green-400' />
+                  ) : (
+                    <Copy className='w-3.5 h-3.5' />
+                  )}
                 </button>
               </div>
             </div>
@@ -250,7 +284,9 @@ export default function MyOrgsPage() {
               }
               className='rounded-lg bg-brand-600 hover:bg-brand-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 text-sm font-medium transition-colors'
             >
-              {createOrgMutation.isPending ? 'Creating…' : 'Create organization'}
+              {createOrgMutation.isPending
+                ? 'Creating…'
+                : 'Create organization'}
             </button>
             {createOrgMutation.isError && (
               <p className='text-red-400 text-sm'>

@@ -137,7 +137,8 @@ async function getOrgMemberRole(orgId, pubkey) {
  * @param {string} role 'admin' | 'member'
  */
 async function updateOrgMemberRole(orgId, pubkey, role) {
-  if (!orgId || !pubkey || !role) throw new Error('orgId, pubkey and role required');
+  if (!orgId || !pubkey || !role)
+    throw new Error('orgId, pubkey and role required');
   const rolesKey = ORG_PREFIX + orgId + ROLES_SUFFIX;
   await kv.hSet(rolesKey, { [pubkey]: role });
 }

@@ -42,7 +42,9 @@ export default function OrgDetailPage() {
   const decodedOrgId = decodeURIComponent(orgId);
   const [myPubkey, setMyPubkey] = useState<string | null>(null);
   const [newMemberPubkey, setNewMemberPubkey] = useState('');
-  const [newMemberRole, setNewMemberRole] = useState<'admin' | 'member'>('member');
+  const [newMemberRole, setNewMemberRole] = useState<'admin' | 'member'>(
+    'member'
+  );
   const [newPackageName, setNewPackageName] = useState('');
   const [isEditingMetadata, setIsEditingMetadata] = useState(false);
   const [metadataJson, setMetadataJson] = useState('{}');
@@ -53,7 +55,11 @@ export default function OrgDetailPage() {
     getMyOrgPubkeyBase64url().then(setMyPubkey);
   }, []);
 
-  const { data: org, isLoading: orgLoading, error: orgError } = useQuery({
+  const {
+    data: org,
+    isLoading: orgLoading,
+    error: orgError,
+  } = useQuery({
     queryKey: ['org', decodedOrgId],
     queryFn: () => getOrg(decodedOrgId),
     enabled: !!decodedOrgId,
@@ -81,7 +87,9 @@ export default function OrgDetailPage() {
     mutationFn: () =>
       addOrgMember(decodedOrgId, newMemberPubkey.trim(), newMemberRole),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['org-members', decodedOrgId] });
+      queryClient.invalidateQueries({
+        queryKey: ['org-members', decodedOrgId],
+      });
       setNewMemberPubkey('');
       setNewMemberRole('member');
     },
@@ -91,14 +99,18 @@ export default function OrgDetailPage() {
     mutationFn: (memberPubkey: string) =>
       removeOrgMember(decodedOrgId, memberPubkey),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['org-members', decodedOrgId] });
+      queryClient.invalidateQueries({
+        queryKey: ['org-members', decodedOrgId],
+      });
     },
   });
 
   const linkPackageMutation = useMutation({
     mutationFn: () => linkOrgPackage(decodedOrgId, newPackageName.trim()),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['org-packages', decodedOrgId] });
+      queryClient.invalidateQueries({
+        queryKey: ['org-packages', decodedOrgId],
+      });
       setNewPackageName('');
     },
   });
@@ -107,7 +119,9 @@ export default function OrgDetailPage() {
     mutationFn: (packageName: string) =>
       unlinkOrgPackage(decodedOrgId, packageName),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['org-packages', decodedOrgId] });
+      queryClient.invalidateQueries({
+        queryKey: ['org-packages', decodedOrgId],
+      });
     },
   });
 
@@ -132,7 +146,11 @@ export default function OrgDetailPage() {
     let parsed: Record<string, unknown>;
     try {
       parsed = JSON.parse(metadataJson);
-      if (typeof parsed !== 'object' || Array.isArray(parsed) || parsed === null) {
+      if (
+        typeof parsed !== 'object' ||
+        Array.isArray(parsed) ||
+        parsed === null
+      ) {
         setMetadataError('Must be a JSON object, e.g. {"key": "value"}');
         return;
       }
@@ -211,7 +229,11 @@ export default function OrgDetailPage() {
             className='mb-3 flex flex-wrap items-end gap-2'
             onSubmit={e => {
               e.preventDefault();
-              if (!newMemberPubkey.trim() || !isValidPubkeyFormat(newMemberPubkey)) return;
+              if (
+                !newMemberPubkey.trim() ||
+                !isValidPubkeyFormat(newMemberPubkey)
+              )
+                return;
               addMemberMutation.mutate();
             }}
           >
@@ -225,16 +247,19 @@ export default function OrgDetailPage() {
                 onChange={e => setNewMemberPubkey(e.target.value)}
                 placeholder='New member pubkey'
                 className={`input w-full ${
-                  newMemberPubkey.trim() && !isValidPubkeyFormat(newMemberPubkey)
+                  newMemberPubkey.trim() &&
+                  !isValidPubkeyFormat(newMemberPubkey)
                     ? 'border-red-600 focus:border-red-500 focus:ring-red-500'
                     : ''
                 }`}
               />
-              {newMemberPubkey.trim() && !isValidPubkeyFormat(newMemberPubkey) && (
-                <p className='mt-1 text-[11px] text-red-400'>
-                  Must be a base64url (43 chars) or base58 (43–44 chars) Ed25519 public key.
-                </p>
-              )}
+              {newMemberPubkey.trim() &&
+                !isValidPubkeyFormat(newMemberPubkey) && (
+                  <p className='mt-1 text-[11px] text-red-400'>
+                    Must be a base64url (43 chars) or base58 (43–44 chars)
+                    Ed25519 public key.
+                  </p>
+                )}
             </div>
             <div className='w-28'>
               <label className='block text-[11px] text-neutral-500 mb-1'>
@@ -312,7 +337,9 @@ export default function OrgDetailPage() {
                       <td className='py-2.5 px-4 font-mono text-neutral-400 truncate max-w-[280px]'>
                         {m.pubkey}
                         {m.pubkey === myPubkey && (
-                          <span className='ml-2 text-[10px] text-brand-600 font-sans'>(you)</span>
+                          <span className='ml-2 text-[10px] text-brand-600 font-sans'>
+                            (you)
+                          </span>
                         )}
                       </td>
                       <td className='py-2.5 px-4'>
@@ -331,7 +358,9 @@ export default function OrgDetailPage() {
                         <td className='py-2.5 px-4 text-right'>
                           <button
                             type='button'
-                            onClick={() => removeMemberMutation.mutate(m.pubkey)}
+                            onClick={() =>
+                              removeMemberMutation.mutate(m.pubkey)
+                            }
                             disabled={isRemoving}
                             className='text-neutral-500 hover:text-red-400 disabled:opacity-40 disabled:cursor-not-allowed p-1 rounded transition-colors'
                             title='Remove member'
@@ -471,7 +500,10 @@ export default function OrgDetailPage() {
             <div className='rounded-xl border border-neutral-800 bg-neutral-900/40 p-4 space-y-3'>
               <textarea
                 value={metadataJson}
-                onChange={e => { setMetadataJson(e.target.value); setMetadataError(''); }}
+                onChange={e => {
+                  setMetadataJson(e.target.value);
+                  setMetadataError('');
+                }}
                 rows={6}
                 spellCheck={false}
                 className='w-full rounded-lg border border-neutral-700 bg-neutral-800/60 px-3 py-2.5 text-[12px] font-mono text-neutral-200 placeholder:text-neutral-500 focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600 resize-y'
@@ -499,7 +531,10 @@ export default function OrgDetailPage() {
                 </button>
                 <button
                   type='button'
-                  onClick={() => { setIsEditingMetadata(false); setMetadataError(''); }}
+                  onClick={() => {
+                    setIsEditingMetadata(false);
+                    setMetadataError('');
+                  }}
                   className='inline-flex items-center gap-1.5 text-[13px] text-neutral-400 hover:text-neutral-200 px-3 py-1.5 rounded-lg border border-neutral-700 hover:border-neutral-600 transition-colors'
                 >
                   <X className='w-3.5 h-3.5' />
@@ -512,8 +547,13 @@ export default function OrgDetailPage() {
               <table className='w-full text-[13px]'>
                 <tbody>
                   {Object.entries(org!.metadata!).map(([k, v]) => (
-                    <tr key={k} className='border-b border-neutral-800/80 last:border-0'>
-                      <td className='py-2.5 px-4 font-mono text-neutral-500 w-1/3'>{k}</td>
+                    <tr
+                      key={k}
+                      className='border-b border-neutral-800/80 last:border-0'
+                    >
+                      <td className='py-2.5 px-4 font-mono text-neutral-500 w-1/3'>
+                        {k}
+                      </td>
                       <td className='py-2.5 px-4 text-neutral-300 break-all'>
                         {typeof v === 'object' ? JSON.stringify(v) : String(v)}
                       </td>

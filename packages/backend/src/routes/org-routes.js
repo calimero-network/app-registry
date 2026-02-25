@@ -8,7 +8,6 @@ const {
   getOrg,
   setOrg,
   getOrgIdBySlug,
-  getOrgBySlug,
   getOrgMembers,
   addOrgMember,
   removeOrgMember,
@@ -123,7 +122,12 @@ async function orgRoutes(server) {
     const result = await requireSignedRequest(request, reply);
     if (result.pubkey === undefined) return;
     const { name, slug } = request.body || {};
-    if (!name || typeof name !== 'string' || !slug || typeof slug !== 'string') {
+    if (
+      !name ||
+      typeof name !== 'string' ||
+      !slug ||
+      typeof slug !== 'string'
+    ) {
       return reply.code(400).send({
         error: 'bad_request',
         message: 'Body must include name and slug (strings)',

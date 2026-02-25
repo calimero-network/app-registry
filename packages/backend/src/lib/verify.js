@@ -301,7 +301,7 @@ function validatePublicKey(pubkey) {
   // base64url (CLI / mero-sign)
   try {
     const decoded = base64urlDecode(trimmed);
-    return decoded.length === 32;
+    if (decoded.length === 32) return true;
   } catch {
     // continue
   }

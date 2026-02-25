@@ -28,12 +28,9 @@ export function buildSignedPayload(
   pathname: string,
   body: Record<string, unknown> | null | undefined
 ): string {
-  const bodyObj =
-    body != null && typeof body === 'object' ? body : {};
+  const bodyObj = body != null && typeof body === 'object' ? body : {};
   const bodyStr =
-    Object.keys(bodyObj).length > 0
-      ? (canonicalize(bodyObj) as string)
-      : '';
+    Object.keys(bodyObj).length > 0 ? (canonicalize(bodyObj) as string) : '';
   return `${method}\n${pathname}\n${bodyStr}`;
 }
 
