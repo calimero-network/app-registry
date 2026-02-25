@@ -14,6 +14,7 @@ import {
   getMyOrgPubkeyBase64url,
   api,
 } from '@/lib/api';
+import { getStoredKeypair } from '@/lib/org-keypair';
 import {
   sanitizeText,
   validateOrgPackageName,
@@ -60,6 +61,7 @@ export default function OrgDetailPage() {
   const { orgId = '' } = useParams<{ orgId: string }>();
   const decodedOrgId = decodeURIComponent(orgId);
   const [myPubkey, setMyPubkey] = useState<string | null>(null);
+  const [hasKeypair, setHasKeypair] = useState(false);
 
   // Add member form
   const [newMemberPubkey, setNewMemberPubkey] = useState('');
@@ -89,6 +91,7 @@ export default function OrgDetailPage() {
 
   useEffect(() => {
     getMyOrgPubkeyBase64url().then(setMyPubkey);
+    getStoredKeypair().then(kp => setHasKeypair(!!kp));
   }, []);
 
   const {
@@ -118,6 +121,10 @@ export default function OrgDetailPage() {
   const isAdmin =
     !!myPubkey &&
     members.some(m => m.pubkey === myPubkey && m.role === 'admin');
+  /** Admin identity is confirmed but only a public key is stored — can't sign writes. */
+  const isAdminReadOnly = isAdmin && !hasKeypair;
+  /** Admin with a full signing keypair — full write access. */
+  const isAdminWithKeypair = isAdmin && hasKeypair;
 
   const addMemberMutation = useMutation({
     mutationFn: () =>
@@ -323,7 +330,11 @@ export default function OrgDetailPage() {
           Members
         </p>
 
-        {isAdmin && (
+        {isAdminReadOnly && (
+          <ReadOnlyAdminNotice />
+        )}
+
+        {isAdminWithKeypair && (
           <form
             className='mb-4 rounded-xl border border-neutral-800 bg-neutral-900/40 p-4 space-y-3'
             onSubmit={handleAddMember}
@@ -504,7 +515,7 @@ export default function OrgDetailPage() {
           Linked packages
         </p>
 
-        {isAdmin && (
+        {isAdminWithKeypair && (
           <form
             className='mb-4 rounded-xl border border-neutral-800 bg-neutral-900/40 p-4 space-y-3'
             onSubmit={handleLinkPackage}
@@ -648,14 +659,14 @@ export default function OrgDetailPage() {
       </section>
 
       {/* Metadata */}
-      {(hasMetadata || isAdmin) && (
+      {(hasMetadata || isAdminWithKeypair) && (
         <section>
           <div className='flex items-center justify-between mb-3'>
             <p className='section-heading'>
               <Settings className='w-3.5 h-3.5 inline mr-1.5' />
               Metadata
             </p>
-            {isAdmin && !isEditingMetadata && (
+            {isAdminWithKeypair && !isEditingMetadata && (
               <button
                 type='button'
                 onClick={handleOpenMetadataEdit}
@@ -745,6 +756,21 @@ export default function OrgDetailPage() {
           )}
         </section>
       )}
+    </div>
+  );
+}
+
+function ReadOnlyAdminNotice() {
+  return (
+    <div className='mb-4 rounded-lg border border-neutral-700/60 bg-neutral-800/30 px-4 py-3 flex items-center gap-3'>
+      <AlertTriangle className='w-4 h-4 text-amber-500 flex-shrink-0' />
+      <p className='text-[12px] text-neutral-400'>
+        You are an admin but your identity is read-only.{' '}
+        <Link to='/orgs' className='text-brand-600 hover:underline'>
+          Generate a keypair
+        </Link>{' '}
+        to manage members, packages, and metadata.
+      </p>
     </div>
   );
 }

@@ -238,6 +238,40 @@ export default function MyOrgsPage() {
         </div>
       )}
 
+      {/* Public key only — read-only identity */}
+      {hasKeypair === false && hasPubkeyOnly && myPubkey && (
+        <div className='rounded-xl border border-neutral-800 bg-neutral-900/40 p-4'>
+          <div className='flex items-center justify-between mb-2'>
+            <div className='flex items-center gap-2'>
+              <Key className='w-3.5 h-3.5 text-brand-600' />
+              <span className='text-[13px] font-medium text-neutral-300'>
+                Your org identity
+              </span>
+              <span className='pill bg-neutral-700/50 text-neutral-400 text-[10px]'>
+                view only
+              </span>
+            </div>
+          </div>
+          <p
+            className='text-[11px] text-neutral-500 font-mono truncate mb-3'
+            title={myPubkey}
+          >
+            pubkey: {myPubkey}
+          </p>
+          <p className='text-[12px] text-neutral-500 mb-3'>
+            Viewing orgs only. To create or manage organizations, generate a
+            keypair in this browser.
+          </p>
+          <button
+            type='button'
+            onClick={handleCreateIdentity}
+            className='rounded-lg bg-amber-600 hover:bg-amber-500 text-white px-3 py-1.5 text-[12px] font-medium transition-colors'
+          >
+            Generate keypair
+          </button>
+        </div>
+      )}
+
       {/* Keypair management (has keypair) */}
       {hasKeypair === true && myPubkey && (
         <div className='rounded-xl border border-neutral-800 bg-neutral-900/40 p-4'>
