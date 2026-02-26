@@ -62,7 +62,11 @@ program.exitOverride();
 
 try {
   program.parse();
-} catch (err) {
+} catch (err: unknown) {
+  // Commander throws for --version, --help, and no-command help (exitCode 0) — ignore those
+  if (err && typeof err === 'object' && 'exitCode' in err) {
+    process.exit((err as { exitCode: number }).exitCode ?? 0);
+  }
   if (err instanceof Error) {
     console.error(chalk.red('Error:'), err.message);
   } else {

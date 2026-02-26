@@ -35,51 +35,72 @@ export function buildSignedPayload(
 }
 
 export interface KeypairLoadOptions {
-  /** Path to JSON file with 64-byte keypair array (Solana format). */
   keypairPath?: string;
 }
 
+function base64urlDecode(str: string): Uint8Array {
+  const base64 = str.replace(/-/g, '+').replace(/_/g, '/');
+  const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=');
+  return new Uint8Array(Buffer.from(padded, 'base64'));
+}
+
 /**
- * Load Ed25519 keypair from env CALIMERO_REGISTRY_KEYPAIR (base58 64 bytes) or from file (JSON array of 64 numbers).
- * Returns { publicKey: 32 bytes, secretKey: 32 bytes } for @noble/ed25519 (secretKey = first 32 bytes of keypair).
+ * Load Ed25519 keypair from file or env.
+ * Accepts two file formats:
+ *   - mero-sign format: { private_key, public_key, signer_id } (base64url)
+ *   - legacy format: JSON array of 64 numbers
+ * Returns { publicKey: 32 bytes, secretKey: 32 bytes } for @noble/ed25519.
  */
 export function loadKeypair(options?: KeypairLoadOptions): {
   publicKey: Uint8Array;
   secretKey: Uint8Array;
 } {
-  let bytes: Uint8Array;
-
   if (options?.keypairPath) {
     const resolved = path.resolve(options.keypairPath);
     if (!fs.existsSync(resolved)) {
       throw new Error(`Keypair file not found: ${resolved}`);
     }
     const raw = fs.readFileSync(resolved, 'utf8');
-    const arr = JSON.parse(raw) as number[];
-    if (!Array.isArray(arr) || arr.length !== 64) {
-      throw new Error(
-        'Keypair file must be a JSON array of 64 numbers (Ed25519 keypair)'
-      );
+    const parsed = JSON.parse(raw);
+
+    // mero-sign format: { private_key, public_key, signer_id }
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && parsed.private_key) {
+      const secretKey = base64urlDecode(parsed.private_key);
+      const publicKey = base64urlDecode(parsed.public_key);
+      if (secretKey.length !== 32 || publicKey.length !== 32) {
+        throw new Error('Invalid key file: private_key and public_key must be 32 bytes each');
+      }
+      return { publicKey, secretKey };
     }
-    bytes = new Uint8Array(arr);
-  } else {
-    const env = process.env[ENV_KEYPAIR];
-    if (!env || typeof env !== 'string' || !env.trim()) {
-      throw new Error(
-        `Missing keypair: set ${ENV_KEYPAIR} (base58 64-byte keypair) or use --keypair <path>`
-      );
+
+    // Legacy format: array of 64 numbers
+    if (Array.isArray(parsed) && parsed.length === 64) {
+      const bytes = new Uint8Array(parsed);
+      const secretKey = bytes.slice(0, 32);
+      const publicKey = bytes.slice(32, 64);
+      return { publicKey, secretKey };
     }
-    const decoded = bs58.decode(env.trim());
-    if (decoded.length !== 64) {
-      throw new Error(
-        `Invalid keypair: ${ENV_KEYPAIR} must decode to 64 bytes (got ${decoded.length})`
-      );
-    }
-    bytes = new Uint8Array(decoded);
+
+    throw new Error(
+      'Unrecognised key file format. Expected mero-sign JSON ({ private_key, public_key, signer_id }) or a legacy array of 64 numbers.'
+    );
   }
 
+  const env = process.env[ENV_KEYPAIR];
+  if (!env || typeof env !== 'string' || !env.trim()) {
+    throw new Error(
+      `Missing keypair: set ${ENV_KEYPAIR} (base58 64-byte keypair) or use -k <path>`
+    );
+  }
+  const decoded = bs58.decode(env.trim());
+  if (decoded.length !== 64) {
+    throw new Error(
+      `Invalid keypair: ${ENV_KEYPAIR} must decode to 64 bytes (got ${decoded.length})`
+    );
+  }
+  const bytes = new Uint8Array(decoded);
   const secretKey = bytes.slice(0, 32);
-  const publicKey = ed25519.getPublicKeySync(secretKey);
+  const publicKey = bytes.slice(32, 64);
   return { publicKey, secretKey };
 }
 

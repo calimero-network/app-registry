@@ -11,8 +11,8 @@ import {
   getSignedHeaders,
   publicKeyToBase64url,
 } from '../lib/signed-request.js';
+import { RemoteConfig } from '../lib/remote-config.js';
 
-const DEFAULT_URL = 'http://localhost:8080';
 const DEFAULT_TIMEOUT = 10000;
 
 function getGlobalOpts(command: Command): {
@@ -20,8 +20,13 @@ function getGlobalOpts(command: Command): {
   timeout: number;
 } {
   const opts = command.parent?.parent?.opts() ?? {};
+  const remoteConfig = new RemoteConfig();
+  const url =
+    opts.url ||
+    process.env.CALIMERO_REGISTRY_URL ||
+    remoteConfig.getRegistryUrl();
   return {
-    url: opts.url ?? DEFAULT_URL,
+    url,
     timeout:
       parseInt(String(opts.timeout ?? DEFAULT_TIMEOUT), 10) || DEFAULT_TIMEOUT,
   };

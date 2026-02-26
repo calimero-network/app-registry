@@ -69,11 +69,14 @@ bundle.mpk
 2. mero-sign generate-key --output key.json          # one-time
 
 3. calimero-registry bundle create app.wasm com.example.myapp 1.0.0 \
-     --name "My App" --abi res/abi.json --output dist/myapp.mpk
+     --name "My App" --abi res/abi.json --output dist/myapp
+   # → writes dist/myapp/manifest.json + dist/myapp/app.wasm (not packed yet)
 
-4. mero-sign sign manifest.json --key key.json       # signs the manifest
+4. mero-sign sign dist/myapp/manifest.json --key key.json
+   # → adds signature field to manifest.json
 
-5. calimero-registry bundle push dist/myapp.mpk --remote
+5. calimero-registry bundle push dist/myapp --remote
+   # → CLI packs files into .mpk on the fly
    # → registry validates Ed25519 signature
    # → stores manifest + binary
    # → app visible in the UI
@@ -148,7 +151,7 @@ The org key file can be downloaded from the **Organizations page** in the UI (fo
 ```bash
 # Bundle commands
 calimero-registry bundle create <wasm> <package> <version> [options]
-calimero-registry bundle push   <file.mpk>  --remote | --local
+calimero-registry bundle push   <dir|file.mpk>  --remote | --local
 calimero-registry bundle edit   <package> <version> --remote [--manifest signed.json]
 calimero-registry bundle get    <package> <version> --local
 
@@ -161,10 +164,9 @@ calimero-registry org -k <key.json> packages <org-id> link | unlink
 
 # Config
 calimero-registry config set registry-url <url>
-calimero-registry config set api-key <key>
 ```
 
-Environment variable overrides: `CALIMERO_REGISTRY_URL`, `CALIMERO_API_KEY`.
+Environment variable override: `CALIMERO_REGISTRY_URL`.
 
 ---
 

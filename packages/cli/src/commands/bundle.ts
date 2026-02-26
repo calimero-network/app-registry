@@ -387,78 +387,44 @@ Note:
           signature: undefined,
         };
 
-        // Determine output path
-        let outputPath = finalOutput;
-        if (!outputPath) {
-          const outputDir = path.join(
-            process.cwd(),
-            finalPackage,
-            finalVersion
-          );
-          if (!fs.existsSync(outputDir)) {
-            fs.mkdirSync(outputDir, { recursive: true });
-          }
-          outputPath = path.join(
-            outputDir,
-            `${finalPackage}-${finalVersion}.mpk`
-          );
-        } else {
-          outputPath = path.resolve(outputPath);
-          const outputDir = path.dirname(outputPath);
-          if (!fs.existsSync(outputDir)) {
-            fs.mkdirSync(outputDir, { recursive: true });
-          }
+        // Determine output directory
+        let outputDir = finalOutput
+          ? path.resolve(finalOutput)
+          : path.join(process.cwd(), finalPackage, finalVersion);
+
+        if (!fs.existsSync(outputDir)) {
+          fs.mkdirSync(outputDir, { recursive: true });
         }
 
-        // Create temporary directory for bundle contents
-        const tempDir = path.join(
-          path.dirname(outputPath),
-          `.temp-bundle-${Date.now()}`
+        // Write manifest.json
+        fs.writeFileSync(
+          path.join(outputDir, 'manifest.json'),
+          JSON.stringify(manifest, null, 2)
         );
-        fs.mkdirSync(tempDir, { recursive: true });
 
-        try {
-          // Write manifest.json
-          fs.writeFileSync(
-            path.join(tempDir, 'manifest.json'),
-            JSON.stringify(manifest, null, 2)
-          );
+        // Copy WASM file as app.wasm
+        fs.writeFileSync(path.join(outputDir, 'app.wasm'), wasmContent);
 
-          // Copy WASM file as app.wasm
-          fs.writeFileSync(path.join(tempDir, 'app.wasm'), wasmContent);
-
-          // Copy ABI file if provided
-          const archiveFiles = ['manifest.json', 'app.wasm'];
-          if (abiContent) {
-            fs.writeFileSync(path.join(tempDir, 'abi.json'), abiContent);
-            archiveFiles.push('abi.json');
-          }
-
-          // Create gzip-compressed tar archive
-          await tar.create(
-            {
-              gzip: true,
-              file: outputPath,
-              cwd: tempDir,
-            },
-            archiveFiles
-          );
-
-          const outputSize = fs.statSync(outputPath).size;
-          console.log(`✅ Created MPK bundle: ${outputPath}`);
-          console.log(`   Package: ${finalPackage}`);
-          console.log(`   Version: ${finalVersion}`);
-          console.log(`   Size: ${outputSize} bytes`);
-          console.log(`   WASM Hash: ${wasmHash}`);
-          if (abiArtifact) {
-            console.log(`   ABI Hash: ${abiArtifact.hash}`);
-          }
-        } finally {
-          // Cleanup temp directory
-          if (fs.existsSync(tempDir)) {
-            fs.rmSync(tempDir, { recursive: true, force: true });
-          }
+        // Copy ABI file if provided
+        if (abiContent) {
+          fs.writeFileSync(path.join(outputDir, 'abi.json'), abiContent);
         }
+
+        console.log(`✅ Bundle files written to: ${outputDir}`);
+        console.log(`   Package: ${finalPackage}`);
+        console.log(`   Version: ${finalVersion}`);
+        console.log(`   WASM Hash: ${wasmHash}`);
+        if (abiArtifact) {
+          console.log(`   ABI Hash: ${abiArtifact.hash}`);
+        }
+        console.log('');
+        console.log('Next steps:');
+        console.log(
+          `  1. Sign the manifest:  mero-sign sign ${path.join(outputDir, 'manifest.json')} --key key.json`
+        );
+        console.log(
+          `  2. Push the bundle:    calimero-registry bundle push ${outputDir} --remote`
+        );
       } catch (error) {
         const message =
           error instanceof Error ? error.message : 'Unknown error';
@@ -510,6 +476,8 @@ Note:
 `
     )
     .action(async (bundleFile, options) => {
+      let mpkPath: string = '';
+      let tempMpk: string | null = null;
       try {
         // Warn if remote-only options are used without --remote
         if (!options.remote && (options.url || options.apiKey)) {
@@ -551,10 +519,37 @@ Note:
           process.exit(1);
         }
 
-        console.log(`📦 Processing bundle: ${path.basename(fullPath)}`);
+        // If a directory is given, pack it into a temp .mpk first
+        mpkPath = fullPath;
+
+        if (fs.statSync(fullPath).isDirectory()) {
+          const manifestInDir = path.join(fullPath, 'manifest.json');
+          const wasmInDir = path.join(fullPath, 'app.wasm');
+          if (!fs.existsSync(manifestInDir)) {
+            console.error(`❌ manifest.json not found in directory: ${fullPath}`);
+            process.exit(1);
+          }
+          if (!fs.existsSync(wasmInDir)) {
+            console.error(`❌ app.wasm not found in directory: ${fullPath}`);
+            process.exit(1);
+          }
+          tempMpk = path.join(fullPath, `.temp-push-${Date.now()}.mpk`);
+          const archiveFiles = ['manifest.json', 'app.wasm'];
+          if (fs.existsSync(path.join(fullPath, 'abi.json'))) {
+            archiveFiles.push('abi.json');
+          }
+          await tar.create(
+            { gzip: true, file: tempMpk, cwd: fullPath },
+            archiveFiles
+          );
+          mpkPath = tempMpk;
+          console.log(`📦 Packed directory into temporary bundle`);
+        }
+
+        console.log(`📦 Processing bundle: ${path.basename(mpkPath)}`);
 
         // 1. Read bundle and extract manifest
-        const manifest = await extractManifest(fullPath);
+        const manifest = await extractManifest(mpkPath);
 
         if (!manifest) {
           console.error('❌ manifest.json not found in bundle');
@@ -582,7 +577,7 @@ Note:
           // Copy bundle artifact to local storage
           const bundleFilename = `${manifest.package}-${manifest.appVersion}.mpk`;
           const targetPath = await artifactServer.copyArtifactToLocal(
-            fullPath,
+            mpkPath,
             manifest.package,
             manifest.appVersion,
             bundleFilename
@@ -622,12 +617,16 @@ Note:
             process.env.CALIMERO_API_KEY ||
             remoteConfig.getApiKey();
 
-          await pushToRemote(fullPath, manifest, registryUrl, apiKey);
+          await pushToRemote(mpkPath, manifest, registryUrl, apiKey);
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         console.error('❌ Failed to push bundle:', message);
         process.exit(1);
+      } finally {
+        if (tempMpk && fs.existsSync(tempMpk)) {
+          fs.rmSync(tempMpk);
+        }
       }
     });
 }

@@ -446,23 +446,27 @@ pnpm add -g @calimero-network/registry-cli`}</CodeBlock>
             <CodeBlock>{`# Set registry URL once (saved to config file)
 calimero-registry config set registry-url https://apps.calimero.network
 
-# Or use environment variables per-session
-export CALIMERO_REGISTRY_URL=https://apps.calimero.network
-export CALIMERO_API_KEY=your-api-key`}</CodeBlock>
+# Or use an environment variable per-session
+export CALIMERO_REGISTRY_URL=https://apps.calimero.network`}</CodeBlock>
 
             <SubHeading>bundle create</SubHeading>
-            <P>Package a WASM file into an .mpk bundle:</P>
-            <CodeBlock>{`# Minimal — package and version as arguments
+            <P>
+              Writes <Code>manifest.json</Code>, <Code>app.wasm</Code>, and
+              optionally <Code>abi.json</Code> to an output directory.{' '}
+              <strong className='text-neutral-200'>Does not pack into .mpk</strong>{' '}
+              — sign the manifest first, then use <Code>bundle push</Code>.
+            </P>
+            <CodeBlock>{`# Minimal — outputs to com.example.myapp/1.0.0/
 calimero-registry bundle create app.wasm com.example.myapp 1.0.0
 
-# With full metadata
+# With full metadata, output to dist/myapp/
 calimero-registry bundle create app.wasm com.example.myapp 1.0.0 \\
   --name        "My App" \\
   --description "Does something useful" \\
   --frontend    https://my-app.example.com \\
   --github      https://github.com/org/repo \\
   --abi         res/abi.json \\
-  --output      dist/myapp-1.0.0.mpk
+  --output      dist/myapp
 
 # From a bundle-manifest.json config file
 calimero-registry bundle create app.wasm --manifest bundle-manifest.json`}</CodeBlock>
@@ -472,7 +476,7 @@ calimero-registry bundle create app.wasm --manifest bundle-manifest.json`}</Code
             <CodeBlock>{`{
   "package":     "com.example.myapp",
   "version":     "1.0.0",
-  "output":      "./dist/myapp.mpk",
+  "output":      "./dist/myapp",
   "name":        "My App",
   "description": "Does something useful",
   "frontend":    "https://my-app.example.com",
@@ -484,11 +488,14 @@ calimero-registry bundle create app.wasm --manifest bundle-manifest.json`}</Code
 }`}</CodeBlock>
 
             <SubHeading>bundle push</SubHeading>
-            <CodeBlock>{`# Push to the remote (public) registry
+            <CodeBlock>{`# Push a directory (created by bundle create) — packs into .mpk on the fly
+calimero-registry bundle push dist/myapp --remote
+
+# Push an already-packed .mpk (e.g. built by your own script)
 calimero-registry bundle push myapp-1.0.0.mpk --remote
 
-# Push with explicit URL (overrides config)
-calimero-registry bundle push myapp-1.0.0.mpk --remote \\
+# Push with explicit registry URL (overrides config)
+calimero-registry bundle push dist/myapp --remote \\
   --url https://apps.calimero.network`}</CodeBlock>
 
             <SubHeading>bundle edit</SubHeading>
@@ -542,65 +549,70 @@ calimero-registry org -k org-key.json packages <org-id> unlink com.example.myapp
           <SectionHeading id='creating-a-bundle'>Creating a Bundle</SectionHeading>
           <div className='space-y-4'>
             <P>
-              The full developer workflow from source code to published bundle:
+              There are two paths to publish a bundle. Both end with the same
+              thing: a <Code>.mpk</Code> containing a{' '}
+              <strong className='text-neutral-200'>signed</strong>{' '}
+              <Code>manifest.json</Code> + <Code>app.wasm</Code> + optional{' '}
+              <Code>abi.json</Code>.
             </P>
-            <Diagram>{`  ┌──────────────────────────────────────────────────────────────────┐
-  │                    FULL PUBLISH WORKFLOW                         │
-  └──────────────────────────────────────────────────────────────────┘
-
-  1. BUILD YOUR WASM
-     cargo build --target wasm32-unknown-unknown --release
-
-  2. GENERATE YOUR SIGNING KEY  (one-time per developer)
-     mero-sign generate-key --output key.json
-     → key.json  { private_key, public_key, signer_id }
-     → Add key.json to .gitignore!
-
-  3. CREATE THE BUNDLE  (pack wasm + manifest into .mpk)
-     calimero-registry bundle create app.wasm com.example.myapp 1.0.0 \\
-       --name "My App" --abi res/abi.json --output dist/myapp.mpk
-
-  4. SIGN THE MANIFEST  (adds signature block)
-     mero-sign sign manifest.json --key key.json
-     → signed-manifest.json
-
-  5. PUSH  (CLI validates, encodes, and sends to registry)
-     calimero-registry bundle push dist/myapp.mpk --remote
-     → Registry verifies signature ✓
-     → Stores manifest + binary
-     → App visible at /apps`}</Diagram>
 
             <Note>
-              The <Code>bundle create</Code> command produces an{' '}
-              <strong className='text-neutral-200'>unsigned</strong> manifest. You
-              must sign it with mero-sign before the registry will accept the push.
-              The CLI will reject unsigned bundles with{' '}
-              <Code>400 missing_signature</Code>.
+              <strong className='text-neutral-200'>Key rule:</strong> mero-sign
+              operates on a standalone <Code>manifest.json</Code> file — not on
+              a packed archive. Always sign first, pack second.
             </Note>
 
-            <SubHeading>Practical step-by-step</SubHeading>
-            <CodeBlock>{`# 1. Build (Rust example)
+            <SubHeading>Path A — using the CLI</SubHeading>
+            <P>
+              <Code>bundle create</Code> writes the files to a directory.{' '}
+              <Code>bundle push &lt;dir&gt;</Code> packs and sends in one step.
+            </P>
+            <CodeBlock>{`# 1. Build your WASM
 cargo build --target wasm32-unknown-unknown --release
 cp target/wasm32-unknown-unknown/release/myapp.wasm ./app.wasm
 
 # 2. One-time: generate your signing key
 mero-sign generate-key --output key.json
 echo "key.json" >> .gitignore
+# → key.json  { private_key, public_key, signer_id }
 
-# 3. Create the bundle
+# 3. Create bundle files (writes to dist/myapp/, does NOT pack yet)
 calimero-registry bundle create app.wasm com.example.myapp 1.0.0 \\
   --name "My App" \\
   --description "A useful app" \\
   --abi res/abi.json \\
-  --output dist/myapp.mpk
-# → also writes manifest.json in the working dir for you to inspect
+  --output dist/myapp
+# → dist/myapp/manifest.json  (unsigned, SHA256 hash already computed)
+# → dist/myapp/app.wasm
+# → dist/myapp/abi.json
 
-# 4. Sign
-mero-sign sign manifest.json --key key.json
-# → overwrites manifest.json with signature block
+# 4. Sign the manifest
+mero-sign sign dist/myapp/manifest.json --key key.json
+# → manifest.json now contains a signature field
 
-# 5. Push
-calimero-registry bundle push dist/myapp.mpk --remote`}</CodeBlock>
+# 5. Push — packs into .mpk on the fly and sends to registry
+calimero-registry bundle push dist/myapp --remote
+# → Registry verifies Ed25519 signature ✓
+# → App visible at /apps`}</CodeBlock>
+
+            <SubHeading>Path B — bring your own .mpk</SubHeading>
+            <P>
+              If you already build the bundle with your own script (or manually
+              with tar), just pass the <Code>.mpk</Code> directly. As long as the{' '}
+              <Code>manifest.json</Code> inside is signed before you tar it,
+              the registry will accept it.
+            </P>
+            <CodeBlock>{`# Your script: copies wasm, creates manifest.json, signs it, tars it
+./build-bundle.sh
+# → res/myapp-1.0.0.mpk  (manifest.json inside is already signed)
+
+# Push the .mpk directly
+calimero-registry bundle push res/myapp-1.0.0.mpk --remote`}</CodeBlock>
+            <Note>
+              The order matters: sign <Code>manifest.json</Code> first, then{' '}
+              <Code>tar -czf</Code>. If you tar first and sign after, the
+              signature won't be inside the archive and the push will fail.
+            </Note>
           </div>
         </section>
 
@@ -732,14 +744,17 @@ mero-sign sign manifest.json --key org-key.json`}</CodeBlock>
             <SubHeading>Publishing a new version</SubHeading>
             <CodeBlock>{`# Build new version
 cargo build --target wasm32-unknown-unknown --release
+cp target/wasm32-unknown-unknown/release/myapp.wasm ./app.wasm
 
-# Create bundle with new version number
+# Create bundle files for new version
 calimero-registry bundle create app.wasm com.example.myapp 1.1.0 \\
-  --output dist/myapp-1.1.0.mpk
+  --output dist/myapp-1.1.0
 
-# Sign and push (same key as before)
-mero-sign sign manifest.json --key key.json
-calimero-registry bundle push dist/myapp-1.1.0.mpk --remote`}</CodeBlock>
+# Sign the manifest
+mero-sign sign dist/myapp-1.1.0/manifest.json --key key.json
+
+# Push (same key as before — registry checks it matches the original signer)
+calimero-registry bundle push dist/myapp-1.1.0 --remote`}</CodeBlock>
           </div>
         </section>
 
