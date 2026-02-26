@@ -395,7 +395,12 @@ export const orgCommand = new Command('org')
                   pubkey: pubkey.trim(),
                   role: options.role === 'admin' ? 'admin' : 'member',
                 };
-                const headers = await getSignedHeaders('POST', pathname, body, kp);
+                const headers = await getSignedHeaders(
+                  'POST',
+                  pathname,
+                  body,
+                  kp
+                );
                 const base = url.replace(/\/$/, '');
                 const { data, status } = await fetchJson(`${base}${pathname}`, {
                   method: 'POST',
@@ -442,7 +447,12 @@ export const orgCommand = new Command('org')
                 const kp = loadKeypair({ keypairPath });
                 const pathname = `/api/v2/orgs/${encodeURIComponent(orgId)}/members/${encodeURIComponent(pubkey.trim())}`;
                 const body = { role };
-                const headers = await getSignedHeaders('PATCH', pathname, body, kp);
+                const headers = await getSignedHeaders(
+                  'PATCH',
+                  pathname,
+                  body,
+                  kp
+                );
                 const base = url.replace(/\/$/, '');
                 const { data, status } = await fetchJson(`${base}${pathname}`, {
                   method: 'PATCH',
@@ -473,36 +483,48 @@ export const orgCommand = new Command('org')
           .description('Remove a member by pubkey')
           .argument('<orgId>', 'Organization id or slug')
           .argument('<pubkey>', 'Member public key')
-          .action(async (orgId: string, pubkey: string, _options, command: Command) => {
-            const { url, timeout } = getGlobalOpts(command);
-            const keypairPath = getKeypairPath(command);
-            const spinner = ora('Removing member...').start();
-            try {
-              const kp = loadKeypair({ keypairPath });
-              const pathname = `/api/v2/orgs/${encodeURIComponent(orgId)}/members/${encodeURIComponent(pubkey.trim())}`;
-              const headers = await getSignedHeaders('DELETE', pathname, undefined, kp);
-              const base = url.replace(/\/$/, '');
-              const { data, status } = await fetchJson(`${base}${pathname}`, {
-                method: 'DELETE',
-                timeout,
-                headers: { ...headers },
-              });
-              if (status >= 400) {
-                spinner.fail(
-                  (data as { message?: string })?.message || `HTTP ${status}`
+          .action(
+            async (
+              orgId: string,
+              pubkey: string,
+              _options,
+              command: Command
+            ) => {
+              const { url, timeout } = getGlobalOpts(command);
+              const keypairPath = getKeypairPath(command);
+              const spinner = ora('Removing member...').start();
+              try {
+                const kp = loadKeypair({ keypairPath });
+                const pathname = `/api/v2/orgs/${encodeURIComponent(orgId)}/members/${encodeURIComponent(pubkey.trim())}`;
+                const headers = await getSignedHeaders(
+                  'DELETE',
+                  pathname,
+                  undefined,
+                  kp
                 );
-                console.error(chalk.red(JSON.stringify(data)));
+                const base = url.replace(/\/$/, '');
+                const { data, status } = await fetchJson(`${base}${pathname}`, {
+                  method: 'DELETE',
+                  timeout,
+                  headers: { ...headers },
+                });
+                if (status >= 400) {
+                  spinner.fail(
+                    (data as { message?: string })?.message || `HTTP ${status}`
+                  );
+                  console.error(chalk.red(JSON.stringify(data)));
+                  process.exit(1);
+                }
+                spinner.succeed('Member removed');
+              } catch (e) {
+                spinner.fail('Failed');
+                console.error(
+                  chalk.red(e instanceof Error ? e.message : String(e))
+                );
                 process.exit(1);
               }
-              spinner.succeed('Member removed');
-            } catch (e) {
-              spinner.fail('Failed');
-              console.error(
-                chalk.red(e instanceof Error ? e.message : String(e))
-              );
-              process.exit(1);
             }
-          })
+          )
       )
   )
   .addCommand(
@@ -513,73 +535,87 @@ export const orgCommand = new Command('org')
           .description('Link a package to the organization')
           .argument('<orgId>', 'Organization id or slug')
           .argument('<package>', 'Package name')
-          .action(async (orgId: string, pkg: string, _options, command: Command) => {
-            const { url, timeout } = getGlobalOpts(command);
-            const keypairPath = getKeypairPath(command);
-            const spinner = ora('Linking package...').start();
-            try {
-              const kp = loadKeypair({ keypairPath });
-              const pathname = `/api/v2/orgs/${encodeURIComponent(orgId)}/packages`;
-              const body = { package: pkg.trim() };
-              const headers = await getSignedHeaders('POST', pathname, body, kp);
-              const base = url.replace(/\/$/, '');
-              const { data, status } = await fetchJson(`${base}${pathname}`, {
-                method: 'POST',
-                body: JSON.stringify(body),
-                timeout,
-                headers: { ...headers },
-              });
-              if (status >= 400) {
-                spinner.fail(
-                  (data as { message?: string })?.message || `HTTP ${status}`
+          .action(
+            async (orgId: string, pkg: string, _options, command: Command) => {
+              const { url, timeout } = getGlobalOpts(command);
+              const keypairPath = getKeypairPath(command);
+              const spinner = ora('Linking package...').start();
+              try {
+                const kp = loadKeypair({ keypairPath });
+                const pathname = `/api/v2/orgs/${encodeURIComponent(orgId)}/packages`;
+                const body = { package: pkg.trim() };
+                const headers = await getSignedHeaders(
+                  'POST',
+                  pathname,
+                  body,
+                  kp
                 );
-                console.error(chalk.red(JSON.stringify(data)));
+                const base = url.replace(/\/$/, '');
+                const { data, status } = await fetchJson(`${base}${pathname}`, {
+                  method: 'POST',
+                  body: JSON.stringify(body),
+                  timeout,
+                  headers: { ...headers },
+                });
+                if (status >= 400) {
+                  spinner.fail(
+                    (data as { message?: string })?.message || `HTTP ${status}`
+                  );
+                  console.error(chalk.red(JSON.stringify(data)));
+                  process.exit(1);
+                }
+                spinner.succeed('Package linked');
+              } catch (e) {
+                spinner.fail('Failed');
+                console.error(
+                  chalk.red(e instanceof Error ? e.message : String(e))
+                );
                 process.exit(1);
               }
-              spinner.succeed('Package linked');
-            } catch (e) {
-              spinner.fail('Failed');
-              console.error(
-                chalk.red(e instanceof Error ? e.message : String(e))
-              );
-              process.exit(1);
             }
-          })
+          )
       )
       .addCommand(
         new Command('unlink')
           .description('Unlink a package from the organization')
           .argument('<orgId>', 'Organization id or slug')
           .argument('<package>', 'Package name')
-          .action(async (orgId: string, pkg: string, _options, command: Command) => {
-            const { url, timeout } = getGlobalOpts(command);
-            const keypairPath = getKeypairPath(command);
-            const spinner = ora('Unlinking package...').start();
-            try {
-              const kp = loadKeypair({ keypairPath });
-              const pathname = `/api/v2/orgs/${encodeURIComponent(orgId)}/packages/${encodeURIComponent(pkg.trim())}`;
-              const headers = await getSignedHeaders('DELETE', pathname, undefined, kp);
-              const base = url.replace(/\/$/, '');
-              const { data, status } = await fetchJson(`${base}${pathname}`, {
-                method: 'DELETE',
-                timeout,
-                headers: { ...headers },
-              });
-              if (status >= 400) {
-                spinner.fail(
-                  (data as { message?: string })?.message || `HTTP ${status}`
+          .action(
+            async (orgId: string, pkg: string, _options, command: Command) => {
+              const { url, timeout } = getGlobalOpts(command);
+              const keypairPath = getKeypairPath(command);
+              const spinner = ora('Unlinking package...').start();
+              try {
+                const kp = loadKeypair({ keypairPath });
+                const pathname = `/api/v2/orgs/${encodeURIComponent(orgId)}/packages/${encodeURIComponent(pkg.trim())}`;
+                const headers = await getSignedHeaders(
+                  'DELETE',
+                  pathname,
+                  undefined,
+                  kp
                 );
-                console.error(chalk.red(JSON.stringify(data)));
+                const base = url.replace(/\/$/, '');
+                const { data, status } = await fetchJson(`${base}${pathname}`, {
+                  method: 'DELETE',
+                  timeout,
+                  headers: { ...headers },
+                });
+                if (status >= 400) {
+                  spinner.fail(
+                    (data as { message?: string })?.message || `HTTP ${status}`
+                  );
+                  console.error(chalk.red(JSON.stringify(data)));
+                  process.exit(1);
+                }
+                spinner.succeed('Package unlinked');
+              } catch (e) {
+                spinner.fail('Failed');
+                console.error(
+                  chalk.red(e instanceof Error ? e.message : String(e))
+                );
                 process.exit(1);
               }
-              spinner.succeed('Package unlinked');
-            } catch (e) {
-              spinner.fail('Failed');
-              console.error(
-                chalk.red(e instanceof Error ? e.message : String(e))
-              );
-              process.exit(1);
             }
-          })
+          )
       )
   );
