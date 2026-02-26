@@ -303,9 +303,17 @@ const API_BASE =
   '/api';
 
 function pathname(axiosPath: string): string {
-  const base = API_BASE.replace(/\/$/, '');
   const p = axiosPath.startsWith('/') ? axiosPath : `/${axiosPath}`;
-  return `${base}${p}`;
+  try {
+    const basePath = new URL(API_BASE, 'http://localhost').pathname.replace(
+      /\/$/,
+      ''
+    );
+    return `${basePath}${p}`;
+  } catch {
+    const base = API_BASE.replace(/\/$/, '');
+    return `${base}${p}`;
+  }
 }
 
 async function withSignedHeaders(

@@ -57,6 +57,26 @@ class BundleStorageKV {
     const bundleKey = `bundle:${key}`;
 
     if (overwrite) {
+      // If overwriting, clear previous interface indexes before re-indexing below.
+      const existingManifest = await this.getBundleManifest(
+        manifest.package,
+        manifest.appVersion
+      );
+      if (existingManifest?.interfaces?.exports) {
+        for (const iface of existingManifest.interfaces.exports) {
+          if (typeof iface === 'string' && iface.trim().length > 0) {
+            await kv.sRem(`provides:${iface}`, key);
+          }
+        }
+      }
+      if (existingManifest?.interfaces?.uses) {
+        for (const iface of existingManifest.interfaces.uses) {
+          if (typeof iface === 'string' && iface.trim().length > 0) {
+            await kv.sRem(`uses:${iface}`, key);
+          }
+        }
+      }
+
       // Direct set - will overwrite
       await kv.set(bundleKey, JSON.stringify(manifestData));
     } else {

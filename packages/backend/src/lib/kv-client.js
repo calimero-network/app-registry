@@ -147,8 +147,18 @@ if (isProduction && process.env.REDIS_URL) {
 
     // Hash operations
     async hSet(key, obj) {
-      mockHashes.set(key, obj);
-      return Object.keys(obj).length;
+      const data = mockHashes.get(key) || {};
+      let added = 0;
+
+      Object.entries(obj).forEach(([field, value]) => {
+        if (data[field] === undefined) {
+          added++;
+        }
+        data[field] = value;
+      });
+
+      mockHashes.set(key, data);
+      return added;
     },
 
     async hGetAll(key) {
