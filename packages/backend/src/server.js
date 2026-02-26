@@ -460,9 +460,15 @@ async function buildServer() {
 
       // 4. Merge: preserve immutable artifact fields from stored manifest,
       //    update only mutable fields from the incoming manifest.
+      //    author is always preserved from the existing manifest — it is set
+      //    from the Google session at publish time and cannot be removed or
+      //    changed via edit.
+      const mergedMetadata = incoming.metadata
+        ? { ...incoming.metadata, author: existing.metadata?.author }
+        : existing.metadata;
       const updated = {
         ...existing,
-        metadata: incoming.metadata ?? existing.metadata,
+        metadata: mergedMetadata,
         links: incoming.links ?? existing.links,
         interfaces: incoming.interfaces ?? existing.interfaces,
         signature: incoming.signature,

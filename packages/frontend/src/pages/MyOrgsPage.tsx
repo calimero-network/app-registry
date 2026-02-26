@@ -8,6 +8,8 @@ import {
   importPublicKey,
   getStoredPublicKeyBase64url,
   clearStoredPublicKey,
+  publicKeyToBase64url,
+  publicKeyToDidKey,
 } from '@/lib/org-keypair';
 import {
   sanitizeText,
@@ -29,6 +31,7 @@ import {
   EyeOff,
   Copy,
   Check,
+  Download,
 } from 'lucide-react';
 
 function getApiErrorMessage(error: unknown): string {
@@ -95,6 +98,29 @@ export default function MyOrgsPage() {
     await navigator.clipboard.writeText(sk);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleDownloadKeyFile = async () => {
+    const keypair = await getStoredKeypair();
+    if (!keypair) return;
+    const privateKey = exportSecretKeyBase64url();
+    if (!privateKey) return;
+    const publicKey = publicKeyToBase64url(keypair.publicKey);
+    const signerId = publicKeyToDidKey(keypair.publicKey);
+    const keyData = {
+      private_key: privateKey,
+      public_key: publicKey,
+      signer_id: signerId,
+    };
+    const blob = new Blob([JSON.stringify(keyData, null, 2)], {
+      type: 'application/json',
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'org-key.json';
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const handleImportPublicKey = () => {
@@ -278,7 +304,16 @@ export default function MyOrgsPage() {
                 Your org identity
               </span>
             </div>
-            <div className='flex items-center gap-2'>
+            <div className='flex items-center gap-3'>
+              <button
+                type='button'
+                onClick={handleDownloadKeyFile}
+                className='text-[12px] text-neutral-500 hover:text-neutral-300 inline-flex items-center gap-1 transition-colors'
+                title='Download key as org-key.json for use with mero-sign'
+              >
+                <Download className='w-3.5 h-3.5' />
+                Download key file
+              </button>
               <button
                 type='button'
                 onClick={() => setShowSecretKey(v => !v)}
@@ -290,7 +325,7 @@ export default function MyOrgsPage() {
                 ) : (
                   <Eye className='w-3.5 h-3.5' />
                 )}
-                {showSecretKey ? 'Hide key' : 'Export key'}
+                {showSecretKey ? 'Hide key' : 'Show raw key'}
               </button>
             </div>
           </div>

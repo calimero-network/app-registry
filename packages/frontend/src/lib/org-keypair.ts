@@ -34,6 +34,36 @@ function PUBKEY_STORAGE_KEY(): string {
     : PUBKEY_STORAGE_KEY_BASE;
 }
 
+const BASE58_ALPHABET =
+  '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+
+function base58btcEncode(bytes: Uint8Array): string {
+  let num = 0n;
+  for (const byte of bytes) {
+    num = num * 256n + BigInt(byte);
+  }
+  let result = '';
+  while (num > 0n) {
+    result = BASE58_ALPHABET[Number(num % 58n)] + result;
+    num = num / 58n;
+  }
+  for (const byte of bytes) {
+    if (byte !== 0) break;
+    result = '1' + result;
+  }
+  return result;
+}
+
+/** Encode a 32-byte Ed25519 public key as a did:key identifier. */
+export function publicKeyToDidKey(publicKey: Uint8Array): string {
+  // Multicodec varint prefix for Ed25519 public key: 0xed 0x01
+  const prefixed = new Uint8Array(34);
+  prefixed[0] = 0xed;
+  prefixed[1] = 0x01;
+  prefixed.set(publicKey, 2);
+  return 'did:key:z' + base58btcEncode(prefixed);
+}
+
 function base64urlEncode(bytes: Uint8Array): string {
   let binary = '';
   for (let i = 0; i < bytes.length; i++) {

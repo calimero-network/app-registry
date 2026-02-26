@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -24,6 +24,8 @@ import {
   deleteBundleVersion,
   deletePackage,
   getOrgByPackage,
+  getOrgMembers,
+  getMyOrgPubkeyBase64url,
 } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -121,6 +123,17 @@ export default function AppDetailPage() {
     enabled: !!appId,
   });
 
+  const [myOrgPubkey, setMyOrgPubkey] = useState<string | null>(null);
+  useEffect(() => {
+    getMyOrgPubkeyBase64url().then(pk => setMyOrgPubkey(pk ?? null));
+  }, []);
+
+  const { data: orgMembersData = null } = useQuery({
+    queryKey: ['org-members-edit', linkedOrg?.id],
+    queryFn: () => getOrgMembers(linkedOrg!.id),
+    enabled: !!linkedOrg?.id && !!myOrgPubkey,
+  });
+
   const bundle = allBundles[0];
 
   if (isLoading) {
@@ -156,6 +169,10 @@ export default function AppDetailPage() {
   const sig = bundle.signature;
   const ifaces = bundle.interfaces;
   const isOwner = !!user?.email && !!meta?.author && user.email === meta.author;
+  const isOrgMember =
+    !!myOrgPubkey &&
+    !!orgMembersData?.members?.some(m => m.pubkey === myOrgPubkey);
+  const canEdit = isOwner || isOrgMember;
 
   return (
     <div className='space-y-6'>
@@ -170,7 +187,7 @@ export default function AppDetailPage() {
           <span className='pill bg-brand-600/10 text-brand-600 font-mono'>
             v{bundle.appVersion}
           </span>
-          {isOwner && (
+          {canEdit && (
             <Link
               to={`/apps/${appId}/${bundle.appVersion}/edit`}
               className='inline-flex items-center gap-1.5 text-[12px] text-neutral-400 hover:text-neutral-200 transition-colors'
@@ -371,6 +388,7 @@ export default function AppDetailPage() {
                 !!user?.email &&
                 !!b.metadata?.author &&
                 user.email === b.metadata.author;
+              const canEditVersion = isVersionOwner || isOrgMember;
               const isConfirmingThisVersion =
                 confirmDeleteVersion === b.appVersion;
               return (
@@ -388,15 +406,17 @@ export default function AppDetailPage() {
                     <span className='text-[11px] text-neutral-500 font-mono'>
                       {b.metadata?.author || ''}
                     </span>
+                    {canEditVersion && (
+                      <Link
+                        to={`/apps/${appId}/${b.appVersion}/edit`}
+                        className='inline-flex items-center gap-1 text-[11px] text-neutral-500 hover:text-neutral-300 transition-colors'
+                      >
+                        <Pencil className='w-3 h-3' />
+                        Edit
+                      </Link>
+                    )}
                     {isVersionOwner && (
                       <>
-                        <Link
-                          to={`/apps/${appId}/${b.appVersion}/edit`}
-                          className='inline-flex items-center gap-1 text-[11px] text-neutral-500 hover:text-neutral-300 transition-colors'
-                        >
-                          <Pencil className='w-3 h-3' />
-                          Edit
-                        </Link>
                         {isConfirmingThisVersion ? (
                           <span className='flex items-center gap-1.5 text-[11px]'>
                             <span className='text-red-400'>Delete?</span>
