@@ -340,12 +340,11 @@ export const orgCommand = new Command('org')
   .addCommand(
     new Command('members')
       .description('List, add, or remove organization members')
-      .argument('<orgId>', 'Organization id or slug')
       .addCommand(
         new Command('list')
-          .description('List members')
-          .action(async (_options, command: Command) => {
-            const orgId = (command.parent as Command).args[0] as string;
+          .description('List members of an org')
+          .argument('<orgId>', 'Organization id or slug')
+          .action(async (orgId: string, _options, command: Command) => {
             const { url, timeout } = getGlobalOpts(command);
             const base = url.replace(/\/$/, '');
             const pathname = `/api/v2/orgs/${encodeURIComponent(orgId)}/members`;
@@ -376,15 +375,16 @@ export const orgCommand = new Command('org')
       .addCommand(
         new Command('add')
           .description('Add a member by pubkey')
-          .argument('<pubkey>', 'Member public key (base58)')
+          .argument('<orgId>', 'Organization id or slug')
+          .argument('<pubkey>', 'Member public key')
           .option('-r, --role <role>', 'Role: member or admin', 'member')
           .action(
             async (
+              orgId: string,
               pubkey: string,
               options: { role: string },
               command: Command
             ) => {
-              const orgId = (command.parent as Command).args[0] as string;
               const { url, timeout } = getGlobalOpts(command);
               const keypairPath = getKeypairPath(command);
               const spinner = ora('Adding member...').start();
@@ -395,12 +395,7 @@ export const orgCommand = new Command('org')
                   pubkey: pubkey.trim(),
                   role: options.role === 'admin' ? 'admin' : 'member',
                 };
-                const headers = await getSignedHeaders(
-                  'POST',
-                  pathname,
-                  body,
-                  kp
-                );
+                const headers = await getSignedHeaders('POST', pathname, body, kp);
                 const base = url.replace(/\/$/, '');
                 const { data, status } = await fetchJson(`${base}${pathname}`, {
                   method: 'POST',
@@ -429,15 +424,16 @@ export const orgCommand = new Command('org')
       .addCommand(
         new Command('update')
           .description('Update a member role (admin or member)')
+          .argument('<orgId>', 'Organization id or slug')
           .argument('<pubkey>', 'Member public key')
           .requiredOption('-r, --role <role>', 'New role: admin or member')
           .action(
             async (
+              orgId: string,
               pubkey: string,
               options: { role: string },
               command: Command
             ) => {
-              const orgId = (command.parent as Command).args[0] as string;
               const { url, timeout } = getGlobalOpts(command);
               const keypairPath = getKeypairPath(command);
               const role = options.role === 'admin' ? 'admin' : 'member';
@@ -446,12 +442,7 @@ export const orgCommand = new Command('org')
                 const kp = loadKeypair({ keypairPath });
                 const pathname = `/api/v2/orgs/${encodeURIComponent(orgId)}/members/${encodeURIComponent(pubkey.trim())}`;
                 const body = { role };
-                const headers = await getSignedHeaders(
-                  'PATCH',
-                  pathname,
-                  body,
-                  kp
-                );
+                const headers = await getSignedHeaders('PATCH', pathname, body, kp);
                 const base = url.replace(/\/$/, '');
                 const { data, status } = await fetchJson(`${base}${pathname}`, {
                   method: 'PATCH',
@@ -480,21 +471,16 @@ export const orgCommand = new Command('org')
       .addCommand(
         new Command('remove')
           .description('Remove a member by pubkey')
-          .argument('<pubkey>', 'Member public key (base58)')
-          .action(async (pubkey: string, _options, command: Command) => {
-            const orgId = (command.parent as Command).args[0] as string;
+          .argument('<orgId>', 'Organization id or slug')
+          .argument('<pubkey>', 'Member public key')
+          .action(async (orgId: string, pubkey: string, _options, command: Command) => {
             const { url, timeout } = getGlobalOpts(command);
             const keypairPath = getKeypairPath(command);
             const spinner = ora('Removing member...').start();
             try {
               const kp = loadKeypair({ keypairPath });
               const pathname = `/api/v2/orgs/${encodeURIComponent(orgId)}/members/${encodeURIComponent(pubkey.trim())}`;
-              const headers = await getSignedHeaders(
-                'DELETE',
-                pathname,
-                undefined,
-                kp
-              );
+              const headers = await getSignedHeaders('DELETE', pathname, undefined, kp);
               const base = url.replace(/\/$/, '');
               const { data, status } = await fetchJson(`${base}${pathname}`, {
                 method: 'DELETE',
@@ -522,13 +508,12 @@ export const orgCommand = new Command('org')
   .addCommand(
     new Command('packages')
       .description('Link or unlink packages to the organization')
-      .argument('<orgId>', 'Organization id or slug')
       .addCommand(
         new Command('link')
-          .description('Link a package name to the organization')
+          .description('Link a package to the organization')
+          .argument('<orgId>', 'Organization id or slug')
           .argument('<package>', 'Package name')
-          .action(async (pkg: string, _options, command: Command) => {
-            const orgId = (command.parent as Command).args[0] as string;
+          .action(async (orgId: string, pkg: string, _options, command: Command) => {
             const { url, timeout } = getGlobalOpts(command);
             const keypairPath = getKeypairPath(command);
             const spinner = ora('Linking package...').start();
@@ -536,12 +521,7 @@ export const orgCommand = new Command('org')
               const kp = loadKeypair({ keypairPath });
               const pathname = `/api/v2/orgs/${encodeURIComponent(orgId)}/packages`;
               const body = { package: pkg.trim() };
-              const headers = await getSignedHeaders(
-                'POST',
-                pathname,
-                body,
-                kp
-              );
+              const headers = await getSignedHeaders('POST', pathname, body, kp);
               const base = url.replace(/\/$/, '');
               const { data, status } = await fetchJson(`${base}${pathname}`, {
                 method: 'POST',
@@ -569,21 +549,16 @@ export const orgCommand = new Command('org')
       .addCommand(
         new Command('unlink')
           .description('Unlink a package from the organization')
+          .argument('<orgId>', 'Organization id or slug')
           .argument('<package>', 'Package name')
-          .action(async (pkg: string, _options, command: Command) => {
-            const orgId = (command.parent as Command).args[0] as string;
+          .action(async (orgId: string, pkg: string, _options, command: Command) => {
             const { url, timeout } = getGlobalOpts(command);
             const keypairPath = getKeypairPath(command);
             const spinner = ora('Unlinking package...').start();
             try {
               const kp = loadKeypair({ keypairPath });
               const pathname = `/api/v2/orgs/${encodeURIComponent(orgId)}/packages/${encodeURIComponent(pkg.trim())}`;
-              const headers = await getSignedHeaders(
-                'DELETE',
-                pathname,
-                undefined,
-                kp
-              );
+              const headers = await getSignedHeaders('DELETE', pathname, undefined, kp);
               const base = url.replace(/\/$/, '');
               const { data, status } = await fetchJson(`${base}${pathname}`, {
                 method: 'DELETE',

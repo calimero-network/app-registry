@@ -136,11 +136,11 @@ All write operations require your org key file (`-k org-key.json`):
 calimero-registry org -k org-key.json create -n "My Org" -s "my-org"
 
 # Members
-calimero-registry org -k org-key.json members <org-id> add <pubkey> --role member
-calimero-registry org -k org-key.json members <org-id> remove <pubkey>
+calimero-registry org -k org-key.json members add    <org-id> <pubkey> --role member
+calimero-registry org -k org-key.json members remove <org-id> <pubkey>
 
 # Link packages
-calimero-registry org -k org-key.json packages <org-id> link com.my-org.app
+calimero-registry org -k org-key.json packages link <org-id> com.my-org.app
 ```
 
 The org key file can be downloaded from the **Organizations page** in the UI (format is mero-sign-compatible `{ private_key, public_key, signer_id }`).
@@ -159,9 +159,9 @@ calimero-registry bundle get    <package> <version> --local
 # Org commands
 calimero-registry org -k <key.json> list
 calimero-registry org -k <key.json> create -n <name> -s <slug>
-calimero-registry org members <org-id> list                             # public
-calimero-registry org -k <key.json> members <org-id> add | remove | update
-calimero-registry org -k <key.json> packages <org-id> link | unlink
+calimero-registry org members list <org-id>                             # public
+calimero-registry org -k <key.json> members add | remove | update <org-id> <pubkey>
+calimero-registry org -k <key.json> packages link | unlink <org-id> <package>
 
 # Config
 calimero-registry config set registry-url <url>

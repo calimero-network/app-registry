@@ -532,15 +532,15 @@ calimero-registry org -k org-key.json create -n "My Org" -s "my-org"
 calimero-registry org get <org-id>
 
 # Member management (list is public — no keypair needed)
-calimero-registry org members <org-id> list
-calimero-registry org -k org-key.json members <org-id> add <pubkey> --role member
-calimero-registry org -k org-key.json members <org-id> add <pubkey> --role admin
-calimero-registry org -k org-key.json members <org-id> update <pubkey> --role admin
-calimero-registry org -k org-key.json members <org-id> remove <pubkey>
+calimero-registry org members list   <org-id>
+calimero-registry org -k org-key.json members add    <org-id> <pubkey> --role member
+calimero-registry org -k org-key.json members add    <org-id> <pubkey> --role admin
+calimero-registry org -k org-key.json members update <org-id> <pubkey> --role admin
+calimero-registry org -k org-key.json members remove <org-id> <pubkey>
 
 # Package linking
-calimero-registry org -k org-key.json packages <org-id> link   com.example.myapp
-calimero-registry org -k org-key.json packages <org-id> unlink com.example.myapp`}</CodeBlock>
+calimero-registry org -k org-key.json packages link   <org-id> com.example.myapp
+calimero-registry org -k org-key.json packages unlink <org-id> com.example.myapp`}</CodeBlock>
           </div>
         </section>
 
@@ -883,10 +883,10 @@ calimero-registry bundle edit com.my-org.app-1 1.0.0 \\
             <SubHeading>CLI org management</SubHeading>
             <CodeBlock>{`# Use your downloaded org-key.json for all write operations
 calimero-registry org -k org-key.json create -n "My Org" -s "my-org"
-calimero-registry org -k org-key.json members <org-id> add <member-pubkey>
-calimero-registry org -k org-key.json members <org-id> add <pubkey> --role admin
-calimero-registry org -k org-key.json members <org-id> remove <member-pubkey>
-calimero-registry org -k org-key.json packages <org-id> link com.my-org.app-1`}</CodeBlock>
+calimero-registry org -k org-key.json members add    <org-id> <member-pubkey>
+calimero-registry org -k org-key.json members add    <org-id> <pubkey> --role admin
+calimero-registry org -k org-key.json members remove <org-id> <member-pubkey>
+calimero-registry org -k org-key.json packages link  <org-id> com.my-org.app-1`}</CodeBlock>
           </div>
         </section>
 

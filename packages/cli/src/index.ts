@@ -37,8 +37,8 @@ For more information, visit: https://github.com/calimero-network/app-registry
 `
 );
 
-// Global options
-program.option('-u, --url <url>', 'Registry API URL', 'http://localhost:8082');
+// Global options — no default; commands fall back to RemoteConfig / CALIMERO_REGISTRY_URL
+program.option('-u, --url <url>', 'Registry API URL (overrides saved config)');
 program.option(
   '-t, --timeout <timeout>',
   'Request timeout in milliseconds',
