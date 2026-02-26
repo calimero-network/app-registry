@@ -9,6 +9,7 @@ import { ipfsCommand } from './commands/ipfs.js';
 import { localCommand } from './commands/local.js';
 import { bundleCommand } from './commands/bundle.js';
 import { configCommand } from './commands/config.js';
+import { orgCommand } from './commands/org.js';
 
 const require = createRequire(import.meta.url);
 const { version } = require('../package.json');
@@ -36,8 +37,8 @@ For more information, visit: https://github.com/calimero-network/app-registry
 `
 );
 
-// Global options
-program.option('-u, --url <url>', 'Registry API URL', 'http://localhost:8082');
+// Global options — no default; commands fall back to RemoteConfig / CALIMERO_REGISTRY_URL
+program.option('-u, --url <url>', 'Registry API URL (overrides saved config)');
 program.option(
   '-t, --timeout <timeout>',
   'Request timeout in milliseconds',
@@ -54,13 +55,18 @@ program.addCommand(ipfsCommand);
 program.addCommand(localCommand);
 program.addCommand(bundleCommand);
 program.addCommand(configCommand);
+program.addCommand(orgCommand);
 
 // Global error handler
 program.exitOverride();
 
 try {
   program.parse();
-} catch (err) {
+} catch (err: unknown) {
+  // Commander throws for --version, --help, and no-command help (exitCode 0) — ignore those
+  if (err && typeof err === 'object' && 'exitCode' in err) {
+    process.exit((err as { exitCode: number }).exitCode ?? 0);
+  }
   if (err instanceof Error) {
     console.error(chalk.red('Error:'), err.message);
   } else {

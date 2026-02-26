@@ -22,6 +22,7 @@ export default [
         clearTimeout: 'readonly',
         Buffer: 'readonly',
         global: 'readonly',
+        TextEncoder: 'readonly',
       },
     },
     plugins: {

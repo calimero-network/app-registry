@@ -7,6 +7,7 @@ import {
   type ReactNode,
 } from 'react';
 import { api } from '@/lib/api';
+import { setCurrentUserId } from '@/lib/org-keypair';
 
 export interface AuthUser {
   id: string;
@@ -45,8 +46,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       const { data } = await api.get<{ user: AuthUser }>('/auth/me');
       setUser(data.user);
+      // Scope keypair to email — readable in localStorage and unique per account.
+      // Falls back to numeric Google ID only if email is somehow absent.
+      setCurrentUserId(data.user?.email ?? data.user?.id ?? null);
     } catch {
       setUser(null);
+      setCurrentUserId(null);
     } finally {
       setLoading(false);
     }
@@ -66,6 +71,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       await api.post('/auth/logout');
     } finally {
       setUser(null);
+      setCurrentUserId(null);
     }
   }, []);
 

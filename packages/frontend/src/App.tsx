@@ -9,8 +9,11 @@ import DeveloperDetailPage from './pages/DeveloperDetailPage';
 import UploadPage from './pages/UploadPage';
 import LoginPage from './pages/LoginPage';
 import MyPackagesPage from './pages/MyPackagesPage';
+import MyOrgsPage from './pages/MyOrgsPage';
+import OrgDetailPage from './pages/OrgDetailPage';
 import NotFoundPage from './pages/NotFoundPage';
 import EditPackagePage from './pages/EditPackagePage';
+import DocsPage from './pages/DocsPage';
 
 function App() {
   return (
@@ -35,6 +38,16 @@ function App() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path='/orgs'
+          element={
+            <ProtectedRoute>
+              <MyOrgsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route path='/orgs/:orgId' element={<OrgDetailPage />} />
+        <Route path='/docs' element={<DocsPage />} />
         <Route path='*' element={<NotFoundPage />} />
       </Routes>
     </Layout>

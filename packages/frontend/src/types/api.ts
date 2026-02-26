@@ -73,3 +73,31 @@ export interface ApiError {
   code?: string;
   details?: Record<string, unknown>;
 }
+
+// Organizations (NPM-style)
+export interface OrgMetadata {
+  description?: string;
+  website?: string;
+  email?: string;
+  github?: string;
+  twitter?: string;
+  location?: string;
+}
+
+export interface Org {
+  id: string;
+  name: string;
+  slug: string;
+  created_at?: string;
+  updated_at?: string;
+  metadata?: OrgMetadata;
+}
+
+export interface OrgMember {
+  pubkey: string;
+  role: 'admin' | 'member';
+}
+
+export interface OrgPackageList {
+  packages: string[];
+}

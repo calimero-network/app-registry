@@ -293,16 +293,24 @@ function validateSemver(semver) {
 }
 
 /**
- * Validate public key format (base58 or multibase)
+ * Validate public key format (base64url, base58, or multibase)
  */
 function validatePublicKey(pubkey) {
+  if (!pubkey || typeof pubkey !== 'string' || !pubkey.trim()) return false;
+  const trimmed = pubkey.trim();
+  // base64url (CLI / mero-sign)
   try {
-    const decoded = multibase.decode(pubkey);
+    const decoded = base64urlDecode(trimmed);
+    if (decoded.length === 32) return true;
+  } catch {
+    // continue
+  }
+  try {
+    const decoded = multibase.decode(trimmed);
     return Buffer.from(decoded).length === 32;
   } catch {
-    // Try base58
     try {
-      const bytes = decodeBase58ToBytes(pubkey);
+      const bytes = decodeBase58ToBytes(trimmed);
       return bytes.length === 32;
     } catch {
       return false;

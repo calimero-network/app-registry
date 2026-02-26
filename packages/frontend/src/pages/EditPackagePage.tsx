@@ -14,7 +14,6 @@ export default function EditPackagePage() {
   const [form, setForm] = useState({
     name: '',
     description: '',
-    author: '',
     frontend: '',
     github: '',
     docs: '',
@@ -38,7 +37,6 @@ export default function EditPackagePage() {
     setForm({
       name: meta.name ?? '',
       description: meta.description ?? '',
-      author: meta.author ?? '',
       frontend: links.frontend ?? '',
       github: links.github ?? '',
       docs: links.docs ?? '',
@@ -53,10 +51,6 @@ export default function EditPackagePage() {
         ...manifest.metadata,
         name: form.name || manifest.metadata?.name,
         description: form.description ?? manifest.metadata?.description,
-        author:
-          form.author === ''
-            ? undefined
-            : form.author || manifest.metadata?.author,
       },
       links: {
         ...manifest.links,
@@ -156,18 +150,6 @@ export default function EditPackagePage() {
             rows={3}
             className='w-full px-3 py-2 rounded-md bg-neutral-800 border border-neutral-700 text-neutral-200 text-[13px] focus:border-brand-600 focus:outline-none resize-y'
             placeholder='Short description'
-          />
-        </div>
-        <div>
-          <label className='block text-[11px] text-neutral-500 mb-1.5'>
-            Author (leave empty to clear)
-          </label>
-          <input
-            type='text'
-            value={form.author}
-            onChange={e => setForm(f => ({ ...f, author: e.target.value }))}
-            className='w-full px-3 py-2 rounded-md bg-neutral-800 border border-neutral-700 text-neutral-200 text-[13px] focus:border-brand-600 focus:outline-none'
-            placeholder='e.g. developer@example.com'
           />
         </div>
         <div>

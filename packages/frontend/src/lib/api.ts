@@ -1,10 +1,20 @@
 import axios from 'axios';
+import {
+  getStoredKeypair,
+  getSignedHeaders,
+  publicKeyToBase64url,
+  getStoredPublicKeyBase64url,
+} from './org-keypair';
 import type {
   AppSummary,
   VersionInfo,
   AppManifest,
   DeveloperProfile,
   Attestation,
+  Org,
+  OrgMetadata,
+  OrgMember,
+  OrgPackageList,
 } from '@/types/api';
 
 export const api = axios.create({
@@ -202,6 +212,21 @@ export const getBundleManifestRaw = async (
   return response.data;
 };
 
+/** Delete a specific version of a package. Requires login as the package author. */
+export const deleteBundleVersion = async (
+  packageName: string,
+  version: string
+): Promise<void> => {
+  await api.delete(
+    `/v2/bundles/${encodeURIComponent(packageName)}/${encodeURIComponent(version)}`
+  );
+};
+
+/** Delete an entire package (all versions). Requires login as the package author. */
+export const deletePackage = async (packageName: string): Promise<void> => {
+  await api.delete(`/v2/bundles/${encodeURIComponent(packageName)}`);
+};
+
 /** Push a .mpk bundle file to the registry (multipart). Returns { package, version } on success. */
 export const pushBundleFile = async (
   file: File
@@ -215,4 +240,194 @@ export const pushBundleFile = async (
     package: response.data.package,
     version: response.data.version,
   };
+};
+
+// ——— Organizations (V2 org API) ———
+
+/** List orgs the given member (pubkey) belongs to. */
+export const getOrgsByMember = async (memberPubkey: string): Promise<Org[]> => {
+  if (!memberPubkey?.trim()) return [];
+  const response = await api.get<Org[]>('/v2/orgs', {
+    params: { member: memberPubkey.trim() },
+  });
+  return Array.isArray(response.data) ? response.data : [];
+};
+
+/** Get the org that owns a package (reverse lookup). Returns null if unlinked. */
+export const getOrgByPackage = async (
+  packageName: string
+): Promise<Org | null> => {
+  if (!packageName?.trim()) return null;
+  const response = await api.get<Org | null>('/v2/orgs', {
+    params: { package: packageName.trim() },
+  });
+  return response.data ?? null;
+};
+
+/** Get a single org by id. */
+export const getOrg = async (orgId: string): Promise<Org | null> => {
+  const response = await api.get<Org>(`/v2/orgs/${encodeURIComponent(orgId)}`);
+  return response.data ?? null;
+};
+
+/** List members of an org. */
+export const getOrgMembers = async (
+  orgId: string
+): Promise<{ members: OrgMember[] }> => {
+  const response = await api.get<{ members: OrgMember[] }>(
+    `/v2/orgs/${encodeURIComponent(orgId)}/members`
+  );
+  return {
+    members: Array.isArray(response.data?.members) ? response.data.members : [],
+  };
+};
+
+/** List packages linked to an org. */
+export const getOrgPackages = async (
+  orgId: string
+): Promise<OrgPackageList> => {
+  const response = await api.get<OrgPackageList>(
+    `/v2/orgs/${encodeURIComponent(orgId)}/packages`
+  );
+  return {
+    packages: Array.isArray(response.data?.packages)
+      ? response.data.packages
+      : [],
+  };
+};
+
+// ——— Signed org writes (Ed25519 keypair) ———
+
+const API_BASE =
+  (import.meta as { env?: { VITE_API_URL?: string } }).env?.VITE_API_URL ||
+  '/api';
+
+function pathname(axiosPath: string): string {
+  const base = API_BASE.replace(/\/$/, '');
+  const p = axiosPath.startsWith('/') ? axiosPath : `/${axiosPath}`;
+  return `${base}${p}`;
+}
+
+async function withSignedHeaders(
+  method: string,
+  axiosPath: string,
+  body: Record<string, unknown> | null
+): Promise<Record<string, string>> {
+  const keypair = await getStoredKeypair();
+  if (!keypair) {
+    throw new Error('No org keypair. Create an org identity first.');
+  }
+  return getSignedHeaders(method, pathname(axiosPath), body, keypair);
+}
+
+/** Create org (signed). */
+export const createOrg = async (name: string, slug: string): Promise<Org> => {
+  const body = { name: name.trim(), slug: slug.toLowerCase().trim() };
+  const headers = await withSignedHeaders('POST', '/v2/orgs', body);
+  const response = await api.post<Org>('/v2/orgs', body, { headers });
+  return response.data;
+};
+
+/** Update org (signed, admin). */
+export const updateOrg = async (
+  orgId: string,
+  updates: { name?: string; metadata?: OrgMetadata }
+): Promise<Org> => {
+  const body = { ...updates };
+  const headers = await withSignedHeaders(
+    'PATCH',
+    `/v2/orgs/${encodeURIComponent(orgId)}`,
+    body
+  );
+  const response = await api.patch<Org>(
+    `/v2/orgs/${encodeURIComponent(orgId)}`,
+    body,
+    { headers }
+  );
+  return response.data;
+};
+
+/** Add member to org (signed, admin). */
+export const addOrgMember = async (
+  orgId: string,
+  memberPubkey: string,
+  role: 'admin' | 'member' = 'member'
+): Promise<void> => {
+  const body = { pubkey: memberPubkey.trim(), role };
+  const headers = await withSignedHeaders(
+    'POST',
+    `/v2/orgs/${encodeURIComponent(orgId)}/members`,
+    body
+  );
+  await api.post(`/v2/orgs/${encodeURIComponent(orgId)}/members`, body, {
+    headers,
+  });
+};
+
+/** Remove member from org (signed, admin). */
+export const removeOrgMember = async (
+  orgId: string,
+  memberPubkey: string
+): Promise<void> => {
+  const headers = await withSignedHeaders(
+    'DELETE',
+    `/v2/orgs/${encodeURIComponent(orgId)}/members/${encodeURIComponent(memberPubkey)}`,
+    null
+  );
+  await api.delete(
+    `/v2/orgs/${encodeURIComponent(orgId)}/members/${encodeURIComponent(memberPubkey)}`,
+    { headers }
+  );
+};
+
+/** Link package to org (signed, admin). */
+export const linkOrgPackage = async (
+  orgId: string,
+  packageName: string
+): Promise<void> => {
+  const body = { package: packageName.trim() };
+  const headers = await withSignedHeaders(
+    'POST',
+    `/v2/orgs/${encodeURIComponent(orgId)}/packages`,
+    body
+  );
+  await api.post(`/v2/orgs/${encodeURIComponent(orgId)}/packages`, body, {
+    headers,
+  });
+};
+
+/** Unlink package from org (signed, admin). */
+export const unlinkOrgPackage = async (
+  orgId: string,
+  packageName: string
+): Promise<void> => {
+  const headers = await withSignedHeaders(
+    'DELETE',
+    `/v2/orgs/${encodeURIComponent(orgId)}/packages/${encodeURIComponent(packageName)}`,
+    null
+  );
+  await api.delete(
+    `/v2/orgs/${encodeURIComponent(orgId)}/packages/${encodeURIComponent(packageName)}`,
+    { headers }
+  );
+};
+
+/** Delete an org and all its data (signed, admin). */
+export const deleteOrg = async (orgId: string): Promise<void> => {
+  const headers = await withSignedHeaders(
+    'DELETE',
+    `/v2/orgs/${encodeURIComponent(orgId)}`,
+    null
+  );
+  await api.delete(`/v2/orgs/${encodeURIComponent(orgId)}`, { headers });
+};
+
+/**
+ * Current org identity public key as base64url (for ?member= and UI).
+ * Prefers the full signing keypair; falls back to the imported read-only public key.
+ */
+export const getMyOrgPubkeyBase64url = async (): Promise<string | null> => {
+  const keypair = await getStoredKeypair();
+  if (keypair) return publicKeyToBase64url(keypair.publicKey);
+  return getStoredPublicKeyBase64url();
 };
