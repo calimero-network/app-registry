@@ -88,11 +88,7 @@ function Note({ children }: { children: React.ReactNode }) {
   );
 }
 
-function Steps({
-  items,
-}: {
-  items: [string, React.ReactNode][];
-}) {
+function Steps({ items }: { items: [string, React.ReactNode][] }) {
   return (
     <ol className='space-y-3 list-none'>
       {items.map(([step, desc], i) => (
@@ -170,7 +166,6 @@ export default function DocsPage() {
 
       {/* ── Content ── */}
       <div className='flex-1 min-w-0 space-y-16 pb-16'>
-
         {/* ══════════════════════════════════════════
             INTRODUCTION
         ══════════════════════════════════════════ */}
@@ -178,15 +173,16 @@ export default function DocsPage() {
           <SectionHeading id='introduction'>Introduction</SectionHeading>
           <div className='space-y-4'>
             <P>
-              The <strong className='text-neutral-200'>Calimero Registry</strong>{' '}
-              is a self-sovereign application registry for publishing, discovering,
-              and managing WebAssembly applications that run inside Calimero nodes.
-              Every app is a{' '}
+              The{' '}
+              <strong className='text-neutral-200'>Calimero Registry</strong> is
+              a self-sovereign application registry for publishing, discovering,
+              and managing WebAssembly applications that run inside Calimero
+              nodes. Every app is a{' '}
               <strong className='text-neutral-200'>
                 cryptographically signed bundle
               </strong>{' '}
-              — the registry records who published it, and any consumer can verify
-              its authenticity independently.
+              — the registry records who published it, and any consumer can
+              verify its authenticity independently.
             </P>
             <Diagram>{`
   Developer                        Registry                        Node
@@ -269,8 +265,8 @@ export default function DocsPage() {
 
             <SubHeading>Manifest structure</SubHeading>
             <P>
-              The manifest describes the app and carries the signature that proves
-              who published it. Here is a complete example:
+              The manifest describes the app and carries the signature that
+              proves who published it. Here is a complete example:
             </P>
             <CodeBlock>{`{
   "version":    "1.0",
@@ -344,15 +340,17 @@ export default function DocsPage() {
           <div className='space-y-4'>
             <P>
               <strong className='text-neutral-200'>mero-sign</strong> is a
-              standalone CLI tool for Ed25519 key management and manifest signing.
-              Every bundle pushed to the registry must carry a valid signature.
-              mero-sign produces the <Code>signature</Code> block that goes inside{' '}
-              <Code>manifest.json</Code>.
+              standalone CLI tool for Ed25519 key management and manifest
+              signing. Every bundle pushed to the registry must carry a valid
+              signature. mero-sign produces the <Code>signature</Code> block
+              that goes inside <Code>manifest.json</Code>.
             </P>
 
             <SubHeading>Generating a key</SubHeading>
             <CodeBlock>{`mero-sign generate-key --output key.json`}</CodeBlock>
-            <P>This writes a JSON key file you use for all signing operations:</P>
+            <P>
+              This writes a JSON key file you use for all signing operations:
+            </P>
             <CodeBlock>{`{
   "private_key": "PZbZ5yM9t63qOHMM-CCzExbNv8u79XTxZT9UW8GQJ60",
   "public_key":  "yuKE404BaldXazEIUC4XrVGFyXxxyoRVjrrGhcKk1P4",
@@ -382,9 +380,9 @@ export default function DocsPage() {
               ))}
             </div>
             <Note>
-              <strong>Security:</strong> Store <Code>key.json</Code> outside your
-              project directory and add it to <Code>.gitignore</Code>. Never
-              commit private keys to version control.
+              <strong>Security:</strong> Store <Code>key.json</Code> outside
+              your project directory and add it to <Code>.gitignore</Code>.
+              Never commit private keys to version control.
             </Note>
 
             <SubHeading>How signing works</SubHeading>
@@ -409,16 +407,16 @@ export default function DocsPage() {
               "signedAt": "ISO-8601"
             }`}</Diagram>
             <P>
-              The registry re-runs this exact process on every upload and verifies
-              the signature matches. A mismatch returns{' '}
+              The registry re-runs this exact process on every upload and
+              verifies the signature matches. A mismatch returns{' '}
               <Code>400 invalid_signature</Code>.
             </P>
 
             <SubHeading>Using your org key with mero-sign</SubHeading>
             <P>
-              Your org identity keypair (generated in the Organizations page) can
-              be downloaded as a mero-sign-compatible key file. Use it to sign
-              bundle edits when you are an org member:
+              Your org identity keypair (generated in the Organizations page)
+              can be downloaded as a mero-sign-compatible key file. Use it to
+              sign bundle edits when you are an org member:
             </P>
             <CodeBlock>{`# 1. Organizations page → "Download key file" → saves org-key.json
 # 2. Sign the manifest you downloaded from the Edit metadata page:
@@ -453,7 +451,9 @@ export CALIMERO_REGISTRY_URL=https://apps.calimero.network`}</CodeBlock>
             <P>
               Writes <Code>manifest.json</Code>, <Code>app.wasm</Code>, and
               optionally <Code>abi.json</Code> to an output directory.{' '}
-              <strong className='text-neutral-200'>Does not pack into .mpk</strong>{' '}
+              <strong className='text-neutral-200'>
+                Does not pack into .mpk
+              </strong>{' '}
               — sign the manifest first, then use <Code>bundle push</Code>.
             </P>
             <CodeBlock>{`# Minimal — outputs to com.example.myapp/1.0.0/
@@ -471,7 +471,8 @@ calimero-registry bundle create app.wasm com.example.myapp 1.0.0 \\
 # From a bundle-manifest.json config file
 calimero-registry bundle create app.wasm --manifest bundle-manifest.json`}</CodeBlock>
             <P>
-              The bundle manifest config file lets you store all options in JSON:
+              The bundle manifest config file lets you store all options in
+              JSON:
             </P>
             <CodeBlock>{`{
   "package":     "com.example.myapp",
@@ -501,7 +502,8 @@ calimero-registry bundle push dist/myapp --remote \\
             <SubHeading>bundle edit</SubHeading>
             <P>
               Edit mutable metadata (name, description, links) for an already
-              published version. This is a two-step process — fetch + sign + PATCH:
+              published version. This is a two-step process — fetch + sign +
+              PATCH:
             </P>
             <CodeBlock>{`# Step 1: Fetch current manifest, apply your changes, write to file
 calimero-registry bundle edit com.example.myapp 1.0.0 --remote \\
@@ -546,7 +548,9 @@ calimero-registry org -k org-key.json packages <org-id> unlink com.example.myapp
             CREATING A BUNDLE
         ══════════════════════════════════════════ */}
         <section>
-          <SectionHeading id='creating-a-bundle'>Creating a Bundle</SectionHeading>
+          <SectionHeading id='creating-a-bundle'>
+            Creating a Bundle
+          </SectionHeading>
           <div className='space-y-4'>
             <P>
               There are two paths to publish a bundle. Both end with the same
@@ -598,8 +602,8 @@ calimero-registry bundle push dist/myapp --remote
             <SubHeading>Path B — bring your own .mpk</SubHeading>
             <P>
               If you already build the bundle with your own script (or manually
-              with tar), just pass the <Code>.mpk</Code> directly. As long as the{' '}
-              <Code>manifest.json</Code> inside is signed before you tar it,
+              with tar), just pass the <Code>.mpk</Code> directly. As long as
+              the <Code>manifest.json</Code> inside is signed before you tar it,
               the registry will accept it.
             </P>
             <CodeBlock>{`# Your script: copies wasm, creates manifest.json, signs it, tars it
@@ -620,7 +624,9 @@ calimero-registry bundle push res/myapp-1.0.0.mpk --remote`}</CodeBlock>
             FRONTEND WORKFLOW
         ══════════════════════════════════════════ */}
         <section>
-          <SectionHeading id='frontend-workflow'>Frontend Workflow</SectionHeading>
+          <SectionHeading id='frontend-workflow'>
+            Frontend Workflow
+          </SectionHeading>
           <div className='space-y-4'>
             <SubHeading>Uploading a bundle</SubHeading>
             <P>
@@ -652,7 +658,8 @@ calimero-registry bundle push res/myapp-1.0.0.mpk --remote`}</CodeBlock>
             <P>
               Package owners and org members can update display metadata (name,
               description, links) through the registry UI without the CLI — but
-              the final PATCH still requires a CLI step because it must be signed:
+              the final PATCH still requires a CLI step because it must be
+              signed:
             </P>
             <Steps
               items={[
@@ -664,13 +671,17 @@ calimero-registry bundle push res/myapp-1.0.0.mpk --remote`}</CodeBlock>
                   'Click Edit metadata',
                   'The pencil icon appears next to the version pill. Clicking it opens the edit form.',
                 ],
-                ['Make changes', 'Edit name, description, or links in the form.'],
+                [
+                  'Make changes',
+                  'Edit name, description, or links in the form.',
+                ],
                 [
                   'Download manifest',
                   <>
                     Click "Download manifest.json". The file has your changes
-                    applied but <strong className='text-neutral-200'>no signature</strong> — you must sign it before the
-                    registry will accept it.
+                    applied but{' '}
+                    <strong className='text-neutral-200'>no signature</strong> —
+                    you must sign it before the registry will accept it.
                   </>,
                 ],
                 [
@@ -690,9 +701,9 @@ mero-sign sign manifest.json --key org-key.json`}</CodeBlock>
               ]}
             />
             <Note>
-              The <Code>author</Code> field is always preserved from the original
-              publish. It cannot be cleared or changed via edit — even through the
-              CLI.
+              The <Code>author</Code> field is always preserved from the
+              original publish. It cannot be cleared or changed via edit — even
+              through the CLI.
             </Note>
           </div>
         </section>
@@ -765,9 +776,9 @@ calimero-registry bundle push dist/myapp-1.1.0 --remote`}</CodeBlock>
           <SectionHeading id='organizations'>Organizations</SectionHeading>
           <div className='space-y-4'>
             <P>
-              Organizations let teams collectively manage packages. Any org member
-              can push new versions and edit metadata for packages linked to the
-              org — without being the original Google-account author.
+              Organizations let teams collectively manage packages. Any org
+              member can push new versions and edit metadata for packages linked
+              to the org — without being the original Google-account author.
             </P>
 
             <SubHeading>Key model — each member has their own key</SubHeading>
@@ -775,8 +786,8 @@ calimero-registry bundle push dist/myapp-1.1.0 --remote`}</CodeBlock>
               There is no shared org key. Each person generates their own
               independent Ed25519 keypair. The admin records each member's{' '}
               <strong className='text-neutral-200'>public key</strong>. When a
-              member signs a manifest, the registry checks whether their pubkey is
-              in the org's member set.
+              member signs a manifest, the registry checks whether their pubkey
+              is in the org's member set.
             </P>
             <Diagram>{`  ┌─────────────────────────────────────────────────────────────────┐
   │  ORGANIZATION  "my-org"                                         │
@@ -804,9 +815,9 @@ calimero-registry bundle push dist/myapp-1.1.0 --remote`}</CodeBlock>
                 [
                   'Download your key file',
                   <>
-                    Click "Download key file" → saves as <Code>org-key.json</Code>.
-                    You will use this for CLI org commands and for signing bundle
-                    edits as an org member.
+                    Click "Download key file" → saves as{' '}
+                    <Code>org-key.json</Code>. You will use this for CLI org
+                    commands and for signing bundle edits as an org member.
                   </>,
                 ],
                 [
@@ -960,19 +971,19 @@ calimero-registry org -k org-key.json packages <org-id> link com.my-org.app-1`}<
             <SubHeading>Trust model</SubHeading>
             <P>
               The registry is a{' '}
-              <strong className='text-neutral-200'>cryptographic anchor</strong>,
-              not a code reviewer. It verifies that the bundle matches the
+              <strong className='text-neutral-200'>cryptographic anchor</strong>
+              , not a code reviewer. It verifies that the bundle matches the
               signature, but it does not vouch for what the code actually does.
-              Node operators should audit apps before installing. The public key in
-              the signature establishes authorship — if you trust the key, you
-              trust the bundle.
+              Node operators should audit apps before installing. The public key
+              in the signature establishes authorship — if you trust the key,
+              you trust the bundle.
             </P>
 
             <div className='card p-4 mt-2'>
               <p className='text-[12px] text-neutral-500 font-light'>
-                For more on the Calimero node runtime, inter-app communication via
-                interfaces, and how the Desktop client manages installed apps, see
-                the{' '}
+                For more on the Calimero node runtime, inter-app communication
+                via interfaces, and how the Desktop client manages installed
+                apps, see the{' '}
                 <a
                   href='https://docs.calimero.network'
                   target='_blank'

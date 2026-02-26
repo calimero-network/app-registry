@@ -21,12 +21,12 @@ app-registry/
 └── .github/              # GitHub Actions workflows
 ```
 
-| Package | Description | Stack |
-|---------|-------------|-------|
-| [backend](./packages/backend) | API server, signature validation, Redis KV | Fastify, Node.js |
-| [frontend](./packages/frontend) | Web UI — browse, upload, org management | React, TypeScript, Vite |
-| [client-library](./packages/client-library) | TypeScript client for the API | TypeScript, Axios |
-| [cli](./packages/cli) | Bundle create/push/edit, org management | TypeScript, Commander.js |
+| Package                                     | Description                                | Stack                    |
+| ------------------------------------------- | ------------------------------------------ | ------------------------ |
+| [backend](./packages/backend)               | API server, signature validation, Redis KV | Fastify, Node.js         |
+| [frontend](./packages/frontend)             | Web UI — browse, upload, org management    | React, TypeScript, Vite  |
+| [client-library](./packages/client-library) | TypeScript client for the API              | TypeScript, Axios        |
+| [cli](./packages/cli)                       | Bundle create/push/edit, org management    | TypeScript, Commander.js |
 
 ---
 
@@ -85,6 +85,7 @@ bundle.mpk
 ### Signature verification
 
 Every manifest is verified using:
+
 1. Remove `signature` and all `_*`-prefixed fields
 2. RFC 8785 (JCS) canonicalize → deterministic JSON bytes
 3. SHA-256 hash of canonical bytes
@@ -98,11 +99,11 @@ The same process runs on the node side when the Calimero Desktop app installs a 
 
 Who can push a new version or PATCH metadata for a package:
 
-| Scenario | Authorization |
-|----------|--------------|
-| First publish | Any signed request — signer becomes the owner |
+| Scenario           | Authorization                                                                                                                        |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
+| First publish      | Any signed request — signer becomes the owner                                                                                        |
 | New version / edit | Signer's pubkey matches original signer, OR pubkey is in `manifest.owners[]`, OR pubkey is a member of the org linked to the package |
-| Delete version | Signed in (Google session) as the `metadata.author` email |
+| Delete version     | Signed in (Google session) as the `metadata.author` email                                                                            |
 
 `metadata.author` is set server-side from the Google session on first push and cannot be overwritten via edit.
 
@@ -112,7 +113,7 @@ Who can push a new version or PATCH metadata for a package:
 
 Organizations let teams collectively manage packages without sharing a key.
 
-**Each member has their own independent Ed25519 keypair.** The org stores each member's *public key*. The registry checks membership on every manifest submission.
+**Each member has their own independent Ed25519 keypair.** The org stores each member's _public key_. The registry checks membership on every manifest submission.
 
 ```
 Admin A (pubkey: AAA) → creates org → adds Member B (pubkey: BBB)

@@ -526,7 +526,9 @@ Note:
           const manifestInDir = path.join(fullPath, 'manifest.json');
           const wasmInDir = path.join(fullPath, 'app.wasm');
           if (!fs.existsSync(manifestInDir)) {
-            console.error(`❌ manifest.json not found in directory: ${fullPath}`);
+            console.error(
+              `❌ manifest.json not found in directory: ${fullPath}`
+            );
             process.exit(1);
           }
           if (!fs.existsSync(wasmInDir)) {

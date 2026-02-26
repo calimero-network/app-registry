@@ -40,7 +40,10 @@ export interface KeypairLoadOptions {
 
 function base64urlDecode(str: string): Uint8Array {
   const base64 = str.replace(/-/g, '+').replace(/_/g, '/');
-  const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=');
+  const padded = base64.padEnd(
+    base64.length + ((4 - (base64.length % 4)) % 4),
+    '='
+  );
   return new Uint8Array(Buffer.from(padded, 'base64'));
 }
 
@@ -64,11 +67,18 @@ export function loadKeypair(options?: KeypairLoadOptions): {
     const parsed = JSON.parse(raw);
 
     // mero-sign format: { private_key, public_key, signer_id }
-    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && parsed.private_key) {
+    if (
+      parsed &&
+      typeof parsed === 'object' &&
+      !Array.isArray(parsed) &&
+      parsed.private_key
+    ) {
       const secretKey = base64urlDecode(parsed.private_key);
       const publicKey = base64urlDecode(parsed.public_key);
       if (secretKey.length !== 32 || publicKey.length !== 32) {
-        throw new Error('Invalid key file: private_key and public_key must be 32 bytes each');
+        throw new Error(
+          'Invalid key file: private_key and public_key must be 32 bytes each'
+        );
       }
       return { publicKey, secretKey };
     }
