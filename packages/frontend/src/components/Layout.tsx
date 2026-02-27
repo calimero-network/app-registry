@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Package, Menu, X } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { navigation } from '@/constants/navigation';
 import { ProfileDropdown } from './ProfileDropdown';
@@ -20,8 +20,7 @@ export function Layout({ children }: LayoutProps) {
       <header className='sticky top-0 z-50 bg-background-primary/80 backdrop-blur-xl border-b border-neutral-800/60'>
         <div className='max-w-6xl mx-auto px-4 sm:px-6 lg:px-8'>
           <div className='flex justify-between items-center h-14'>
-            <Link to='/' className='flex items-center gap-2 group'>
-              <Package className='h-5 w-5 text-brand-600 transition-transform group-hover:scale-110' />
+            <Link to='/' className='flex items-center gap-2'>
               <span className='text-sm font-medium text-neutral-200'>
                 Calimero Registry
               </span>
@@ -42,7 +41,6 @@ export function Layout({ children }: LayoutProps) {
                       isActive ? 'nav-link-active' : 'nav-link-inactive'
                     }`}
                   >
-                    <item.icon className='h-3.5 w-3.5 mr-1.5' />
                     {item.name}
                   </Link>
                 );
@@ -85,7 +83,6 @@ export function Layout({ children }: LayoutProps) {
                         : 'text-neutral-400 hover:bg-neutral-800/40 hover:text-neutral-200'
                     }`}
                   >
-                    <item.icon className='h-3.5 w-3.5 mr-2.5' />
                     {item.name}
                   </Link>
                 );
@@ -118,10 +115,7 @@ export function Layout({ children }: LayoutProps) {
               {[
                 { href: 'https://calimero.network', label: 'Website' },
                 { href: 'https://docs.calimero.network', label: 'Docs' },
-                {
-                  href: 'https://github.com/calimero-network',
-                  label: 'GitHub',
-                },
+                { href: 'https://github.com/calimero-network', label: 'GitHub' },
               ].map(link => (
                 <a
                   key={link.label}

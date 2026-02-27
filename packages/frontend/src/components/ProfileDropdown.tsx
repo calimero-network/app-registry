@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Box, Building2, LogOut } from 'lucide-react';
 import type { AuthUser } from '@/contexts/AuthContext';
 
 interface ProfileDropdownProps {
@@ -54,8 +53,8 @@ export function ProfileDropdown({
     return (
       <Link
         to='/login'
-        className={`nav-link nav-link-inactive ml-2`}
         onClick={onNavigate}
+        className='ml-2 px-3 py-1.5 rounded-md bg-brand-600 hover:bg-brand-500 text-neutral-950 text-[13px] font-medium transition-colors'
       >
         Sign in
       </Link>
@@ -95,7 +94,6 @@ export function ProfileDropdown({
           onClick={onNavigate}
           className='flex items-center px-3 py-2 rounded-md text-[13px] font-normal text-neutral-400 hover:bg-neutral-800/40 hover:text-neutral-200'
         >
-          <Box className='h-3.5 w-3.5 mr-2.5' />
           My packages
         </Link>
         <Link
@@ -103,7 +101,6 @@ export function ProfileDropdown({
           onClick={onNavigate}
           className='flex items-center px-3 py-2 rounded-md text-[13px] font-normal text-neutral-400 hover:bg-neutral-800/40 hover:text-neutral-200'
         >
-          <Building2 className='h-3.5 w-3.5 mr-2.5' />
           Organizations
         </Link>
         <button
@@ -114,7 +111,6 @@ export function ProfileDropdown({
           }}
           className='flex w-full items-center px-3 py-2 rounded-md text-[13px] font-normal text-neutral-400 hover:bg-neutral-800/40 hover:text-neutral-200 text-left'
         >
-          <LogOut className='h-3.5 w-3.5 mr-2.5' />
           Log out
         </button>
       </div>
@@ -162,19 +158,17 @@ export function ProfileDropdown({
           <Link
             to='/my-packages'
             onClick={() => setOpen(false)}
-            className='flex items-center gap-2 px-3 py-2 text-[13px] text-neutral-300 hover:bg-neutral-800 hover:text-neutral-100'
+            className='flex items-center px-3 py-2 text-[13px] text-neutral-300 hover:bg-neutral-800 hover:text-neutral-100'
             role='menuitem'
           >
-            <Box className='h-3.5 w-3.5' />
             My packages
           </Link>
           <Link
             to='/orgs'
             onClick={() => setOpen(false)}
-            className='flex items-center gap-2 px-3 py-2 text-[13px] text-neutral-300 hover:bg-neutral-800 hover:text-neutral-100'
+            className='flex items-center px-3 py-2 text-[13px] text-neutral-300 hover:bg-neutral-800 hover:text-neutral-100'
             role='menuitem'
           >
-            <Building2 className='h-3.5 w-3.5' />
             Organizations
           </Link>
           <button
@@ -183,10 +177,9 @@ export function ProfileDropdown({
               setOpen(false);
               logout();
             }}
-            className='flex w-full items-center gap-2 px-3 py-2 text-[13px] text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200'
+            className='flex w-full items-center px-3 py-2 text-[13px] text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200'
             role='menuitem'
           >
-            <LogOut className='h-3.5 w-3.5' />
             Log out
           </button>
         </div>

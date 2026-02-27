@@ -7,7 +7,7 @@ import {
   type ReactNode,
 } from 'react';
 import { api } from '@/lib/api';
-import { setCurrentUserId } from '@/lib/org-keypair';
+import { setCurrentUserId, clearStoredPublicKey } from '@/lib/org-keypair';
 
 export interface AuthUser {
   id: string;
@@ -70,6 +70,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       await api.post('/auth/logout');
     } finally {
+      // Clear stored public key before resetting the user ID so the
+      // scoped localStorage key is still reachable for removal.
+      clearStoredPublicKey();
       setUser(null);
       setCurrentUserId(null);
     }
