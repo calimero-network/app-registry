@@ -414,12 +414,18 @@ export default function DocsPage() {
 
             <SubHeading>Using your org key with mero-sign</SubHeading>
             <P>
-              Your org identity keypair (generated in the Organizations page)
-              can be downloaded as a mero-sign-compatible key file. Use it to
-              sign bundle edits when you are an org member:
+              Your org key is generated locally with{' '}
+              <Code>mero-sign</Code> and the private key never leaves your
+              machine. Register only your public key in the Organizations page.
+              Use the key file to sign bundle edits as an org member:
             </P>
-            <CodeBlock>{`# 1. Organizations page → "Download key file" → saves org-key.json
-# 2. Sign the manifest you downloaded from the Edit metadata page:
+            <CodeBlock>{`# 1. Generate your key once (keep org-key.json safe — private key stays local):
+mero-sign generate-key --output org-key.json
+
+# 2. Import your public_key value in the Organizations page
+#    (open the page, click "Import public key", paste the public_key field)
+
+# 3. Sign the manifest you downloaded from the Edit metadata page:
 mero-sign sign manifest.json --key org-key.json`}</CodeBlock>
           </div>
         </section>
@@ -784,10 +790,12 @@ calimero-registry bundle push dist/myapp-1.1.0 --remote`}</CodeBlock>
             <SubHeading>Key model — each member has their own key</SubHeading>
             <P>
               There is no shared org key. Each person generates their own
-              independent Ed25519 keypair. The admin records each member's{' '}
-              <strong className='text-neutral-200'>public key</strong>. When a
-              member signs a manifest, the registry checks whether their pubkey
-              is in the org's member set.
+              Ed25519 keypair <strong className='text-neutral-200'>locally</strong>{' '}
+              with <Code>mero-sign</Code>. The admin records each member's{' '}
+              <strong className='text-neutral-200'>public key</strong>. Private
+              keys never touch the browser or the registry server — all signing
+              happens offline via the CLI. When a member signs a manifest, the
+              registry checks whether their pubkey is in the org's member set.
             </P>
             <Diagram>{`  ┌─────────────────────────────────────────────────────────────────┐
   │  ORGANIZATION  "my-org"                                         │
@@ -805,32 +813,69 @@ calimero-registry bundle push dist/myapp-1.1.0 --remote`}</CodeBlock>
   After admin removes B from the org:
     → Registry: is BBB in org "my-org" members?  NO   → 403 Forbidden`}</Diagram>
 
-            <SubHeading>Setting up an organization (browser)</SubHeading>
+            <SubHeading>Setting up an organization</SubHeading>
+            <P>
+              Private keys are never generated or stored in the browser. Create
+              your keypair locally with <Code>mero-sign</Code> and register
+              only your public key in the UI. All write operations use the CLI.
+            </P>
             <Steps
               items={[
                 [
-                  'Generate your keypair',
-                  'Open Organizations from the header dropdown. Click "Generate keypair". Your Ed25519 identity is created and stored in this browser session.',
-                ],
-                [
-                  'Download your key file',
+                  'Generate your keypair locally',
                   <>
-                    Click "Download key file" → saves as{' '}
-                    <Code>org-key.json</Code>. You will use this for CLI org
-                    commands and for signing bundle edits as an org member.
+                    Run{' '}
+                    <Code>mero-sign generate-key --output org-key.json</Code>.
+                    Keep <Code>org-key.json</Code> safe — the private key never
+                    leaves your machine.
                   </>,
                 ],
                 [
-                  'Create the org',
-                  'Fill in the name and slug, click "Create organization". You automatically become the admin.',
+                  'Import your public key in the browser',
+                  <>
+                    Open Organizations from the header dropdown. Click{' '}
+                    <strong className='text-neutral-200'>
+                      Import public key
+                    </strong>{' '}
+                    and paste the{' '}
+                    <Code>public_key</Code> field from{' '}
+                    <Code>org-key.json</Code>. This lets the UI show your org
+                    memberships — no private key is ever stored.
+                  </>,
                 ],
                 [
-                  'Add members',
-                  "On the org detail page, paste each member's public key (they get it from their own Organizations page — shown as pubkey under their identity) and set their role.",
+                  'Create the org via CLI',
+                  <>
+                    <Code>
+                      calimero-registry org -k org-key.json create -n &quot;My
+                      Org&quot; -s my-org
+                    </Code>
+                    . You automatically become the admin.
+                  </>,
                 ],
                 [
-                  'Link packages',
-                  'Still on the org detail page, enter the package name in the "Link package" form. You must be signed in (Google) as the package author to link.',
+                  'Add members via CLI',
+                  <>
+                    Members generate their own keypair with{' '}
+                    <Code>mero-sign</Code> and share their{' '}
+                    <Code>public_key</Code>. Add them with:{' '}
+                    <Code>
+                      calimero-registry org -k org-key.json members add
+                      &lt;org-id&gt; &lt;pubkey&gt;
+                    </Code>
+                    .
+                  </>,
+                ],
+                [
+                  'Link packages via CLI',
+                  <>
+                    <Code>
+                      calimero-registry org -k org-key.json packages link
+                      &lt;org-id&gt; com.my-org.app
+                    </Code>
+                    . You must be the Google-account author of the package to
+                    link it.
+                  </>,
                 ],
               ]}
             />
@@ -881,12 +926,22 @@ calimero-registry bundle edit com.my-org.app-1 1.0.0 \\
             </P>
 
             <SubHeading>CLI org management</SubHeading>
-            <CodeBlock>{`# Use your downloaded org-key.json for all write operations
+            <P>
+              All write operations require your local key file. The private key
+              never leaves your machine.
+            </P>
+            <CodeBlock>{`# Create org
 calimero-registry org -k org-key.json create -n "My Org" -s "my-org"
-calimero-registry org -k org-key.json members add    <org-id> <member-pubkey>
+
+# Members
+calimero-registry org -k org-key.json members add    <org-id> <pubkey>
 calimero-registry org -k org-key.json members add    <org-id> <pubkey> --role admin
-calimero-registry org -k org-key.json members remove <org-id> <member-pubkey>
-calimero-registry org -k org-key.json packages link  <org-id> com.my-org.app-1`}</CodeBlock>
+calimero-registry org -k org-key.json members remove <org-id> <pubkey>
+calimero-registry org -k org-key.json members update <org-id> <pubkey> -r admin
+
+# Packages
+calimero-registry org -k org-key.json packages link   <org-id> com.my-org.app
+calimero-registry org -k org-key.json packages unlink <org-id> com.my-org.app`}</CodeBlock>
           </div>
         </section>
 

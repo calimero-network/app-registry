@@ -113,37 +113,56 @@ Who can push a new version or PATCH metadata for a package:
 
 Organizations let teams collectively manage packages without sharing a key.
 
-**Each member has their own independent Ed25519 keypair.** The org stores each member's _public key_. The registry checks membership on every manifest submission.
+**Each member has their own independent Ed25519 keypair generated locally.** Private keys never touch the browser or the registry server — all signing happens offline via the CLI. The org stores each member's _public key_. The registry checks membership on every manifest submission.
 
 ```
-Admin A (pubkey: AAA) → creates org → adds Member B (pubkey: BBB)
-                     → links com.my-org.app to org
+Admin A generates keypair locally → registers public key AAA in registry
+Admin A creates org via CLI → adds Member B (pubkey: BBB)
+                           → links com.my-org.app to org
 
 Member B edits com.my-org.app:
-  → signs manifest with BBB's key
+  → signs manifest offline with BBB's key
   → registry: is BBB in org members? YES → 200 OK
 
-Admin A removes B:
+Admin A removes B via CLI:
   → registry: is BBB in org members? NO  → 403 Forbidden (immediate)
+```
+
+### Getting started
+
+```bash
+# 1. Generate your org keypair locally (keep org-key.json safe)
+mero-sign generate-key --output org-key.json
+
+# 2. Import only your public_key in the Organizations page (browser)
+#    → the UI shows your org memberships; no private key is stored
+
+# 3. Create an org via CLI
+calimero-registry org -k org-key.json create -n "My Org" -s "my-org"
 ```
 
 ### Org CLI commands
 
-All write operations require your org key file (`-k org-key.json`):
+All write operations require your local key file (`-k org-key.json`):
 
 ```bash
-# Create
-calimero-registry org -k org-key.json create -n "My Org" -s "my-org"
-
 # Members
 calimero-registry org -k org-key.json members add    <org-id> <pubkey> --role member
+calimero-registry org -k org-key.json members add    <org-id> <pubkey> --role admin
 calimero-registry org -k org-key.json members remove <org-id> <pubkey>
+calimero-registry org -k org-key.json members update <org-id> <pubkey> -r admin
 
-# Link packages
-calimero-registry org -k org-key.json packages link <org-id> com.my-org.app
+# Packages
+calimero-registry org -k org-key.json packages link   <org-id> com.my-org.app
+calimero-registry org -k org-key.json packages unlink <org-id> com.my-org.app
 ```
 
-The org key file can be downloaded from the **Organizations page** in the UI (format is mero-sign-compatible `{ private_key, public_key, signer_id }`).
+### Roles
+
+| Role   | Capabilities                                                                    |
+| ------ | ------------------------------------------------------------------------------- |
+| Admin  | Add/remove members, change roles, link/unlink packages, update settings, delete org |
+| Member | Sign new versions and edit metadata for org-linked packages via CLI             |
 
 ---
 

@@ -1,31 +1,23 @@
 /**
- * Ed25519 keypair for org write API (signed requests).
- * Randomly generated, stored in localStorage; not Solana or blockchain-related.
+ * Ed25519 org identity helpers — public-key only.
+ * Private keys are never generated or stored in the browser.
+ * Use `mero-sign generate-key --output org-key.json` to create a keypair locally,
+ * then import the `public_key` value here for org identity and membership lookup.
  */
 
-import * as ed25519 from '@noble/ed25519';
-import canonicalize from 'canonicalize';
-
-const STORAGE_KEY_BASE = 'calimero_registry_org_keypair';
 const PUBKEY_STORAGE_KEY_BASE = 'calimero_registry_org_pubkey';
 
 /**
  * Active user identifier (Google email, e.g. alice@example.com).
  * When set, all keypair storage is scoped to this value so that different
  * Google accounts each keep their own independent org identity in localStorage.
- * localStorage keys look like: calimero_registry_org_keypair_alice@example.com
+ * localStorage keys look like: calimero_registry_org_pubkey_alice@example.com
  */
 let _currentUserId: string | null = null;
 
 /** Call this from AuthContext whenever the logged-in Google account changes. */
 export function setCurrentUserId(userId: string | null): void {
   _currentUserId = userId;
-}
-
-function STORAGE_KEY(): string {
-  return _currentUserId
-    ? `${STORAGE_KEY_BASE}_${_currentUserId}`
-    : STORAGE_KEY_BASE;
 }
 
 function PUBKEY_STORAGE_KEY(): string {
@@ -89,52 +81,9 @@ function base64urlDecode(str: string): Uint8Array {
   return new Uint8Array(Buffer.from(padded, 'base64'));
 }
 
-export interface OrgKeypair {
-  publicKey: Uint8Array;
-  secretKey: Uint8Array;
-}
-
-/** Generate a new random Ed25519 keypair and optionally store it. */
-export async function generateKeypair(store = true): Promise<OrgKeypair> {
-  const secretKey = crypto.getRandomValues(new Uint8Array(32));
-  const publicKey = await ed25519.getPublicKeyAsync(secretKey);
-  const keypair: OrgKeypair = { publicKey, secretKey };
-  if (store) {
-    try {
-      localStorage.setItem(STORAGE_KEY(), base64urlEncode(secretKey));
-    } catch {
-      // localStorage full or private mode
-    }
-  }
-  return keypair;
-}
-
-/** Load keypair from localStorage. Returns null if none stored. */
-export async function getStoredKeypair(): Promise<OrgKeypair | null> {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY());
-    if (!stored) return null;
-    const secretKey = base64urlDecode(stored);
-    if (secretKey.length !== 32) return null;
-    const publicKey = await ed25519.getPublicKeyAsync(secretKey);
-    return { publicKey, secretKey };
-  } catch {
-    return null;
-  }
-}
-
-/** Remove stored keypair. */
-export function clearStoredKeypair(): void {
-  try {
-    localStorage.removeItem(STORAGE_KEY());
-  } catch {
-    // ignore
-  }
-}
-
 /**
- * Import a public key (base64url-encoded 32 bytes) for read-only org identity.
- * Stores it separately from the signing keypair — no private key is stored.
+ * Import a public key (base64url-encoded 32 bytes) for org identity.
+ * Stores it in localStorage — no private key is ever stored.
  * Returns true on success, false if the input is not a valid 32-byte base64url value.
  */
 export function importPublicKey(pubkeyBase64url: string): boolean {
@@ -148,7 +97,7 @@ export function importPublicKey(pubkeyBase64url: string): boolean {
   }
 }
 
-/** Return the stored read-only public key as base64url, or null if none. */
+/** Return the stored public key as base64url, or null if none. */
 export function getStoredPublicKeyBase64url(): string | null {
   try {
     return localStorage.getItem(PUBKEY_STORAGE_KEY());
@@ -157,7 +106,7 @@ export function getStoredPublicKeyBase64url(): string | null {
   }
 }
 
-/** Remove the stored read-only public key. */
+/** Remove the stored public key. */
 export function clearStoredPublicKey(): void {
   try {
     localStorage.removeItem(PUBKEY_STORAGE_KEY());
@@ -166,49 +115,7 @@ export function clearStoredPublicKey(): void {
   }
 }
 
-/** Return the signing keypair's secret key as base64url for backup/export. Returns null if no keypair stored. */
-export function exportSecretKeyBase64url(): string | null {
-  try {
-    return localStorage.getItem(STORAGE_KEY());
-  } catch {
-    return null;
-  }
-}
-
 /** Encode 32-byte public key as base64url (for X-Pubkey and ?member=). */
 export function publicKeyToBase64url(publicKey: Uint8Array): string {
   return base64urlEncode(publicKey);
-}
-
-/**
- * Build the payload string the backend expects: method + "\n" + pathname + "\n" + canonicalize(body).
- */
-export function buildSignedPayload(
-  method: string,
-  pathname: string,
-  body: Record<string, unknown> | null | undefined
-): string {
-  const bodyObj = body != null && typeof body === 'object' ? body : {};
-  const bodyStr =
-    Object.keys(bodyObj).length > 0 ? (canonicalize(bodyObj) as string) : '';
-  return `${method}\n${pathname}\n${bodyStr}`;
-}
-
-/**
- * Get X-Pubkey and X-Signature headers for a signed request.
- * pathname must not include query string (e.g. /api/v2/orgs).
- */
-export async function getSignedHeaders(
-  method: string,
-  pathname: string,
-  body: Record<string, unknown> | null | undefined,
-  keypair: OrgKeypair
-): Promise<{ 'X-Pubkey': string; 'X-Signature': string }> {
-  const payload = buildSignedPayload(method, pathname, body);
-  const message = new TextEncoder().encode(payload);
-  const signature = await ed25519.signAsync(message, keypair.secretKey);
-  return {
-    'X-Pubkey': base64urlEncode(keypair.publicKey),
-    'X-Signature': base64urlEncode(signature),
-  };
 }
