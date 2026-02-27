@@ -158,7 +158,11 @@ export default function OrgDetailPage() {
 
       {/* Admin notice — use CLI for write ops */}
       {isAdmin && (
-        <AdminCliNotice orgId={decodedOrgId} onCopy={handleCopyCmd} copiedCmd={copiedCmd} />
+        <AdminCliNotice
+          orgId={decodedOrgId}
+          onCopy={handleCopyCmd}
+          copiedCmd={copiedCmd}
+        />
       )}
 
       {/* Members */}

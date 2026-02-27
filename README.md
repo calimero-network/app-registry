@@ -159,10 +159,10 @@ calimero-registry org -k org-key.json packages unlink <org-id> com.my-org.app
 
 ### Roles
 
-| Role   | Capabilities                                                                    |
-| ------ | ------------------------------------------------------------------------------- |
+| Role   | Capabilities                                                                        |
+| ------ | ----------------------------------------------------------------------------------- |
 | Admin  | Add/remove members, change roles, link/unlink packages, update settings, delete org |
-| Member | Sign new versions and edit metadata for org-linked packages via CLI             |
+| Member | Sign new versions and edit metadata for org-linked packages via CLI                 |
 
 ---
 

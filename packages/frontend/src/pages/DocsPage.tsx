@@ -414,10 +414,10 @@ export default function DocsPage() {
 
             <SubHeading>Using your org key with mero-sign</SubHeading>
             <P>
-              Your org key is generated locally with{' '}
-              <Code>mero-sign</Code> and the private key never leaves your
-              machine. Register only your public key in the Organizations page.
-              Use the key file to sign bundle edits as an org member:
+              Your org key is generated locally with <Code>mero-sign</Code> and
+              the private key never leaves your machine. Register only your
+              public key in the Organizations page. Use the key file to sign
+              bundle edits as an org member:
             </P>
             <CodeBlock>{`# 1. Generate your key once (keep org-key.json safe — private key stays local):
 mero-sign generate-key --output org-key.json
@@ -790,8 +790,9 @@ calimero-registry bundle push dist/myapp-1.1.0 --remote`}</CodeBlock>
             <SubHeading>Key model — each member has their own key</SubHeading>
             <P>
               There is no shared org key. Each person generates their own
-              Ed25519 keypair <strong className='text-neutral-200'>locally</strong>{' '}
-              with <Code>mero-sign</Code>. The admin records each member's{' '}
+              Ed25519 keypair{' '}
+              <strong className='text-neutral-200'>locally</strong> with{' '}
+              <Code>mero-sign</Code>. The admin records each member's{' '}
               <strong className='text-neutral-200'>public key</strong>. Private
               keys never touch the browser or the registry server — all signing
               happens offline via the CLI. When a member signs a manifest, the
@@ -816,8 +817,8 @@ calimero-registry bundle push dist/myapp-1.1.0 --remote`}</CodeBlock>
             <SubHeading>Setting up an organization</SubHeading>
             <P>
               Private keys are never generated or stored in the browser. Create
-              your keypair locally with <Code>mero-sign</Code> and register
-              only your public key in the UI. All write operations use the CLI.
+              your keypair locally with <Code>mero-sign</Code> and register only
+              your public key in the UI. All write operations use the CLI.
             </P>
             <Steps
               items={[
@@ -837,8 +838,7 @@ calimero-registry bundle push dist/myapp-1.1.0 --remote`}</CodeBlock>
                     <strong className='text-neutral-200'>
                       Import public key
                     </strong>{' '}
-                    and paste the{' '}
-                    <Code>public_key</Code> field from{' '}
+                    and paste the <Code>public_key</Code> field from{' '}
                     <Code>org-key.json</Code>. This lets the UI show your org
                     memberships — no private key is ever stored.
                   </>,
