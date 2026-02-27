@@ -6,6 +6,7 @@
 
 const {
   getOrg,
+  getOrgIdBySlug,
   setOrg,
   deleteOrg,
 } = require('../../../../packages/backend/src/lib/org-storage');
@@ -35,6 +36,10 @@ module.exports = async function handler(req, res) {
   let org;
   try {
     org = await getOrg(orgId);
+    if (!org) {
+      const idBySlug = await getOrgIdBySlug(orgId);
+      if (idBySlug) org = await getOrg(idBySlug);
+    }
   } catch (e) {
     console.error('getOrg error:', e);
     return res.status(500).json({
@@ -50,12 +55,14 @@ module.exports = async function handler(req, res) {
     });
   }
 
+  const resolvedOrgId = org.id;
+
   if (req.method === 'GET') {
     return res.status(200).json(org);
   }
 
   if (req.method === 'PATCH') {
-    const result = await requireOrgAdmin(req, res, orgId);
+    const result = await requireOrgAdmin(req, res, resolvedOrgId);
     if (result === null) return;
     const { name, metadata } = req.body || {};
     const updates = {};
@@ -79,10 +86,10 @@ module.exports = async function handler(req, res) {
   }
 
   if (req.method === 'DELETE') {
-    const result = await requireOrgAdmin(req, res, orgId);
+    const result = await requireOrgAdmin(req, res, resolvedOrgId);
     if (result === null) return;
     try {
-      await deleteOrg(orgId);
+      await deleteOrg(resolvedOrgId);
       return res.status(204).end();
     } catch (e) {
       console.error('DELETE org error:', e);
