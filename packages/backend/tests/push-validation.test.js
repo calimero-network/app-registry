@@ -15,10 +15,11 @@ jest.mock('../../../packages/backend/src/lib/kv-client', () => ({
   kv: mockKv,
 }));
 
-// Mock verify so push accepts when we pass a fake signature (we only test body shape + flow here)
-jest.mock('../../../packages/backend/src/lib/verify', () => ({
+// Push handler uses api/lib/verify (not backend); mock that so signature check passes
+jest.mock('../../../api/lib/verify', () => ({
   verifyManifest: jest.fn().mockResolvedValue(undefined),
   getPublicKeyFromManifest: jest.fn().mockReturnValue('mock-pubkey'),
+  isAllowedOwner: jest.fn().mockReturnValue(true),
   normalizeSignature: jest.fn(sig => sig || null),
 }));
 

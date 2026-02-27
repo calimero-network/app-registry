@@ -1,17 +1,13 @@
-// Use require in CJS (Jest/Node) to avoid dynamic import under Jest VM
+// Dynamic import for ES module
 let ed25519;
 const crypto = require('crypto');
 const canonicalize = require('canonicalize');
 const { multibase } = require('multibase');
 
-// Initialize ed25519 module (require in CJS so Jest works; dynamic import in ESM)
+// Initialize ed25519 module
 async function initEd25519() {
   if (!ed25519) {
-    if (typeof require !== 'undefined') {
-      ed25519 = require('@noble/ed25519');
-    } else {
-      ed25519 = await import('@noble/ed25519');
-    }
+    ed25519 = await import('@noble/ed25519');
   }
   return ed25519;
 }

@@ -6,7 +6,7 @@ const {
   getOrg,
   getPkg2Org,
   deletePkg2Org,
-} = require('../../../../../../packages/backend/src/lib/org-storage');
+} = require('../../../../../lib/org-storage');
 const { requireOrgAdmin } = require('../../../../../lib/signed-request');
 
 function cors(res) {

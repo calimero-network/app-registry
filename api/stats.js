@@ -5,7 +5,7 @@
 
 const {
   BundleStorageKV,
-} = require('../packages/backend/src/lib/bundle-storage-kv');
+} = require('@calimero-network/registry-backend/src/lib/bundle-storage-kv');
 
 // Singleton storage instance
 let storage;

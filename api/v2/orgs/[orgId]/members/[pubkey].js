@@ -9,7 +9,7 @@ const {
   getOrgMemberRole,
   updateOrgMemberRole,
   removeOrgMember,
-} = require('../../../../../../packages/backend/src/lib/org-storage');
+} = require('../../../../../lib/org-storage');
 const { requireOrgAdmin } = require('../../../../../lib/signed-request');
 
 function cors(res) {

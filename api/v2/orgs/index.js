@@ -10,10 +10,8 @@ const {
   getOrgsByMember,
   getPkg2Org,
   addOrgMember,
-} = require('../../../packages/backend/src/lib/org-storage');
-const {
-  validatePublicKey,
-} = require('../../../packages/backend/src/lib/verify');
+} = require('../../lib/org-storage');
+const { validatePublicKey } = require('../../lib/verify');
 const { requireSignedRequest } = require('../../lib/signed-request');
 
 const SLUG_REGEX = /^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$/;

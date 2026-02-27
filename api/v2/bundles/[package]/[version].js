@@ -6,15 +6,15 @@
 
 const {
   BundleStorageKV,
-} = require('../../../../packages/backend/src/lib/bundle-storage-kv');
+} = require('@calimero-network/registry-backend/src/lib/bundle-storage-kv');
 const {
   validateBundleManifest,
-} = require('../../../../packages/backend/src/lib/v2-utils');
+} = require('@calimero-network/registry-backend/src/lib/v2-utils');
 const {
   verifyManifest,
   getPublicKeyFromManifest,
   isAllowedOwner,
-} = require('../../../../packages/backend/src/lib/verify');
+} = require('../../../lib/verify');
 
 let storage;
 function getStorage() {

@@ -7,15 +7,15 @@ const {
   getOrg,
   getPackagesByOrg,
   setPkg2Org,
-} = require('../../../../../packages/backend/src/lib/org-storage');
+} = require('../../../../lib/org-storage');
 const { requireOrgAdmin } = require('../../../../lib/signed-request');
-const config = require('../../../../../packages/backend/src/config');
+const config = require('@calimero-network/registry-backend/src/config');
 const {
   verifySessionToken,
-} = require('../../../../../packages/backend/src/lib/auth');
+} = require('@calimero-network/registry-backend/src/lib/auth');
 const {
   BundleStorageKV,
-} = require('../../../../../packages/backend/src/lib/bundle-storage-kv');
+} = require('@calimero-network/registry-backend/src/lib/bundle-storage-kv');
 
 const bundleStorage = new BundleStorageKV();
 
@@ -24,7 +24,7 @@ async function getSessionUser(req) {
   const sessionSecret = config.auth?.sessionSecret;
   const raw = req.headers?.cookie;
   if (!sessionSecret || !raw || typeof raw !== 'string') return null;
-  const match = raw.split(';').find(s => s.trim().startsWith(cookieName + '='));
+  const match = raw.split(';').find(s => s.trim().startsWith(`${cookieName}=`));
   const token = match ? match.split('=')[1]?.trim() : null;
   if (!token) return null;
   return await verifySessionToken(token, sessionSecret);

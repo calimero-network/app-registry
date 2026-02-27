@@ -6,13 +6,13 @@
 
 const {
   BundleStorageKV,
-} = require('../../../packages/backend/src/lib/bundle-storage-kv');
+} = require('@calimero-network/registry-backend/src/lib/bundle-storage-kv');
 const {
   verifyManifest,
   getPublicKeyFromManifest,
   isAllowedOwner,
   normalizeSignature,
-} = require('../../../packages/backend/src/lib/verify');
+} = require('../../lib/verify');
 
 // Singleton storage instance
 let storage;

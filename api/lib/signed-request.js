@@ -4,11 +4,8 @@
  */
 
 const canonicalize = require('canonicalize');
-const {
-  verifySignature,
-  validatePublicKey,
-} = require('../../packages/backend/src/lib/verify');
-const { isOrgAdmin } = require('../../packages/backend/src/lib/org-storage');
+const { verifySignature, validatePublicKey } = require('./verify');
+const { isOrgAdmin } = require('./org-storage');
 
 /**
  * Build payload string for signature verification: method + path + canonical body.

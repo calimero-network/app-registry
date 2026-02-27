@@ -79,6 +79,7 @@
     ]
   },
   "dependencies": {
+    "@calimero-network/registry-backend": "workspace:*",
     "@noble/ed25519": "^2.0.0",
     "ajv": "^8.12.0",
     "canonicalize": "^2.1.0",
@@ -87,6 +88,7 @@
     "node-fetch": "^3.3.2",
     "redis": "^5.9.0",
     "semver": "^7.5.4",
-    "tar": "^6.2.1"
+    "tar": "^6.2.1",
+    "multibase": "^4.0.0"
   }
 }

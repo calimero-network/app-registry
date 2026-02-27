@@ -8,10 +8,8 @@ const {
   getOrgMembers,
   getOrgMemberRole,
   addOrgMember,
-} = require('../../../../../packages/backend/src/lib/org-storage');
-const {
-  validatePublicKey,
-} = require('../../../../../packages/backend/src/lib/verify');
+} = require('../../../../lib/org-storage');
+const { validatePublicKey } = require('../../../../lib/verify');
 const { requireOrgAdmin } = require('../../../../lib/signed-request');
 
 function cors(res) {
