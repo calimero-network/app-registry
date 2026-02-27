@@ -21,6 +21,10 @@ function cors(res) {
 }
 
 module.exports = async function handler(req, res) {
+  cors(res);
+  res.setHeader('Access-Control-Allow-Methods', 'GET, PATCH, DELETE, OPTIONS');
+  if (req.method === 'OPTIONS') return res.status(200).end();
+
   const orgId = req.query?.orgId;
   if (!orgId || typeof orgId !== 'string') {
     return res.status(400).json({
@@ -29,22 +33,27 @@ module.exports = async function handler(req, res) {
     });
   }
 
-  cors(res);
-  res.setHeader('Access-Control-Allow-Methods', 'GET, PATCH, DELETE, OPTIONS');
-  if (req.method === 'OPTIONS') return res.status(200).end();
-
   let org;
   try {
     org = await getOrg(orgId);
     if (!org) {
       const idBySlug = await getOrgIdBySlug(orgId);
-      if (idBySlug) org = await getOrg(idBySlug);
+      const resolvedId =
+        idBySlug == null
+          ? null
+          : typeof idBySlug === 'string'
+            ? idBySlug
+            : String(idBySlug);
+      if (resolvedId) org = await getOrg(resolvedId);
     }
   } catch (e) {
-    console.error('getOrg error:', e);
+    console.error('[api/v2/orgs/:orgId] getOrg error:', e);
     return res.status(500).json({
       error: 'internal',
-      message: e?.message ?? String(e),
+      message:
+        process.env.NODE_ENV === 'development'
+          ? (e?.message ?? String(e))
+          : 'A server error has occurred',
     });
   }
 

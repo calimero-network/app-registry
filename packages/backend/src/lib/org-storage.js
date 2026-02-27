@@ -18,12 +18,14 @@ const ORG_PACKAGES_SUFFIX = ':packages';
  * @returns {Promise<{ id: string, name: string, slug: string, created_at?: string, updated_at?: string, metadata?: object } | null>}
  */
 async function getOrg(orgId) {
-  if (!orgId || typeof orgId !== 'string') return null;
-  const key = ORG_PREFIX + orgId;
+  const id = typeof orgId === 'string' ? orgId : (orgId?.toString?.() ?? null);
+  if (!id) return null;
+  const key = ORG_PREFIX + id;
   const raw = await kv.get(key);
-  if (!raw) return null;
+  if (raw === null || raw === undefined) return null;
   try {
-    return JSON.parse(raw);
+    const str = typeof raw === 'string' ? raw : String(raw);
+    return JSON.parse(str);
   } catch {
     return null;
   }
@@ -54,7 +56,9 @@ async function setOrg(org) {
  */
 async function getOrgIdBySlug(slug) {
   if (!slug || typeof slug !== 'string') return null;
-  return await kv.get(ORG_BY_SLUG_PREFIX + slug);
+  const raw = await kv.get(ORG_BY_SLUG_PREFIX + slug);
+  if (raw === null || raw === undefined) return null;
+  return typeof raw === 'string' ? raw : String(raw);
 }
 
 /**
