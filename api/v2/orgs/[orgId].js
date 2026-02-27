@@ -9,8 +9,8 @@ const {
   getOrgIdBySlug,
   setOrg,
   deleteOrg,
-} = require('../../../lib/org-storage');
-const { requireOrgAdmin } = require('../../../lib/signed-request');
+} = require('../../lib/org-storage');
+const { requireOrgAdmin } = require('../../lib/signed-request');
 
 function cors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
