@@ -115,7 +115,10 @@ export function Layout({ children }: LayoutProps) {
               {[
                 { href: 'https://calimero.network', label: 'Website' },
                 { href: 'https://docs.calimero.network', label: 'Docs' },
-                { href: 'https://github.com/calimero-network', label: 'GitHub' },
+                {
+                  href: 'https://github.com/calimero-network',
+                  label: 'GitHub',
+                },
               ].map(link => (
                 <a
                   key={link.label}

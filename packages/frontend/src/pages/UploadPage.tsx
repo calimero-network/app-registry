@@ -48,7 +48,10 @@ export default function UploadPage() {
         <p className='mt-1 text-[13px] text-neutral-500 font-light'>
           Upload a signed <code className='text-brand-600'>.mpk</code> bundle,
           or push directly via the CLI.{' '}
-          <Link to='/docs' className='text-brand-600 hover:text-brand-500 transition-colors'>
+          <Link
+            to='/docs'
+            className='text-brand-600 hover:text-brand-500 transition-colors'
+          >
             Full guide in Docs →
           </Link>
         </p>
@@ -94,11 +97,17 @@ export default function UploadPage() {
             {success && (
               <p className='mt-3 text-[13px] text-green-400 font-light'>
                 Published <strong>{success.package}</strong>@{success.version}.{' '}
-                <Link to='/apps' className='text-brand-600 hover:text-brand-500'>
+                <Link
+                  to='/apps'
+                  className='text-brand-600 hover:text-brand-500'
+                >
                   View apps
                 </Link>
                 {' · '}
-                <Link to='/my-packages' className='text-brand-600 hover:text-brand-500'>
+                <Link
+                  to='/my-packages'
+                  className='text-brand-600 hover:text-brand-500'
+                >
                   My packages
                 </Link>
               </p>
@@ -146,7 +155,8 @@ export default function UploadPage() {
             },
             {
               label: 'Create manifest',
-              detail: 'calimero-registry bundle create app.wasm com.example.app 1.0.0',
+              detail:
+                'calimero-registry bundle create app.wasm com.example.app 1.0.0',
             },
             {
               label: 'Sign manifest',
@@ -154,11 +164,13 @@ export default function UploadPage() {
             },
             {
               label: 'Pack into .mpk',
-              detail: 'done automatically by bundle push, or via build-bundle.sh',
+              detail:
+                'done automatically by bundle push, or via build-bundle.sh',
             },
             {
               label: 'Publish',
-              detail: 'calimero-registry bundle push ./dist/myapp --remote  — or upload above',
+              detail:
+                'calimero-registry bundle push ./dist/myapp --remote  — or upload above',
             },
           ].map(({ label, detail }, i) => (
             <li key={i} className='flex items-start gap-3'>
@@ -182,8 +194,14 @@ export default function UploadPage() {
       <div className='flex flex-wrap gap-2 pb-2'>
         {[
           ['https://docs.calimero.network', 'Calimero Docs'],
-          ['https://github.com/calimero-network/core/tree/master/tools/mero-sign', 'mero-sign'],
-          ['https://github.com/calimero-network/core/tree/master/apps/kv-store', 'KV-Store Example'],
+          [
+            'https://github.com/calimero-network/core/tree/master/tools/mero-sign',
+            'mero-sign',
+          ],
+          [
+            'https://github.com/calimero-network/core/tree/master/apps/kv-store',
+            'KV-Store Example',
+          ],
         ].map(([href, label]) => (
           <a
             key={href}
