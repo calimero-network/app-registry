@@ -87,7 +87,8 @@ if (isProduction && process.env.REDIS_URL) {
     // Set operations
     async sAdd(key, ...members) {
       await this._ensureConnected();
-      return await redisClient.sAdd(key, members);
+      const list = members.flat();
+      return list.length ? await redisClient.sAdd(key, list) : 0;
     },
 
     async sMembers(key) {
