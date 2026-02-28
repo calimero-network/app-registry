@@ -46,12 +46,7 @@ async function buildServer() {
     ],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: [
-      'Content-Type',
-      'Authorization',
-      'X-Pubkey',
-      'X-Signature',
-    ],
+    allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
   await server.register(multipart, {
@@ -651,7 +646,8 @@ async function buildServer() {
       const allowed = await isAllowedToPublish(
         existingManifest,
         incomingKey,
-        bundleManifest.package
+        bundleManifest.package,
+        userEmail
       );
       if (!allowed) {
         throw {

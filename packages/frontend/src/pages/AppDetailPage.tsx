@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -25,7 +25,6 @@ import {
   deletePackage,
   getOrgByPackage,
   getOrgMembers,
-  getMyOrgPubkeyBase64url,
 } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -123,15 +122,10 @@ export default function AppDetailPage() {
     enabled: !!appId,
   });
 
-  const [myOrgPubkey, setMyOrgPubkey] = useState<string | null>(null);
-  useEffect(() => {
-    getMyOrgPubkeyBase64url().then(pk => setMyOrgPubkey(pk ?? null));
-  }, []);
-
   const { data: orgMembersData = null } = useQuery({
     queryKey: ['org-members-edit', linkedOrg?.id],
     queryFn: () => getOrgMembers(linkedOrg!.id),
-    enabled: !!linkedOrg?.id && !!myOrgPubkey,
+    enabled: !!linkedOrg?.id && !!user?.email,
   });
 
   const bundle = allBundles[0];
@@ -170,8 +164,8 @@ export default function AppDetailPage() {
   const ifaces = bundle.interfaces;
   const isOwner = !!user?.email && !!meta?.author && user.email === meta.author;
   const isOrgMember =
-    !!myOrgPubkey &&
-    !!orgMembersData?.members?.some(m => m.pubkey === myOrgPubkey);
+    !!user?.email &&
+    !!orgMembersData?.members?.some(m => m.email === user.email);
   const canEdit = isOwner || isOrgMember;
 
   return (

@@ -1,4 +1,97 @@
 const jwt = require('jsonwebtoken');
+const { kv } = require('./kv-client');
+
+const TOKEN_PREFIX = 'apitoken:';
+const USER_TOKENS_PREFIX = 'user_tokens:';
+
+/**
+ * Create a new API token for the given user.
+ * Token is a 32-byte base64url random value. Stored with no expiry.
+ * @param {string} email
+ * @param {string} name
+ * @param {string} [label]
+ * @returns {Promise<{ token: string, email: string, name: string, label: string, createdAt: string }>}
+ */
+async function createApiToken(email, name, label) {
+  const bytes = new Uint8Array(32);
+  if (
+    typeof globalThis.crypto !== 'undefined' &&
+    globalThis.crypto.getRandomValues
+  ) {
+    globalThis.crypto.getRandomValues(bytes);
+  } else {
+    const NodeCrypto = require('crypto');
+    NodeCrypto.randomFillSync(bytes);
+  }
+  const token = Buffer.from(bytes).toString('base64url');
+  const data = {
+    email,
+    name: name || email,
+    label: label || 'CLI token',
+    createdAt: new Date().toISOString(),
+  };
+  await kv.set(TOKEN_PREFIX + token, JSON.stringify(data));
+  await kv.sAdd(USER_TOKENS_PREFIX + email, token);
+  return { token, ...data };
+}
+
+/**
+ * Verify an API token and return its data, or null if invalid.
+ * @param {string} token
+ * @returns {Promise<{ email: string, name: string, label: string, createdAt: string } | null>}
+ */
+async function verifyApiToken(token) {
+  if (!token || typeof token !== 'string' || !token.trim()) return null;
+  try {
+    const raw = await kv.get(TOKEN_PREFIX + token.trim());
+    if (!raw) return null;
+    return JSON.parse(typeof raw === 'string' ? raw : String(raw));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * List all tokens for a user (token values masked to first 8 chars).
+ * @param {string} email
+ * @returns {Promise<Array<{ token: string, label: string, createdAt: string }>>}
+ */
+async function listApiTokens(email) {
+  if (!email) return [];
+  const tokens = await kv.sMembers(USER_TOKENS_PREFIX + email);
+  if (!Array.isArray(tokens) || tokens.length === 0) return [];
+  const results = [];
+  for (const t of tokens) {
+    const raw = await kv.get(TOKEN_PREFIX + t);
+    if (raw) {
+      try {
+        const data = JSON.parse(typeof raw === 'string' ? raw : String(raw));
+        results.push({
+          token: `${t.slice(0, 8)}…`,
+          tokenId: t.slice(0, 8),
+          label: data.label,
+          createdAt: data.createdAt,
+        });
+      } catch {
+        // skip malformed
+      }
+    }
+  }
+  return results.sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
+}
+
+/**
+ * Revoke a token by its full value.
+ * @param {string} email
+ * @param {string} token
+ */
+async function revokeApiToken(email, token) {
+  if (!email || !token) return;
+  await kv.del(TOKEN_PREFIX + token);
+  await kv.sRem(USER_TOKENS_PREFIX + email, token);
+}
 
 const GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
@@ -125,4 +218,8 @@ module.exports = {
   createSessionToken,
   verifySessionToken,
   generateState,
+  createApiToken,
+  verifyApiToken,
+  listApiTokens,
+  revokeApiToken,
 };

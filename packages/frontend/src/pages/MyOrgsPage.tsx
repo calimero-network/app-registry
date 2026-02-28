@@ -1,16 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import axios from 'axios';
-import { getOrgsByMember, createOrg, getMyOrgPubkeyBase64url } from '@/lib/api';
 import {
-  getStoredKeypair,
-  generateKeypair,
-  exportSecretKeyBase64url,
-  importPublicKey,
-  getStoredPublicKeyBase64url,
-  clearStoredPublicKey,
-  publicKeyToBase64url,
-  publicKeyToDidKey,
-} from '@/lib/org-keypair';
+  getOrgsByMember,
+  createOrg,
+  createApiToken,
+  listApiTokens,
+  revokeApiToken,
+} from '@/lib/api';
 import {
   sanitizeText,
   validateOrgName,
@@ -20,18 +16,21 @@ import {
 } from '@/lib/utils';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '@/contexts/AuthContext';
+import type { ApiToken } from '@/types/api';
 import {
   Building2,
   ArrowRight,
   Info,
   Key,
   Plus,
-  Upload,
-  Eye,
-  EyeOff,
   Copy,
   Check,
-  Download,
+  Trash2,
+  ChevronDown,
+  ChevronUp,
+  Terminal,
+  AlertTriangle,
 } from 'lucide-react';
 
 function getApiErrorMessage(error: unknown): string {
@@ -43,34 +42,40 @@ function getApiErrorMessage(error: unknown): string {
       return 'An organization with this slug already exists.';
   }
   if (error instanceof Error) return error.message;
-  return 'Failed to create organization.';
+  return 'Failed.';
 }
 
 export default function MyOrgsPage() {
-  const [hasKeypair, setHasKeypair] = useState<boolean | null>(null);
-  const [hasPubkeyOnly, setHasPubkeyOnly] = useState(false);
-  const [myPubkey, setMyPubkey] = useState<string | null>(null);
+  const { user } = useAuth();
+  const email = user?.email ?? null;
+
   const [createName, setCreateName] = useState('');
   const [createSlug, setCreateSlug] = useState('');
   const [nameError, setNameError] = useState<string | null>(null);
   const [slugError, setSlugError] = useState<string | null>(null);
   const [touched, setTouched] = useState({ name: false, slug: false });
-  const [showSecretKey, setShowSecretKey] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [showImport, setShowImport] = useState(false);
-  const [importValue, setImportValue] = useState('');
-  const [importError, setImportError] = useState('');
+
+  // Token section
+  const [showTokenSection, setShowTokenSection] = useState(false);
+  const [newTokenLabel, setNewTokenLabel] = useState('');
+  const [freshToken, setFreshToken] = useState<string | null>(null);
+  const [tokenCopied, setTokenCopied] = useState(false);
+  const [cmdCopied, setCmdCopied] = useState(false);
+  const [revokeConfirm, setRevokeConfirm] = useState<string | null>(null);
+
   const queryClient = useQueryClient();
 
-  useEffect(() => {
-    getStoredKeypair().then(kp => {
-      setHasKeypair(!!kp);
-      if (!kp) setHasPubkeyOnly(!!getStoredPublicKeyBase64url());
-    });
-    getMyOrgPubkeyBase64url().then(pk => {
-      if (pk) setMyPubkey(pk);
-    });
-  }, []);
+  const { data: orgs = [], isLoading } = useQuery({
+    queryKey: ['orgs-by-member', email],
+    queryFn: () => getOrgsByMember(email || ''),
+    enabled: !!email,
+  });
+
+  const { data: tokens = [], refetch: refetchTokens } = useQuery({
+    queryKey: ['api-tokens'],
+    queryFn: listApiTokens,
+    enabled: showTokenSection,
+  });
 
   const createOrgMutation = useMutation({
     mutationFn: ({ name, slug }: { name: string; slug: string }) =>
@@ -83,62 +88,22 @@ export default function MyOrgsPage() {
     },
   });
 
-  const handleCreateIdentity = async () => {
-    clearStoredPublicKey();
-    await generateKeypair(true);
-    setHasKeypair(true);
-    setHasPubkeyOnly(false);
-    const pk = await getMyOrgPubkeyBase64url();
-    if (pk) setMyPubkey(pk);
-  };
+  const createTokenMutation = useMutation({
+    mutationFn: (label: string) => createApiToken(label || 'CLI token'),
+    onSuccess: data => {
+      setFreshToken(data.token);
+      setNewTokenLabel('');
+      refetchTokens();
+    },
+  });
 
-  const handleCopySecretKey = async () => {
-    const sk = exportSecretKeyBase64url();
-    if (!sk) return;
-    await navigator.clipboard.writeText(sk);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const handleDownloadKeyFile = async () => {
-    const keypair = await getStoredKeypair();
-    if (!keypair) return;
-    const privateKey = exportSecretKeyBase64url();
-    if (!privateKey) return;
-    const publicKey = publicKeyToBase64url(keypair.publicKey);
-    const signerId = publicKeyToDidKey(keypair.publicKey);
-    const keyData = {
-      private_key: privateKey,
-      public_key: publicKey,
-      signer_id: signerId,
-    };
-    const blob = new Blob([JSON.stringify(keyData, null, 2)], {
-      type: 'application/json',
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'org-key.json';
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const handleImportPublicKey = () => {
-    setImportError('');
-    const ok = importPublicKey(importValue);
-    if (!ok) {
-      setImportError(
-        'Invalid public key — must be a base64url-encoded 32-byte Ed25519 public key (43 characters).'
-      );
-      return;
-    }
-    setHasPubkeyOnly(true);
-    setShowImport(false);
-    setImportValue('');
-    const pk = getStoredPublicKeyBase64url();
-    if (pk) setMyPubkey(pk);
-    queryClient.invalidateQueries({ queryKey: ['orgs-by-member'] });
-  };
+  const revokeTokenMutation = useMutation({
+    mutationFn: (tokenId: string) => revokeApiToken(tokenId),
+    onSuccess: () => {
+      setRevokeConfirm(null);
+      refetchTokens();
+    },
+  });
 
   const handleNameChange = (value: string) => {
     setCreateName(value);
@@ -146,7 +111,6 @@ export default function MyOrgsPage() {
   };
 
   const handleSlugChange = (value: string) => {
-    // Auto-lowercase slug as the user types
     const lower = value.toLowerCase();
     setCreateSlug(lower);
     if (touched.slug) setSlugError(validateOrgSlug(lower));
@@ -163,11 +127,21 @@ export default function MyOrgsPage() {
     createOrgMutation.mutate({ name: createName, slug: createSlug });
   };
 
-  const { data: orgs = [], isLoading } = useQuery({
-    queryKey: ['orgs-by-member', myPubkey],
-    queryFn: () => getOrgsByMember(myPubkey || ''),
-    enabled: !!myPubkey,
-  });
+  const handleCopyToken = async () => {
+    if (!freshToken) return;
+    await navigator.clipboard.writeText(freshToken);
+    setTokenCopied(true);
+    setTimeout(() => setTokenCopied(false), 2000);
+  };
+
+  const handleCopyCmd = async () => {
+    if (!freshToken) return;
+    await navigator.clipboard.writeText(
+      `calimero-registry config set api-key ${freshToken}`
+    );
+    setCmdCopied(true);
+    setTimeout(() => setCmdCopied(false), 2000);
+  };
 
   return (
     <div className='space-y-8'>
@@ -176,195 +150,31 @@ export default function MyOrgsPage() {
           Organizations
         </h1>
         <p className='text-neutral-400 text-sm mb-4'>
-          Create and manage organizations with your Ed25519 keypair. Create an
-          org identity first, then create orgs and manage members and packages.
+          Create and manage organizations. Log in with Google to create orgs and
+          manage members. Use the CLI with an API token for automation.
         </p>
         <div className='rounded-lg border border-brand-900/60 bg-brand-950/30 px-4 py-3 flex gap-3'>
           <Info className='w-4 h-4 text-brand-500 flex-shrink-0 mt-0.5' />
           <p className='text-[13px] text-neutral-300'>
-            Org write operations use a <strong>local Ed25519 keypair</strong>{' '}
-            stored in this browser. Create an org identity below to create orgs
-            and manage members and packages.
+            Org membership is linked to your{' '}
+            <strong className='text-neutral-200'>Google account</strong> (
+            {email ?? 'not signed in'}). For CLI access, generate an API token
+            below.
           </p>
         </div>
       </div>
 
-      {/* No identity yet — offer generate or import public key */}
-      {hasKeypair === false && !hasPubkeyOnly && (
-        <div className='rounded-xl border border-amber-900/60 bg-amber-950/20 p-6'>
-          <div className='flex items-center gap-2 mb-3'>
-            <Key className='w-4 h-4 text-amber-500' />
-            <h2 className='text-[14px] font-medium text-neutral-200'>
-              Set up org identity
-            </h2>
-          </div>
-          <p className='text-neutral-400 text-sm mb-4'>
-            To view and manage organizations you need an Ed25519 identity.
-            Import your <strong className='text-neutral-200'>public key</strong>{' '}
-            to view orgs, or generate a full keypair to also create and manage
-            orgs from this browser.
+      {/* Not logged in */}
+      {!email && (
+        <div className='rounded-xl border border-amber-900/60 bg-amber-950/20 p-6 text-center'>
+          <p className='text-neutral-300 text-sm'>
+            Sign in with Google to create and manage organizations.
           </p>
-          <div className='flex flex-wrap gap-2'>
-            <button
-              type='button'
-              onClick={handleCreateIdentity}
-              className='rounded-lg bg-amber-600 hover:bg-amber-500 text-white px-4 py-2 text-sm font-medium transition-colors'
-            >
-              Generate keypair
-            </button>
-            <button
-              type='button'
-              onClick={() => setShowImport(v => !v)}
-              className='rounded-lg border border-neutral-700 hover:border-neutral-600 text-neutral-300 px-4 py-2 text-sm font-medium transition-colors inline-flex items-center gap-1.5'
-            >
-              <Upload className='w-3.5 h-3.5' />
-              Import public key
-            </button>
-          </div>
-          {showImport && (
-            <div className='mt-4 space-y-2'>
-              <p className='text-[12px] text-neutral-500'>
-                Paste the{' '}
-                <code className='bg-neutral-800 px-1 py-0.5 rounded text-neutral-300'>
-                  public_key
-                </code>{' '}
-                value from{' '}
-                <code className='bg-neutral-800 px-1 py-0.5 rounded text-neutral-300'>
-                  mero-sign
-                </code>{' '}
-                — base64url, 43 characters. No private key is stored.
-              </p>
-              <input
-                type='text'
-                value={importValue}
-                onChange={e => {
-                  setImportValue(e.target.value);
-                  setImportError('');
-                }}
-                placeholder='e.g. 4Vqj1sfgZ_jFKFtq8b2e-Fnc8_1FVwFzwwjr73xiqQg'
-                className='w-full rounded-lg border border-neutral-700 bg-neutral-800/60 px-4 py-2.5 text-[13px] text-neutral-200 placeholder:text-neutral-500 focus:border-brand-600 focus:outline-none font-mono'
-              />
-              {importError && (
-                <p className='text-red-400 text-[12px]'>{importError}</p>
-              )}
-              <button
-                type='button'
-                onClick={handleImportPublicKey}
-                disabled={!importValue.trim()}
-                className='rounded-lg bg-brand-600 hover:bg-brand-500 disabled:opacity-50 text-neutral-900 px-4 py-2 text-sm font-medium transition-colors'
-              >
-                Import public key
-              </button>
-            </div>
-          )}
         </div>
       )}
 
-      {/* Public key only — read-only identity */}
-      {hasKeypair === false && hasPubkeyOnly && myPubkey && (
-        <div className='rounded-xl border border-neutral-800 bg-neutral-900/40 p-4'>
-          <div className='flex items-center justify-between mb-2'>
-            <div className='flex items-center gap-2'>
-              <Key className='w-3.5 h-3.5 text-brand-600' />
-              <span className='text-[13px] font-medium text-neutral-300'>
-                Your org identity
-              </span>
-              <span className='pill bg-neutral-700/50 text-neutral-400 text-[10px]'>
-                view only
-              </span>
-            </div>
-          </div>
-          <p
-            className='text-[11px] text-neutral-500 font-mono truncate mb-3'
-            title={myPubkey}
-          >
-            pubkey: {myPubkey}
-          </p>
-          <p className='text-[12px] text-neutral-500 mb-3'>
-            Viewing orgs only. To create or manage organizations, generate a
-            keypair in this browser.
-          </p>
-          <button
-            type='button'
-            onClick={handleCreateIdentity}
-            className='rounded-lg bg-amber-600 hover:bg-amber-500 text-white px-3 py-1.5 text-[12px] font-medium transition-colors'
-          >
-            Generate keypair
-          </button>
-        </div>
-      )}
-
-      {/* Keypair management (has keypair) */}
-      {hasKeypair === true && myPubkey && (
-        <div className='rounded-xl border border-neutral-800 bg-neutral-900/40 p-4'>
-          <div className='flex items-center justify-between mb-2'>
-            <div className='flex items-center gap-2'>
-              <Key className='w-3.5 h-3.5 text-brand-600' />
-              <span className='text-[13px] font-medium text-neutral-300'>
-                Your org identity
-              </span>
-            </div>
-            <div className='flex items-center gap-3'>
-              <button
-                type='button'
-                onClick={handleDownloadKeyFile}
-                className='text-[12px] text-neutral-500 hover:text-neutral-300 inline-flex items-center gap-1 transition-colors'
-                title='Download key as org-key.json for use with mero-sign'
-              >
-                <Download className='w-3.5 h-3.5' />
-                Download key file
-              </button>
-              <button
-                type='button'
-                onClick={() => setShowSecretKey(v => !v)}
-                className='text-[12px] text-neutral-500 hover:text-neutral-300 inline-flex items-center gap-1 transition-colors'
-                title='Show / hide secret key for backup'
-              >
-                {showSecretKey ? (
-                  <EyeOff className='w-3.5 h-3.5' />
-                ) : (
-                  <Eye className='w-3.5 h-3.5' />
-                )}
-                {showSecretKey ? 'Hide key' : 'Show raw key'}
-              </button>
-            </div>
-          </div>
-          <p
-            className='text-[11px] text-neutral-500 font-mono truncate mb-1'
-            title={myPubkey}
-          >
-            pubkey: {myPubkey}
-          </p>
-          {showSecretKey && (
-            <div className='mt-3 rounded-lg border border-amber-900/50 bg-amber-950/20 p-3'>
-              <p className='text-[11px] text-amber-400 mb-2'>
-                Secret key — store this safely. Anyone with this key can manage
-                your organizations.
-              </p>
-              <div className='flex items-center gap-2'>
-                <code className='flex-1 text-[11px] font-mono text-neutral-300 bg-neutral-800 rounded px-2 py-1.5 truncate'>
-                  {exportSecretKeyBase64url()}
-                </code>
-                <button
-                  type='button'
-                  onClick={handleCopySecretKey}
-                  className='flex-shrink-0 text-neutral-400 hover:text-neutral-200 p-1.5 rounded transition-colors'
-                  title='Copy secret key'
-                >
-                  {copied ? (
-                    <Check className='w-3.5 h-3.5 text-green-400' />
-                  ) : (
-                    <Copy className='w-3.5 h-3.5' />
-                  )}
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Create organization (has keypair) */}
-      {hasKeypair === true && (
+      {/* Create organization */}
+      {email && (
         <div className='rounded-xl border border-neutral-800 bg-neutral-900/40 p-6'>
           <div className='flex items-center gap-2 mb-3'>
             <Plus className='w-4 h-4 text-brand-600' />
@@ -446,16 +256,189 @@ export default function MyOrgsPage() {
         </div>
       )}
 
+      {/* CLI Access — API Token */}
+      {email && (
+        <div className='rounded-xl border border-neutral-800 bg-neutral-900/40 overflow-hidden'>
+          <button
+            type='button'
+            onClick={() => setShowTokenSection(v => !v)}
+            className='w-full flex items-center justify-between px-4 py-3 text-left hover:bg-neutral-800/30 transition-colors'
+          >
+            <div className='flex items-center gap-2'>
+              <Terminal className='w-4 h-4 text-brand-600' />
+              <span className='text-[14px] font-medium text-neutral-200'>
+                CLI Access
+              </span>
+              <span className='pill bg-neutral-700/50 text-neutral-400 text-[10px]'>
+                API token
+              </span>
+            </div>
+            {showTokenSection ? (
+              <ChevronUp className='w-4 h-4 text-neutral-500' />
+            ) : (
+              <ChevronDown className='w-4 h-4 text-neutral-500' />
+            )}
+          </button>
+
+          {showTokenSection && (
+            <div className='px-4 pb-4 space-y-4 border-t border-neutral-800'>
+              <p className='text-[12px] text-neutral-400 pt-3'>
+                Generate a token to authenticate the CLI for org management and
+                bundle publishing. Configure it once with:
+                <code className='ml-1 bg-neutral-800 px-1.5 py-0.5 rounded text-neutral-300 text-[11px]'>
+                  calimero-registry config set api-key &lt;token&gt;
+                </code>
+              </p>
+
+              {/* Generate new token */}
+              <div className='flex flex-wrap gap-2'>
+                <input
+                  type='text'
+                  value={newTokenLabel}
+                  onChange={e => setNewTokenLabel(e.target.value)}
+                  placeholder='Token label (e.g. laptop)'
+                  className='flex-1 min-w-[160px] rounded-lg border border-neutral-700 bg-neutral-800/60 px-3 py-2 text-[13px] text-neutral-200 placeholder:text-neutral-500 focus:border-brand-600 focus:outline-none'
+                />
+                <button
+                  type='button'
+                  onClick={() =>
+                    createTokenMutation.mutate(newTokenLabel || 'CLI token')
+                  }
+                  disabled={createTokenMutation.isPending}
+                  className='rounded-lg bg-brand-600 hover:bg-brand-500 disabled:opacity-50 text-neutral-900 px-4 py-2 text-[13px] font-medium transition-colors whitespace-nowrap'
+                >
+                  {createTokenMutation.isPending
+                    ? 'Generating…'
+                    : 'Generate token'}
+                </button>
+              </div>
+
+              {/* Fresh token display — shown once */}
+              {freshToken && (
+                <div className='rounded-lg border border-amber-900/50 bg-amber-950/20 p-3 space-y-2'>
+                  <div className='flex items-center gap-1.5 text-[12px] text-amber-400'>
+                    <AlertTriangle className='w-3.5 h-3.5 flex-shrink-0' />
+                    Copy this token now — it will not be shown again.
+                  </div>
+                  <div className='flex items-center gap-2'>
+                    <code className='flex-1 text-[11px] font-mono text-neutral-300 bg-neutral-800 rounded px-2 py-1.5 truncate'>
+                      {freshToken}
+                    </code>
+                    <button
+                      type='button'
+                      onClick={handleCopyToken}
+                      className='flex-shrink-0 text-neutral-400 hover:text-neutral-200 p-1.5 rounded transition-colors'
+                      title='Copy token'
+                    >
+                      {tokenCopied ? (
+                        <Check className='w-3.5 h-3.5 text-green-400' />
+                      ) : (
+                        <Copy className='w-3.5 h-3.5' />
+                      )}
+                    </button>
+                  </div>
+                  <div className='flex items-center gap-2'>
+                    <code className='flex-1 text-[11px] font-mono text-neutral-500 bg-neutral-800/60 rounded px-2 py-1.5 truncate'>
+                      calimero-registry config set api-key {freshToken}
+                    </code>
+                    <button
+                      type='button'
+                      onClick={handleCopyCmd}
+                      className='flex-shrink-0 text-neutral-400 hover:text-neutral-200 p-1.5 rounded transition-colors'
+                      title='Copy CLI command'
+                    >
+                      {cmdCopied ? (
+                        <Check className='w-3.5 h-3.5 text-green-400' />
+                      ) : (
+                        <Copy className='w-3.5 h-3.5' />
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Existing tokens list */}
+              {tokens.length > 0 && (
+                <div className='space-y-1'>
+                  <p className='text-[11px] text-neutral-500 uppercase tracking-wide'>
+                    Active tokens
+                  </p>
+                  {tokens.map((t: ApiToken) => (
+                    <div
+                      key={t.tokenId}
+                      className='flex items-center justify-between rounded-lg bg-neutral-800/40 px-3 py-2'
+                    >
+                      <div>
+                        <span className='text-[13px] text-neutral-300'>
+                          {t.label}
+                        </span>
+                        <span className='ml-2 text-[11px] text-neutral-600 font-mono'>
+                          {t.token}
+                        </span>
+                      </div>
+                      <div className='flex items-center gap-3'>
+                        <span className='text-[11px] text-neutral-600'>
+                          {new Date(t.createdAt).toLocaleDateString()}
+                        </span>
+                        {revokeConfirm === t.tokenId ? (
+                          <span className='flex items-center gap-2 text-[11px]'>
+                            <button
+                              type='button'
+                              onClick={() =>
+                                revokeTokenMutation.mutate(t.tokenId)
+                              }
+                              disabled={revokeTokenMutation.isPending}
+                              className='text-red-400 hover:text-red-300 font-medium disabled:opacity-50'
+                            >
+                              {revokeTokenMutation.isPending
+                                ? 'Revoking…'
+                                : 'Yes, revoke'}
+                            </button>
+                            <button
+                              type='button'
+                              onClick={() => setRevokeConfirm(null)}
+                              className='text-neutral-500 hover:text-neutral-300'
+                            >
+                              Cancel
+                            </button>
+                          </span>
+                        ) : (
+                          <button
+                            type='button'
+                            onClick={() => setRevokeConfirm(t.tokenId)}
+                            className='text-neutral-600 hover:text-red-400 transition-colors'
+                            title='Revoke token'
+                          >
+                            <Trash2 className='w-3.5 h-3.5' />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {createTokenMutation.isError && (
+                <p className='text-red-400 text-[12px]'>
+                  {getApiErrorMessage(createTokenMutation.error)}
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Org list */}
       <div>
         <h2 className='text-[14px] font-medium text-neutral-200 mb-3'>
+          <Building2 className='w-3.5 h-3.5 inline mr-1.5' />
           Organizations
         </h2>
-        {!myPubkey ? (
+        {!email ? (
           <div className='rounded-xl border border-neutral-800 bg-neutral-900/40 p-8 text-center'>
             <Building2 className='h-12 w-12 text-neutral-600 mx-auto mb-4' />
             <p className='text-neutral-400 text-sm'>
-              Set up your org identity above to see your organizations.
+              Sign in with Google to see your organizations.
             </p>
           </div>
         ) : isLoading ? (
@@ -468,7 +451,7 @@ export default function MyOrgsPage() {
           <div className='rounded-xl border border-neutral-800 bg-neutral-900/40 p-8 text-center'>
             <Building2 className='h-12 w-12 text-neutral-600 mx-auto mb-4' />
             <p className='text-neutral-400 text-sm'>
-              No organizations found for this member.
+              No organizations yet. Create one above.
             </p>
           </div>
         ) : (
@@ -501,6 +484,11 @@ export default function MyOrgsPage() {
           </ul>
         )}
       </div>
+
+      {/* Key icon imported but not used — keep for potential future use */}
+      <span className='hidden'>
+        <Key className='w-0 h-0' />
+      </span>
     </div>
   );
 }

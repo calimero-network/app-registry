@@ -5,6 +5,10 @@ const {
   createSessionToken,
   verifySessionToken,
   generateState,
+  createApiToken,
+  verifyApiToken,
+  listApiTokens,
+  revokeApiToken,
 } = require('../lib/auth');
 
 const STATE_COOKIE_NAME = 'oauth_state';
@@ -34,6 +38,27 @@ async function authRoutes(server, options) {
 
   const redirectUri = `${frontendUrl}/api/auth/google/callback`;
   const isSecure = frontendUrl.startsWith('https://');
+
+  /** Resolve current user from session cookie or Bearer token. Returns null if unauthenticated. */
+  async function resolveUser(request) {
+    // Try session cookie first
+    const token = request.cookies?.[cookieName];
+    const sessionUser = await verifySessionToken(token, sessionSecret);
+    if (sessionUser?.email) return sessionUser;
+    // Try Bearer token
+    const auth = request.headers?.['authorization'];
+    if (typeof auth === 'string' && auth.startsWith('Bearer ')) {
+      const tokenData = await verifyApiToken(auth.slice(7));
+      if (tokenData?.email)
+        return {
+          id: tokenData.email,
+          email: tokenData.email,
+          name: tokenData.name,
+          picture: null,
+        };
+    }
+    return null;
+  }
 
   // GET /api/auth/google — redirect to Google OAuth
   server.get('/api/auth/google', async (request, reply) => {
@@ -110,10 +135,9 @@ async function authRoutes(server, options) {
     return reply.redirect(302, `${frontendUrl}/my-packages`);
   });
 
-  // GET /api/auth/me — return current user from session cookie
+  // GET /api/auth/me — return current user from session cookie or Bearer token
   server.get('/api/auth/me', async (request, reply) => {
-    const token = request.cookies?.[cookieName];
-    const user = await verifySessionToken(token, sessionSecret);
+    const user = await resolveUser(request);
     if (!user) {
       return reply
         .code(401)
@@ -132,6 +156,74 @@ async function authRoutes(server, options) {
   // POST /api/auth/logout — clear session cookie
   server.post('/api/auth/logout', async (request, reply) => {
     reply.clearCookie(cookieName, { path: '/' });
+    return reply.code(204).send();
+  });
+
+  // POST /api/auth/token — create a new API token (requires session or existing Bearer token)
+  server.post('/api/auth/token', async (request, reply) => {
+    const user = await resolveUser(request);
+    if (!user) {
+      return reply.code(401).send({
+        error: 'unauthorized',
+        message: 'Login required to create API tokens',
+      });
+    }
+    const label =
+      typeof request.body?.label === 'string'
+        ? request.body.label.trim() || 'CLI token'
+        : 'CLI token';
+    const result = await createApiToken(user.email, user.name, label);
+    return reply.code(201).send({
+      token: result.token,
+      label: result.label,
+      createdAt: result.createdAt,
+    });
+  });
+
+  // GET /api/auth/tokens — list API tokens for current user (masked)
+  server.get('/api/auth/tokens', async (request, reply) => {
+    const user = await resolveUser(request);
+    if (!user) {
+      return reply
+        .code(401)
+        .send({ error: 'unauthorized', message: 'Login required' });
+    }
+    const tokens = await listApiTokens(user.email);
+    return reply.send({ tokens });
+  });
+
+  // DELETE /api/auth/token/:tokenId — revoke a token by its first-8-char ID prefix
+  // For security, user must be logged in with session (not just a token) to revoke
+  server.delete('/api/auth/token/:tokenId', async (request, reply) => {
+    const sessionToken = request.cookies?.[cookieName];
+    const sessionUser = await verifySessionToken(sessionToken, sessionSecret);
+    if (!sessionUser?.email) {
+      return reply.code(401).send({
+        error: 'unauthorized',
+        message: 'Session login required to revoke tokens',
+      });
+    }
+    const { tokenId } = request.params;
+    if (!tokenId || typeof tokenId !== 'string') {
+      return reply
+        .code(400)
+        .send({ error: 'bad_request', message: 'tokenId required' });
+    }
+    // Find the full token by prefix match among user's tokens
+    const { kv } = require('../lib/kv-client');
+    const USER_TOKENS_PREFIX = 'user_tokens:';
+    const TOKEN_PREFIX = 'apitoken:';
+    const allTokens = await kv.sMembers(USER_TOKENS_PREFIX + sessionUser.email);
+    const match = Array.isArray(allTokens)
+      ? allTokens.find(t => t.startsWith(tokenId))
+      : null;
+    if (!match) {
+      return reply
+        .code(404)
+        .send({ error: 'not_found', message: 'Token not found' });
+    }
+    await revokeApiToken(sessionUser.email, match);
+    await kv.del(TOKEN_PREFIX + match);
     return reply.code(204).send();
   });
 }

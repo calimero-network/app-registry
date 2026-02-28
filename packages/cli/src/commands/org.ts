@@ -1,16 +1,11 @@
 /**
  * Organization commands: create, list, get, update, members, packages.
- * Write operations use X-Pubkey + X-Signature (signed request).
+ * Write operations use Authorization: Bearer <api-token>.
  */
 
 import { Command } from 'commander';
 import chalk from 'chalk';
 import ora from 'ora';
-import {
-  loadKeypair,
-  getSignedHeaders,
-  publicKeyToBase64url,
-} from '../lib/signed-request.js';
 import { RemoteConfig } from '../lib/remote-config.js';
 
 const DEFAULT_TIMEOUT = 10000;
@@ -32,10 +27,18 @@ function getGlobalOpts(command: Command): {
   };
 }
 
-function getKeypairPath(command: Command): string | undefined {
-  const orgCmd =
-    command.parent?.name() === 'org' ? command.parent : command.parent?.parent;
-  return orgCmd?.opts()?.keypair;
+/** Returns the Authorization header for CLI write operations. Throws if no token configured. */
+function getAuthHeaders(): Record<string, string> {
+  const remoteConfig = new RemoteConfig();
+  const apiKey = remoteConfig.getApiKey();
+  if (!apiKey) {
+    throw new Error(
+      'API token required for org write operations.\n' +
+        'Get a token from the Organizations page in the web UI, then run:\n' +
+        '  calimero-registry config set api-key <token>'
+    );
+  }
+  return { Authorization: `Bearer ${apiKey}` };
 }
 
 interface FetchOptions {
@@ -68,36 +71,59 @@ async function fetchJson<T>(
 
 export const orgCommand = new Command('org')
   .description('Manage organizations (create, list, members, packages)')
-  .option(
-    '-k, --keypair <path>',
-    'Path to Ed25519 keypair JSON (64 bytes). Overrides CALIMERO_REGISTRY_KEYPAIR.'
-  )
   .addCommand(
     new Command('list')
       .description(
-        'List organizations you belong to (uses keypair pubkey as member)'
+        'List organizations you belong to (uses API token to resolve identity)'
       )
       .action(async (_options, command: Command) => {
         const { url, timeout } = getGlobalOpts(command);
-        const keypairPath = getKeypairPath(command);
-        const spinner = ora('Loading keypair...').start();
-        let pubkey: string;
+        const spinner = ora('Resolving identity...').start();
+        let authHeaders: Record<string, string>;
         try {
-          const kp = loadKeypair({ keypairPath });
-          pubkey = publicKeyToBase64url(kp.publicKey);
-          spinner.text = 'Fetching organizations...';
+          authHeaders = getAuthHeaders();
         } catch (e) {
-          spinner.fail('Keypair required');
+          spinner.fail('API token required');
           console.error(chalk.red(e instanceof Error ? e.message : String(e)));
           process.exit(1);
         }
+
         const base = url.replace(/\/$/, '');
-        const apiUrl = `${base}/api/v2/orgs?member=${encodeURIComponent(pubkey)}`;
+
+        // Resolve email from the API token via /api/auth/me
+        let myEmail: string;
+        try {
+          const { data, status } = await fetchJson<{
+            user?: { email?: string };
+          }>(`${base}/api/auth/me`, {
+            method: 'GET',
+            headers: authHeaders,
+            timeout,
+          });
+          if (status !== 200 || !data?.user?.email) {
+            spinner.fail('Could not resolve identity from API token');
+            console.error(
+              chalk.red(
+                'Ensure your API token is valid. Get a new one from the web UI.'
+              )
+            );
+            process.exit(1);
+          }
+          myEmail = data.user.email;
+          spinner.text = `Fetching organizations for ${myEmail}...`;
+        } catch (e) {
+          spinner.fail('Request failed');
+          console.error(chalk.red(e instanceof Error ? e.message : String(e)));
+          process.exit(1);
+        }
+
+        const apiUrl = `${base}/api/v2/orgs?member=${encodeURIComponent(myEmail)}`;
         try {
           const { data, status } = await fetchJson<
             Array<{ id: string; name: string; slug: string }>
           >(apiUrl, {
             method: 'GET',
+            headers: authHeaders,
             timeout,
           });
           if (status !== 200) {
@@ -116,15 +142,15 @@ export const orgCommand = new Command('org')
           // Fetch members for each org in parallel to show count + role
           const memberResults = await Promise.all(
             orgs.map(o =>
-              fetchJson<{ members: Array<{ pubkey: string; role: string }> }>(
+              fetchJson<{ members: Array<{ email: string; role: string }> }>(
                 `${base}/api/v2/orgs/${encodeURIComponent(o.id)}/members`,
-                { method: 'GET', timeout }
+                { method: 'GET', headers: authHeaders, timeout }
               ).catch(() => ({ data: { members: [] }, status: 0 }))
             )
           );
           const lines = orgs.map((o, i) => {
             const members = memberResults[i].data?.members ?? [];
-            const myMember = members.find(m => m.pubkey === pubkey);
+            const myMember = members.find(m => m.email === myEmail);
             const role = myMember?.role ?? '?';
             const count = members.length;
             const roleLabel =
@@ -147,16 +173,14 @@ export const orgCommand = new Command('org')
       .action(
         async (options: { name: string; slug: string }, command: Command) => {
           const { url, timeout } = getGlobalOpts(command);
-          const keypairPath = getKeypairPath(command);
           const spinner = ora('Creating organization...').start();
           try {
-            const kp = loadKeypair({ keypairPath });
+            const authHeaders = getAuthHeaders();
             const pathname = '/api/v2/orgs';
             const body = {
               name: options.name.trim(),
               slug: options.slug.trim().toLowerCase(),
             };
-            const headers = await getSignedHeaders('POST', pathname, body, kp);
             const base = url.replace(/\/$/, '');
             const { data, status } = await fetchJson<
               | { id: string; name: string; slug: string }
@@ -165,7 +189,7 @@ export const orgCommand = new Command('org')
               method: 'POST',
               body: JSON.stringify(body),
               timeout,
-              headers: { ...headers },
+              headers: authHeaders,
             });
             if (status >= 400) {
               const err = data as { error?: string; message?: string };
@@ -229,10 +253,9 @@ export const orgCommand = new Command('org')
           command: Command
         ) => {
           const { url, timeout } = getGlobalOpts(command);
-          const keypairPath = getKeypairPath(command);
           const spinner = ora('Updating organization...').start();
           try {
-            const kp = loadKeypair({ keypairPath });
+            const authHeaders = getAuthHeaders();
             const pathname = `/api/v2/orgs/${encodeURIComponent(orgId)}`;
             const body: Record<string, unknown> = {};
             if (options.name !== undefined) body.name = options.name;
@@ -244,14 +267,13 @@ export const orgCommand = new Command('org')
                 process.exit(1);
               }
             }
-            const headers = await getSignedHeaders('PATCH', pathname, body, kp);
             const base = url.replace(/\/$/, '');
             const { data, status } = await fetchJson(`${base}${pathname}`, {
               method: 'PATCH',
               body:
                 Object.keys(body).length > 0 ? JSON.stringify(body) : undefined,
               timeout,
-              headers: { ...headers },
+              headers: authHeaders,
             });
             if (status >= 400) {
               spinner.fail(
@@ -280,7 +302,6 @@ export const orgCommand = new Command('org')
       .action(
         async (orgId: string, options: { yes?: boolean }, command: Command) => {
           const { url, timeout } = getGlobalOpts(command);
-          const keypairPath = getKeypairPath(command);
           if (!options.yes) {
             const { createInterface } = await import('readline');
             const rl = createInterface({
@@ -305,19 +326,13 @@ export const orgCommand = new Command('org')
           }
           const spinner = ora('Deleting organization...').start();
           try {
-            const kp = loadKeypair({ keypairPath });
+            const authHeaders = getAuthHeaders();
             const pathname = `/api/v2/orgs/${encodeURIComponent(orgId)}`;
-            const headers = await getSignedHeaders(
-              'DELETE',
-              pathname,
-              undefined,
-              kp
-            );
             const base = url.replace(/\/$/, '');
             const { data, status } = await fetchJson(`${base}${pathname}`, {
               method: 'DELETE',
               timeout,
-              headers: { ...headers },
+              headers: authHeaders,
             });
             if (status >= 400) {
               spinner.fail(
@@ -351,7 +366,7 @@ export const orgCommand = new Command('org')
             const spinner = ora('Fetching members...').start();
             try {
               const { data, status } = await fetchJson<{
-                members: Array<{ pubkey: string; role: string }>;
+                members: Array<{ email: string; role: string }>;
               }>(`${base}${pathname}`, { method: 'GET', timeout });
               if (status !== 200) {
                 spinner.fail('Failed');
@@ -360,7 +375,7 @@ export const orgCommand = new Command('org')
               }
               spinner.succeed('OK');
               const members =
-                (data as { members?: Array<{ pubkey: string; role: string }> })
+                (data as { members?: Array<{ email: string; role: string }> })
                   ?.members ?? [];
               console.log(JSON.stringify(members, null, 2));
             } catch (e) {
@@ -374,39 +389,32 @@ export const orgCommand = new Command('org')
       )
       .addCommand(
         new Command('add')
-          .description('Add a member by pubkey')
+          .description('Add a member by email')
           .argument('<orgId>', 'Organization id or slug')
-          .argument('<pubkey>', 'Member public key')
+          .argument('<email>', 'Member email address')
           .option('-r, --role <role>', 'Role: member or admin', 'member')
           .action(
             async (
               orgId: string,
-              pubkey: string,
+              email: string,
               options: { role: string },
               command: Command
             ) => {
               const { url, timeout } = getGlobalOpts(command);
-              const keypairPath = getKeypairPath(command);
               const spinner = ora('Adding member...').start();
               try {
-                const kp = loadKeypair({ keypairPath });
+                const authHeaders = getAuthHeaders();
                 const pathname = `/api/v2/orgs/${encodeURIComponent(orgId)}/members`;
                 const body = {
-                  pubkey: pubkey.trim(),
+                  email: email.trim(),
                   role: options.role === 'admin' ? 'admin' : 'member',
                 };
-                const headers = await getSignedHeaders(
-                  'POST',
-                  pathname,
-                  body,
-                  kp
-                );
                 const base = url.replace(/\/$/, '');
                 const { data, status } = await fetchJson(`${base}${pathname}`, {
                   method: 'POST',
                   body: JSON.stringify(body),
                   timeout,
-                  headers: { ...headers },
+                  headers: authHeaders,
                 });
                 if (status >= 400) {
                   spinner.fail(
@@ -430,35 +438,28 @@ export const orgCommand = new Command('org')
         new Command('update')
           .description('Update a member role (admin or member)')
           .argument('<orgId>', 'Organization id or slug')
-          .argument('<pubkey>', 'Member public key')
+          .argument('<email>', 'Member email address')
           .requiredOption('-r, --role <role>', 'New role: admin or member')
           .action(
             async (
               orgId: string,
-              pubkey: string,
+              email: string,
               options: { role: string },
               command: Command
             ) => {
               const { url, timeout } = getGlobalOpts(command);
-              const keypairPath = getKeypairPath(command);
               const role = options.role === 'admin' ? 'admin' : 'member';
               const spinner = ora('Updating member role...').start();
               try {
-                const kp = loadKeypair({ keypairPath });
-                const pathname = `/api/v2/orgs/${encodeURIComponent(orgId)}/members/${encodeURIComponent(pubkey.trim())}`;
+                const authHeaders = getAuthHeaders();
+                const pathname = `/api/v2/orgs/${encodeURIComponent(orgId)}/members/${encodeURIComponent(email.trim())}`;
                 const body = { role };
-                const headers = await getSignedHeaders(
-                  'PATCH',
-                  pathname,
-                  body,
-                  kp
-                );
                 const base = url.replace(/\/$/, '');
                 const { data, status } = await fetchJson(`${base}${pathname}`, {
                   method: 'PATCH',
                   body: JSON.stringify(body),
                   timeout,
-                  headers: { ...headers },
+                  headers: authHeaders,
                 });
                 if (status >= 400) {
                   spinner.fail(
@@ -480,33 +481,26 @@ export const orgCommand = new Command('org')
       )
       .addCommand(
         new Command('remove')
-          .description('Remove a member by pubkey')
+          .description('Remove a member by email')
           .argument('<orgId>', 'Organization id or slug')
-          .argument('<pubkey>', 'Member public key')
+          .argument('<email>', 'Member email address')
           .action(
             async (
               orgId: string,
-              pubkey: string,
+              email: string,
               _options,
               command: Command
             ) => {
               const { url, timeout } = getGlobalOpts(command);
-              const keypairPath = getKeypairPath(command);
               const spinner = ora('Removing member...').start();
               try {
-                const kp = loadKeypair({ keypairPath });
-                const pathname = `/api/v2/orgs/${encodeURIComponent(orgId)}/members/${encodeURIComponent(pubkey.trim())}`;
-                const headers = await getSignedHeaders(
-                  'DELETE',
-                  pathname,
-                  undefined,
-                  kp
-                );
+                const authHeaders = getAuthHeaders();
+                const pathname = `/api/v2/orgs/${encodeURIComponent(orgId)}/members/${encodeURIComponent(email.trim())}`;
                 const base = url.replace(/\/$/, '');
                 const { data, status } = await fetchJson(`${base}${pathname}`, {
                   method: 'DELETE',
                   timeout,
-                  headers: { ...headers },
+                  headers: authHeaders,
                 });
                 if (status >= 400) {
                   spinner.fail(
@@ -538,24 +532,17 @@ export const orgCommand = new Command('org')
           .action(
             async (orgId: string, pkg: string, _options, command: Command) => {
               const { url, timeout } = getGlobalOpts(command);
-              const keypairPath = getKeypairPath(command);
               const spinner = ora('Linking package...').start();
               try {
-                const kp = loadKeypair({ keypairPath });
+                const authHeaders = getAuthHeaders();
                 const pathname = `/api/v2/orgs/${encodeURIComponent(orgId)}/packages`;
                 const body = { package: pkg.trim() };
-                const headers = await getSignedHeaders(
-                  'POST',
-                  pathname,
-                  body,
-                  kp
-                );
                 const base = url.replace(/\/$/, '');
                 const { data, status } = await fetchJson(`${base}${pathname}`, {
                   method: 'POST',
                   body: JSON.stringify(body),
                   timeout,
-                  headers: { ...headers },
+                  headers: authHeaders,
                 });
                 if (status >= 400) {
                   spinner.fail(
@@ -583,22 +570,15 @@ export const orgCommand = new Command('org')
           .action(
             async (orgId: string, pkg: string, _options, command: Command) => {
               const { url, timeout } = getGlobalOpts(command);
-              const keypairPath = getKeypairPath(command);
               const spinner = ora('Unlinking package...').start();
               try {
-                const kp = loadKeypair({ keypairPath });
+                const authHeaders = getAuthHeaders();
                 const pathname = `/api/v2/orgs/${encodeURIComponent(orgId)}/packages/${encodeURIComponent(pkg.trim())}`;
-                const headers = await getSignedHeaders(
-                  'DELETE',
-                  pathname,
-                  undefined,
-                  kp
-                );
                 const base = url.replace(/\/$/, '');
                 const { data, status } = await fetchJson(`${base}${pathname}`, {
                   method: 'DELETE',
                   timeout,
-                  headers: { ...headers },
+                  headers: authHeaders,
                 });
                 if (status >= 400) {
                   spinner.fail(
