@@ -95,7 +95,7 @@ export interface Org {
 
 export interface OrgMember {
   email: string;
-  role: 'admin' | 'member';
+  role: 'owner' | 'admin' | 'member';
 }
 
 export interface ApiToken {

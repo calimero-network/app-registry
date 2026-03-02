@@ -172,7 +172,11 @@ async function authRoutes(server, options) {
       typeof request.body?.label === 'string'
         ? request.body.label.trim() || 'CLI token'
         : 'CLI token';
-    const result = await createApiToken(user.email, user.name, label);
+    const pubkey =
+      typeof request.body?.pubkey === 'string'
+        ? request.body.pubkey.trim()
+        : undefined;
+    const result = await createApiToken(user.email, user.name, label, pubkey);
     return reply.code(201).send({
       token: result.token,
       label: result.label,

@@ -14,6 +14,10 @@ const PKG2ORG_PREFIX = 'pkg2org:';
 const MEMBER2ORGS_PREFIX = 'member2orgs:';
 const ORG_PACKAGES_SUFFIX = ':packages';
 
+function _normEmail(email) {
+  return (email && typeof email === 'string' ? email : '').toLowerCase();
+}
+
 /**
  * @param {string} orgId
  * @returns {Promise<{ id: string, name: string, slug: string, created_at?: string, updated_at?: string, metadata?: object } | null>}
@@ -90,24 +94,29 @@ async function getOrgMembers(orgId) {
 async function isOrgMember(orgId, email) {
   if (!orgId || !email) return false;
   const key = ORG_PREFIX + orgId + MEMBERS_SUFFIX;
-  const result = await kv.sIsMember(key, email);
-  return Boolean(result);
+  const norm = _normEmail(email);
+  const a = await kv.sIsMember(key, norm);
+  const b = await kv.sIsMember(key, email);
+  return Boolean(a || b);
 }
+
+/** @type {ReadonlySet<string>} */
+const VALID_ROLES = new Set(['owner', 'admin', 'member']);
 
 /**
  * @param {string} orgId
  * @param {string} email
- * @param {string} [role] e.g. 'admin' | 'member'
+ * @param {string} [role] 'owner' | 'admin' | 'member'
  */
 async function addOrgMember(orgId, email, role) {
   if (!orgId || !email) throw new Error('orgId and email required');
+  const norm = _normEmail(email);
+  const r = role && VALID_ROLES.has(role) ? role : 'member';
   const key = ORG_PREFIX + orgId + MEMBERS_SUFFIX;
-  await kv.sAdd(key, email);
-  await kv.sAdd(MEMBER2ORGS_PREFIX + email, orgId);
-  if (role) {
-    const rolesKey = ORG_PREFIX + orgId + ROLES_SUFFIX;
-    await kv.hSet(rolesKey, { [email]: role });
-  }
+  await kv.sAdd(key, norm);
+  await kv.sAdd(MEMBER2ORGS_PREFIX + norm, orgId);
+  const rolesKey = ORG_PREFIX + orgId + ROLES_SUFFIX;
+  await kv.hSet(rolesKey, { [norm]: r });
 }
 
 /**
@@ -116,10 +125,14 @@ async function addOrgMember(orgId, email, role) {
  */
 async function removeOrgMember(orgId, email) {
   if (!orgId || !email) return;
+  const norm = _normEmail(email);
   const key = ORG_PREFIX + orgId + MEMBERS_SUFFIX;
+  await kv.sRem(key, norm);
   await kv.sRem(key, email);
+  await kv.sRem(MEMBER2ORGS_PREFIX + norm, orgId);
   await kv.sRem(MEMBER2ORGS_PREFIX + email, orgId);
   const rolesKey = ORG_PREFIX + orgId + ROLES_SUFFIX;
+  await kv.hDel(rolesKey, norm);
   await kv.hDel(rolesKey, email);
 }
 
@@ -131,7 +144,9 @@ async function removeOrgMember(orgId, email) {
 async function getOrgMemberRole(orgId, email) {
   if (!orgId || !email) return null;
   const rolesKey = ORG_PREFIX + orgId + ROLES_SUFFIX;
-  const role = await kv.hGet(rolesKey, email);
+  const norm = _normEmail(email);
+  const role =
+    (await kv.hGet(rolesKey, norm)) || (await kv.hGet(rolesKey, email));
   return role || null;
 }
 
@@ -139,23 +154,47 @@ async function getOrgMemberRole(orgId, email) {
  * Update a member's role without touching their membership.
  * @param {string} orgId
  * @param {string} email
- * @param {string} role 'admin' | 'member'
+ * @param {string} role 'owner' | 'admin' | 'member'
  */
 async function updateOrgMemberRole(orgId, email, role) {
   if (!orgId || !email || !role)
     throw new Error('orgId, email and role required');
+  if (!VALID_ROLES.has(role))
+    throw new Error('role must be owner, admin, or member');
+  const norm = _normEmail(email);
   const rolesKey = ORG_PREFIX + orgId + ROLES_SUFFIX;
-  await kv.hSet(rolesKey, { [email]: role });
+  await kv.hSet(rolesKey, { [norm]: role });
+  if (norm !== email) await kv.hDel(rolesKey, email);
 }
 
 /**
  * @param {string} orgId
  * @param {string} email
- * @returns {Promise<boolean>} true if email is admin of org
+ * @returns {Promise<boolean>} true if email is owner of org
+ */
+async function isOrgOwner(orgId, email) {
+  const role = await getOrgMemberRole(orgId, email);
+  return role === 'owner';
+}
+
+/**
+ * @param {string} orgId
+ * @param {string} email
+ * @returns {Promise<boolean>} true if email is admin of org (not owner)
  */
 async function isOrgAdmin(orgId, email) {
   const role = await getOrgMemberRole(orgId, email);
   return role === 'admin';
+}
+
+/**
+ * @param {string} orgId
+ * @param {string} email
+ * @returns {Promise<boolean>} true if email is admin or owner
+ */
+async function isOrgAdminOrOwner(orgId, email) {
+  const role = await getOrgMemberRole(orgId, email);
+  return role === 'admin' || role === 'owner';
 }
 
 /**
@@ -207,9 +246,18 @@ async function getPackagesByOrg(orgId) {
  */
 async function getOrgIdsByMember(email) {
   if (!email) return [];
-  const key = MEMBER2ORGS_PREFIX + email;
-  const ids = await kv.sMembers(key);
-  return Array.isArray(ids) ? ids : [];
+  const norm = _normEmail(email);
+  const keyNorm = MEMBER2ORGS_PREFIX + norm;
+  const keyRaw = MEMBER2ORGS_PREFIX + email;
+  const [idsNorm, idsRaw] = await Promise.all([
+    kv.sMembers(keyNorm),
+    norm !== email ? kv.sMembers(keyRaw) : Promise.resolve([]),
+  ]);
+  const set = new Set([
+    ...(Array.isArray(idsNorm) ? idsNorm : []),
+    ...(Array.isArray(idsRaw) ? idsRaw : []),
+  ]);
+  return [...set];
 }
 
 /**
@@ -295,7 +343,9 @@ module.exports = {
   removeOrgMember,
   getOrgMemberRole,
   updateOrgMemberRole,
+  isOrgOwner,
   isOrgAdmin,
+  isOrgAdminOrOwner,
   getOrgIdsByMember,
   getOrgsByMember,
   getPkg2Org,

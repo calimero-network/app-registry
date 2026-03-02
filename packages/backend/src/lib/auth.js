@@ -10,9 +10,10 @@ const USER_TOKENS_PREFIX = 'user_tokens:';
  * @param {string} email
  * @param {string} name
  * @param {string} [label]
- * @returns {Promise<{ token: string, email: string, name: string, label: string, createdAt: string }>}
+ * @param {string} [pubkey] - optional Solana pubkey for org list (member=pubkey)
+ * @returns {Promise<{ token: string, email: string, name: string, label: string, createdAt: string, pubkey?: string }>}
  */
-async function createApiToken(email, name, label) {
+async function createApiToken(email, name, label, pubkey) {
   const bytes = new Uint8Array(32);
   if (
     typeof globalThis.crypto !== 'undefined' &&
@@ -29,6 +30,9 @@ async function createApiToken(email, name, label) {
     name: name || email,
     label: label || 'CLI token',
     createdAt: new Date().toISOString(),
+    ...(pubkey && typeof pubkey === 'string' && pubkey.trim()
+      ? { pubkey: pubkey.trim() }
+      : {}),
   };
   await kv.set(TOKEN_PREFIX + token, JSON.stringify(data));
   await kv.sAdd(USER_TOKENS_PREFIX + email, token);

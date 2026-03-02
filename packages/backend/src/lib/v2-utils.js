@@ -82,11 +82,8 @@ function validateBundleManifest(manifest) {
     if (!manifest.metadata.name || typeof manifest.metadata.name !== 'string') {
       errors.push('Missing or invalid metadata.name');
     }
-    if (
-      !manifest.metadata.description ||
-      typeof manifest.metadata.description !== 'string'
-    ) {
-      errors.push('Missing or invalid metadata.description');
+    if (typeof manifest.metadata.description !== 'string') {
+      errors.push('metadata.description must be a string');
     }
     // author is optional (may be omitted or empty string for edit/delete author)
     if (

@@ -20,7 +20,11 @@ const {
   getPublicKeyFromManifest,
   normalizeSignature,
 } = require('./lib/verify');
-const { isAllowedToPublish } = require('./lib/org-storage');
+const {
+  isAllowedToPublish,
+  getPkg2Org,
+  getOrgMemberRole,
+} = require('./lib/org-storage');
 const { verifySessionToken } = require('./lib/auth');
 
 async function buildServer() {
@@ -443,8 +447,14 @@ async function buildServer() {
       }
 
       // 3. Check ownership: the signer must be allowed to publish to this package
+      const sessionUser = await getSessionUser(request);
       const incomingKey = getPublicKeyFromManifest(incoming);
-      const allowed = await isAllowedToPublish(existing, incomingKey, pkg);
+      const allowed = await isAllowedToPublish(
+        existing,
+        incomingKey,
+        pkg,
+        sessionUser?.email
+      );
       if (!allowed) {
         return reply.code(403).send({
           error: 'not_owner',
@@ -453,7 +463,23 @@ async function buildServer() {
         });
       }
 
-      // 4. Merge: preserve immutable artifact fields from stored manifest,
+      // 4. Org members (role === 'member') may only edit versions they uploaded (author === their email)
+      const orgId = await getPkg2Org(pkg);
+      if (orgId && sessionUser?.email) {
+        const role = await getOrgMemberRole(orgId, sessionUser.email);
+        if (role === 'member') {
+          const versionAuthor = existing.metadata?.author;
+          if (versionAuthor !== sessionUser.email) {
+            return reply.code(403).send({
+              error: 'forbidden',
+              message:
+                'Organization members can only edit metadata of versions they uploaded. This version was uploaded by another user.',
+            });
+          }
+        }
+      }
+
+      // 5. Merge: preserve immutable artifact fields from stored manifest,
       //    update only mutable fields from the incoming manifest.
       //    author is always preserved from the existing manifest — it is set
       //    from the Google session at publish time and cannot be removed or
@@ -629,22 +655,32 @@ async function buildServer() {
         },
       };
     }
-    // Apply user metadata AFTER signature verification so it doesn't affect the signed payload
-    if (userEmail) {
-      bundleManifest.metadata = bundleManifest.metadata || {};
-      bundleManifest.metadata.author = userEmail;
-    }
     const incomingKey = getPublicKeyFromManifest(bundleManifest);
     const versions = await bundleStorage.getBundleVersions(
       bundleManifest.package
     );
+    // Set or preserve author: only set from session when creating a new package; never overwrite on new version.
+    // Author is locked from the oldest (first) version, not the latest.
+    bundleManifest.metadata = bundleManifest.metadata || {};
     if (versions.length > 0) {
-      const existingManifest = await bundleStorage.getBundleManifest(
+      const oldestVersion = versions[versions.length - 1];
+      const latestVersion = versions[0];
+      const manifestOldest = await bundleStorage.getBundleManifest(
         bundleManifest.package,
-        versions[0]
+        oldestVersion
+      );
+      const existingAuthor = manifestOldest?.metadata?.author;
+      if (existingAuthor) {
+        bundleManifest.metadata.author = existingAuthor;
+      } else if (userEmail) {
+        bundleManifest.metadata.author = userEmail;
+      }
+      const manifestLatest = await bundleStorage.getBundleManifest(
+        bundleManifest.package,
+        latestVersion
       );
       const allowed = await isAllowedToPublish(
-        existingManifest,
+        manifestLatest,
         incomingKey,
         bundleManifest.package,
         userEmail
@@ -660,7 +696,7 @@ async function buildServer() {
         };
       }
       // Reject if new version is not greater than latest
-      const latest = versions[0];
+      const latest = latestVersion;
       const incoming = bundleManifest.appVersion;
       if (
         semver.valid(incoming) &&
@@ -675,6 +711,8 @@ async function buildServer() {
           },
         };
       }
+    } else if (userEmail) {
+      bundleManifest.metadata.author = userEmail;
     }
     const overwrite =
       process.env.ALLOW_BUNDLE_OVERWRITE === 'true' ||

@@ -150,11 +150,11 @@ async function updateOrgMemberRole(orgId, pubkey, role) {
 /**
  * @param {string} orgId
  * @param {string} pubkey
- * @returns {Promise<boolean>} true if pubkey is admin of org
+ * @returns {Promise<boolean>} true if pubkey is admin or owner of org
  */
 async function isOrgAdmin(orgId, pubkey) {
   const role = await getOrgMemberRole(orgId, pubkey);
-  return role === 'admin';
+  return role === 'admin' || role === 'owner';
 }
 
 /**

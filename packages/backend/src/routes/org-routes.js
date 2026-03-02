@@ -13,7 +13,8 @@ const {
   removeOrgMember,
   getOrgMemberRole,
   updateOrgMemberRole,
-  isOrgAdmin,
+  isOrgOwner,
+  isOrgAdminOrOwner,
   getOrgsByMember,
   getPkg2Org,
   setPkg2Org,
@@ -72,21 +73,50 @@ async function requireAuth(request, reply) {
 }
 
 /**
- * Require that the caller is an admin of orgId.
+ * Require that the caller is the owner of orgId.
  * Returns { email, name } or sends error and returns null.
  */
-async function requireOrgAdmin(request, reply, orgId) {
+async function requireOrgOwner(request, reply, orgId) {
   const user = await requireAuth(request, reply);
   if (!user) return null;
-  const admin = await isOrgAdmin(orgId, user.email);
-  if (!admin) {
+  const owner = await isOrgOwner(orgId, user.email);
+  if (!owner) {
     reply.code(403).send({
       error: 'forbidden',
-      message: 'Only an organization admin can perform this action',
+      message: 'Only an organization owner can perform this action',
     });
     return null;
   }
   return user;
+}
+
+/**
+ * Require that the caller is admin or owner of orgId.
+ * Returns { email, name } or sends error and returns null.
+ */
+async function requireOrgAdminOrOwner(request, reply, orgId) {
+  const user = await requireAuth(request, reply);
+  if (!user) return null;
+  const allowed = await isOrgAdminOrOwner(orgId, user.email);
+  if (!allowed) {
+    reply.code(403).send({
+      error: 'forbidden',
+      message: 'Only an organization admin or owner can perform this action',
+    });
+    return null;
+  }
+  return user;
+}
+
+/** Count how many owners the org has. */
+async function countOrgOwners(orgId) {
+  const members = await getOrgMembers(orgId);
+  let n = 0;
+  for (const email of members) {
+    const role = await getOrgMemberRole(orgId, email);
+    if (role === 'owner') n++;
+  }
+  return n;
 }
 
 const SLUG_REGEX = /^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$/;
@@ -155,7 +185,7 @@ async function orgRoutes(server) {
       slug: slugNorm,
     };
     await setOrg(org);
-    await addOrgMember(orgId, user.email, 'admin');
+    await addOrgMember(orgId, user.email, 'owner');
     return reply.code(201).send(org);
   });
 
@@ -171,7 +201,7 @@ async function orgRoutes(server) {
     return org;
   });
 
-  // PATCH /api/v2/orgs/:orgId — update org (admin only)
+  // PATCH /api/v2/orgs/:orgId — update org (admin or owner)
   server.patch('/api/v2/orgs/:orgId', async (request, reply) => {
     const { orgId } = request.params;
     const org = await getOrg(orgId);
@@ -181,7 +211,7 @@ async function orgRoutes(server) {
         message: 'Organization not found',
       });
     }
-    const user = await requireOrgAdmin(request, reply, orgId);
+    const user = await requireOrgAdminOrOwner(request, reply, orgId);
     if (!user) return;
     const { name, metadata } = request.body || {};
     const updates = {};
@@ -196,7 +226,7 @@ async function orgRoutes(server) {
     return reply.send(updated);
   });
 
-  // DELETE /api/v2/orgs/:orgId — delete org and all its data (admin only)
+  // DELETE /api/v2/orgs/:orgId — delete org and all its data (owner only)
   server.delete('/api/v2/orgs/:orgId', async (request, reply) => {
     const { orgId } = request.params;
     const org = await getOrg(orgId);
@@ -206,13 +236,13 @@ async function orgRoutes(server) {
         message: 'Organization not found',
       });
     }
-    const user = await requireOrgAdmin(request, reply, orgId);
+    const user = await requireOrgOwner(request, reply, orgId);
     if (!user) return;
     await deleteOrg(orgId);
     return reply.code(204).send();
   });
 
-  // POST /api/v2/orgs/:orgId/members — add member by email (admin only)
+  // POST /api/v2/orgs/:orgId/members — add member by email (owner can add admin; admin/owner can add member)
   server.post('/api/v2/orgs/:orgId/members', async (request, reply) => {
     const { orgId } = request.params;
     const org = await getOrg(orgId);
@@ -222,8 +252,6 @@ async function orgRoutes(server) {
         message: 'Organization not found',
       });
     }
-    const user = await requireOrgAdmin(request, reply, orgId);
-    if (!user) return;
     const { email, role } = request.body || {};
     if (!email || typeof email !== 'string') {
       return reply.code(400).send({
@@ -238,15 +266,19 @@ async function orgRoutes(server) {
         message: 'email is not a valid email address',
       });
     }
-    await addOrgMember(
-      orgId,
-      memberEmail,
-      role === 'admin' ? 'admin' : 'member'
-    );
+    const roleNorm = role === 'admin' ? 'admin' : 'member';
+    if (roleNorm === 'admin') {
+      const user = await requireOrgOwner(request, reply, orgId);
+      if (!user) return;
+    } else {
+      const user = await requireOrgAdminOrOwner(request, reply, orgId);
+      if (!user) return;
+    }
+    await addOrgMember(orgId, memberEmail, roleNorm);
     return reply.code(204).send();
   });
 
-  // PATCH /api/v2/orgs/:orgId/members/:email — update member role (admin only)
+  // PATCH /api/v2/orgs/:orgId/members/:email — update member role (owner only; promote/demote admin/member)
   server.patch('/api/v2/orgs/:orgId/members/:email', async (request, reply) => {
     const { orgId, email: memberEmail } = request.params;
     const org = await getOrg(orgId);
@@ -256,7 +288,7 @@ async function orgRoutes(server) {
         message: 'Organization not found',
       });
     }
-    const user = await requireOrgAdmin(request, reply, orgId);
+    const user = await requireOrgOwner(request, reply, orgId);
     if (!user) return;
     const { role } = request.body || {};
     if (role !== 'admin' && role !== 'member') {
@@ -265,30 +297,22 @@ async function orgRoutes(server) {
         message: 'role must be "admin" or "member"',
       });
     }
-    // Guard: cannot demote the last admin
-    if (role === 'member') {
-      const currentRole = await getOrgMemberRole(orgId, memberEmail);
-      if (currentRole === 'admin') {
-        const allMembers = await getOrgMembers(orgId);
-        let adminCount = 0;
-        for (const m of allMembers) {
-          const r = await getOrgMemberRole(orgId, m);
-          if (r === 'admin') adminCount++;
-        }
-        if (adminCount <= 1) {
-          return reply.code(409).send({
-            error: 'last_admin',
-            message:
-              'Cannot demote the last admin. Promote another member to admin first.',
-          });
-        }
+    const currentRole = await getOrgMemberRole(orgId, memberEmail);
+    if (currentRole === 'owner' && role !== 'owner') {
+      const ownerCount = await countOrgOwners(orgId);
+      if (ownerCount <= 1) {
+        return reply.code(409).send({
+          error: 'last_owner',
+          message:
+            'Cannot demote the last owner. Promote another member to owner first.',
+        });
       }
     }
     await updateOrgMemberRole(orgId, memberEmail, role);
     return reply.code(204).send();
   });
 
-  // DELETE /api/v2/orgs/:orgId/members/:email — remove member (admin only)
+  // DELETE /api/v2/orgs/:orgId/members/:email — remove member (admin or owner)
   server.delete(
     '/api/v2/orgs/:orgId/members/:email',
     async (request, reply) => {
@@ -300,22 +324,16 @@ async function orgRoutes(server) {
           message: 'Organization not found',
         });
       }
-      const user = await requireOrgAdmin(request, reply, orgId);
+      const user = await requireOrgAdminOrOwner(request, reply, orgId);
       if (!user) return;
-      // Guard: cannot remove the last admin — org would become unmanageable
       const targetRole = await getOrgMemberRole(orgId, memberEmail);
-      if (targetRole === 'admin') {
-        const allMembers = await getOrgMembers(orgId);
-        let adminCount = 0;
-        for (const m of allMembers) {
-          const role = await getOrgMemberRole(orgId, m);
-          if (role === 'admin') adminCount++;
-        }
-        if (adminCount <= 1) {
+      if (targetRole === 'owner') {
+        const ownerCount = await countOrgOwners(orgId);
+        if (ownerCount <= 1) {
           return reply.code(409).send({
-            error: 'last_admin',
+            error: 'last_owner',
             message:
-              'Cannot remove the last admin. Promote another member to admin first.',
+              'Cannot remove the last owner. Promote another member to owner first.',
           });
         }
       }
@@ -324,7 +342,7 @@ async function orgRoutes(server) {
     }
   );
 
-  // POST /api/v2/orgs/:orgId/packages — link package to org (admin only; must own the package)
+  // POST /api/v2/orgs/:orgId/packages — link package to org (admin or owner; must own the package)
   server.post('/api/v2/orgs/:orgId/packages', async (request, reply) => {
     const { orgId } = request.params;
     const org = await getOrg(orgId);
@@ -334,7 +352,7 @@ async function orgRoutes(server) {
         message: 'Organization not found',
       });
     }
-    const user = await requireOrgAdmin(request, reply, orgId);
+    const user = await requireOrgAdminOrOwner(request, reply, orgId);
     if (!user) return;
     const { package: pkg } = request.body || {};
     if (!pkg || typeof pkg !== 'string') {
@@ -377,7 +395,7 @@ async function orgRoutes(server) {
     return reply.code(204).send();
   });
 
-  // DELETE /api/v2/orgs/:orgId/packages/:package — unlink package (admin only)
+  // DELETE /api/v2/orgs/:orgId/packages/:package — unlink package (admin or owner)
   server.delete(
     '/api/v2/orgs/:orgId/packages/:package',
     async (request, reply) => {
@@ -389,7 +407,7 @@ async function orgRoutes(server) {
           message: 'Organization not found',
         });
       }
-      const user = await requireOrgAdmin(request, reply, orgId);
+      const user = await requireOrgAdminOrOwner(request, reply, orgId);
       if (!user) return;
       const currentOrgId = await getPkg2Org(pkg);
       if (currentOrgId !== orgId) {

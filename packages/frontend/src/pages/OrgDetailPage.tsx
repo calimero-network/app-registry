@@ -122,11 +122,17 @@ export default function OrgDetailPage() {
 
   const members = membersData?.members ?? [];
   const packages = packagesData?.packages ?? [];
+  const userEmailNorm = user?.email?.toLowerCase() ?? '';
   const isAdmin =
     !!user?.email &&
-    members.some(m => m.email === user.email && m.role === 'admin');
-  /** Any member of the org (admin or regular member). */
-  const isMember = !!user?.email && members.some(m => m.email === user.email);
+    members.some(
+      m =>
+        m.email.toLowerCase() === userEmailNorm &&
+        (m.role === 'admin' || m.role === 'owner')
+    );
+  /** Any member of the org (owner, admin, or regular member). */
+  const isMember =
+    !!user?.email && members.some(m => m.email.toLowerCase() === userEmailNorm);
 
   const addMemberMutation = useMutation({
     mutationFn: () =>
@@ -488,14 +494,19 @@ export default function OrgDetailPage() {
                     >
                       <td className='py-3 px-5 text-neutral-400 truncate max-w-[280px]'>
                         {member.email}
-                        {member.email === user?.email && (
+                        {member.email.toLowerCase() === userEmailNorm && (
                           <span className='ml-2 text-[10px] text-brand-600'>
                             (you)
                           </span>
                         )}
                       </td>
                       <td className='py-3 px-5'>
-                        {member.role === 'admin' ? (
+                        {member.role === 'owner' ? (
+                          <span className='inline-flex items-center gap-1 pill bg-emerald-500/10 text-emerald-400'>
+                            <Shield className='w-3 h-3' />
+                            Owner
+                          </span>
+                        ) : member.role === 'admin' ? (
                           <span className='inline-flex items-center gap-1 pill bg-amber-500/10 text-amber-500'>
                             <Shield className='w-3 h-3' />
                             Admin

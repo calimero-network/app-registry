@@ -90,11 +90,12 @@ export const orgCommand = new Command('org')
 
         const base = url.replace(/\/$/, '');
 
-        // Resolve email from the API token via /api/auth/me
+        // Resolve identity from API token via /api/auth/me (email + optional pubkey for org list)
         let myEmail: string;
+        let memberParam: string;
         try {
           const { data, status } = await fetchJson<{
-            user?: { email?: string };
+            user?: { email?: string; pubkey?: string | null };
           }>(`${base}/api/auth/me`, {
             method: 'GET',
             headers: authHeaders,
@@ -110,6 +111,11 @@ export const orgCommand = new Command('org')
             process.exit(1);
           }
           myEmail = data.user.email;
+          // GET /api/v2/orgs expects member=pubkey; use pubkey when token has it, else email (API returns [] for email)
+          memberParam =
+            data.user.pubkey && data.user.pubkey.trim()
+              ? data.user.pubkey.trim()
+              : myEmail;
           spinner.text = `Fetching organizations for ${myEmail}...`;
         } catch (e) {
           spinner.fail('Request failed');
@@ -117,7 +123,7 @@ export const orgCommand = new Command('org')
           process.exit(1);
         }
 
-        const apiUrl = `${base}/api/v2/orgs?member=${encodeURIComponent(myEmail)}`;
+        const apiUrl = `${base}/api/v2/orgs?member=${encodeURIComponent(memberParam)}`;
         try {
           const { data, status } = await fetchJson<
             Array<{ id: string; name: string; slug: string }>
@@ -167,7 +173,7 @@ export const orgCommand = new Command('org')
   )
   .addCommand(
     new Command('create')
-      .description('Create a new organization')
+      .description('Create a new organization (requires API token)')
       .requiredOption('-n, --name <name>', 'Organization display name')
       .requiredOption('-s, --slug <slug>', 'Organization slug (e.g. my-org)')
       .action(

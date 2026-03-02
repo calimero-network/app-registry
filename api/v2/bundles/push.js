@@ -79,16 +79,28 @@ module.exports = async function handler(req, res) {
     const incomingKey = getPublicKeyFromManifest(bundleManifest);
     const versions = await store.getBundleVersions(bundleManifest.package);
     if (versions.length > 0) {
-      const existingManifest = await store.getBundleManifest(
+      const latestVersion = versions[0];
+      const manifestLatest = await store.getBundleManifest(
         bundleManifest.package,
-        versions[0]
+        latestVersion
       );
-      if (!isAllowedOwner(existingManifest, incomingKey)) {
+      if (!isAllowedOwner(manifestLatest, incomingKey)) {
         return res.status(403).json({
           error: 'not_owner',
           message:
             'Package name is already registered to a different key; you are not the owner.',
         });
+      }
+      // Author is locked from the oldest (first) version, not the latest
+      const oldestVersion = versions[versions.length - 1];
+      const manifestOldest = await store.getBundleManifest(
+        bundleManifest.package,
+        oldestVersion
+      );
+      const existingAuthor = manifestOldest?.metadata?.author;
+      if (existingAuthor) {
+        bundleManifest.metadata = bundleManifest.metadata || {};
+        bundleManifest.metadata.author = existingAuthor;
       }
     }
 
