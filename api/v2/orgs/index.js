@@ -1,6 +1,6 @@
 /**
- * GET /api/v2/orgs — list orgs (query: member=<email|pubkey> or package=<name>)
- * POST /api/v2/orgs — create org (Bearer token or signed request; body: name, slug)
+ * GET /api/v2/orgs — list orgs (query: member=<email> or package=<name>)
+ * POST /api/v2/orgs — create org (session or Bearer token; body: name, slug)
  */
 
 const {
@@ -11,41 +11,14 @@ const {
   getPkg2Org,
   addOrgMember,
 } = require('../../lib/org-storage');
-const { validatePublicKey } = require('../../lib/verify');
-const { requireSignedRequest } = require('../../lib/signed-request');
-const { kv } = require('../../lib/kv-client');
+const { requireAuth } = require('../../lib/auth-helpers');
 
-const TOKEN_PREFIX = 'apitoken:';
-
-/** Resolve email from Bearer token. Returns email string or null. */
-async function resolveTokenEmail(req) {
-  const auth = req.headers?.authorization;
-  if (
-    !auth ||
-    typeof auth !== 'string' ||
-    !auth.toLowerCase().startsWith('bearer ')
-  )
-    return null;
-  const token = auth.slice(7).trim();
-  if (!token) return null;
-  try {
-    const raw = await kv.get(TOKEN_PREFIX + token);
-    if (!raw) return null;
-    const data = JSON.parse(typeof raw === 'string' ? raw : String(raw));
-    return data?.email ?? null;
-  } catch {
-    return null;
-  }
-}
-
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const SLUG_REGEX = /^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$/;
 
 function cors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader(
-    'Access-Control-Allow-Headers',
-    'Content-Type, Authorization, X-Pubkey, X-Signature'
-  );
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 }
 
 module.exports = async function handler(req, res) {
@@ -62,61 +35,33 @@ module.exports = async function handler(req, res) {
         const org = await getOrg(orgId);
         return res.status(200).json(org ?? null);
       } catch (e) {
-        console.error('GET /api/v2/orgs?package error:', e);
-        return res.status(500).json({
-          error: 'internal',
-          message: e?.message ?? String(e),
-        });
+        return res
+          .status(500)
+          .json({ error: 'internal', message: e?.message ?? String(e) });
       }
     }
     const member = req.query?.member;
-    if (!member || typeof member !== 'string') {
-      return res.status(200).json([]);
-    }
-    const value = member.trim();
-    // Email-based lookup (new token-based CLI: no pubkey stored in token)
-    if (value.includes('@')) {
-      try {
-        const orgs = await getOrgsByMember(value);
-        return res.status(200).json(orgs);
-      } catch (e) {
-        console.error('GET /api/v2/orgs?member (email) error:', e);
-        return res.status(500).json({
-          error: 'internal',
-          message: e?.message ?? String(e),
-        });
-      }
-    }
-    if (!validatePublicKey(value)) {
+    if (!member || typeof member !== 'string') return res.status(200).json([]);
+    const email = member.trim();
+    if (!EMAIL_REGEX.test(email)) {
       return res.status(400).json({
         error: 'bad_request',
-        message: 'Query member must be a valid public key or email address',
+        message: 'Query member must be a valid email address',
       });
     }
     try {
-      const orgs = await getOrgsByMember(value);
+      const orgs = await getOrgsByMember(email);
       return res.status(200).json(orgs);
     } catch (e) {
-      console.error('GET /api/v2/orgs?member error:', e);
-      return res.status(500).json({
-        error: 'internal',
-        message: e?.message ?? String(e),
-      });
+      return res
+        .status(500)
+        .json({ error: 'internal', message: e?.message ?? String(e) });
     }
   }
 
   if (req.method === 'POST') {
-    // Try Bearer token first (email-based auth for CLI)
-    const tokenEmail = await resolveTokenEmail(req);
-    let memberIdentifier;
-    if (tokenEmail) {
-      memberIdentifier = tokenEmail;
-    } else {
-      // Fall back to signed request (pubkey-based auth)
-      const result = await requireSignedRequest(req, res);
-      if (result === null) return;
-      memberIdentifier = result.pubkey;
-    }
+    const user = await requireAuth(req, res);
+    if (!user) return;
 
     const { name, slug } = req.body || {};
     if (
@@ -147,20 +92,14 @@ module.exports = async function handler(req, res) {
         });
       }
       const orgId = slugNorm;
-      const org = {
-        id: orgId,
-        name: name.trim(),
-        slug: slugNorm,
-      };
+      const org = { id: orgId, name: name.trim(), slug: slugNorm };
       await setOrg(org);
-      await addOrgMember(orgId, memberIdentifier, 'owner');
+      await addOrgMember(orgId, user.email, 'owner');
       return res.status(201).json(org);
     } catch (e) {
-      console.error('POST /api/v2/orgs error:', e);
-      return res.status(500).json({
-        error: 'internal',
-        message: e?.message ?? String(e),
-      });
+      return res
+        .status(500)
+        .json({ error: 'internal', message: e?.message ?? String(e) });
     }
   }
 

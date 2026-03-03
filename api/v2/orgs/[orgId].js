@@ -1,7 +1,7 @@
 /**
- * GET /api/v2/orgs/:orgId — get org (public)
- * PATCH /api/v2/orgs/:orgId — update org (admin only)
- * DELETE /api/v2/orgs/:orgId — delete org (admin only)
+ * GET    /api/v2/orgs/:orgId — get org (public)
+ * PATCH  /api/v2/orgs/:orgId — update org (admin or owner)
+ * DELETE /api/v2/orgs/:orgId — delete org (owner only)
  */
 
 const {
@@ -10,14 +10,14 @@ const {
   setOrg,
   deleteOrg,
 } = require('../../lib/org-storage');
-const { requireOrgAdmin } = require('../../lib/signed-request');
+const {
+  requireOrgAdminOrOwner,
+  requireOrgOwner,
+} = require('../../lib/auth-helpers');
 
 function cors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader(
-    'Access-Control-Allow-Headers',
-    'Content-Type, Authorization, X-Pubkey, X-Signature'
-  );
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 }
 
 module.exports = async function handler(req, res) {
@@ -27,10 +27,9 @@ module.exports = async function handler(req, res) {
 
   const orgId = req.query?.orgId;
   if (!orgId || typeof orgId !== 'string') {
-    return res.status(400).json({
-      error: 'bad_request',
-      message: 'Missing orgId',
-    });
+    return res
+      .status(400)
+      .json({ error: 'bad_request', message: 'Missing orgId' });
   }
 
   let org;
@@ -38,30 +37,18 @@ module.exports = async function handler(req, res) {
     org = await getOrg(orgId);
     if (!org) {
       const idBySlug = await getOrgIdBySlug(orgId);
-      const resolvedId =
-        idBySlug == null
-          ? null
-          : typeof idBySlug === 'string'
-            ? idBySlug
-            : String(idBySlug);
-      if (resolvedId) org = await getOrg(resolvedId);
+      if (idBySlug) org = await getOrg(String(idBySlug));
     }
   } catch (e) {
-    console.error('[api/v2/orgs/:orgId] getOrg error:', e);
-    return res.status(500).json({
-      error: 'internal',
-      message:
-        process.env.NODE_ENV === 'development'
-          ? (e?.message ?? String(e))
-          : 'A server error has occurred',
-    });
+    return res
+      .status(500)
+      .json({ error: 'internal', message: e?.message ?? String(e) });
   }
 
   if (!org) {
-    return res.status(404).json({
-      error: 'not_found',
-      message: 'Organization not found',
-    });
+    return res
+      .status(404)
+      .json({ error: 'not_found', message: 'Organization not found' });
   }
 
   const resolvedOrgId = org.id;
@@ -71,41 +58,35 @@ module.exports = async function handler(req, res) {
   }
 
   if (req.method === 'PATCH') {
-    const result = await requireOrgAdmin(req, res, resolvedOrgId);
-    if (result === null) return;
+    const user = await requireOrgAdminOrOwner(req, res, resolvedOrgId);
+    if (!user) return;
     const { name, metadata } = req.body || {};
     const updates = {};
     if (typeof name === 'string') updates.name = name.trim();
     if (metadata !== undefined && typeof metadata === 'object')
       updates.metadata = metadata;
-    if (Object.keys(updates).length === 0) {
-      return res.status(200).json(org);
-    }
+    if (Object.keys(updates).length === 0) return res.status(200).json(org);
     try {
       const updated = { ...org, ...updates };
       await setOrg(updated);
       return res.status(200).json(updated);
     } catch (e) {
-      console.error('PATCH org error:', e);
-      return res.status(500).json({
-        error: 'internal',
-        message: e?.message ?? String(e),
-      });
+      return res
+        .status(500)
+        .json({ error: 'internal', message: e?.message ?? String(e) });
     }
   }
 
   if (req.method === 'DELETE') {
-    const result = await requireOrgAdmin(req, res, resolvedOrgId);
-    if (result === null) return;
+    const user = await requireOrgOwner(req, res, resolvedOrgId);
+    if (!user) return;
     try {
       await deleteOrg(resolvedOrgId);
       return res.status(204).end();
     } catch (e) {
-      console.error('DELETE org error:', e);
-      return res.status(500).json({
-        error: 'internal',
-        message: e?.message ?? String(e),
-      });
+      return res
+        .status(500)
+        .json({ error: 'internal', message: e?.message ?? String(e) });
     }
   }
 
