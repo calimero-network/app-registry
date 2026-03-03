@@ -1,5 +1,6 @@
 /**
  * Organization storage (Redis) for NPM-style organizations.
+ * Members are identified by email address (not pubkey).
  * Keys: org:{org_id}, org:by_slug:{slug}, org:{org_id}:members, org:{org_id}:roles, pkg2org:{package}
  */
 
@@ -12,6 +13,10 @@ const ROLES_SUFFIX = ':roles';
 const PKG2ORG_PREFIX = 'pkg2org:';
 const MEMBER2ORGS_PREFIX = 'member2orgs:';
 const ORG_PACKAGES_SUFFIX = ':packages';
+
+function _normEmail(email) {
+  return (email && typeof email === 'string' ? email : '').toLowerCase();
+}
 
 /**
  * @param {string} orgId
@@ -72,7 +77,7 @@ async function getOrgBySlug(slug) {
 
 /**
  * @param {string} orgId
- * @returns {Promise<string[]>} list of pubkeys
+ * @returns {Promise<string[]>} list of member emails
  */
 async function getOrgMembers(orgId) {
   if (!orgId) return [];
@@ -83,78 +88,103 @@ async function getOrgMembers(orgId) {
 
 /**
  * @param {string} orgId
- * @param {string} pubkey
+ * @param {string} email
  * @returns {Promise<boolean>}
  */
-async function isOrgMember(orgId, pubkey) {
-  if (!orgId || !pubkey) return false;
+async function isOrgMember(orgId, email) {
+  if (!orgId || !email) return false;
   const key = ORG_PREFIX + orgId + MEMBERS_SUFFIX;
-  const result = await kv.sIsMember(key, pubkey);
-  return Boolean(result);
+  const norm = _normEmail(email);
+  const a = await kv.sIsMember(key, norm);
+  const b = await kv.sIsMember(key, email);
+  return Boolean(a || b);
 }
+
+/** @type {ReadonlySet<string>} */
+const VALID_ROLES = new Set(['owner', 'admin', 'member']);
 
 /**
  * @param {string} orgId
- * @param {string} pubkey
- * @param {string} [role] e.g. 'admin' | 'member'
+ * @param {string} email
+ * @param {string} [role] 'owner' | 'admin' | 'member'
  */
-async function addOrgMember(orgId, pubkey, role) {
-  if (!orgId || !pubkey) throw new Error('orgId and pubkey required');
+async function addOrgMember(orgId, email, role) {
+  if (!orgId || !email) throw new Error('orgId and email required');
+  const norm = _normEmail(email);
+  const r = role && VALID_ROLES.has(role) ? role : 'member';
   const key = ORG_PREFIX + orgId + MEMBERS_SUFFIX;
-  await kv.sAdd(key, pubkey);
-  await kv.sAdd(MEMBER2ORGS_PREFIX + pubkey, orgId);
-  if (role) {
-    const rolesKey = ORG_PREFIX + orgId + ROLES_SUFFIX;
-    await kv.hSet(rolesKey, { [pubkey]: role });
-  }
-}
-
-/**
- * @param {string} orgId
- * @param {string} pubkey
- */
-async function removeOrgMember(orgId, pubkey) {
-  if (!orgId || !pubkey) return;
-  const key = ORG_PREFIX + orgId + MEMBERS_SUFFIX;
-  await kv.sRem(key, pubkey);
-  await kv.sRem(MEMBER2ORGS_PREFIX + pubkey, orgId);
+  await kv.sAdd(key, norm);
+  await kv.sAdd(MEMBER2ORGS_PREFIX + norm, orgId);
   const rolesKey = ORG_PREFIX + orgId + ROLES_SUFFIX;
-  await kv.hDel(rolesKey, pubkey);
+  await kv.hSet(rolesKey, { [norm]: r });
 }
 
 /**
  * @param {string} orgId
- * @param {string} pubkey
+ * @param {string} email
+ */
+async function removeOrgMember(orgId, email) {
+  if (!orgId || !email) return;
+  const norm = _normEmail(email);
+  const key = ORG_PREFIX + orgId + MEMBERS_SUFFIX;
+  await kv.sRem(key, norm);
+  await kv.sRem(key, email);
+  await kv.sRem(MEMBER2ORGS_PREFIX + norm, orgId);
+  await kv.sRem(MEMBER2ORGS_PREFIX + email, orgId);
+  const rolesKey = ORG_PREFIX + orgId + ROLES_SUFFIX;
+  await kv.hDel(rolesKey, norm);
+  await kv.hDel(rolesKey, email);
+}
+
+/**
+ * @param {string} orgId
+ * @param {string} email
  * @returns {Promise<string | null>} role or null
  */
-async function getOrgMemberRole(orgId, pubkey) {
-  if (!orgId || !pubkey) return null;
+async function getOrgMemberRole(orgId, email) {
+  if (!orgId || !email) return null;
   const rolesKey = ORG_PREFIX + orgId + ROLES_SUFFIX;
-  const role = await kv.hGet(rolesKey, pubkey);
+  const norm = _normEmail(email);
+  const role =
+    (await kv.hGet(rolesKey, norm)) || (await kv.hGet(rolesKey, email));
   return role || null;
 }
 
 /**
  * Update a member's role without touching their membership.
  * @param {string} orgId
- * @param {string} pubkey
- * @param {string} role 'admin' | 'member'
+ * @param {string} email
+ * @param {string} role 'owner' | 'admin' | 'member'
  */
-async function updateOrgMemberRole(orgId, pubkey, role) {
-  if (!orgId || !pubkey || !role)
-    throw new Error('orgId, pubkey and role required');
+async function updateOrgMemberRole(orgId, email, role) {
+  if (!orgId || !email || !role)
+    throw new Error('orgId, email and role required');
+  if (!VALID_ROLES.has(role))
+    throw new Error('role must be owner, admin, or member');
+  const norm = _normEmail(email);
   const rolesKey = ORG_PREFIX + orgId + ROLES_SUFFIX;
-  await kv.hSet(rolesKey, { [pubkey]: role });
+  await kv.hSet(rolesKey, { [norm]: role });
+  if (norm !== email) await kv.hDel(rolesKey, email);
 }
 
 /**
  * @param {string} orgId
- * @param {string} pubkey
- * @returns {Promise<boolean>} true if pubkey is admin of org
+ * @param {string} email
+ * @returns {Promise<boolean>} true if email is owner of org
  */
-async function isOrgAdmin(orgId, pubkey) {
-  const role = await getOrgMemberRole(orgId, pubkey);
-  return role === 'admin';
+async function isOrgOwner(orgId, email) {
+  const role = await getOrgMemberRole(orgId, email);
+  return role === 'owner';
+}
+
+/**
+ * @param {string} orgId
+ * @param {string} email
+ * @returns {Promise<boolean>} true if email is admin or owner of org
+ */
+async function isOrgAdmin(orgId, email) {
+  const role = await getOrgMemberRole(orgId, email);
+  return role === 'admin' || role === 'owner';
 }
 
 /**
@@ -200,24 +230,33 @@ async function getPackagesByOrg(orgId) {
 }
 
 /**
- * Get org IDs that a member (pubkey) belongs to.
- * @param {string} pubkey
+ * Get org IDs that a member (email) belongs to.
+ * @param {string} email
  * @returns {Promise<string[]>}
  */
-async function getOrgIdsByMember(pubkey) {
-  if (!pubkey) return [];
-  const key = MEMBER2ORGS_PREFIX + pubkey;
-  const ids = await kv.sMembers(key);
-  return Array.isArray(ids) ? ids : [];
+async function getOrgIdsByMember(email) {
+  if (!email) return [];
+  const norm = _normEmail(email);
+  const keyNorm = MEMBER2ORGS_PREFIX + norm;
+  const keyRaw = MEMBER2ORGS_PREFIX + email;
+  const [idsNorm, idsRaw] = await Promise.all([
+    kv.sMembers(keyNorm),
+    norm !== email ? kv.sMembers(keyRaw) : Promise.resolve([]),
+  ]);
+  const set = new Set([
+    ...(Array.isArray(idsNorm) ? idsNorm : []),
+    ...(Array.isArray(idsRaw) ? idsRaw : []),
+  ]);
+  return [...set];
 }
 
 /**
- * Get full org documents for a member (pubkey).
- * @param {string} pubkey
+ * Get full org documents for a member (email).
+ * @param {string} email
  * @returns {Promise<object[]>}
  */
-async function getOrgsByMember(pubkey) {
-  const orgIds = await getOrgIdsByMember(pubkey);
+async function getOrgsByMember(email) {
+  const orgIds = await getOrgIdsByMember(email);
   const orgs = [];
   for (const id of orgIds) {
     const org = await getOrg(id);
@@ -239,8 +278,8 @@ async function deleteOrg(orgId) {
 
   // Remove all member reverse indexes
   const members = await getOrgMembers(orgId);
-  for (const pk of members) {
-    await kv.sRem(MEMBER2ORGS_PREFIX + pk, orgId);
+  for (const email of members) {
+    await kv.sRem(MEMBER2ORGS_PREFIX + email, orgId);
   }
 
   // Remove all package reverse indexes
@@ -262,18 +301,25 @@ async function deleteOrg(orgId) {
 }
 
 /**
- * Check if incomingKey can publish to package: either owner (existing rule) or org member when package is linked to org.
- * @param {object} existingManifest - current bundle manifest (for owner check)
- * @param {string} incomingKey - pubkey from request
+ * Check if authorEmail can publish to package: either owner (pubkey match) or org member by email.
+ * @param {object} existingManifest - current bundle manifest (for owner pubkey check)
+ * @param {string} incomingKey - pubkey from bundle signature
  * @param {string} packageName - package name
+ * @param {string} [authorEmail] - email of author (from session/token), used for org membership check
  * @returns {Promise<boolean>}
  */
-async function isAllowedToPublish(existingManifest, incomingKey, packageName) {
+async function isAllowedToPublish(
+  existingManifest,
+  incomingKey,
+  packageName,
+  authorEmail
+) {
   const { isAllowedOwner } = require('./verify');
   if (isAllowedOwner(existingManifest, incomingKey)) return true;
   const orgId = await getPkg2Org(packageName);
   if (!orgId) return false;
-  return isOrgMember(orgId, incomingKey);
+  if (authorEmail) return isOrgMember(orgId, authorEmail);
+  return false;
 }
 
 module.exports = {
@@ -287,6 +333,7 @@ module.exports = {
   removeOrgMember,
   getOrgMemberRole,
   updateOrgMemberRole,
+  isOrgOwner,
   isOrgAdmin,
   getOrgIdsByMember,
   getOrgsByMember,

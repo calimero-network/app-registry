@@ -1,6 +1,6 @@
 /**
- * GET /api/v2/orgs/:orgId/members — list members (public)
- * POST /api/v2/orgs/:orgId/members — add member (admin only; body: pubkey, role?)
+ * GET  /api/v2/orgs/:orgId/members — list members (email + role, public)
+ * POST /api/v2/orgs/:orgId/members — add member by email (owner for admin, admin/owner for member)
  */
 
 const {
@@ -9,24 +9,24 @@ const {
   getOrgMemberRole,
   addOrgMember,
 } = require('../../../../lib/org-storage');
-const { validatePublicKey } = require('../../../../lib/verify');
-const { requireOrgAdmin } = require('../../../../lib/signed-request');
+const {
+  requireOrgAdminOrOwner,
+  requireOrgOwner,
+} = require('../../../../lib/auth-helpers');
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function cors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader(
-    'Access-Control-Allow-Headers',
-    'Content-Type, Authorization, X-Pubkey, X-Signature'
-  );
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 }
 
 module.exports = async function handler(req, res) {
   const orgId = req.query?.orgId;
   if (!orgId || typeof orgId !== 'string') {
-    return res.status(400).json({
-      error: 'bad_request',
-      message: 'Missing orgId',
-    });
+    return res
+      .status(400)
+      .json({ error: 'bad_request', message: 'Missing orgId' });
   }
 
   cors(res);
@@ -37,64 +37,70 @@ module.exports = async function handler(req, res) {
   try {
     org = await getOrg(orgId);
   } catch (e) {
-    console.error('getOrg error:', e);
-    return res.status(500).json({
-      error: 'internal',
-      message: e?.message ?? String(e),
-    });
+    return res
+      .status(500)
+      .json({ error: 'internal', message: e?.message ?? String(e) });
   }
-
   if (!org) {
-    return res.status(404).json({
-      error: 'not_found',
-      message: 'Organization not found',
-    });
+    return res
+      .status(404)
+      .json({ error: 'not_found', message: 'Organization not found' });
   }
 
   if (req.method === 'GET') {
     try {
-      const pubkeys = await getOrgMembers(orgId);
+      const emails = await getOrgMembers(orgId);
       const members = [];
-      for (const pk of pubkeys) {
-        const role = await getOrgMemberRole(orgId, pk);
-        members.push({ pubkey: pk, role: role || 'member' });
+      for (const email of emails) {
+        const role = await getOrgMemberRole(orgId, email);
+        members.push({ email, role: role || 'member' });
       }
       return res.status(200).json({ members });
     } catch (e) {
-      console.error('GET members error:', e);
-      return res.status(500).json({
-        error: 'internal',
-        message: e?.message ?? String(e),
-      });
+      return res
+        .status(500)
+        .json({ error: 'internal', message: e?.message ?? String(e) });
     }
   }
 
   if (req.method === 'POST') {
-    const result = await requireOrgAdmin(req, res, orgId);
-    if (result === null) return;
-    const { pubkey, role } = req.body || {};
-    if (!pubkey || typeof pubkey !== 'string') {
+    const { email, role } = req.body || {};
+    if (!email || typeof email !== 'string') {
       return res.status(400).json({
         error: 'bad_request',
-        message: 'Body must include pubkey (string)',
+        message: 'Body must include email (string)',
       });
     }
-    const pk = pubkey.trim();
-    if (!validatePublicKey(pk)) {
+    const memberEmail = email.trim();
+    if (!EMAIL_REGEX.test(memberEmail)) {
       return res.status(400).json({
         error: 'bad_request',
-        message: 'pubkey is not a valid public key',
+        message: 'email is not a valid email address',
       });
+    }
+    const roleNorm = role === 'admin' ? 'admin' : 'member';
+    // Adding admin requires owner; adding member requires admin or owner
+    if (roleNorm === 'admin') {
+      const user = await requireOrgOwner(req, res, orgId);
+      if (!user) return;
+    } else {
+      const user = await requireOrgAdminOrOwner(req, res, orgId);
+      if (!user) return;
     }
     try {
-      await addOrgMember(orgId, pk, role === 'admin' ? 'admin' : 'member');
+      const existingRole = await getOrgMemberRole(orgId, memberEmail);
+      if (existingRole) {
+        return res.status(409).json({
+          error: 'conflict',
+          message: 'This email is already a member of the organization',
+        });
+      }
+      await addOrgMember(orgId, memberEmail, roleNorm);
       return res.status(204).end();
     } catch (e) {
-      console.error('POST member error:', e);
-      return res.status(500).json({
-        error: 'internal',
-        message: e?.message ?? String(e),
-      });
+      return res
+        .status(500)
+        .json({ error: 'internal', message: e?.message ?? String(e) });
     }
   }
 

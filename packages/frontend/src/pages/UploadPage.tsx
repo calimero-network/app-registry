@@ -295,10 +295,32 @@ mero-sign sign res/bundle-temp/manifest.json \\
         <Pre>{`# Configure registry (one-time)
 calimero-registry config set registry-url https://apps.calimero.network
 # Optional
-calimero-registry config set api-key <your-api-key>
+calimero-registry config set api-key <your-api-key>`}</Pre>
 
-# Push
-calimero-registry bundle push --remote application-1.0.0.mpk`}</Pre>
+        <div className='mt-3 space-y-2'>
+          <p className='text-[12px] text-neutral-400 font-light'>Next steps:</p>
+          <div className='grid grid-cols-[auto_1fr] gap-x-3 gap-y-2.5 text-[12px]'>
+            <span className='flex-shrink-0 w-5 h-5 rounded-full bg-brand-600/10 text-brand-600 text-[11px] font-medium flex items-center justify-center mt-0.5'>
+              1
+            </span>
+            <div>
+              <p className='text-neutral-300 mb-1'>Sign the manifest:</p>
+              <pre className='bg-neutral-950 border border-neutral-800 rounded-md px-3 py-2 text-[12px] text-neutral-300 font-mono overflow-x-auto leading-relaxed'>
+                {`mero-sign sign application-1.0.0.mpk/manifest.json \\
+  --key key.json`}
+              </pre>
+            </div>
+            <span className='flex-shrink-0 w-5 h-5 rounded-full bg-brand-600/10 text-brand-600 text-[11px] font-medium flex items-center justify-center mt-0.5'>
+              2
+            </span>
+            <div>
+              <p className='text-neutral-300 mb-1'>Push the bundle:</p>
+              <pre className='bg-neutral-950 border border-neutral-800 rounded-md px-3 py-2 text-[12px] text-neutral-300 font-mono overflow-x-auto leading-relaxed'>
+                {`calimero-registry bundle push application-1.0.0.mpk --remote`}
+              </pre>
+            </div>
+          </div>
+        </div>
 
         <p className='text-[12px] text-neutral-500 font-light mt-3'>
           Once pushed, your app appears on the{' '}
@@ -318,7 +340,7 @@ calimero-registry bundle push --remote application-1.0.0.mpk`}</Pre>
               './build-bundle.sh or calimero-registry bundle create',
             ],
             ['Sign the bundle', 'mero-sign sign manifest.json --key key.json'],
-            ['Publish', 'calimero-registry bundle push --remote app.mpk'],
+            ['Publish', 'calimero-registry bundle push app.mpk --remote'],
           ].map(([title, desc], i) => (
             <div key={i} className='flex items-start gap-3'>
               <span className='flex-shrink-0 w-5 h-5 rounded-full bg-brand-600/10 text-brand-600 text-[11px] font-medium flex items-center justify-center mt-0.5'>

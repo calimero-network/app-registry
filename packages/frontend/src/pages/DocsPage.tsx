@@ -364,7 +364,7 @@ export default function DocsPage() {
                 ],
                 [
                   'public_key',
-                  'Base64url-encoded 32-byte public key. Share this with org admins when joining an organization.',
+                  'Base64url-encoded 32-byte public key. Embedded in every signed manifest so the registry and nodes can verify the signature.',
                 ],
                 [
                   'signer_id',
@@ -412,15 +412,19 @@ export default function DocsPage() {
               <Code>400 invalid_signature</Code>.
             </P>
 
-            <SubHeading>Using your org key with mero-sign</SubHeading>
+            <SubHeading>mero-sign and org membership</SubHeading>
             <P>
-              Your org identity keypair (generated in the Organizations page)
-              can be downloaded as a mero-sign-compatible key file. Use it to
-              sign bundle edits when you are an org member:
+              Org members sign bundles with their own personal mero-sign key —
+              not a shared org key. The registry accepts a bundle from an org
+              member when the bundle has a valid Ed25519 signature (any key) and
+              the pusher's authenticated email is in the org's member list.
             </P>
-            <CodeBlock>{`# 1. Organizations page → "Download key file" → saves org-key.json
-# 2. Sign the manifest you downloaded from the Edit metadata page:
-mero-sign sign manifest.json --key org-key.json`}</CodeBlock>
+            <CodeBlock>{`# Each developer keeps their own key
+mero-sign generate-key --output my-key.json
+echo "my-key.json" >> .gitignore
+
+# Sign as usual — the registry will validate org membership via your email
+mero-sign sign manifest.json --key my-key.json`}</CodeBlock>
           </div>
         </section>
 
@@ -444,8 +448,12 @@ pnpm add -g @calimero-network/registry-cli`}</CodeBlock>
             <CodeBlock>{`# Set registry URL once (saved to config file)
 calimero-registry config set registry-url https://apps.calimero.network
 
-# Or use an environment variable per-session
-export CALIMERO_REGISTRY_URL=https://apps.calimero.network`}</CodeBlock>
+# Set API key once (required for publishing and org management)
+calimero-registry config set api-key <token>
+
+# Or use environment variables per-session
+export CALIMERO_REGISTRY_URL=https://apps.calimero.network
+export CALIMERO_API_KEY=<token>`}</CodeBlock>
 
             <SubHeading>bundle create</SubHeading>
             <P>
@@ -518,29 +526,31 @@ mero-sign sign manifest.json --key key.json
 calimero-registry bundle edit com.example.myapp 1.0.0 --remote \\
   --manifest signed-manifest.json`}</CodeBlock>
 
-            <SubHeading>org commands</SubHeading>
+            <SubHeading>org (Organization) commands</SubHeading>
             <P>
-              All write operations require your org key via <Code>-k</Code>:
+              All Organization (org) write operations require an API token —
+              configure it once in the Configuration block above. Get your token
+              from the Organizations page in the web UI (CLI Access section).
             </P>
-            <CodeBlock>{`# List your organizations
-calimero-registry org -k org-key.json list
+            <CodeBlock>{`# List your organizations (resolves your email from the token automatically)
+calimero-registry org list
 
 # Create an organization
-calimero-registry org -k org-key.json create -n "My Org" -s "my-org"
+calimero-registry org create -n "My Org" -s "my-org"
 
-# Get org details
+# Get org details (public — no token needed)
 calimero-registry org get <org-id>
 
-# Member management (list is public — no keypair needed)
+# Member management — add/remove by email
 calimero-registry org members list   <org-id>
-calimero-registry org -k org-key.json members add    <org-id> <pubkey> --role member
-calimero-registry org -k org-key.json members add    <org-id> <pubkey> --role admin
-calimero-registry org -k org-key.json members update <org-id> <pubkey> --role admin
-calimero-registry org -k org-key.json members remove <org-id> <pubkey>
+calimero-registry org members add    <org-id> alice@example.com --role member
+calimero-registry org members add    <org-id> alice@example.com --role admin
+calimero-registry org members update <org-id> alice@example.com --role admin
+calimero-registry org members remove <org-id> alice@example.com
 
 # Package linking
-calimero-registry org -k org-key.json packages link   <org-id> com.example.myapp
-calimero-registry org -k org-key.json packages unlink <org-id> com.example.myapp`}</CodeBlock>
+calimero-registry org packages link   <org-id> com.example.myapp
+calimero-registry org packages unlink <org-id> com.example.myapp`}</CodeBlock>
           </div>
         </section>
 
@@ -665,7 +675,7 @@ calimero-registry bundle push res/myapp-1.0.0.mpk --remote`}</CodeBlock>
               items={[
                 [
                   'Open your app',
-                  'Find your app in /apps. You must be signed in as the author, or have your org pubkey set in the Organizations page as a member of the linked org.',
+                  'Find your app in /apps. You must be signed in as the author, or be a member of the Organization (org) linked to the package.',
                 ],
                 [
                   'Click Edit metadata',
@@ -687,11 +697,8 @@ calimero-registry bundle push res/myapp-1.0.0.mpk --remote`}</CodeBlock>
                 [
                   'Sign',
                   <>
-                    <CodeBlock>{`# If you are the original author:
-mero-sign sign manifest.json --key key.json
-
-# If you are editing as an org member:
-mero-sign sign manifest.json --key org-key.json`}</CodeBlock>
+                    <CodeBlock>{`# Sign with your own mero-sign key (original author or org member)
+mero-sign sign manifest.json --key key.json`}</CodeBlock>
                   </>,
                 ],
                 [
@@ -740,7 +747,7 @@ mero-sign sign manifest.json --key org-key.json`}</CodeBlock>
                 ],
                 [
                   'Same signer',
-                  'The same key that published 1.0.0 (or a key in manifest.owners, or an org member) must sign 1.1.0.',
+                  'The same key that published 1.0.0 (or a member of the Organization linked to the package) must sign 1.1.0.',
                 ],
               ].map(([rule, desc]) => (
                 <div key={rule} className='flex gap-3 text-[12px]'>
@@ -776,90 +783,120 @@ calimero-registry bundle push dist/myapp-1.1.0 --remote`}</CodeBlock>
           <SectionHeading id='organizations'>Organizations</SectionHeading>
           <div className='space-y-4'>
             <P>
-              Organizations let teams collectively manage packages. Any org
-              member can push new versions and edit metadata for packages linked
-              to the org — without being the original Google-account author.
+              Organizations let teams collectively own and manage packages. Any
+              org member can push new versions and edit metadata for packages
+              linked to the org — without being the original Google-account
+              author. Members are identified by their{' '}
+              <strong className='text-neutral-200'>email address</strong>. Org
+              management in the browser uses your Google session; the CLI uses
+              an API token.
             </P>
 
-            <SubHeading>Key model — each member has their own key</SubHeading>
-            <P>
-              There is no shared org key. Each person generates their own
-              independent Ed25519 keypair. The admin records each member's{' '}
-              <strong className='text-neutral-200'>public key</strong>. When a
-              member signs a manifest, the registry checks whether their pubkey
-              is in the org's member set.
-            </P>
+            <SubHeading>How it works</SubHeading>
             <Diagram>{`  ┌─────────────────────────────────────────────────────────────────┐
   │  ORGANIZATION  "my-org"                                         │
   │                                                                  │
-  │  Members                      Linked Packages                   │
+  │  Members (by email)           Linked Packages                   │
   │  ────────────────────────────  ────────────────────────────────  │
-  │  Admin A  pubkey: AAA...       com.my-org.app-1                  │
-  │  Member B pubkey: BBB...       com.my-org.app-2                  │
-  │  Member C pubkey: CCC...                                         │
+  │  admin@example.com  (admin)    com.my-org.app-1                  │
+  │  alice@example.com  (member)   com.my-org.app-2                  │
+  │  bob@example.com    (member)                                     │
   └─────────────────────────────────────────────────────────────────┘
 
-  Member B signs a manifest edit with their key (BBB):
-    → Registry: is BBB in org "my-org" members?  YES  → 200 OK
+  alice@example.com pushes a new version of com.my-org.app-1:
+    Bundle must have a valid Ed25519 signature (any key — mero-sign)
+    Auth: Google session or Bearer API token resolves → alice@example.com
+    Registry: is alice@example.com in org "my-org" members?  YES  → 200 OK
 
-  After admin removes B from the org:
-    → Registry: is BBB in org "my-org" members?  NO   → 403 Forbidden`}</Diagram>
+  After admin removes alice:
+    Registry: is alice@example.com in org "my-org" members?  NO   → 403 Forbidden`}</Diagram>
 
-            <SubHeading>Setting up an organization (browser)</SubHeading>
+            <SubHeading>Setting up an organization — step by step</SubHeading>
             <Steps
               items={[
                 [
-                  'Generate your keypair',
-                  'Open Organizations from the header dropdown. Click "Generate keypair". Your Ed25519 identity is created and stored in this browser session.',
-                ],
-                [
-                  'Download your key file',
-                  <>
-                    Click "Download key file" → saves as{' '}
-                    <Code>org-key.json</Code>. You will use this for CLI org
-                    commands and for signing bundle edits as an org member.
-                  </>,
+                  'Sign in',
+                  'Click "Sign in" in the header and authenticate with Google. Your email is your org identity.',
                 ],
                 [
                   'Create the org',
-                  'Fill in the name and slug, click "Create organization". You automatically become the admin.',
+                  <>
+                    Open{' '}
+                    <strong className='text-neutral-200'>Organizations</strong>{' '}
+                    from the header dropdown. Fill in the display name and slug,
+                    click "Create organization". You automatically become the
+                    first admin.
+                  </>,
                 ],
                 [
-                  'Add members',
-                  "On the org detail page, paste each member's public key (they get it from their own Organizations page — shown as pubkey under their identity) and set their role.",
+                  'Get a CLI API token',
+                  <>
+                    On the Organizations page, expand the{' '}
+                    <strong className='text-neutral-200'>CLI Access</strong>{' '}
+                    section. Click "Generate token", copy the token (shown only
+                    once), then run:
+                    <CodeBlock>{`calimero-registry config set api-key <token>`}</CodeBlock>
+                  </>,
+                ],
+                [
+                  'Add members by email',
+                  <>
+                    In the org detail page, enter a member's email address and
+                    their role (admin or member). Members must have a Google
+                    account to log in and push bundles. You can also add from
+                    the CLI:
+                    <CodeBlock>{`calimero-registry org members add <org-id> alice@example.com --role member`}</CodeBlock>
+                  </>,
                 ],
                 [
                   'Link packages',
-                  'Still on the org detail page, enter the package name in the "Link package" form. You must be signed in (Google) as the package author to link.',
+                  <>
+                    In the org detail page "Linked packages" section, enter the
+                    package name. You must be the original author of the package
+                    (or already an org admin). CLI equivalent:
+                    <CodeBlock>{`calimero-registry org packages link <org-id> com.my-org.app-1`}</CodeBlock>
+                  </>,
                 ],
               ]}
             />
 
-            <SubHeading>Member editing flow</SubHeading>
-            <CodeBlock>{`# Member B editing com.my-org.app-1:
+            <SubHeading>Publishing as an org member</SubHeading>
+            <P>
+              Org members still need to sign bundles with mero-sign — the
+              difference is they authenticate to the registry via their own
+              Google session or API token, and the registry checks their email
+              against the org member list.
+            </P>
+            <CodeBlock>{`# alice@example.com publishing a new version of com.my-org.app-1:
 
-# 1. Open /apps/com.my-org.app-1
-#    The edit pencil is visible because B is an org member
+# 1. Build WASM
+cargo build --target wasm32-unknown-unknown --release
+cp target/wasm32-unknown-unknown/release/app.wasm ./app.wasm
 
-# 2. Click Edit metadata → make changes → Download manifest.json
+# 2. Create bundle files
+calimero-registry bundle create app.wasm com.my-org.app-1 2.0.0 \\
+  --output dist/app-2.0.0
 
-# 3. Sign with org key
-mero-sign sign manifest.json --key org-key.json
+# 3. Sign the manifest with Alice's own key
+mero-sign sign dist/app-2.0.0/manifest.json --key alice-key.json
 
-# 4. Push the edit
-calimero-registry bundle edit com.my-org.app-1 1.0.0 \\
-  --remote --manifest signed-manifest.json`}</CodeBlock>
+# 4. Push (CLI uses CALIMERO_API_KEY / config api-key for auth)
+calimero-registry bundle push dist/app-2.0.0 --remote
+# → Registry verifies Ed25519 signature ✓
+# → Registry resolves alice@example.com from token ✓
+# → Registry confirms alice is a member of "my-org" ✓
+# → Bundle stored successfully`}</CodeBlock>
 
             <SubHeading>Member roles</SubHeading>
             <div className='rounded-lg border border-neutral-800 bg-neutral-900/40 p-4 space-y-2.5'>
               {[
                 [
                   'Admin',
-                  'Can add/remove members, change roles, link/unlink packages, update org settings, delete org.',
+                  'Can add/remove members by email, change roles, link/unlink packages, update org settings, delete org.',
                 ],
                 [
                   'Member',
-                  'Can sign new versions and edit metadata for org-linked packages. Cannot manage the org itself.',
+                  'Can push new versions and edit metadata for org-linked packages. Cannot manage the org itself.',
                 ],
               ].map(([role, desc]) => (
                 <div key={role} className='flex gap-3 text-[12px]'>
@@ -873,20 +910,29 @@ calimero-registry bundle edit com.my-org.app-1 1.0.0 \\
 
             <SubHeading>Revoking access</SubHeading>
             <P>
-              When an admin removes a member, their pubkey is deleted from the
-              member set immediately. Any future manifest submission signed with
-              that pubkey is rejected with <Code>403</Code>. No key rotation is
-              needed — the server simply no longer recognizes that pubkey as
-              authorized.
+              When an admin removes a member, their email is deleted from the
+              member set immediately. Any further push attempt authenticated
+              with that email is rejected with <Code>403</Code>. No key rotation
+              needed — the registry simply no longer recognizes that email as
+              authorized for the org.
             </P>
 
-            <SubHeading>CLI org management</SubHeading>
-            <CodeBlock>{`# Use your downloaded org-key.json for all write operations
-calimero-registry org -k org-key.json create -n "My Org" -s "my-org"
-calimero-registry org -k org-key.json members add    <org-id> <member-pubkey>
-calimero-registry org -k org-key.json members add    <org-id> <pubkey> --role admin
-calimero-registry org -k org-key.json members remove <org-id> <member-pubkey>
-calimero-registry org -k org-key.json packages link  <org-id> com.my-org.app-1`}</CodeBlock>
+            <SubHeading>CLI Organization (org) management reference</SubHeading>
+            <CodeBlock>{`# Requires CALIMERO_API_KEY set or configured (see CLI → Configuration)
+
+calimero-registry org list
+calimero-registry org create -n "My Org" -s "my-org"
+calimero-registry org get <org-id>
+calimero-registry org update <org-id> --name "New Name"
+calimero-registry org delete <org-id>
+
+calimero-registry org members list   <org-id>
+calimero-registry org members add    <org-id> alice@example.com --role member
+calimero-registry org members update <org-id> alice@example.com --role admin
+calimero-registry org members remove <org-id> alice@example.com
+
+calimero-registry org packages link   <org-id> com.my-org.app-1
+calimero-registry org packages unlink <org-id> com.my-org.app-1`}</CodeBlock>
           </div>
         </section>
 

@@ -99,11 +99,11 @@ The same process runs on the node side when the Calimero Desktop app installs a 
 
 Who can push a new version or PATCH metadata for a package:
 
-| Scenario           | Authorization                                                                                                                        |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
-| First publish      | Any signed request — signer becomes the owner                                                                                        |
-| New version / edit | Signer's pubkey matches original signer, OR pubkey is in `manifest.owners[]`, OR pubkey is a member of the org linked to the package |
-| Delete version     | Signed in (Google session) as the `metadata.author` email                                                                            |
+| Scenario           | Authorization                                                                                                                    |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| First publish      | Any signed request — signer's email (from Google session or API token) becomes the author                                        |
+| New version / edit | Bundle has a valid Ed25519 signature AND pusher's email matches original author, OR is a member of the org linked to the package |
+| Delete version     | Signed in (Google session) as the `metadata.author` email                                                                        |
 
 `metadata.author` is set server-side from the Google session on first push and cannot be overwritten via edit.
 
@@ -111,39 +111,53 @@ Who can push a new version or PATCH metadata for a package:
 
 ## Organizations
 
-Organizations let teams collectively manage packages without sharing a key.
-
-**Each member has their own independent Ed25519 keypair.** The org stores each member's _public key_. The registry checks membership on every manifest submission.
+Organizations let teams collectively manage packages. Members are identified by **email address** — no shared keys required. Browser org management uses your Google session. CLI org management uses an API token.
 
 ```
-Admin A (pubkey: AAA) → creates org → adds Member B (pubkey: BBB)
-                     → links com.my-org.app to org
+admin@example.com creates org → adds alice@example.com (member)
+                              → links com.my-org.app to org
 
-Member B edits com.my-org.app:
-  → signs manifest with BBB's key
-  → registry: is BBB in org members? YES → 200 OK
+alice@example.com pushes a new version:
+  → bundle signed with Alice's mero-sign key (any valid Ed25519 key)
+  → CLI authenticates via API token → resolves alice@example.com
+  → registry: is alice@example.com in org members? YES → 200 OK
 
-Admin A removes B:
-  → registry: is BBB in org members? NO  → 403 Forbidden (immediate)
+Admin removes alice:
+  → registry: is alice@example.com in org members? NO → 403 Forbidden (immediate)
 ```
+
+### Getting started with orgs
+
+1. **Sign in** with Google at the registry web UI
+2. **Create an org** from the Organizations page — you become the admin
+3. **Get a CLI API token** from the Organizations page → CLI Access section:
+   ```bash
+   calimero-registry config set api-key <token>
+   # or: export CALIMERO_API_KEY=<token>
+   ```
+4. **Add members** by email from the web UI or CLI
+5. **Link packages** from the web UI or CLI (must be the original package author or org admin)
+6. **Members push bundles** using their own mero-sign key — the registry checks their email against the org
 
 ### Org CLI commands
 
-All write operations require your org key file (`-k org-key.json`):
+All write operations require an API token (set via `config set api-key` or `CALIMERO_API_KEY`):
 
 ```bash
-# Create
-calimero-registry org -k org-key.json create -n "My Org" -s "my-org"
+# List your orgs (resolves your email from the token automatically)
+calimero-registry org list
 
-# Members
-calimero-registry org -k org-key.json members add    <org-id> <pubkey> --role member
-calimero-registry org -k org-key.json members remove <org-id> <pubkey>
+# Create
+calimero-registry org create -n "My Org" -s "my-org"
+
+# Members — add/remove by email
+calimero-registry org members add    <org-id> alice@example.com --role member
+calimero-registry org members remove <org-id> alice@example.com
 
 # Link packages
-calimero-registry org -k org-key.json packages link <org-id> com.my-org.app
+calimero-registry org packages link   <org-id> com.my-org.app
+calimero-registry org packages unlink <org-id> com.my-org.app
 ```
-
-The org key file can be downloaded from the **Organizations page** in the UI (format is mero-sign-compatible `{ private_key, public_key, signer_id }`).
 
 ---
 
@@ -156,18 +170,25 @@ calimero-registry bundle push   <dir|file.mpk>  --remote | --local
 calimero-registry bundle edit   <package> <version> --remote [--manifest signed.json]
 calimero-registry bundle get    <package> <version> --local
 
-# Org commands
-calimero-registry org -k <key.json> list
-calimero-registry org -k <key.json> create -n <name> -s <slug>
-calimero-registry org members list <org-id>                             # public
-calimero-registry org -k <key.json> members add | remove | update <org-id> <pubkey>
-calimero-registry org -k <key.json> packages link | unlink <org-id> <package>
+# Org commands (require CALIMERO_API_KEY or config api-key)
+calimero-registry org list
+calimero-registry org create -n <name> -s <slug>
+calimero-registry org get <org-id>                                      # public
+calimero-registry org update <org-id> [--name <name>] [--metadata <json>]
+calimero-registry org delete <org-id>
+calimero-registry org members list   <org-id>                           # public
+calimero-registry org members add    <org-id> <email> [--role member|admin]
+calimero-registry org members update <org-id> <email> --role member|admin
+calimero-registry org members remove <org-id> <email>
+calimero-registry org packages link   <org-id> <package>
+calimero-registry org packages unlink <org-id> <package>
 
 # Config
 calimero-registry config set registry-url <url>
+calimero-registry config set api-key <token>
 ```
 
-Environment variable override: `CALIMERO_REGISTRY_URL`.
+Environment variables: `CALIMERO_REGISTRY_URL`, `CALIMERO_API_KEY`.
 
 ---
 

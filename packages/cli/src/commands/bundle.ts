@@ -769,9 +769,11 @@ Examples:
             console.log(`   Package: ${(body.package as string) || pkg}`);
             console.log(`   Version: ${(body.version as string) || version}`);
           } else {
-            console.error(
-              `❌ PATCH failed (${res.status}): ${body.error ?? body.message ?? text}`
-            );
+            const errMsg =
+              (body.message && String(body.message).trim()) ||
+              body.error ||
+              text;
+            console.error(`❌ PATCH failed (${res.status}): ${errMsg}`);
             process.exit(1);
           }
           return;

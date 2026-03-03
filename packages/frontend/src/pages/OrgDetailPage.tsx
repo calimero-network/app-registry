@@ -1,5 +1,5 @@
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import {
@@ -12,10 +12,9 @@ import {
   unlinkOrgPackage,
   updateOrg,
   deleteOrg,
-  getMyOrgPubkeyBase64url,
   api,
 } from '@/lib/api';
-import { getStoredKeypair } from '@/lib/org-keypair';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   sanitizeText,
   validateOrgPackageName,
@@ -55,28 +54,22 @@ function getApiErrorMessage(error: unknown): string {
   return 'An unexpected error occurred.';
 }
 
-/** Validate that a string looks like a base64url (43 chars) or base58 (~44 chars) Ed25519 pubkey. */
-function isValidPubkeyFormat(input: string): boolean {
-  const s = input.trim();
-  if (!s) return false;
-  if (/^[A-Za-z0-9\-_]{43}$/.test(s)) return true;
-  if (/^[1-9A-HJ-NP-Za-km-z]{43,44}$/.test(s)) return true;
-  return false;
+function isValidEmail(input: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.trim());
 }
 
 export default function OrgDetailPage() {
   const { orgId = '' } = useParams<{ orgId: string }>();
   const decodedOrgId = decodeURIComponent(orgId);
   const navigate = useNavigate();
-  const [myPubkey, setMyPubkey] = useState<string | null>(null);
-  const [hasKeypair, setHasKeypair] = useState(false);
+  const { user } = useAuth();
 
   // Add member form
-  const [newMemberPubkey, setNewMemberPubkey] = useState('');
+  const [newMemberEmail, setNewMemberEmail] = useState('');
   const [newMemberRole, setNewMemberRole] = useState<'admin' | 'member'>(
     'member'
   );
-  const [memberPubkeyTouched, setMemberPubkeyTouched] = useState(false);
+  const [memberEmailTouched, setMemberEmailTouched] = useState(false);
 
   // Link package form
   const [newPackageName, setNewPackageName] = useState('');
@@ -97,18 +90,13 @@ export default function OrgDetailPage() {
   });
 
   // Confirmation dialogs for destructive actions
-  const [confirmRemovePubkey, setConfirmRemovePubkey] = useState<string | null>(
+  const [confirmRemoveEmail, setConfirmRemoveEmail] = useState<string | null>(
     null
   );
   const [confirmUnlinkPkg, setConfirmUnlinkPkg] = useState<string | null>(null);
   const [confirmDeleteOrg, setConfirmDeleteOrg] = useState(false);
 
   const queryClient = useQueryClient();
-
-  useEffect(() => {
-    getMyOrgPubkeyBase64url().then(setMyPubkey);
-    getStoredKeypair().then(kp => setHasKeypair(!!kp));
-  }, []);
 
   const {
     data: org,
@@ -134,41 +122,52 @@ export default function OrgDetailPage() {
 
   const members = membersData?.members ?? [];
   const packages = packagesData?.packages ?? [];
+  const userEmailNorm = user?.email?.toLowerCase() ?? '';
   const isAdmin =
-    !!myPubkey &&
-    members.some(m => m.pubkey === myPubkey && m.role === 'admin');
-  /** Any member of the org (admin or regular member). */
-  const isMember = !!myPubkey && members.some(m => m.pubkey === myPubkey);
-  /** Admin identity is confirmed but only a public key is stored — can't sign writes. */
-  const isAdminReadOnly = isAdmin && !hasKeypair;
-  /** Admin with a full signing keypair — full write access. */
-  const isAdminWithKeypair = isAdmin && hasKeypair;
+    !!user?.email &&
+    members.some(
+      m =>
+        m.email.toLowerCase() === userEmailNorm &&
+        (m.role === 'admin' || m.role === 'owner')
+    );
+  const isOwner =
+    !!user?.email &&
+    members.some(
+      m => m.email.toLowerCase() === userEmailNorm && m.role === 'owner'
+    );
+  /** Any member of the org (owner, admin, or regular member). */
+  const isMember =
+    !!user?.email && members.some(m => m.email.toLowerCase() === userEmailNorm);
 
   const addMemberMutation = useMutation({
     mutationFn: () =>
       addOrgMember(
         decodedOrgId,
-        sanitizeText(newMemberPubkey.trim()),
+        sanitizeText(newMemberEmail.trim()),
         newMemberRole
       ),
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: ['org-members', decodedOrgId],
       });
-      setNewMemberPubkey('');
+      setNewMemberEmail('');
       setNewMemberRole('member');
-      setMemberPubkeyTouched(false);
+      setMemberEmailTouched(false);
     },
   });
 
   const removeMemberMutation = useMutation({
-    mutationFn: (memberPubkey: string) =>
-      removeOrgMember(decodedOrgId, memberPubkey),
-    onSuccess: () => {
+    mutationFn: (memberEmail: string) =>
+      removeOrgMember(decodedOrgId, memberEmail),
+    onSuccess: (_, memberEmail) => {
+      setConfirmRemoveEmail(null);
+      if (memberEmail.toLowerCase() === userEmailNorm) {
+        navigate('/orgs');
+        return;
+      }
       queryClient.invalidateQueries({
         queryKey: ['org-members', decodedOrgId],
       });
-      setConfirmRemovePubkey(null);
     },
   });
 
@@ -251,9 +250,8 @@ export default function OrgDetailPage() {
 
   const handleAddMember = (e: React.FormEvent) => {
     e.preventDefault();
-    setMemberPubkeyTouched(true);
-    if (!newMemberPubkey.trim() || !isValidPubkeyFormat(newMemberPubkey))
-      return;
+    setMemberEmailTouched(true);
+    if (!newMemberEmail.trim() || !isValidEmail(newMemberEmail)) return;
     addMemberMutation.mutate();
   };
 
@@ -291,11 +289,11 @@ export default function OrgDetailPage() {
     linkPackageMutation.mutate(sanitizeText(newPackageName.trim()));
   };
 
-  const memberPubkeyErr =
-    memberPubkeyTouched && newMemberPubkey.trim()
-      ? isValidPubkeyFormat(newMemberPubkey)
+  const memberEmailErr =
+    memberEmailTouched && newMemberEmail.trim()
+      ? isValidEmail(newMemberEmail)
         ? null
-        : 'Must be a base64url (43 chars) or base58 (43–44 chars) Ed25519 public key.'
+        : 'Must be a valid email address.'
       : null;
 
   const pkgNameErr = packageNameTouched
@@ -396,9 +394,7 @@ export default function OrgDetailPage() {
           Members
         </p>
 
-        {isAdminReadOnly && <ReadOnlyAdminNotice />}
-
-        {isAdminWithKeypair && (
+        {isAdmin && (
           <form
             className='mb-4 rounded-xl border border-neutral-800 bg-neutral-900/40 p-4 space-y-3'
             onSubmit={handleAddMember}
@@ -409,27 +405,27 @@ export default function OrgDetailPage() {
             <div className='flex flex-wrap items-start gap-3'>
               <div className='flex-1 min-w-[220px]'>
                 <label className='block text-[11px] text-neutral-500 mb-1'>
-                  Pubkey (base64url or base58)
+                  Email address
                 </label>
                 <input
-                  type='text'
-                  value={newMemberPubkey}
+                  type='email'
+                  value={newMemberEmail}
                   onChange={e => {
-                    setNewMemberPubkey(e.target.value);
-                    if (memberPubkeyTouched && e.target.value.trim())
-                      setMemberPubkeyTouched(true);
+                    setNewMemberEmail(e.target.value);
+                    if (memberEmailTouched && e.target.value.trim())
+                      setMemberEmailTouched(true);
                   }}
-                  onBlur={() => setMemberPubkeyTouched(true)}
-                  placeholder='Paste member pubkey…'
+                  onBlur={() => setMemberEmailTouched(true)}
+                  placeholder='member@example.com'
                   className={`input w-full ${
-                    memberPubkeyErr
+                    memberEmailErr
                       ? 'border-red-500/70 focus-visible:ring-red-500/30 focus-visible:border-red-500'
                       : ''
                   }`}
                 />
-                {memberPubkeyErr && (
+                {memberEmailErr && (
                   <p className='mt-1 text-[11px] text-red-400'>
-                    {memberPubkeyErr}
+                    {memberEmailErr}
                   </p>
                 )}
               </div>
@@ -482,12 +478,12 @@ export default function OrgDetailPage() {
               <thead>
                 <tr className='border-b border-neutral-800 bg-neutral-800/30'>
                   <th className='text-left py-3 px-5 font-medium text-neutral-300'>
-                    Pubkey
+                    Member
                   </th>
                   <th className='text-left py-3 px-5 font-medium text-neutral-300 w-28'>
                     Role
                   </th>
-                  {isAdmin && (
+                  {(isAdmin || isMember) && (
                     <th className='text-right py-3 px-5 font-medium text-neutral-300 w-32'>
                       Actions
                     </th>
@@ -495,26 +491,33 @@ export default function OrgDetailPage() {
                 </tr>
               </thead>
               <tbody>
-                {members.map(m => {
-                  const isConfirming = confirmRemovePubkey === m.pubkey;
+                {members.map(member => {
+                  const isConfirming = confirmRemoveEmail === member.email;
                   const isRemoving =
                     removeMemberMutation.isPending &&
-                    removeMemberMutation.variables === m.pubkey;
+                    removeMemberMutation.variables === member.email;
+                  const isCurrentUserRow =
+                    member.email.toLowerCase() === userEmailNorm;
                   return (
                     <tr
-                      key={m.pubkey}
+                      key={member.email}
                       className='border-b border-neutral-800/80 last:border-0'
                     >
-                      <td className='py-3 px-5 font-mono text-neutral-400 truncate max-w-[280px]'>
-                        {m.pubkey}
-                        {m.pubkey === myPubkey && (
-                          <span className='ml-2 text-[10px] text-brand-600 font-sans'>
+                      <td className='py-3 px-5 text-neutral-400 truncate max-w-[280px]'>
+                        {member.email}
+                        {isCurrentUserRow && (
+                          <span className='ml-2 text-[10px] text-brand-600'>
                             (you)
                           </span>
                         )}
                       </td>
                       <td className='py-3 px-5'>
-                        {m.role === 'admin' ? (
+                        {member.role === 'owner' ? (
+                          <span className='inline-flex items-center gap-1 pill bg-emerald-500/10 text-emerald-400'>
+                            <Shield className='w-3 h-3' />
+                            Owner
+                          </span>
+                        ) : member.role === 'admin' ? (
                           <span className='inline-flex items-center gap-1 pill bg-amber-500/10 text-amber-500'>
                             <Shield className='w-3 h-3' />
                             Admin
@@ -525,42 +528,60 @@ export default function OrgDetailPage() {
                           </span>
                         )}
                       </td>
-                      {isAdmin && (
+                      {(isAdmin || isMember) && (
                         <td className='py-3 px-5 text-right'>
                           {isConfirming ? (
                             <span className='inline-flex items-center gap-2'>
                               <span className='text-[11px] text-neutral-400'>
-                                Remove?
+                                {isCurrentUserRow ? 'Leave?' : 'Remove?'}
                               </span>
                               <button
                                 type='button'
                                 onClick={() =>
-                                  removeMemberMutation.mutate(m.pubkey)
+                                  removeMemberMutation.mutate(member.email)
                                 }
                                 disabled={isRemoving}
                                 className='text-[11px] font-medium text-red-400 hover:text-red-300 disabled:opacity-50 transition-colors'
                               >
-                                {isRemoving ? 'Removing…' : 'Yes'}
+                                {isRemoving
+                                  ? isCurrentUserRow
+                                    ? 'Leaving…'
+                                    : 'Removing…'
+                                  : 'Yes'}
                               </button>
                               <button
                                 type='button'
-                                onClick={() => setConfirmRemovePubkey(null)}
+                                onClick={() => setConfirmRemoveEmail(null)}
                                 className='text-[11px] text-neutral-500 hover:text-neutral-300 transition-colors'
                               >
                                 Cancel
                               </button>
                             </span>
-                          ) : (
+                          ) : isCurrentUserRow ? (
                             <button
                               type='button'
-                              onClick={() => setConfirmRemovePubkey(m.pubkey)}
+                              onClick={() =>
+                                setConfirmRemoveEmail(member.email)
+                              }
+                              className='inline-flex items-center gap-1 text-[11px] text-neutral-500 hover:text-red-400 px-2 py-1 rounded transition-colors'
+                              title='Leave organization'
+                            >
+                              <Trash2 className='w-3.5 h-3.5' />
+                              Leave
+                            </button>
+                          ) : isAdmin ? (
+                            <button
+                              type='button'
+                              onClick={() =>
+                                setConfirmRemoveEmail(member.email)
+                              }
                               className='inline-flex items-center gap-1 text-[11px] text-neutral-500 hover:text-red-400 px-2 py-1 rounded transition-colors'
                               title='Remove member'
                             >
                               <Trash2 className='w-3.5 h-3.5' />
                               Remove
                             </button>
-                          )}
+                          ) : null}
                         </td>
                       )}
                     </tr>
@@ -579,7 +600,7 @@ export default function OrgDetailPage() {
           Linked packages
         </p>
 
-        {isAdminWithKeypair && (
+        {isAdmin && (
           <form
             className='mb-4 rounded-xl border border-neutral-800 bg-neutral-900/40 p-4 space-y-3'
             onSubmit={handleLinkPackage}
@@ -723,14 +744,14 @@ export default function OrgDetailPage() {
       </section>
 
       {/* About / Settings */}
-      {(hasOrgInfo || isAdminWithKeypair) && (
+      {(hasOrgInfo || isAdmin) && (
         <section>
           <div className='flex items-center justify-between mb-3'>
             <p className='section-heading'>
               <Settings className='w-3.5 h-3.5 inline mr-1.5' />
               About
             </p>
-            {isAdminWithKeypair && !isEditingSettings && (
+            {isAdmin && !isEditingSettings && (
               <button
                 type='button'
                 onClick={handleOpenSettingsEdit}
@@ -872,8 +893,8 @@ export default function OrgDetailPage() {
         </section>
       )}
 
-      {/* Danger Zone — admin with keypair only */}
-      {isAdminWithKeypair && (
+      {/* Danger Zone — owner only */}
+      {isOwner && (
         <section className='card p-4 border-red-900/30'>
           <p className='section-heading mb-3 text-red-400/80'>Danger Zone</p>
           <div className='flex items-center justify-between gap-4'>
@@ -925,21 +946,6 @@ export default function OrgDetailPage() {
           )}
         </section>
       )}
-    </div>
-  );
-}
-
-function ReadOnlyAdminNotice() {
-  return (
-    <div className='mb-4 rounded-lg border border-neutral-700/60 bg-neutral-800/30 px-4 py-3 flex items-center gap-3'>
-      <AlertTriangle className='w-4 h-4 text-amber-500 flex-shrink-0' />
-      <p className='text-[12px] text-neutral-400'>
-        You are an admin but your identity is read-only.{' '}
-        <Link to='/orgs' className='text-brand-600 hover:underline'>
-          Generate a keypair
-        </Link>{' '}
-        to manage members, packages, and metadata.
-      </p>
     </div>
   );
 }

@@ -1,6 +1,8 @@
 /**
- * PATCH /api/v2/orgs/:orgId/members/:pubkey — update role (admin only)
- * DELETE /api/v2/orgs/:orgId/members/:pubkey — remove member (admin only)
+ * PATCH  /api/v2/orgs/:orgId/members/:email — update role (owner only)
+ * DELETE /api/v2/orgs/:orgId/members/:email — remove member (admin/owner, or self-leave)
+ *
+ * Note: Vercel names the URL param 'pubkey' due to the filename, but it holds an email value.
  */
 
 const {
@@ -10,29 +12,38 @@ const {
   updateOrgMemberRole,
   removeOrgMember,
 } = require('../../../../lib/org-storage');
-const { requireOrgAdmin } = require('../../../../lib/signed-request');
+const {
+  requireAuth,
+  requireOrgOwner,
+} = require('../../../../lib/auth-helpers');
+
+async function countOrgOwners(orgId) {
+  const members = await getOrgMembers(orgId);
+  let n = 0;
+  for (const m of members) {
+    const role = await getOrgMemberRole(orgId, m);
+    if (role === 'owner') n++;
+  }
+  return n;
+}
 
 function cors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader(
-    'Access-Control-Allow-Headers',
-    'Content-Type, Authorization, X-Pubkey, X-Signature'
-  );
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 }
 
 module.exports = async function handler(req, res) {
   const orgId = req.query?.orgId;
-  const pubkey = req.query?.pubkey;
+  const memberEmail = req.query?.pubkey; // param is named 'pubkey' by filename but holds email
   if (
     !orgId ||
-    !pubkey ||
+    !memberEmail ||
     typeof orgId !== 'string' ||
-    typeof pubkey !== 'string'
+    typeof memberEmail !== 'string'
   ) {
-    return res.status(400).json({
-      error: 'bad_request',
-      message: 'Missing orgId or pubkey',
-    });
+    return res
+      .status(400)
+      .json({ error: 'bad_request', message: 'Missing orgId or email' });
   }
 
   cors(res);
@@ -43,85 +54,79 @@ module.exports = async function handler(req, res) {
   try {
     org = await getOrg(orgId);
   } catch (e) {
-    console.error('getOrg error:', e);
-    return res.status(500).json({
-      error: 'internal',
-      message: e?.message ?? String(e),
-    });
+    return res
+      .status(500)
+      .json({ error: 'internal', message: e?.message ?? String(e) });
   }
-
   if (!org) {
-    return res.status(404).json({
-      error: 'not_found',
-      message: 'Organization not found',
-    });
+    return res
+      .status(404)
+      .json({ error: 'not_found', message: 'Organization not found' });
   }
-
-  const result = await requireOrgAdmin(req, res, orgId);
-  if (result === null) return;
 
   if (req.method === 'PATCH') {
+    const user = await requireOrgOwner(req, res, orgId);
+    if (!user) return;
     const { role } = req.body || {};
-    if (role !== 'admin' && role !== 'member') {
+    if (role !== 'admin' && role !== 'member' && role !== 'owner') {
       return res.status(400).json({
         error: 'bad_request',
-        message: 'role must be "admin" or "member"',
+        message: 'role must be "admin", "member", or "owner"',
       });
     }
     try {
-      const currentRole = await getOrgMemberRole(orgId, pubkey);
-      if (currentRole === 'admin' && role === 'member') {
-        const allMembers = await getOrgMembers(orgId);
-        let adminCount = 0;
-        for (const pk of allMembers) {
-          const r = await getOrgMemberRole(orgId, pk);
-          if (r === 'admin') adminCount++;
-        }
-        if (adminCount <= 1) {
+      const currentRole = await getOrgMemberRole(orgId, memberEmail);
+      if (currentRole === 'owner' && role !== 'owner') {
+        const ownerCount = await countOrgOwners(orgId);
+        if (ownerCount <= 1) {
           return res.status(409).json({
-            error: 'last_admin',
+            error: 'last_owner',
             message:
-              'Cannot demote the last admin. Promote another member to admin first.',
+              'Cannot demote the last owner. Promote another member to owner first.',
           });
         }
       }
-      await updateOrgMemberRole(orgId, pubkey, role);
+      await updateOrgMemberRole(orgId, memberEmail, role);
       return res.status(204).end();
     } catch (e) {
-      console.error('PATCH member error:', e);
-      return res.status(500).json({
-        error: 'internal',
-        message: e?.message ?? String(e),
-      });
+      return res
+        .status(500)
+        .json({ error: 'internal', message: e?.message ?? String(e) });
     }
   }
 
   if (req.method === 'DELETE') {
+    const user = await requireAuth(req, res);
+    if (!user) return;
+    const isSelf = user.email.toLowerCase() === memberEmail.toLowerCase();
+    if (!isSelf) {
+      const callerRole = await getOrgMemberRole(orgId, user.email);
+      if (callerRole !== 'admin' && callerRole !== 'owner') {
+        return res.status(403).json({
+          error: 'forbidden',
+          message:
+            'Only an organization admin or owner can remove other members',
+        });
+      }
+    }
     try {
-      const targetRole = await getOrgMemberRole(orgId, pubkey);
-      if (targetRole === 'admin') {
-        const allMembers = await getOrgMembers(orgId);
-        let adminCount = 0;
-        for (const pk of allMembers) {
-          const r = await getOrgMemberRole(orgId, pk);
-          if (r === 'admin') adminCount++;
-        }
-        if (adminCount <= 1) {
+      const targetRole = await getOrgMemberRole(orgId, memberEmail);
+      if (targetRole === 'owner') {
+        const ownerCount = await countOrgOwners(orgId);
+        if (ownerCount <= 1) {
           return res.status(409).json({
-            error: 'last_admin',
+            error: 'last_owner',
             message:
-              'Cannot remove the last admin. Promote another member to admin first.',
+              'Cannot remove the last owner. Promote another member to owner first.',
           });
         }
       }
-      await removeOrgMember(orgId, pubkey);
+      await removeOrgMember(orgId, memberEmail);
       return res.status(204).end();
     } catch (e) {
-      console.error('DELETE member error:', e);
-      return res.status(500).json({
-        error: 'internal',
-        message: e?.message ?? String(e),
-      });
+      return res
+        .status(500)
+        .json({ error: 'internal', message: e?.message ?? String(e) });
     }
   }
 

@@ -94,8 +94,15 @@ export interface Org {
 }
 
 export interface OrgMember {
-  pubkey: string;
-  role: 'admin' | 'member';
+  email: string;
+  role: 'owner' | 'admin' | 'member';
+}
+
+export interface ApiToken {
+  tokenId: string;
+  token: string;
+  label: string;
+  createdAt: string;
 }
 
 export interface OrgPackageList {
