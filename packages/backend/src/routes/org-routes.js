@@ -274,6 +274,13 @@ async function orgRoutes(server) {
       const user = await requireOrgAdminOrOwner(request, reply, orgId);
       if (!user) return;
     }
+    const existingRole = await getOrgMemberRole(orgId, memberEmail);
+    if (existingRole) {
+      return reply.code(409).send({
+        error: 'conflict',
+        message: 'This email is already a member of the organization',
+      });
+    }
     await addOrgMember(orgId, memberEmail, roleNorm);
     return reply.code(204).send();
   });
@@ -291,10 +298,10 @@ async function orgRoutes(server) {
     const user = await requireOrgOwner(request, reply, orgId);
     if (!user) return;
     const { role } = request.body || {};
-    if (role !== 'admin' && role !== 'member') {
+    if (role !== 'admin' && role !== 'member' && role !== 'owner') {
       return reply.code(400).send({
         error: 'bad_request',
-        message: 'role must be "admin" or "member"',
+        message: 'role must be "admin", "member", or "owner"',
       });
     }
     const currentRole = await getOrgMemberRole(orgId, memberEmail);

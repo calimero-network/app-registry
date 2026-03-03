@@ -68,10 +68,10 @@ module.exports = async function handler(req, res) {
     const user = await requireOrgOwner(req, res, orgId);
     if (!user) return;
     const { role } = req.body || {};
-    if (role !== 'admin' && role !== 'member') {
+    if (role !== 'admin' && role !== 'member' && role !== 'owner') {
       return res.status(400).json({
         error: 'bad_request',
-        message: 'role must be "admin" or "member"',
+        message: 'role must be "admin", "member", or "owner"',
       });
     }
     try {

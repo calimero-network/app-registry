@@ -22,7 +22,6 @@ import {
   Building2,
   ArrowRight,
   Info,
-  Key,
   Plus,
   Copy,
   Check,
@@ -484,11 +483,6 @@ export default function MyOrgsPage() {
           </ul>
         )}
       </div>
-
-      {/* Key icon imported but not used — keep for potential future use */}
-      <span className='hidden'>
-        <Key className='w-0 h-0' />
-      </span>
     </div>
   );
 }

@@ -130,6 +130,11 @@ export default function OrgDetailPage() {
         m.email.toLowerCase() === userEmailNorm &&
         (m.role === 'admin' || m.role === 'owner')
     );
+  const isOwner =
+    !!user?.email &&
+    members.some(
+      m => m.email.toLowerCase() === userEmailNorm && m.role === 'owner'
+    );
   /** Any member of the org (owner, admin, or regular member). */
   const isMember =
     !!user?.email && members.some(m => m.email.toLowerCase() === userEmailNorm);
@@ -888,8 +893,8 @@ export default function OrgDetailPage() {
         </section>
       )}
 
-      {/* Danger Zone — admin only */}
-      {isAdmin && (
+      {/* Danger Zone — owner only */}
+      {isOwner && (
         <section className='card p-4 border-red-900/30'>
           <p className='section-heading mb-3 text-red-400/80'>Danger Zone</p>
           <div className='flex items-center justify-between gap-4'>

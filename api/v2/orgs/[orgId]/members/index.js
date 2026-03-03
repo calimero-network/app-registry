@@ -88,6 +88,13 @@ module.exports = async function handler(req, res) {
       if (!user) return;
     }
     try {
+      const existingRole = await getOrgMemberRole(orgId, memberEmail);
+      if (existingRole) {
+        return res.status(409).json({
+          error: 'conflict',
+          message: 'This email is already a member of the organization',
+        });
+      }
       await addOrgMember(orgId, memberEmail, roleNorm);
       return res.status(204).end();
     } catch (e) {

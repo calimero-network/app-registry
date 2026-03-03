@@ -163,9 +163,12 @@ export default function AppDetailPage() {
   const sig = bundle.signature;
   const ifaces = bundle.interfaces;
   const isOwner = !!user?.email && !!meta?.author && user.email === meta.author;
+  const userEmailLower = user?.email?.toLowerCase() ?? '';
   const isOrgMember =
-    !!user?.email &&
-    !!orgMembersData?.members?.some(m => m.email === user.email);
+    !!userEmailLower &&
+    !!orgMembersData?.members?.some(
+      m => m.email.toLowerCase() === userEmailLower
+    );
   const canEdit = isOwner || isOrgMember;
 
   return (
