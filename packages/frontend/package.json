@@ -1,6 +1,6 @@
 {
   "name": "@calimero-network/registry-frontend",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Calimero Network App Registry Frontend - Modern React UI for managing Smart Contract Applications",
   "type": "module",
   "scripts": {
