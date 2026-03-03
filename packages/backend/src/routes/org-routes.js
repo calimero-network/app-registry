@@ -312,7 +312,7 @@ async function orgRoutes(server) {
     return reply.code(204).send();
   });
 
-  // DELETE /api/v2/orgs/:orgId/members/:email — remove member (admin or owner)
+  // DELETE /api/v2/orgs/:orgId/members/:email — remove member (admin/owner, or self-leave)
   server.delete(
     '/api/v2/orgs/:orgId/members/:email',
     async (request, reply) => {
@@ -324,8 +324,19 @@ async function orgRoutes(server) {
           message: 'Organization not found',
         });
       }
-      const user = await requireOrgAdminOrOwner(request, reply, orgId);
+      const user = await requireAuth(request, reply);
       if (!user) return;
+      const isSelf = user.email.toLowerCase() === memberEmail.toLowerCase();
+      if (!isSelf) {
+        const allowed = await isOrgAdminOrOwner(orgId, user.email);
+        if (!allowed) {
+          return reply.code(403).send({
+            error: 'forbidden',
+            message:
+              'Only an organization admin or owner can remove other members',
+          });
+        }
+      }
       const targetRole = await getOrgMemberRole(orgId, memberEmail);
       if (targetRole === 'owner') {
         const ownerCount = await countOrgOwners(orgId);

@@ -154,11 +154,15 @@ export default function OrgDetailPage() {
   const removeMemberMutation = useMutation({
     mutationFn: (memberEmail: string) =>
       removeOrgMember(decodedOrgId, memberEmail),
-    onSuccess: () => {
+    onSuccess: (_, memberEmail) => {
+      setConfirmRemoveEmail(null);
+      if (memberEmail.toLowerCase() === userEmailNorm) {
+        navigate('/orgs');
+        return;
+      }
       queryClient.invalidateQueries({
         queryKey: ['org-members', decodedOrgId],
       });
-      setConfirmRemoveEmail(null);
     },
   });
 
@@ -474,7 +478,7 @@ export default function OrgDetailPage() {
                   <th className='text-left py-3 px-5 font-medium text-neutral-300 w-28'>
                     Role
                   </th>
-                  {isAdmin && (
+                  {(isAdmin || isMember) && (
                     <th className='text-right py-3 px-5 font-medium text-neutral-300 w-32'>
                       Actions
                     </th>
@@ -487,6 +491,8 @@ export default function OrgDetailPage() {
                   const isRemoving =
                     removeMemberMutation.isPending &&
                     removeMemberMutation.variables === member.email;
+                  const isCurrentUserRow =
+                    member.email.toLowerCase() === userEmailNorm;
                   return (
                     <tr
                       key={member.email}
@@ -494,7 +500,7 @@ export default function OrgDetailPage() {
                     >
                       <td className='py-3 px-5 text-neutral-400 truncate max-w-[280px]'>
                         {member.email}
-                        {member.email.toLowerCase() === userEmailNorm && (
+                        {isCurrentUserRow && (
                           <span className='ml-2 text-[10px] text-brand-600'>
                             (you)
                           </span>
@@ -517,12 +523,12 @@ export default function OrgDetailPage() {
                           </span>
                         )}
                       </td>
-                      {isAdmin && (
+                      {(isAdmin || isMember) && (
                         <td className='py-3 px-5 text-right'>
                           {isConfirming ? (
                             <span className='inline-flex items-center gap-2'>
                               <span className='text-[11px] text-neutral-400'>
-                                Remove?
+                                {isCurrentUserRow ? 'Leave?' : 'Remove?'}
                               </span>
                               <button
                                 type='button'
@@ -532,7 +538,11 @@ export default function OrgDetailPage() {
                                 disabled={isRemoving}
                                 className='text-[11px] font-medium text-red-400 hover:text-red-300 disabled:opacity-50 transition-colors'
                               >
-                                {isRemoving ? 'Removing…' : 'Yes'}
+                                {isRemoving
+                                  ? isCurrentUserRow
+                                    ? 'Leaving…'
+                                    : 'Removing…'
+                                  : 'Yes'}
                               </button>
                               <button
                                 type='button'
@@ -542,7 +552,19 @@ export default function OrgDetailPage() {
                                 Cancel
                               </button>
                             </span>
-                          ) : (
+                          ) : isCurrentUserRow ? (
+                            <button
+                              type='button'
+                              onClick={() =>
+                                setConfirmRemoveEmail(member.email)
+                              }
+                              className='inline-flex items-center gap-1 text-[11px] text-neutral-500 hover:text-red-400 px-2 py-1 rounded transition-colors'
+                              title='Leave organization'
+                            >
+                              <Trash2 className='w-3.5 h-3.5' />
+                              Leave
+                            </button>
+                          ) : isAdmin ? (
                             <button
                               type='button'
                               onClick={() =>
@@ -554,7 +576,7 @@ export default function OrgDetailPage() {
                               <Trash2 className='w-3.5 h-3.5' />
                               Remove
                             </button>
-                          )}
+                          ) : null}
                         </td>
                       )}
                     </tr>
