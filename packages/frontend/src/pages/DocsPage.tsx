@@ -364,7 +364,7 @@ export default function DocsPage() {
                 ],
                 [
                   'public_key',
-                  'Base64url-encoded 32-byte public key. Share this with org admins when joining an organization.',
+                  'Base64url-encoded 32-byte public key. Embedded in every signed manifest so the registry and nodes can verify the signature.',
                 ],
                 [
                   'signer_id',
@@ -448,8 +448,12 @@ pnpm add -g @calimero-network/registry-cli`}</CodeBlock>
             <CodeBlock>{`# Set registry URL once (saved to config file)
 calimero-registry config set registry-url https://apps.calimero.network
 
-# Or use an environment variable per-session
-export CALIMERO_REGISTRY_URL=https://apps.calimero.network`}</CodeBlock>
+# Set API key once (required for publishing and org management)
+calimero-registry config set api-key <token>
+
+# Or use environment variables per-session
+export CALIMERO_REGISTRY_URL=https://apps.calimero.network
+export CALIMERO_API_KEY=<token>`}</CodeBlock>
 
             <SubHeading>bundle create</SubHeading>
             <P>
@@ -522,17 +526,13 @@ mero-sign sign manifest.json --key key.json
 calimero-registry bundle edit com.example.myapp 1.0.0 --remote \\
   --manifest signed-manifest.json`}</CodeBlock>
 
-            <SubHeading>org commands</SubHeading>
+            <SubHeading>org (Organization) commands</SubHeading>
             <P>
-              All org write operations use an API token. Get yours from the
-              Organizations page in the web UI (CLI Access section), then
-              configure it once:
+              All Organization (org) write operations require an API token —
+              configure it once in the Configuration block above. Get your token
+              from the Organizations page in the web UI (CLI Access section).
             </P>
-            <CodeBlock>{`# One-time: save your API token
-calimero-registry config set api-key <token>
-# or use an env variable: export CALIMERO_API_KEY=<token>
-
-# List your organizations (resolves your email from the token automatically)
+            <CodeBlock>{`# List your organizations (resolves your email from the token automatically)
 calimero-registry org list
 
 # Create an organization
@@ -675,7 +675,7 @@ calimero-registry bundle push res/myapp-1.0.0.mpk --remote`}</CodeBlock>
               items={[
                 [
                   'Open your app',
-                  'Find your app in /apps. You must be signed in as the author, or have your org pubkey set in the Organizations page as a member of the linked org.',
+                  'Find your app in /apps. You must be signed in as the author, or be a member of the Organization (org) linked to the package.',
                 ],
                 [
                   'Click Edit metadata',
@@ -747,7 +747,7 @@ mero-sign sign manifest.json --key key.json`}</CodeBlock>
                 ],
                 [
                   'Same signer',
-                  'The same key that published 1.0.0 (or a key in manifest.owners, or an org member) must sign 1.1.0.',
+                  'The same key that published 1.0.0 (or a member of the Organization linked to the package) must sign 1.1.0.',
                 ],
               ].map(([rule, desc]) => (
                 <div key={rule} className='flex gap-3 text-[12px]'>
@@ -917,9 +917,8 @@ calimero-registry bundle push dist/app-2.0.0 --remote
               authorized for the org.
             </P>
 
-            <SubHeading>CLI org management reference</SubHeading>
-            <CodeBlock>{`# Requires CALIMERO_API_KEY set or configured
-calimero-registry config set api-key <token>
+            <SubHeading>CLI Organization (org) management reference</SubHeading>
+            <CodeBlock>{`# Requires CALIMERO_API_KEY set or configured (see CLI → Configuration)
 
 calimero-registry org list
 calimero-registry org create -n "My Org" -s "my-org"
