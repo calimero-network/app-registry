@@ -87,6 +87,9 @@ public
 tmp/
 temp/
 
+# Vite config timestamp cache files
+vite.config.ts.timestamp-*
+
 # Logs
 logs
 *.log
