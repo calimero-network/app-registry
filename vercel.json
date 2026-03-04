@@ -8,6 +8,10 @@
     "api/**/*.js": {
       "memory": 1024,
       "maxDuration": 10
+    },
+    "api/v2/bundles/push-file.js": {
+      "memory": 1024,
+      "maxDuration": 60
     }
   },
   "rewrites": [
