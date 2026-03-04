@@ -41,7 +41,7 @@
     "node-fetch": "^3.3.2",
     "pino": "^8.16.0",
     "semver": "^7.5.4",
-    "tar": "^7.4.3"
+    "tar": "^7.5.8"
   },
   "devDependencies": {
     "@types/jest": "^29.5.0",
