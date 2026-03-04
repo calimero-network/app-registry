@@ -15,6 +15,7 @@ const {
   getPublicKeyFromManifest,
   isAllowedOwner,
 } = require('../../../lib/verify');
+const { requireAuth } = require('../../../lib/auth-helpers');
 
 let storage;
 function getStorage() {
@@ -162,11 +163,18 @@ module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   if (req.method === 'OPTIONS') {
-    res.setHeader('Access-Control-Allow-Methods', 'GET, PATCH, OPTIONS');
+    res.setHeader(
+      'Access-Control-Allow-Methods',
+      'GET, PATCH, DELETE, OPTIONS'
+    );
     return res.status(200).end();
   }
 
-  if (req.method !== 'GET' && req.method !== 'PATCH') {
+  if (
+    req.method !== 'GET' &&
+    req.method !== 'PATCH' &&
+    req.method !== 'DELETE'
+  ) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
@@ -177,6 +185,49 @@ module.exports = async function handler(req, res) {
 
   if (req.method === 'PATCH') {
     return handlePatch(req, res, pkg, version);
+  }
+
+  if (req.method === 'DELETE') {
+    const user = await requireAuth(req, res);
+    if (!user) return;
+
+    const store = getStorage();
+    let existing;
+    try {
+      existing = await store.getBundleManifest(pkg, version);
+    } catch (e) {
+      console.error('DELETE version getBundleManifest:', e);
+      return res.status(500).json({
+        error: 'internal_error',
+        message: e?.message ?? String(e),
+      });
+    }
+
+    if (!existing) {
+      return res.status(404).json({
+        error: 'not_found',
+        message: `Bundle ${pkg}@${version} not found`,
+      });
+    }
+
+    const author = existing.metadata?.author;
+    if (!author || author !== user.email) {
+      return res.status(403).json({
+        error: 'not_owner',
+        message: 'Only the package author can delete this version.',
+      });
+    }
+
+    try {
+      await store.deleteBundleVersion(pkg, version);
+      return res.status(200).json({ message: `Deleted ${pkg}@${version}` });
+    } catch (error) {
+      console.error('DELETE version error:', error);
+      return res.status(500).json({
+        error: 'internal_error',
+        message: error?.message ?? String(error),
+      });
+    }
   }
 
   let kv;
