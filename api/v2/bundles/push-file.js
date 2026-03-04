@@ -113,12 +113,10 @@ module.exports = async function handler(req, res) {
     }
 
     if (!filename || !filename.toLowerCase().endsWith('.mpk')) {
-      return res
-        .status(400)
-        .json({
-          error: 'invalid_request',
-          message: 'File must be a .mpk bundle.',
-        });
+      return res.status(400).json({
+        error: 'invalid_request',
+        message: 'File must be a .mpk bundle.',
+      });
     }
 
     // Write to /tmp and extract
@@ -135,24 +133,20 @@ module.exports = async function handler(req, res) {
 
     const manifestPath = findManifest(tempDir);
     if (!manifestPath) {
-      return res
-        .status(400)
-        .json({
-          error: 'invalid_bundle',
-          message: 'Bundle must contain manifest.json.',
-        });
+      return res.status(400).json({
+        error: 'invalid_bundle',
+        message: 'Bundle must contain manifest.json.',
+      });
     }
 
     const bundleManifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
 
     // Validate required fields
     if (!bundleManifest?.package || !bundleManifest?.appVersion) {
-      return res
-        .status(400)
-        .json({
-          error: 'invalid_manifest',
-          message: 'Missing required fields: package, appVersion',
-        });
+      return res.status(400).json({
+        error: 'invalid_manifest',
+        message: 'Missing required fields: package, appVersion',
+      });
     }
 
     // Require signature
@@ -168,12 +162,10 @@ module.exports = async function handler(req, res) {
     try {
       await verifyManifest(bundleManifest);
     } catch (err) {
-      return res
-        .status(400)
-        .json({
-          error: 'invalid_signature',
-          message: err.message || 'Signature verification failed',
-        });
+      return res.status(400).json({
+        error: 'invalid_signature',
+        message: err.message || 'Signature verification failed',
+      });
     }
 
     // Resolve user from session cookie or bearer token
