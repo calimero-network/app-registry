@@ -6,7 +6,7 @@
 const {
   BundleStorageKV,
 } = require('@calimero-network/registry-backend/src/lib/bundle-storage-kv');
-const { requireAuth } = require('../../../lib/auth-helpers');
+const { requireAuth } = require('../../lib/auth-helpers');
 
 let storage;
 function getStorage() {
