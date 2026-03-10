@@ -231,6 +231,7 @@ module.exports = async function handler(req, res) {
       process.env.ALLOW_BUNDLE_OVERWRITE === 'true' ||
       process.env.ALLOW_BUNDLE_OVERWRITE === '1';
 
+    bundleManifest._binary = buffer.toString('hex');
     await store.storeBundleManifest(bundleManifest, overwrite);
 
     return res.status(201).json({
