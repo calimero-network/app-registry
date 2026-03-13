@@ -346,6 +346,14 @@ export default function DocsPage() {
               that goes inside <Code>manifest.json</Code>.
             </P>
 
+            <SubHeading>Installation</SubHeading>
+            <CodeBlock>{`# Install from crates.io
+cargo install mero-sign
+
+# Or install from source (clone the core repo first)
+# git clone https://github.com/calimero-network/core
+cargo install --path tools/mero-sign`}</CodeBlock>
+
             <SubHeading>Generating a key</SubHeading>
             <CodeBlock>{`mero-sign generate-key --output key.json`}</CodeBlock>
             <P>
