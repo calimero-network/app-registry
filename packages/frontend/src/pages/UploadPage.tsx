@@ -227,7 +227,11 @@ export default function UploadPage() {
           <code className='text-brand-600'>.mpk</code> file.
         </p>
 
-        <Pre>{`# Install
+        <Pre>{`# Install from crates.io
+cargo install mero-sign
+
+# Or install from source (clone the core repo first)
+# git clone https://github.com/calimero-network/core
 cargo install --path tools/mero-sign
 
 # Generate signing key (one-time)
