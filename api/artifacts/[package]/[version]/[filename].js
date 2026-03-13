@@ -80,17 +80,26 @@ module.exports = async function handler(req, res) {
 
   try {
     const store = getStorage();
-    const binaryHex = await store.getBundleBinary(pkg, version);
+    const [binaryHex, manifest] = await Promise.all([
+      store.getBundleBinary(pkg, version),
+      store.getBundleManifest(pkg, version),
+    ]);
 
     if (!binaryHex) {
-      return res.status(404).json({
-        error: 'artifact_not_found',
-        message: `Binary for ${pkg}@${version} not found in storage`,
+      if (!manifest) {
+        return res.status(404).json({
+          error: 'artifact_not_found',
+          message: `${pkg}@${version} not found`,
+        });
+      }
+      return res.status(409).json({
+        error: 'binary_missing',
+        message: `Manifest for ${pkg}@${version} exists but binary was never uploaded. Re-publish the bundle.`,
+        manifest,
       });
     }
 
     // Expose min_runtime_version for runtime compatibility (Rust expects this)
-    const manifest = await store.getBundleManifest(pkg, version);
     const minRuntimeVersion =
       manifest?.minRuntimeVersion ?? manifest?.min_runtime_version;
     const minRuntimeVersionHeader =
