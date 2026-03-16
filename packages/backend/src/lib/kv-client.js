@@ -35,23 +35,23 @@ if (isProduction && process.env.REDIS_URL) {
         await this._connectingPromise;
         return;
       }
-      // If socket is open but not ready (e.g. after a timeout), force-close it first
-      if (redisClient.isOpen) {
-        await redisClient.quit().catch(() => {});
-        this._connected = false;
-      }
-      this._connectingPromise = redisClient
-        .connect()
-        .then(() => {
-          this._connected = true;
-          this._connectingPromise = null;
-          // eslint-disable-next-line no-console
-          console.log('✅ Connected to Vercel Marketplace Redis');
-        })
+      this._connectingPromise = (async () => {
+        // If socket is open but not ready (e.g. after a timeout), force-close it first
+        if (redisClient.isOpen) {
+          await redisClient.quit().catch(() => {});
+          this._connected = false;
+        }
+        await redisClient.connect();
+        this._connected = true;
+        // eslint-disable-next-line no-console
+        console.log('✅ Connected to Vercel Marketplace Redis');
+      })()
         .catch(err => {
-          this._connectingPromise = null;
           this._connected = false;
           throw err;
+        })
+        .finally(() => {
+          this._connectingPromise = null;
         });
       await this._connectingPromise;
     },
