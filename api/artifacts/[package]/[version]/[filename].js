@@ -43,10 +43,11 @@ module.exports = async function handler(req, res) {
   // If parameters are missing or contain literal "$package" (Vercel rewrite issue),
   // parse from URL path
   if (!pkg || !version || pkg === '$package' || version === '$version') {
-    const url = req.url || '';
+    // Strip query string from URL path before matching
+    const urlPath = (req.url || '').split('?')[0];
     // Match both /api/artifacts/... and /artifacts/... patterns
     // Also handle cases where the URL might be the rewritten path
-    const match = url.match(
+    const match = urlPath.match(
       /\/(?:api\/)?artifacts\/([^\/]+)\/([^\/]+)\/([^\/]+)/
     );
     if (match) {

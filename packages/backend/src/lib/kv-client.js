@@ -27,14 +27,33 @@ if (isProduction && process.env.REDIS_URL) {
   // Wrapper to ensure connection before operations
   kvClient = {
     _connected: false,
+    _connectingPromise: null,
 
     async _ensureConnected() {
-      if (!this._connected) {
-        await redisClient.connect();
-        this._connected = true;
-        // eslint-disable-next-line no-console
-        console.log('✅ Connected to Vercel Marketplace Redis');
+      if (this._connected && redisClient.isReady) return;
+      if (this._connectingPromise) {
+        await this._connectingPromise;
+        return;
       }
+      // If socket is open but not ready (e.g. after a timeout), force-close it first
+      if (redisClient.isOpen) {
+        await redisClient.quit().catch(() => {});
+        this._connected = false;
+      }
+      this._connectingPromise = redisClient
+        .connect()
+        .then(() => {
+          this._connected = true;
+          this._connectingPromise = null;
+          // eslint-disable-next-line no-console
+          console.log('✅ Connected to Vercel Marketplace Redis');
+        })
+        .catch(err => {
+          this._connectingPromise = null;
+          this._connected = false;
+          throw err;
+        });
+      await this._connectingPromise;
     },
 
     // String operations
