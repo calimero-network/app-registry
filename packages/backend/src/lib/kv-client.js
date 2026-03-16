@@ -40,16 +40,19 @@ if (isProduction && process.env.REDIS_URL) {
         await redisClient.quit().catch(() => {});
         this._connected = false;
       }
-      this._connectingPromise = redisClient.connect().then(() => {
-        this._connected = true;
-        this._connectingPromise = null;
-        // eslint-disable-next-line no-console
-        console.log('✅ Connected to Vercel Marketplace Redis');
-      }).catch(err => {
-        this._connectingPromise = null;
-        this._connected = false;
-        throw err;
-      });
+      this._connectingPromise = redisClient
+        .connect()
+        .then(() => {
+          this._connected = true;
+          this._connectingPromise = null;
+          // eslint-disable-next-line no-console
+          console.log('✅ Connected to Vercel Marketplace Redis');
+        })
+        .catch(err => {
+          this._connectingPromise = null;
+          this._connected = false;
+          throw err;
+        });
       await this._connectingPromise;
     },
 
