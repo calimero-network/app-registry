@@ -407,6 +407,11 @@ async function buildServer() {
       }
 
       const normalized = normalizeBundle(bundle);
+
+      // Count installs: this endpoint is called exactly once per install click in the desktop app
+      kv.incr('downloads:total').catch(() => {});
+      kv.incr(`downloads:${pkg}`).catch(() => {});
+
       normalized.downloads = Number(await kv.get(`downloads:${pkg}`)) || 0;
       return normalized;
     } catch (error) {
@@ -906,17 +911,6 @@ async function buildServer() {
         `attachment; filename="${path.basename(filePath)}"`
       );
       reply.header('Content-Length', fileContent.length);
-
-      // Track installs — only count actual app bundles (.mpk), not raw WASM dev files
-      if (ext === '.mpk') {
-        const parts = artifactPath.split('/');
-        // Nested path: {package}/{version}/{filename} — extract package name
-        const packageName = parts.length >= 3 ? parts[0] : null;
-        if (packageName) {
-          kv.incr('downloads:total').catch(() => {});
-          kv.incr(`downloads:${packageName}`).catch(() => {});
-        }
-      }
 
       return reply.send(fileContent);
     } catch (error) {
