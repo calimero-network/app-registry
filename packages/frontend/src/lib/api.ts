@@ -62,6 +62,7 @@ export const getApps = async (params?: {
       developer_pubkey: author,
       latest_version: bundle.appVersion,
       alias: bundle.metadata?.name,
+      downloads: bundle.downloads || 0,
       developer: {
         display_name: author,
         pubkey: author,
@@ -89,6 +90,7 @@ export const getMyPackages = async (
       developer_pubkey: author,
       latest_version: bundle.appVersion,
       alias: bundle.metadata?.name,
+      downloads: bundle.downloads || 0,
       developer: {
         display_name: author,
         pubkey: author,

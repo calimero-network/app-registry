@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { Search, Package, ArrowUpRight } from 'lucide-react';
+import { Search, Package, ArrowUpRight, Download } from 'lucide-react';
 import { getApps } from '../lib/api';
 import type { AppSummary } from '../types/api';
 
@@ -126,9 +126,17 @@ function AppCard({ app }: { app: AppSummary }) {
         <span className='text-[11px] text-neutral-400 font-light'>
           {app.developer?.display_name || app.developer_pubkey}
         </span>
-        <span className='text-[11px] text-neutral-600 font-mono'>
-          v{app.latest_version}
-        </span>
+        <div className='flex items-center gap-2'>
+          {app.downloads != null && app.downloads > 0 && (
+            <span className='flex items-center gap-1 text-[11px] text-neutral-500'>
+              <Download className='w-3 h-3' />
+              {app.downloads.toLocaleString()}
+            </span>
+          )}
+          <span className='text-[11px] text-neutral-600 font-mono'>
+            v{app.latest_version}
+          </span>
+        </div>
       </div>
     </Link>
   );
