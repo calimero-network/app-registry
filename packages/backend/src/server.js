@@ -355,16 +355,27 @@ async function buildServer() {
           }
 
           const normalized = normalizeBundle(bundle);
-          normalized.downloads =
-            Number(await kv.get(`downloads:${packageName}`)) || 0;
-          bundles.push(normalized);
+          bundles.push({ normalized, packageName });
         }
       }
 
-      // Sort by package name
-      bundles.sort((a, b) => a.package.localeCompare(b.package));
+      // Batch Redis reads for download counts (one per unique package)
+      const uniquePackages = [...new Set(bundles.map(b => b.packageName))];
+      const downloadCounts = await Promise.all(
+        uniquePackages.map(p => kv.get(`downloads:${p}`))
+      );
+      const countByPackage = Object.fromEntries(
+        uniquePackages.map((p, i) => [p, Number(downloadCounts[i]) || 0])
+      );
+      const result = bundles.map(({ normalized, packageName }) => {
+        normalized.downloads = countByPackage[packageName] ?? 0;
+        return normalized;
+      });
 
-      return bundles;
+      // Sort by package name
+      result.sort((a, b) => a.package.localeCompare(b.package));
+
+      return result;
     } catch (error) {
       server.log.error('Error listing bundles:', error);
       return reply.code(500).send({
@@ -896,13 +907,15 @@ async function buildServer() {
       );
       reply.header('Content-Length', fileContent.length);
 
-      // Track installs — only count actual app bundles, not raw WASM dev files
-      if (ext === '.mpk' || ext === '.wasm') {
+      // Track installs — only count actual app bundles (.mpk), not raw WASM dev files
+      if (ext === '.mpk') {
         const parts = artifactPath.split('/');
         // Nested path: {package}/{version}/{filename} — extract package name
         const packageName = parts.length >= 3 ? parts[0] : null;
-        kv.incr('downloads:total').catch(() => {});
-        if (packageName) kv.incr(`downloads:${packageName}`).catch(() => {});
+        if (packageName) {
+          kv.incr('downloads:total').catch(() => {});
+          kv.incr(`downloads:${packageName}`).catch(() => {});
+        }
       }
 
       return reply.send(fileContent);
