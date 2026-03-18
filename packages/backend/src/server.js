@@ -355,7 +355,8 @@ async function buildServer() {
           }
 
           const normalized = normalizeBundle(bundle);
-          normalized.downloads = Number(await kv.get(`downloads:${packageName}`)) || 0;
+          normalized.downloads =
+            Number(await kv.get(`downloads:${packageName}`)) || 0;
           bundles.push(normalized);
         }
       }
