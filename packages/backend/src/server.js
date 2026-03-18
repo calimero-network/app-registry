@@ -294,6 +294,7 @@ async function buildServer() {
       const { package: pkg, version, developer, author } = request.query || {};
 
       // If specific package and version requested, return single bundle
+      // (Same semantics as GET /api/v2/bundles/:package/:version - also increment download count)
       if (pkg && version) {
         const bundle = await bundleStorage.getBundleManifest(pkg, version);
         if (!bundle) {
@@ -302,6 +303,10 @@ async function buildServer() {
             message: `Bundle ${pkg}@${version} not found`,
           });
         }
+        await Promise.all([
+          kv.incr('downloads:total').catch(() => {}),
+          kv.incr(`downloads:${pkg}`).catch(() => {}),
+        ]);
         const normalized = normalizeBundle(bundle);
         normalized.downloads = Number(await kv.get(`downloads:${pkg}`)) || 0;
         return [normalized];
@@ -409,9 +414,10 @@ async function buildServer() {
       const normalized = normalizeBundle(bundle);
 
       // Count installs: this endpoint is called exactly once per install click in the desktop app
-      kv.incr('downloads:total').catch(() => {});
-      kv.incr(`downloads:${pkg}`).catch(() => {});
-
+      await Promise.all([
+        kv.incr('downloads:total').catch(() => {}),
+        kv.incr(`downloads:${pkg}`).catch(() => {}),
+      ]);
       normalized.downloads = Number(await kv.get(`downloads:${pkg}`)) || 0;
       return normalized;
     } catch (error) {

@@ -127,12 +127,10 @@ function AppCard({ app }: { app: AppSummary }) {
           {app.developer?.display_name || app.developer_pubkey}
         </span>
         <div className='flex items-center gap-2'>
-          {app.downloads != null && (
-            <span className='flex items-center gap-1 text-[11px] text-neutral-500'>
-              <Download className='w-3 h-3' />
-              {app.downloads.toLocaleString()} downloads
-            </span>
-          )}
+          <span className='flex items-center gap-1 text-[11px] text-neutral-500'>
+            <Download className='w-3 h-3' />
+            {(app.downloads ?? 0).toLocaleString()} downloads
+          </span>
           <span className='text-[11px] text-neutral-600 font-mono'>
             v{app.latest_version}
           </span>
