@@ -5,6 +5,7 @@ export interface AppSummary {
   developer_pubkey: string;
   latest_version: string;
   alias?: string;
+  downloads?: number;
   developer?: {
     display_name: string;
     website?: string;

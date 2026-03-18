@@ -15,6 +15,7 @@ const tar = require('tar');
 // Import config
 const config = require('./config');
 const { BundleStorageKV } = require('./lib/bundle-storage-kv');
+const { kv } = require('./lib/kv-client');
 const {
   verifyManifest,
   getPublicKeyFromManifest,
@@ -118,7 +119,7 @@ async function buildServer() {
         uniquePackages,
         publishedApps: uniquePackages,
         activeDevelopers: developers.size,
-        totalDownloads: 0, // TODO: Implement download tracking
+        totalDownloads: Number(await kv.get('downloads:total')) || 0,
       };
     } catch (error) {
       server.log.error('Error in GET /stats:', error);
@@ -301,7 +302,9 @@ async function buildServer() {
             message: `Bundle ${pkg}@${version} not found`,
           });
         }
-        return [normalizeBundle(bundle)];
+        const normalized = normalizeBundle(bundle);
+        normalized.downloads = Number(await kv.get(`downloads:${pkg}`)) || 0;
+        return [normalized];
       }
 
       // Get all bundle packages
@@ -351,14 +354,28 @@ async function buildServer() {
             }
           }
 
-          bundles.push(normalizeBundle(bundle));
+          const normalized = normalizeBundle(bundle);
+          bundles.push({ normalized, packageName });
         }
       }
 
-      // Sort by package name
-      bundles.sort((a, b) => a.package.localeCompare(b.package));
+      // Batch Redis reads for download counts (one per unique package)
+      const uniquePackages = [...new Set(bundles.map(b => b.packageName))];
+      const downloadCounts = await Promise.all(
+        uniquePackages.map(p => kv.get(`downloads:${p}`))
+      );
+      const countByPackage = Object.fromEntries(
+        uniquePackages.map((p, i) => [p, Number(downloadCounts[i]) || 0])
+      );
+      const result = bundles.map(({ normalized, packageName }) => {
+        normalized.downloads = countByPackage[packageName] ?? 0;
+        return normalized;
+      });
 
-      return bundles;
+      // Sort by package name
+      result.sort((a, b) => a.package.localeCompare(b.package));
+
+      return result;
     } catch (error) {
       server.log.error('Error listing bundles:', error);
       return reply.code(500).send({
@@ -389,7 +406,9 @@ async function buildServer() {
         });
       }
 
-      return normalizeBundle(bundle);
+      const normalized = normalizeBundle(bundle);
+      normalized.downloads = Number(await kv.get(`downloads:${pkg}`)) || 0;
+      return normalized;
     } catch (error) {
       server.log.error('Error getting bundle:', error);
       return reply.code(500).send({
@@ -887,6 +906,17 @@ async function buildServer() {
         `attachment; filename="${path.basename(filePath)}"`
       );
       reply.header('Content-Length', fileContent.length);
+
+      // Track installs — only count actual app bundles (.mpk), not raw WASM dev files
+      if (ext === '.mpk') {
+        const parts = artifactPath.split('/');
+        // Nested path: {package}/{version}/{filename} — extract package name
+        const packageName = parts.length >= 3 ? parts[0] : null;
+        if (packageName) {
+          kv.incr('downloads:total').catch(() => {});
+          kv.incr(`downloads:${packageName}`).catch(() => {});
+        }
+      }
 
       return reply.send(fileContent);
     } catch (error) {

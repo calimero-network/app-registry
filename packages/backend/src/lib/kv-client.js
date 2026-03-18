@@ -82,6 +82,11 @@ if (isProduction && process.env.REDIS_URL) {
       return await redisClient.del(key);
     },
 
+    async incr(key) {
+      await this._ensureConnected();
+      return await redisClient.incr(key);
+    },
+
     // Hash operations
     async hSet(key, obj) {
       await this._ensureConnected();
@@ -163,6 +168,13 @@ if (isProduction && process.env.REDIS_URL) {
       const existed = mockStore.has(key);
       mockStore.delete(key);
       return existed ? 1 : 0;
+    },
+
+    async incr(key) {
+      const current = parseInt(mockStore.get(key) || '0', 10);
+      const next = current + 1;
+      mockStore.set(key, String(next));
+      return next;
     },
 
     // Hash operations
