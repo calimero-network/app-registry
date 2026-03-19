@@ -303,12 +303,14 @@ async function buildServer() {
             message: `Bundle ${pkg}@${version} not found`,
           });
         }
+        const canonicalPkg = pkg.toLowerCase();
         await Promise.all([
           kv.incr('downloads:total').catch(() => {}),
-          kv.incr(`downloads:${pkg}`).catch(() => {}),
+          kv.incr(`downloads:${canonicalPkg}`).catch(() => {}),
         ]);
         const normalized = normalizeBundle(bundle);
-        normalized.downloads = Number(await kv.get(`downloads:${pkg}`)) || 0;
+        normalized.downloads =
+          Number(await kv.get(`downloads:${canonicalPkg}`)) || 0;
         return [normalized];
       }
 
@@ -364,10 +366,10 @@ async function buildServer() {
         }
       }
 
-      // Batch Redis reads for download counts (one per unique package)
+      // Batch Redis reads for download counts (one per unique package; keys are canonical lowercase)
       const uniquePackages = [...new Set(bundles.map(b => b.packageName))];
       const downloadCounts = await Promise.all(
-        uniquePackages.map(p => kv.get(`downloads:${p}`))
+        uniquePackages.map(p => kv.get(`downloads:${p.toLowerCase()}`))
       );
       const countByPackage = Object.fromEntries(
         uniquePackages.map((p, i) => [p, Number(downloadCounts[i]) || 0])
@@ -414,11 +416,13 @@ async function buildServer() {
       const normalized = normalizeBundle(bundle);
 
       // Count installs: this endpoint is called exactly once per install click in the desktop app
+      const canonicalPkg = pkg.toLowerCase();
       await Promise.all([
         kv.incr('downloads:total').catch(() => {}),
-        kv.incr(`downloads:${pkg}`).catch(() => {}),
+        kv.incr(`downloads:${canonicalPkg}`).catch(() => {}),
       ]);
-      normalized.downloads = Number(await kv.get(`downloads:${pkg}`)) || 0;
+      normalized.downloads =
+        Number(await kv.get(`downloads:${canonicalPkg}`)) || 0;
       return normalized;
     } catch (error) {
       server.log.error('Error getting bundle:', error);
@@ -902,10 +906,11 @@ async function buildServer() {
     const pathParts = artifactPath.split('/').filter(Boolean);
     if (pathParts.length >= 2) {
       const pkg = pathParts[0];
+      const canonicalPkg = pkg.toLowerCase();
       try {
         await Promise.all([
           kv.incr('downloads:total'),
-          kv.incr(`downloads:${pkg}`),
+          kv.incr(`downloads:${canonicalPkg}`),
         ]);
         request.log.info(
           { pkg, artifactPath },

@@ -109,7 +109,11 @@ module.exports = async function handler(req, res) {
       const data = await kv.get(`bundle:${pkg}/${version}`);
       if (!data) return res.status(404).json({ error: 'not_found' });
       const raw = JSON.parse(data).json;
-      return res.status(200).json([normalizeBundle(raw)]);
+      const downloadCount = await kv.get(
+        `downloads:${(pkg || '').toLowerCase()}`
+      );
+      const downloads = downloadCount ? parseInt(downloadCount, 10) : 0;
+      return res.status(200).json([{ ...normalizeBundle(raw), downloads }]);
     }
 
     const allPackages = await kv.sMembers('bundles:all');
@@ -127,7 +131,11 @@ module.exports = async function handler(req, res) {
       const bundle = JSON.parse(data).json;
       if (developer && bundle.signature?.pubkey !== developer) continue;
       if (author && bundle.metadata?.author !== author) continue;
-      bundles.push(normalizeBundle(bundle));
+      const downloadCount = await kv.get(
+        `downloads:${(packageName || '').toLowerCase()}`
+      );
+      const downloads = downloadCount ? parseInt(downloadCount, 10) : 0;
+      bundles.push({ ...normalizeBundle(bundle), downloads });
     }
 
     bundles.sort((a, b) => a.package.localeCompare(b.package));

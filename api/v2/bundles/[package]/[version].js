@@ -254,7 +254,14 @@ module.exports = async function handler(req, res) {
     const data = await kv.get(`bundle:${pkg}/${version}`);
     if (!data) return res.status(404).json({ error: 'not_found' });
     const raw = JSON.parse(data).json;
-    return res.status(200).json(normalizeBundle(raw));
+    const downloadCount = await kv.get(
+      `downloads:${(pkg || '').toLowerCase()}`
+    );
+    const downloads = downloadCount ? parseInt(downloadCount, 10) : 0;
+    return res.status(200).json({
+      ...normalizeBundle(raw),
+      downloads,
+    });
   } catch (error) {
     console.error('Get Error:', error);
     return res.status(500).json({
