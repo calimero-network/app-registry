@@ -111,9 +111,7 @@ module.exports = async function handler(req, res) {
       const raw = JSON.parse(data).json;
       const downloadCount = await kv.get(`downloads:${pkg}`);
       const downloads = downloadCount ? parseInt(downloadCount, 10) : 0;
-      return res.status(200).json([
-        { ...normalizeBundle(raw), downloads },
-      ]);
+      return res.status(200).json([{ ...normalizeBundle(raw), downloads }]);
     }
 
     const allPackages = await kv.sMembers('bundles:all');

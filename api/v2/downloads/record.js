@@ -50,7 +50,10 @@ module.exports = async function handler(req, res) {
   try {
     await kv.incr('downloads:total');
     await kv.incr(`downloads:${pkg}`);
-    console.log('Download recorded', { package: pkg, version: body.version || null });
+    console.log('Download recorded', {
+      package: pkg,
+      version: body.version || null,
+    });
     return res.status(200).json({ ok: true, package: pkg });
   } catch (error) {
     console.error('Record download error:', error);
