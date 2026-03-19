@@ -898,6 +898,24 @@ async function buildServer() {
       });
     }
 
+    // Count download: path is package/version/filename (e.g. com.calimero.kvstore/1.0.0/pkg-1.0.0.mpk)
+    const pathParts = artifactPath.split('/').filter(Boolean);
+    if (pathParts.length >= 2) {
+      const pkg = pathParts[0];
+      try {
+        await Promise.all([
+          kv.incr('downloads:total'),
+          kv.incr(`downloads:${pkg}`),
+        ]);
+        request.log.info(
+          { pkg, artifactPath },
+          'download counted (artifact requested)'
+        );
+      } catch (e) {
+        request.log.warn({ err: e, pkg }, 'download count incr failed');
+      }
+    }
+
     // Read and send the file
     try {
       const fileContent = fs.readFileSync(filePath);
