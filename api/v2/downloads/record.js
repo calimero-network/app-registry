@@ -47,14 +47,17 @@ module.exports = async function handler(req, res) {
     });
   }
 
+  // Use lowercase for Redis key so it matches canonical lookups in bundle endpoints
+  const canonicalPkg = pkg.toLowerCase();
+
   try {
     await kv.incr('downloads:total');
-    await kv.incr(`downloads:${pkg}`);
+    await kv.incr(`downloads:${canonicalPkg}`);
     console.log('Download recorded', {
-      package: pkg,
+      package: canonicalPkg,
       version: body.version || null,
     });
-    return res.status(200).json({ ok: true, package: pkg });
+    return res.status(200).json({ ok: true, package: canonicalPkg });
   } catch (error) {
     console.error('Record download error:', error);
     return res.status(500).json({
