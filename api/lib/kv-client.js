@@ -63,6 +63,15 @@ if (isProduction && process.env.REDIS_URL) {
       return await redisClient.del(key);
     },
 
+    /**
+     * Increment key by 1 (atomic). Key created at 0 if missing.
+     * Returns the value after increment (number).
+     */
+    async incr(key) {
+      await this._ensureConnected();
+      return await redisClient.incr(key);
+    },
+
     // Hash operations
     async hSet(key, obj) {
       await this._ensureConnected();
@@ -144,6 +153,13 @@ if (isProduction && process.env.REDIS_URL) {
       const existed = mockStore.has(key);
       mockStore.delete(key);
       return existed ? 1 : 0;
+    },
+
+    async incr(key) {
+      const current = mockStore.get(key);
+      const next = (current != null ? parseInt(current, 10) : 0) + 1;
+      mockStore.set(key, String(next));
+      return next;
     },
 
     // Hash operations
