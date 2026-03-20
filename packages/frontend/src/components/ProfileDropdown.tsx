@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Box, Building2, LogOut } from 'lucide-react';
+import { Box, Building2, LogOut, BadgeCheck } from 'lucide-react';
 import type { AuthUser } from '@/contexts/AuthContext';
 
 interface ProfileDropdownProps {
@@ -62,7 +62,9 @@ export function ProfileDropdown({
     );
   }
 
-  const displayName = user.email ?? user.name ?? 'Signed in';
+  const displayName = user.username
+    ? `@${user.username}`
+    : (user.name ?? user.email ?? 'Signed in');
   const initials = getInitials(user.name, user.email);
   const initialsAvatar = (
     <div className='flex h-7 w-7 items-center justify-center rounded-full bg-brand-600/80 ring-1 ring-brand-500/60 select-none'>
@@ -89,6 +91,9 @@ export function ProfileDropdown({
         <div className='flex items-center gap-2 px-3 py-2 text-[13px] text-neutral-400'>
           {avatar}
           <span className='truncate text-neutral-300'>{displayName}</span>
+          {user.verified && (
+            <BadgeCheck className='h-3.5 w-3.5 flex-shrink-0 text-emerald-400' />
+          )}
         </div>
         <Link
           to='/my-packages'
@@ -155,8 +160,11 @@ export function ProfileDropdown({
             <p className='truncate text-[12px] text-neutral-400'>
               Signed in as
             </p>
-            <p className='truncate text-[13px] font-medium text-neutral-200'>
+            <p className='flex items-center gap-1.5 truncate text-[13px] font-medium text-neutral-200'>
               {displayName}
+              {user.verified && (
+                <BadgeCheck className='h-3.5 w-3.5 flex-shrink-0 text-emerald-400' />
+              )}
             </p>
           </div>
           <Link

@@ -23,6 +23,7 @@ const {
   deleteOrg,
 } = require('../lib/org-storage');
 const { verifySessionToken, verifyApiToken } = require('../lib/auth');
+const { getUserByEmail } = require('../lib/user-storage');
 const { BundleStorageKV } = require('../lib/bundle-storage-kv');
 const config = require('../config');
 
@@ -453,7 +454,7 @@ async function orgRoutes(server) {
     return reply.send({ packages });
   });
 
-  // GET /api/v2/orgs/:orgId/members — list members (email + role, public)
+  // GET /api/v2/orgs/:orgId/members — list members (username + role, public; emails not exposed)
   server.get('/api/v2/orgs/:orgId/members', async (request, reply) => {
     const { orgId } = request.params;
     const org = await getOrg(orgId);
@@ -464,14 +465,19 @@ async function orgRoutes(server) {
       });
     }
     const emails = await getOrgMembers(orgId);
-    const roles = {};
-    for (const email of emails) {
-      const role = await getOrgMemberRole(orgId, email);
-      roles[email] = role || 'member';
-    }
-    return reply.send({
-      members: emails.map(email => ({ email, role: roles[email] })),
-    });
+    const members = await Promise.all(
+      emails.map(async email => {
+        const role = await getOrgMemberRole(orgId, email);
+        const profile = await getUserByEmail(email);
+        return {
+          email, // kept for internal auth checks (not displayed in UI)
+          username: profile?.username ?? null,
+          verified: profile?.verified ?? email.endsWith('@calimero.network'),
+          role: role || 'member',
+        };
+      })
+    );
+    return reply.send({ members });
   });
 }
 

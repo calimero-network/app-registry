@@ -13,6 +13,8 @@ export interface AuthUser {
   email: string | null;
   name: string | null;
   picture: string | null;
+  username: string | null;
+  verified: boolean;
 }
 
 interface AuthContextValue {
@@ -21,6 +23,7 @@ interface AuthContextValue {
   login: () => void;
   logout: () => Promise<void>;
   refetchUser: () => Promise<void>;
+  claimUsername: (username: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -69,12 +72,21 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }, []);
 
+  const claimUsername = useCallback(
+    async (username: string) => {
+      await api.post('/auth/username', { username });
+      await refetchUser();
+    },
+    [refetchUser]
+  );
+
   const value: AuthContextValue = {
     user,
     loading,
     login,
     logout,
     refetchUser,
+    claimUsername,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -55,6 +55,11 @@ export const getApps = async (params?: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return bundles.map((bundle: any) => {
     const author = bundle.metadata?.author || 'Unknown';
+    const ownerEmail: string =
+      bundle.metadata?._ownerEmail || bundle.metadata?.author || '';
+    const verified =
+      ownerEmail.includes('@') &&
+      ownerEmail.toLowerCase().endsWith('@calimero.network');
     return {
       id: bundle.package,
       name: bundle.metadata?.name || bundle.package,
@@ -63,9 +68,11 @@ export const getApps = async (params?: {
       latest_version: bundle.appVersion,
       alias: bundle.metadata?.name,
       downloads: bundle.downloads || 0,
+      verified,
       developer: {
         display_name: author,
         pubkey: author,
+        verified,
       },
     };
   });
@@ -83,6 +90,11 @@ export const getMyPackages = async (
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return bundles.map((bundle: any) => {
     const author = bundle.metadata?.author || 'Unknown';
+    const ownerEmail: string =
+      bundle.metadata?._ownerEmail || bundle.metadata?.author || '';
+    const verified =
+      ownerEmail.includes('@') &&
+      ownerEmail.toLowerCase().endsWith('@calimero.network');
     return {
       id: bundle.package,
       name: bundle.metadata?.name || bundle.package,
@@ -91,9 +103,11 @@ export const getMyPackages = async (
       latest_version: bundle.appVersion,
       alias: bundle.metadata?.name,
       downloads: bundle.downloads || 0,
+      verified,
       developer: {
         display_name: author,
         pubkey: author,
+        verified,
       },
     };
   });
@@ -385,4 +399,27 @@ export const listApiTokens = async (): Promise<ApiToken[]> => {
 /** Revoke an API token by its tokenId (first 8 chars). */
 export const revokeApiToken = async (tokenId: string): Promise<void> => {
   await api.delete(`/auth/token/${encodeURIComponent(tokenId)}`);
+};
+
+/** Claim a username for the currently logged-in user. Can only be done once. */
+export const claimUsername = async (
+  username: string
+): Promise<{ username: string }> => {
+  const response = await api.post<{ username: string }>('/auth/username', {
+    username,
+  });
+  return response.data;
+};
+
+/** Batch-resolve emails to { username, verified }. Returns a map keyed by email. */
+export const resolveUsers = async (
+  emails: string[]
+): Promise<Record<string, { username: string | null; verified: boolean }>> => {
+  if (!emails.length) return {};
+  const response = await api.get<
+    Record<string, { username: string | null; verified: boolean }>
+  >('/users/resolve', {
+    params: { emails: emails.join(',') },
+  });
+  return response.data ?? {};
 };

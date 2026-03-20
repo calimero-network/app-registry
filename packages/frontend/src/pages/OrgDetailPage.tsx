@@ -41,6 +41,7 @@ import {
   Twitter,
   MapPin,
   ExternalLink,
+  BadgeCheck,
 } from 'lucide-react';
 
 /** Extract a readable message from an Axios or generic error. */
@@ -504,12 +505,21 @@ export default function OrgDetailPage() {
                       className='border-b border-neutral-800/80 last:border-0'
                     >
                       <td className='py-3 px-5 text-neutral-400 truncate max-w-[280px]'>
-                        {member.email}
-                        {isCurrentUserRow && (
-                          <span className='ml-2 text-[10px] text-brand-600'>
-                            (you)
+                        <span className='inline-flex items-center gap-1.5'>
+                          <span className='font-mono'>
+                            {member.username
+                              ? `@${member.username}`
+                              : '(no username)'}
                           </span>
-                        )}
+                          {member.verified && (
+                            <BadgeCheck className='h-3.5 w-3.5 flex-shrink-0 text-emerald-400' />
+                          )}
+                          {isCurrentUserRow && (
+                            <span className='text-[10px] text-brand-600'>
+                              (you)
+                            </span>
+                          )}
+                        </span>
                       </td>
                       <td className='py-3 px-5'>
                         {member.role === 'owner' ? (

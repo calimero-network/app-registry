@@ -10,6 +10,12 @@ const {
   listApiTokens,
   revokeApiToken,
 } = require('../lib/auth');
+const {
+  getOrCreateUser,
+  getUserById,
+  getUserByEmail,
+  claimUsername,
+} = require('../lib/user-storage');
 
 const STATE_COOKIE_NAME = 'oauth_state';
 const STATE_MAX_AGE = 600; // 10 minutes
@@ -118,6 +124,9 @@ async function authRoutes(server, options) {
       return reply.redirect(302, `${frontendUrl}?error=oauth_failed`);
     }
 
+    // Create or update user profile in Redis (username/verified persistence)
+    await getOrCreateUser(user);
+
     const token = await createSessionToken(
       user,
       sessionSecret,
@@ -143,14 +152,85 @@ async function authRoutes(server, options) {
         .code(401)
         .send({ error: 'unauthorized', message: 'Not signed in' });
     }
+    // Enrich with username and verified from Redis profile
+    const profile =
+      (await getUserById(user.id)) || (await getUserByEmail(user.email));
+    const username = profile?.username ?? null;
+    const verified =
+      profile?.verified ?? (user.email || '').endsWith('@calimero.network');
     return {
       user: {
         id: user.id,
         email: user.email,
         name: user.name,
         picture: user.picture,
+        username,
+        verified,
       },
     };
+  });
+
+  // POST /api/auth/username — claim a username (immutable once set)
+  server.post('/api/auth/username', async (request, reply) => {
+    const user = await resolveUser(request);
+    if (!user) {
+      return reply
+        .code(401)
+        .send({ error: 'unauthorized', message: 'Login required' });
+    }
+    const { username } = request.body || {};
+    if (!username || typeof username !== 'string') {
+      return reply
+        .code(400)
+        .send({ error: 'bad_request', message: 'username is required' });
+    }
+    try {
+      const updated = await claimUsername(user.id, username.trim());
+      return reply.code(200).send({ username: updated.username });
+    } catch (err) {
+      const code = err.code;
+      if (code === 'invalid_format')
+        return reply
+          .code(400)
+          .send({ error: 'invalid_format', message: err.message });
+      if (code === 'blocked')
+        return reply.code(400).send({ error: 'blocked', message: err.message });
+      if (code === 'taken')
+        return reply.code(409).send({ error: 'taken', message: err.message });
+      if (code === 'immutable')
+        return reply
+          .code(409)
+          .send({ error: 'immutable', message: err.message });
+      server.log.error({ err }, 'POST /api/auth/username failed');
+      return reply
+        .code(500)
+        .send({ error: 'server_error', message: 'Failed to set username' });
+    }
+  });
+
+  // GET /api/users/resolve?emails=e1,e2,e3 — batch resolve emails to { username, verified }
+  // Returns: { [email]: { username: string|null, verified: boolean } }
+  server.get('/api/users/resolve', async (request, reply) => {
+    const raw = request.query?.emails;
+    if (!raw || typeof raw !== 'string') {
+      return reply.send({});
+    }
+    const emails = raw
+      .split(',')
+      .map(e => e.trim().toLowerCase())
+      .filter(Boolean)
+      .slice(0, 50);
+    const result = {};
+    await Promise.all(
+      emails.map(async email => {
+        const profile = await getUserByEmail(email);
+        result[email] = {
+          username: profile?.username ?? null,
+          verified: profile?.verified ?? email.endsWith('@calimero.network'),
+        };
+      })
+    );
+    return reply.send(result);
   });
 
   // POST /api/auth/logout — clear session cookie

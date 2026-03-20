@@ -1,7 +1,13 @@
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { Search, Package, ArrowUpRight, Download } from 'lucide-react';
+import {
+  Search,
+  Package,
+  ArrowUpRight,
+  Download,
+  BadgeCheck,
+} from 'lucide-react';
 import { getApps } from '../lib/api';
 import type { AppSummary } from '../types/api';
 
@@ -123,8 +129,13 @@ function AppCard({ app }: { app: AppSummary }) {
         {app.package_name}
       </p>
       <div className='flex items-center justify-between'>
-        <span className='text-[11px] text-neutral-400 font-light'>
-          {app.developer?.display_name || app.developer_pubkey}
+        <span className='inline-flex items-center gap-1 text-[11px] text-neutral-400 font-light min-w-0'>
+          <span className='truncate font-mono'>
+            {app.developer?.display_name || app.developer_pubkey}
+          </span>
+          {app.verified && (
+            <BadgeCheck className='h-3.5 w-3.5 flex-shrink-0 text-emerald-400' />
+          )}
         </span>
         <div className='flex items-center gap-2'>
           <span className='flex items-center gap-1 text-[11px] text-neutral-500'>

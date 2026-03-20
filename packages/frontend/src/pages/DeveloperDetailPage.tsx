@@ -1,7 +1,13 @@
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Package, User, ArrowLeft, ArrowUpRight } from 'lucide-react';
-import { api } from '@/lib/api';
+import {
+  Package,
+  User,
+  ArrowLeft,
+  ArrowUpRight,
+  BadgeCheck,
+} from 'lucide-react';
+import { api, resolveUsers } from '@/lib/api';
 
 interface V2Bundle {
   version: string;
@@ -34,6 +40,18 @@ export default function DeveloperDetailPage() {
   const developerBundles = allBundles.filter(
     b => b.metadata?.author === decodedName
   );
+
+  const { data: userMap = {} } = useQuery({
+    queryKey: ['resolve-user', decodedName],
+    queryFn: () => resolveUsers([decodedName]),
+    enabled: !!decodedName,
+  });
+  const developerProfile = userMap[decodedName] as
+    | { username: string | null; verified: boolean }
+    | undefined;
+  const displayName = developerProfile?.username
+    ? `@${developerProfile.username}`
+    : decodedName;
 
   const uniqueApps = new Map<string, V2Bundle>();
   for (const b of developerBundles) {
@@ -78,8 +96,11 @@ export default function DeveloperDetailPage() {
           <User className='w-4 h-4 text-neutral-400' />
         </div>
         <div>
-          <h1 className='text-xl font-semibold text-neutral-100'>
-            {decodedName}
+          <h1 className='flex items-center gap-2 text-xl font-semibold text-neutral-100'>
+            <span className='font-mono'>{displayName}</span>
+            {developerProfile?.verified && (
+              <BadgeCheck className='h-5 w-5 text-emerald-400 flex-shrink-0' />
+            )}
           </h1>
           <p className='text-[12px] text-neutral-500 font-light'>
             {apps.length} app{apps.length !== 1 ? 's' : ''} &middot;{' '}
