@@ -3,6 +3,7 @@
  */
 
 const jwt = require('jsonwebtoken');
+const { getOrCreateUser } = require('../../lib/user-storage');
 
 const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const GOOGLE_USERINFO_URL = 'https://www.googleapis.com/oauth2/v2/userinfo';
@@ -87,6 +88,13 @@ module.exports = async function handler(req, res) {
   } catch {
     res.setHeader('Location', `${frontendUrl}?error=oauth_failed`);
     return res.status(302).end();
+  }
+
+  // Persist user profile in Redis (creates on first login, updates name/picture on subsequent logins)
+  try {
+    await getOrCreateUser(user);
+  } catch {
+    // Non-fatal — session still works without Redis profile
   }
 
   const token = jwt.sign(

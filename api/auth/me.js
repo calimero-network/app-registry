@@ -4,6 +4,7 @@
 
 const jwt = require('jsonwebtoken');
 const { kv } = require('../lib/kv-client');
+const { getUserById, getUserByEmail } = require('../lib/user-storage');
 
 const TOKEN_PREFIX = 'apitoken:';
 
@@ -35,18 +36,24 @@ module.exports = async function handler(req, res) {
   const cookieName = process.env.AUTH_COOKIE_NAME || 'app_registry_session';
   const sessionSecret = process.env.SESSION_SECRET;
 
-  // 1) Try Bearer API token (same Redis key as backend)
+  // 1) Try Bearer API token
   const bearer = getBearerToken(req);
   if (bearer) {
     try {
       const raw = await kv.get(TOKEN_PREFIX + bearer);
       if (raw) {
         const data = JSON.parse(typeof raw === 'string' ? raw : String(raw));
+        const profile = await getUserByEmail(data.email);
         return res.status(200).json({
           user: {
+            id: data.email,
             email: data.email,
             name: data.name ?? data.email,
-            pubkey: data.pubkey ?? null,
+            picture: null,
+            username: profile?.username ?? null,
+            verified:
+              profile?.verified ??
+              (data.email || '').endsWith('@calimero.network'),
           },
         });
       }
@@ -67,12 +74,18 @@ module.exports = async function handler(req, res) {
 
   try {
     const payload = jwt.verify(token, sessionSecret, { algorithms: ['HS256'] });
+    const profile =
+      (await getUserById(payload.sub)) || (await getUserByEmail(payload.email));
     return res.status(200).json({
       user: {
         id: payload.sub,
         email: payload.email,
         name: payload.name,
         picture: payload.picture,
+        username: profile?.username ?? null,
+        verified:
+          profile?.verified ??
+          (payload.email || '').endsWith('@calimero.network'),
       },
     });
   } catch {

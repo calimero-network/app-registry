@@ -60,7 +60,8 @@ async function resolveUser(req) {
         const payload = jwt.verify(token, sessionSecret, {
           algorithms: ['HS256'],
         });
-        if (payload?.email) return { email: payload.email, name: payload.name };
+        if (payload?.email)
+          return { id: payload.sub, email: payload.email, name: payload.name };
       } catch {
         /* fall through */
       }
