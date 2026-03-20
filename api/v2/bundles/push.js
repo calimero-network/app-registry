@@ -13,6 +13,8 @@ const {
   isAllowedOwner,
   normalizeSignature,
 } = require('../../lib/verify');
+const { resolveUser } = require('../../lib/auth-helpers');
+const { getUserByEmail } = require('../../lib/user-storage');
 
 // Singleton storage instance
 let storage;
@@ -75,9 +77,21 @@ module.exports = async function handler(req, res) {
       });
     }
 
+    // Resolve user (Bearer token for CLI, session cookie for web) to get username
+    const user = await resolveUser(req);
+    let displayAuthor = null;
+    let ownerEmail = null;
+    if (user?.email) {
+      ownerEmail = user.email;
+      const profile = await getUserByEmail(user.email);
+      displayAuthor = profile?.username || user.email;
+    }
+
     // Ownership: same package must be published by the same key or by a key in owners[]
     const incomingKey = getPublicKeyFromManifest(bundleManifest);
     const versions = await store.getBundleVersions(bundleManifest.package);
+    bundleManifest.metadata = bundleManifest.metadata || {};
+
     if (versions.length > 0) {
       const latestVersion = versions[0];
       const manifestLatest = await store.getBundleManifest(
@@ -99,9 +113,17 @@ module.exports = async function handler(req, res) {
       );
       const existingAuthor = manifestOldest?.metadata?.author;
       if (existingAuthor) {
-        bundleManifest.metadata = bundleManifest.metadata || {};
         bundleManifest.metadata.author = existingAuthor;
+        bundleManifest.metadata._ownerEmail =
+          manifestOldest?.metadata?._ownerEmail || existingAuthor;
+      } else if (displayAuthor) {
+        bundleManifest.metadata.author = displayAuthor;
+        bundleManifest.metadata._ownerEmail = ownerEmail;
       }
+    } else if (displayAuthor) {
+      // New package — use username as public author, store email privately
+      bundleManifest.metadata.author = displayAuthor;
+      bundleManifest.metadata._ownerEmail = ownerEmail;
     }
 
     // Never trust client-controlled _overwrite; only allow overwrite when server config enables it (e.g. migrations).

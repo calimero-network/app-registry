@@ -7,7 +7,7 @@ import {
   ArrowUpRight,
   BadgeCheck,
 } from 'lucide-react';
-import { api, resolveUsers } from '@/lib/api';
+import { api } from '@/lib/api';
 
 interface V2Bundle {
   version: string;
@@ -17,6 +17,7 @@ interface V2Bundle {
     name?: string;
     description?: string;
     author?: string;
+    _ownerEmail?: string;
     tags?: string[];
     license?: string;
   };
@@ -41,17 +42,14 @@ export default function DeveloperDetailPage() {
     b => b.metadata?.author === decodedName
   );
 
-  const { data: userMap = {} } = useQuery({
-    queryKey: ['resolve-user', decodedName],
-    queryFn: () => resolveUsers([decodedName]),
-    enabled: !!decodedName,
-  });
-  const developerProfile = userMap[decodedName] as
-    | { username: string | null; verified: boolean }
-    | undefined;
-  const displayName = developerProfile?.username
-    ? `@${developerProfile.username}`
-    : decodedName;
+  // Derive verified from _ownerEmail in any of the developer's bundles
+  const ownerEmail =
+    developerBundles.find(b => b.metadata?._ownerEmail)?.metadata
+      ?._ownerEmail ?? '';
+  const verified =
+    ownerEmail.includes('@') &&
+    ownerEmail.toLowerCase().endsWith('@calimero.network');
+  const displayName = decodedName;
 
   const uniqueApps = new Map<string, V2Bundle>();
   for (const b of developerBundles) {
@@ -98,7 +96,7 @@ export default function DeveloperDetailPage() {
         <div>
           <h1 className='flex items-center gap-2 text-xl font-semibold text-neutral-100'>
             <span className='font-mono'>{displayName}</span>
-            {developerProfile?.verified && (
+            {verified && (
               <BadgeCheck className='h-5 w-5 text-emerald-400 flex-shrink-0' />
             )}
           </h1>

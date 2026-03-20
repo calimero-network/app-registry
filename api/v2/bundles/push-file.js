@@ -21,6 +21,7 @@ const {
 } = require('../../lib/verify');
 const { isAllowedToPublish } = require('../../lib/org-storage');
 const { resolveUser } = require('../../lib/auth-helpers');
+const { getUserByEmail } = require('../../lib/user-storage');
 
 // Disable Vercel's default body parser so we can handle multipart ourselves
 module.exports.config = {
@@ -171,6 +172,15 @@ module.exports = async function handler(req, res) {
     // Resolve user from session cookie or bearer token
     const user = await resolveUser(req);
 
+    // Look up username so we never store emails as the public author
+    let displayAuthor = null;
+    let ownerEmail = null;
+    if (user?.email) {
+      ownerEmail = user.email;
+      const profile = await getUserByEmail(user.email);
+      displayAuthor = profile?.username || user.email;
+    }
+
     const store = getStorage();
     const incomingKey = getPublicKeyFromManifest(bundleManifest);
     const versions = await store.getBundleVersions(bundleManifest.package);
@@ -178,7 +188,7 @@ module.exports = async function handler(req, res) {
     bundleManifest.metadata = bundleManifest.metadata || {};
 
     if (versions.length > 0) {
-      // Preserve author from oldest version
+      // Preserve author from oldest version (locked to first publisher)
       const oldestVersion = versions[versions.length - 1];
       const latestVersion = versions[0];
       const manifestOldest = await store.getBundleManifest(
@@ -188,8 +198,11 @@ module.exports = async function handler(req, res) {
       const existingAuthor = manifestOldest?.metadata?.author;
       if (existingAuthor) {
         bundleManifest.metadata.author = existingAuthor;
-      } else if (user?.email) {
-        bundleManifest.metadata.author = user.email;
+        bundleManifest.metadata._ownerEmail =
+          manifestOldest?.metadata?._ownerEmail || existingAuthor;
+      } else if (displayAuthor) {
+        bundleManifest.metadata.author = displayAuthor;
+        bundleManifest.metadata._ownerEmail = ownerEmail;
       }
 
       // Check ownership (key match or org membership)
@@ -223,8 +236,10 @@ module.exports = async function handler(req, res) {
           message: `New version (${incoming}) must be greater than latest (${latestVersion}).`,
         });
       }
-    } else if (user?.email) {
-      bundleManifest.metadata.author = user.email;
+    } else if (displayAuthor) {
+      // New package — set author to username, store email privately
+      bundleManifest.metadata.author = displayAuthor;
+      bundleManifest.metadata._ownerEmail = ownerEmail;
     }
 
     const overwrite =
