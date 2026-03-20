@@ -18,6 +18,7 @@ import {
   Trash2,
   Building2,
   ArrowRight,
+  BadgeCheck,
 } from 'lucide-react';
 import {
   api,
@@ -36,6 +37,7 @@ interface V2Bundle {
     name?: string;
     description?: string;
     author?: string;
+    _ownerEmail?: string;
     icon?: string;
     tags?: string[];
     license?: string;
@@ -162,7 +164,11 @@ export default function AppDetailPage() {
   const abi = bundle.abi;
   const sig = bundle.signature;
   const ifaces = bundle.interfaces;
-  const isOwner = !!user?.email && !!meta?.author && user.email === meta.author;
+  const ownerEmail = meta?._ownerEmail ?? meta?.author ?? '';
+  const isOwner = !!user?.email && !!ownerEmail && user.email === ownerEmail;
+  const authorVerified =
+    ownerEmail.includes('@') &&
+    ownerEmail.toLowerCase().endsWith('@calimero.network');
   const userEmailLower = user?.email?.toLowerCase() ?? '';
   const isOrgMember =
     !!userEmailLower &&
@@ -214,7 +220,12 @@ export default function AppDetailPage() {
       {/* Info grid */}
       <div className='grid grid-cols-2 md:grid-cols-4 gap-3'>
         {meta?.author && (
-          <InfoCard icon={User} label='Author' value={meta.author} />
+          <InfoCard
+            icon={User}
+            label='Author'
+            value={meta.author}
+            verified={authorVerified}
+          />
         )}
         <InfoCard icon={Clock} label='Version' value={bundle.appVersion} />
         {meta?.license && (
@@ -381,10 +392,13 @@ export default function AppDetailPage() {
           </p>
           <div className='space-y-1.5'>
             {allBundles.map(b => {
+              const vOwnerEmail =
+                b.metadata?._ownerEmail ?? b.metadata?.author ?? '';
               const isVersionOwner =
-                !!user?.email &&
-                !!b.metadata?.author &&
-                user.email === b.metadata.author;
+                !!user?.email && !!vOwnerEmail && user.email === vOwnerEmail;
+              const vAuthorVerified =
+                vOwnerEmail.includes('@') &&
+                vOwnerEmail.toLowerCase().endsWith('@calimero.network');
               const canEditVersion = isVersionOwner || isOrgMember;
               const isConfirmingThisVersion =
                 confirmDeleteVersion === b.appVersion;
@@ -400,8 +414,11 @@ export default function AppDetailPage() {
                     </span>
                   </div>
                   <div className='flex items-center gap-3'>
-                    <span className='text-[11px] text-neutral-500 font-mono'>
+                    <span className='inline-flex items-center gap-1 text-[11px] text-neutral-500 font-mono'>
                       {b.metadata?.author || ''}
+                      {vAuthorVerified && (
+                        <BadgeCheck className='h-3.5 w-3.5 flex-shrink-0 text-emerald-400' />
+                      )}
                     </span>
                     {canEditVersion && (
                       <Link
@@ -519,18 +536,23 @@ function InfoCard({
   icon: Icon,
   label,
   value,
+  verified,
 }: {
   icon: React.ComponentType<{ className?: string }>;
   label: string;
   value: string;
+  verified?: boolean;
 }) {
   return (
     <div className='card px-3.5 py-2.5 flex items-center gap-2.5'>
       <Icon className='w-3.5 h-3.5 text-neutral-500 flex-shrink-0' />
       <div className='min-w-0'>
         <p className='text-[11px] text-neutral-500'>{label}</p>
-        <p className='text-[13px] text-neutral-200 font-light truncate'>
+        <p className='text-[13px] text-neutral-200 font-light truncate flex items-center gap-1'>
           {value}
+          {verified && (
+            <BadgeCheck className='h-3.5 w-3.5 flex-shrink-0 text-emerald-400' />
+          )}
         </p>
       </div>
     </div>

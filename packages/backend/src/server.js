@@ -26,7 +26,8 @@ const {
   getPkg2Org,
   getOrgMemberRole,
 } = require('./lib/org-storage');
-const { verifySessionToken } = require('./lib/auth');
+const { verifySessionToken, verifyApiToken } = require('./lib/auth');
+const { getUserByEmail } = require('./lib/user-storage');
 
 async function buildServer() {
   const server = fastify({
@@ -353,10 +354,11 @@ async function buildServer() {
             }
           }
 
-          // Filter by metadata.author (e.g. for "My packages" by email)
+          // Filter by metadata._ownerEmail (preferred) or metadata.author (legacy) — used by "My packages"
           if (author) {
-            const bundleAuthor = bundle.metadata?.author;
-            if (!bundleAuthor || bundleAuthor !== author) {
+            const ownerEmail =
+              bundle.metadata?._ownerEmail ?? bundle.metadata?.author;
+            if (!ownerEmail || ownerEmail !== author) {
               continue;
             }
           }
@@ -502,7 +504,8 @@ async function buildServer() {
       if (orgId && sessionUser?.email) {
         const role = await getOrgMemberRole(orgId, sessionUser.email);
         if (role === 'member') {
-          const versionAuthor = existing.metadata?.author;
+          const versionAuthor =
+            existing.metadata?._ownerEmail ?? existing.metadata?.author;
           if (versionAuthor !== sessionUser.email) {
             return reply.code(403).send({
               error: 'forbidden',
@@ -557,6 +560,37 @@ async function buildServer() {
     }
   }
 
+  /**
+   * Resolve the current user from session cookie or Bearer token.
+   * Returns { email, name, username } or null.
+   */
+  async function resolveAuthUser(request) {
+    // Try session cookie first
+    const sessionUser = await getSessionUser(request);
+    if (sessionUser?.email) {
+      const profile = await getUserByEmail(sessionUser.email);
+      return {
+        email: sessionUser.email,
+        name: sessionUser.name,
+        username: profile?.username ?? null,
+      };
+    }
+    // Try Bearer token
+    const auth = request.headers?.['authorization'];
+    if (typeof auth === 'string' && auth.startsWith('Bearer ')) {
+      const tokenData = await verifyApiToken(auth.slice(7));
+      if (tokenData?.email) {
+        const profile = await getUserByEmail(tokenData.email);
+        return {
+          email: tokenData.email,
+          name: tokenData.name,
+          username: profile?.username ?? null,
+        };
+      }
+    }
+    return null;
+  }
+
   // DELETE /api/v2/bundles/:package/:version - Delete a specific version
   server.delete('/api/v2/bundles/:package/:version', async (request, reply) => {
     try {
@@ -578,8 +612,9 @@ async function buildServer() {
         });
       }
 
-      const author = existing.metadata?.author;
-      if (!author || author !== user.email) {
+      const ownerEmail =
+        existing.metadata?._ownerEmail ?? existing.metadata?.author;
+      if (!ownerEmail || ownerEmail !== user.email) {
         return reply.code(403).send({
           error: 'not_owner',
           message: 'Only the package author can delete this version.',
@@ -620,8 +655,9 @@ async function buildServer() {
 
       // Check ownership from the latest version
       const latest = await bundleStorage.getBundleManifest(pkg, versions[0]);
-      const author = latest?.metadata?.author;
-      if (!author || author !== user.email) {
+      const ownerEmail =
+        latest?.metadata?._ownerEmail ?? latest?.metadata?.author;
+      if (!ownerEmail || ownerEmail !== user.email) {
         return reply.code(403).send({
           error: 'not_owner',
           message: 'Only the package author can delete this package.',
@@ -640,7 +676,7 @@ async function buildServer() {
   });
 
   // Shared: validate manifest, verify signature, check ownership, store. Returns { package, appVersion } or throws { statusCode, body }.
-  async function processPushBody(bundleManifest, { userEmail } = {}) {
+  async function processPushBody(bundleManifest, { userEmail, username } = {}) {
     if (
       !bundleManifest ||
       bundleManifest === null ||
@@ -695,7 +731,9 @@ async function buildServer() {
     );
     // Set or preserve author: only set from session when creating a new package; never overwrite on new version.
     // Author is locked from the oldest (first) version, not the latest.
+    // We store: metadata.author = username (display), metadata._ownerEmail = email (ownership checks).
     bundleManifest.metadata = bundleManifest.metadata || {};
+    const displayAuthor = username || userEmail; // prefer username, fall back to email
     if (versions.length > 0) {
       const oldestVersion = versions[versions.length - 1];
       const latestVersion = versions[0];
@@ -706,8 +744,14 @@ async function buildServer() {
       const existingAuthor = manifestOldest?.metadata?.author;
       if (existingAuthor) {
         bundleManifest.metadata.author = existingAuthor;
-      } else if (userEmail) {
-        bundleManifest.metadata.author = userEmail;
+        // Preserve _ownerEmail from oldest manifest if present
+        if (manifestOldest?.metadata?._ownerEmail) {
+          bundleManifest.metadata._ownerEmail =
+            manifestOldest.metadata._ownerEmail;
+        }
+      } else if (displayAuthor) {
+        bundleManifest.metadata.author = displayAuthor;
+        if (userEmail) bundleManifest.metadata._ownerEmail = userEmail;
       }
       const manifestLatest = await bundleStorage.getBundleManifest(
         bundleManifest.package,
@@ -745,8 +789,9 @@ async function buildServer() {
           },
         };
       }
-    } else if (userEmail) {
-      bundleManifest.metadata.author = userEmail;
+    } else if (displayAuthor) {
+      bundleManifest.metadata.author = displayAuthor;
+      if (userEmail) bundleManifest.metadata._ownerEmail = userEmail;
     }
     const overwrite =
       process.env.ALLOW_BUNDLE_OVERWRITE === 'true' ||
@@ -774,7 +819,11 @@ async function buildServer() {
   // POST /api/v2/bundles/push - Push a new bundle (used by CLI)
   const pushBundleHandler = async (request, reply) => {
     try {
-      const result = await processPushBody(request.body);
+      const authUser = await resolveAuthUser(request);
+      const result = await processPushBody(request.body, {
+        userEmail: authUser?.email,
+        username: authUser?.username,
+      });
       return reply.code(201).send({
         message: 'Bundle published successfully',
         package: result.package,
@@ -842,15 +891,11 @@ async function buildServer() {
         _overwrite: true,
       };
 
-      const cookieName = config.auth?.cookieName || 'app_registry_session';
-      const sessionSecret = config.auth?.sessionSecret;
-      const token = request.cookies?.[cookieName];
-      const user =
-        sessionSecret && token
-          ? await verifySessionToken(token, sessionSecret)
-          : null;
-
-      const result = await processPushBody(body, { userEmail: user?.email });
+      const authUser = await resolveAuthUser(request);
+      const result = await processPushBody(body, {
+        userEmail: authUser?.email,
+        username: authUser?.username,
+      });
       return reply.code(201).send({
         message: 'Bundle published successfully',
         package: result.package,

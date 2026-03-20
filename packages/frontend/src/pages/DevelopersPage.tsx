@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Search, Package, User, ArrowUpRight } from 'lucide-react';
+import { Search, Package, User, ArrowUpRight, BadgeCheck } from 'lucide-react';
 import { getApps } from '@/lib/api';
 
 export default function DevelopersPage() {
@@ -12,24 +12,29 @@ export default function DevelopersPage() {
     queryFn: () => getApps(),
   });
 
-  const developers = Array.from(
+  const uniqueAuthors = Array.from(
     new Set(
       apps.map(app => app.developer_pubkey).filter(a => a && a !== 'Unknown')
     )
-  ).map(author => {
+  );
+
+  const developers = uniqueAuthors.map(author => {
     const developerApps = apps.filter(app => app.developer_pubkey === author);
     return {
       pubkey: author,
+      verified: developerApps.some(app => app.verified),
       appCount: developerApps.length,
       latestApp: developerApps[0]?.name || 'Unknown',
     };
   });
 
-  const filteredDevelopers = developers.filter(
-    dev =>
-      dev.pubkey.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      dev.latestApp.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredDevelopers = developers.filter(dev => {
+    const q = searchTerm.toLowerCase();
+    return (
+      dev.pubkey.toLowerCase().includes(q) ||
+      dev.latestApp.toLowerCase().includes(q)
+    );
+  });
 
   if (isLoading) {
     return (
@@ -93,11 +98,17 @@ export default function DevelopersPage() {
 function DeveloperCard({
   developer,
 }: {
-  developer: { pubkey: string; appCount: number; latestApp: string };
+  developer: {
+    pubkey: string;
+    verified: boolean;
+    appCount: number;
+    latestApp: string;
+  };
 }) {
+  const displayName = developer.pubkey;
   return (
     <Link
-      to={`/developers/${developer.pubkey}`}
+      to={`/developers/${encodeURIComponent(developer.pubkey)}`}
       className='card block px-4 py-3 group hover:border-brand-600/30'
     >
       <div className='flex items-center justify-between'>
@@ -106,8 +117,11 @@ function DeveloperCard({
             <User className='w-3.5 h-3.5 text-neutral-400' />
           </div>
           <div className='min-w-0'>
-            <h3 className='text-[13px] font-medium text-neutral-200 truncate group-hover:text-white transition-colors'>
-              {developer.pubkey}
+            <h3 className='flex items-center gap-1.5 text-[13px] font-medium text-neutral-200 truncate group-hover:text-white transition-colors'>
+              <span className='font-mono truncate'>{displayName}</span>
+              {developer.verified && (
+                <BadgeCheck className='h-3.5 w-3.5 flex-shrink-0 text-emerald-400' />
+              )}
             </h3>
             <p className='text-[11px] text-neutral-500 font-light'>
               Latest: {developer.latestApp}

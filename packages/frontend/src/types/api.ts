@@ -6,10 +6,12 @@ export interface AppSummary {
   latest_version: string;
   alias?: string;
   downloads?: number;
+  verified?: boolean;
   developer?: {
     display_name: string;
     website?: string;
     pubkey: string;
+    verified?: boolean;
   };
 }
 
@@ -96,6 +98,8 @@ export interface Org {
 
 export interface OrgMember {
   email: string;
+  username: string | null;
+  verified?: boolean;
   role: 'owner' | 'admin' | 'member';
 }
 
