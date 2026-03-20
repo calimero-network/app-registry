@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Box, Building2, LogOut, BadgeCheck } from 'lucide-react';
+import { Box, Building2, LogOut, BadgeCheck, ShieldCheck } from 'lucide-react';
 import type { AuthUser } from '@/contexts/AuthContext';
 
 interface ProfileDropdownProps {
@@ -111,6 +111,16 @@ export function ProfileDropdown({
           <Building2 className='h-3.5 w-3.5 mr-2.5' />
           Organizations
         </Link>
+        {user.isAdmin && (
+          <Link
+            to='/admin'
+            onClick={onNavigate}
+            className='flex items-center px-3 py-2 rounded-md text-[13px] font-normal text-brand-500 hover:bg-brand-600/10 hover:text-brand-400'
+          >
+            <ShieldCheck className='h-3.5 w-3.5 mr-2.5' />
+            Admin
+          </Link>
+        )}
         <button
           type='button'
           onClick={() => {
@@ -185,6 +195,17 @@ export function ProfileDropdown({
             <Building2 className='h-3.5 w-3.5' />
             Organizations
           </Link>
+          {user.isAdmin && (
+            <Link
+              to='/admin'
+              onClick={() => setOpen(false)}
+              className='flex items-center gap-2 px-3 py-2 text-[13px] text-brand-500 hover:bg-brand-600/10 hover:text-brand-400'
+              role='menuitem'
+            >
+              <ShieldCheck className='h-3.5 w-3.5' />
+              Admin
+            </Link>
+          )}
           <button
             type='button'
             onClick={() => {

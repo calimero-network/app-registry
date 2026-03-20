@@ -4,6 +4,7 @@
 
 const jwt = require('jsonwebtoken');
 const { getOrCreateUser } = require('../../lib/user-storage');
+const { isBlacklisted } = require('../../lib/admin-storage');
 
 const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const GOOGLE_USERINFO_URL = 'https://www.googleapis.com/oauth2/v2/userinfo';
@@ -88,6 +89,16 @@ module.exports = async function handler(req, res) {
   } catch {
     res.setHeader('Location', `${frontendUrl}?error=oauth_failed`);
     return res.status(302).end();
+  }
+
+  // Block blacklisted users before creating a session
+  try {
+    if (await isBlacklisted(user.email)) {
+      res.setHeader('Location', `${frontendUrl}?error=account_suspended`);
+      return res.status(302).end();
+    }
+  } catch {
+    /* non-fatal */
   }
 
   // Persist user profile in Redis (creates on first login, updates name/picture on subsequent logins)

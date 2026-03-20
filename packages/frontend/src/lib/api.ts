@@ -55,11 +55,7 @@ export const getApps = async (params?: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return bundles.map((bundle: any) => {
     const author = bundle.metadata?.author || 'Unknown';
-    const ownerEmail: string =
-      bundle.metadata?._ownerEmail || bundle.metadata?.author || '';
-    const verified =
-      ownerEmail.includes('@') &&
-      ownerEmail.toLowerCase().endsWith('@calimero.network');
+    const verified = !!bundle.verified;
     return {
       id: bundle.package,
       name: bundle.metadata?.name || bundle.package,
@@ -90,11 +86,7 @@ export const getMyPackages = async (
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return bundles.map((bundle: any) => {
     const author = bundle.metadata?.author || 'Unknown';
-    const ownerEmail: string =
-      bundle.metadata?._ownerEmail || bundle.metadata?.author || '';
-    const verified =
-      ownerEmail.includes('@') &&
-      ownerEmail.toLowerCase().endsWith('@calimero.network');
+    const verified = !!bundle.verified;
     return {
       id: bundle.package,
       name: bundle.metadata?.name || bundle.package,

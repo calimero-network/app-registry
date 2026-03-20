@@ -6,6 +6,7 @@
 const jwt = require('jsonwebtoken');
 const { kv } = require('./kv-client');
 const { getOrgMemberRole } = require('./org-storage');
+const { isAdmin } = require('./admin-storage');
 
 const TOKEN_PREFIX = 'apitoken:';
 
@@ -121,9 +122,26 @@ async function requireOrgOwner(req, res, orgId) {
   return user;
 }
 
+/**
+ * Require admin. Returns user or sends 403 and returns null.
+ */
+async function requireAdmin(req, res) {
+  const user = await requireAuth(req, res);
+  if (!user) return null;
+  const admin = await isAdmin(user.email);
+  if (!admin) {
+    res
+      .status(403)
+      .json({ error: 'forbidden', message: 'Admin access required' });
+    return null;
+  }
+  return user;
+}
+
 module.exports = {
   resolveUser,
   requireAuth,
   requireOrgAdminOrOwner,
   requireOrgOwner,
+  requireAdmin,
 };

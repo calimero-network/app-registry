@@ -5,6 +5,7 @@
 const jwt = require('jsonwebtoken');
 const { kv } = require('../lib/kv-client');
 const { getUserById, getUserByEmail } = require('../lib/user-storage');
+const { isAdmin, getAdminVerified } = require('../lib/admin-storage');
 
 const TOKEN_PREFIX = 'apitoken:';
 
@@ -44,6 +45,9 @@ module.exports = async function handler(req, res) {
       if (raw) {
         const data = JSON.parse(typeof raw === 'string' ? raw : String(raw));
         const profile = await getUserByEmail(data.email);
+        const adminVerified = profile?.id
+          ? await getAdminVerified('user', profile.id)
+          : false;
         return res.status(200).json({
           user: {
             id: data.email,
@@ -52,8 +56,10 @@ module.exports = async function handler(req, res) {
             picture: null,
             username: profile?.username ?? null,
             verified:
-              profile?.verified ??
+              profile?.verified ||
+              adminVerified ||
               (data.email || '').endsWith('@calimero.network'),
+            isAdmin: await isAdmin(data.email),
           },
         });
       }
@@ -76,6 +82,9 @@ module.exports = async function handler(req, res) {
     const payload = jwt.verify(token, sessionSecret, { algorithms: ['HS256'] });
     const profile =
       (await getUserById(payload.sub)) || (await getUserByEmail(payload.email));
+    const adminVerified = profile?.id
+      ? await getAdminVerified('user', profile.id)
+      : false;
     return res.status(200).json({
       user: {
         id: payload.sub,
@@ -84,8 +93,10 @@ module.exports = async function handler(req, res) {
         picture: payload.picture,
         username: profile?.username ?? null,
         verified:
-          profile?.verified ??
+          profile?.verified ||
+          adminVerified ||
           (payload.email || '').endsWith('@calimero.network'),
+        isAdmin: await isAdmin(payload.email),
       },
     });
   } catch {

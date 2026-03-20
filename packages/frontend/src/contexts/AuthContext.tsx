@@ -15,6 +15,7 @@ export interface AuthUser {
   picture: string | null;
   username: string | null;
   verified: boolean;
+  isAdmin?: boolean;
 }
 
 interface AuthContextValue {

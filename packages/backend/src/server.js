@@ -82,6 +82,9 @@ async function buildServer() {
   // Org routes (NPM-style organizations: CRUD orgs, members, package link)
   await server.register(require('./routes/org-routes'));
 
+  // Admin routes (admin dashboard: users, packages, orgs management)
+  await server.register(require('./routes/admin-routes'), { config });
+
   // Health endpoint
   const healthHandler = async (_request, _reply) => {
     return { status: 'ok' };
@@ -257,17 +260,54 @@ async function buildServer() {
     );
   }
 
-  // Ensure every bundle response includes minRuntimeVersion (default for legacy bundles)
-  const normalizeBundle = bundle => {
+  // Normalize bundle for client: compute verified server-side, strip internal email fields.
+  const sanitizeBundle = async bundle => {
     if (!bundle || typeof bundle !== 'object') return bundle;
     const raw =
       bundle.min_runtime_version ?? bundle.minRuntimeVersion ?? '0.1.0';
     const minRuntimeVersion =
       raw != null && String(raw).trim() ? String(raw).trim() : '0.1.0';
+
+    const meta = bundle.metadata ? { ...bundle.metadata } : {};
+    const ownerEmail = (meta._ownerEmail || '').toLowerCase();
+    const hadAdminVerified = !!meta._adminVerified;
+    delete meta._ownerEmail;
+    delete meta._adminVerified;
+
+    let verified = hadAdminVerified;
+
+    if (!verified) {
+      const pkgKey = await kv.get(`admin_verified:package:${bundle.package}`);
+      if (pkgKey === '1') verified = true;
+    }
+    if (!verified && ownerEmail.endsWith('@calimero.network')) {
+      verified = true;
+    }
+    if (!verified && ownerEmail) {
+      const userId = await kv.get(`email2user:${ownerEmail}`);
+      if (userId) {
+        const userRaw = await kv.get(`user:${userId}`);
+        if (userRaw) {
+          try {
+            const user = JSON.parse(userRaw);
+            if (user.verified) verified = true;
+          } catch {
+            /* skip */
+          }
+        }
+        if (!verified) {
+          const adminVerified = await kv.get(`admin_verified:user:${userId}`);
+          if (adminVerified === '1') verified = true;
+        }
+      }
+    }
+
     return {
       ...bundle,
+      metadata: meta,
       min_runtime_version: minRuntimeVersion,
       minRuntimeVersion,
+      verified,
     };
   };
 
@@ -309,7 +349,7 @@ async function buildServer() {
           kv.incr('downloads:total').catch(() => {}),
           kv.incr(`downloads:${canonicalPkg}`).catch(() => {}),
         ]);
-        const normalized = normalizeBundle(bundle);
+        const normalized = await sanitizeBundle(bundle);
         normalized.downloads =
           Number(await kv.get(`downloads:${canonicalPkg}`)) || 0;
         return [normalized];
@@ -363,7 +403,7 @@ async function buildServer() {
             }
           }
 
-          const normalized = normalizeBundle(bundle);
+          const normalized = await sanitizeBundle(bundle);
           bundles.push({ normalized, packageName });
         }
       }
@@ -415,7 +455,7 @@ async function buildServer() {
         });
       }
 
-      const normalized = normalizeBundle(bundle);
+      const normalized = await sanitizeBundle(bundle);
 
       // Count installs: this endpoint is called exactly once per install click in the desktop app
       const canonicalPkg = pkg.toLowerCase();

@@ -33,11 +33,11 @@ interface V2Bundle {
   version: string;
   package: string;
   appVersion: string;
+  verified?: boolean;
   metadata?: {
     name?: string;
     description?: string;
     author?: string;
-    _ownerEmail?: string;
     icon?: string;
     tags?: string[];
     license?: string;
@@ -164,11 +164,14 @@ export default function AppDetailPage() {
   const abi = bundle.abi;
   const sig = bundle.signature;
   const ifaces = bundle.interfaces;
-  const ownerEmail = meta?._ownerEmail ?? meta?.author ?? '';
-  const isOwner = !!user?.email && !!ownerEmail && user.email === ownerEmail;
-  const authorVerified =
-    ownerEmail.includes('@') &&
-    ownerEmail.toLowerCase().endsWith('@calimero.network');
+  const authorVerified = !!bundle.verified;
+  // Ownership: author is now stored as username; fallback for legacy bundles where author was email
+  const bundleAuthor = meta?.author ?? '';
+  const isOwner =
+    !!user &&
+    !!bundleAuthor &&
+    (bundleAuthor === user.username ||
+      (bundleAuthor.includes('@') && bundleAuthor === user.email));
   const userEmailLower = user?.email?.toLowerCase() ?? '';
   const isOrgMember =
     !!userEmailLower &&
@@ -392,13 +395,13 @@ export default function AppDetailPage() {
           </p>
           <div className='space-y-1.5'>
             {allBundles.map(b => {
-              const vOwnerEmail =
-                b.metadata?._ownerEmail ?? b.metadata?.author ?? '';
+              const vAuthorVerified = !!b.verified;
+              const vAuthor = b.metadata?.author ?? '';
               const isVersionOwner =
-                !!user?.email && !!vOwnerEmail && user.email === vOwnerEmail;
-              const vAuthorVerified =
-                vOwnerEmail.includes('@') &&
-                vOwnerEmail.toLowerCase().endsWith('@calimero.network');
+                !!user &&
+                !!vAuthor &&
+                (vAuthor === user.username ||
+                  (vAuthor.includes('@') && vAuthor === user.email));
               const canEditVersion = isVersionOwner || isOrgMember;
               const isConfirmingThisVersion =
                 confirmDeleteVersion === b.appVersion;

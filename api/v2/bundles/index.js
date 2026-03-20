@@ -92,13 +92,51 @@ module.exports = async function handler(req, res) {
     });
   }
 
-  // Ensure every bundle includes minRuntimeVersion (default for legacy bundles)
-  const normalizeBundle = bundle => {
+  // Normalize min_runtime_version and compute `verified` server-side.
+  // Strips _ownerEmail and _adminVerified from metadata so emails are never exposed.
+  const sanitizeBundle = async (bundle, packageName) => {
     if (!bundle || typeof bundle !== 'object') return bundle;
     const v = bundle.min_runtime_version;
     const min_runtime_version =
       v != null && String(v).trim() ? String(v).trim() : '0.1.0';
-    return { ...bundle, min_runtime_version };
+
+    const meta = bundle.metadata ? { ...bundle.metadata } : {};
+    const ownerEmail = (meta._ownerEmail || '').toLowerCase();
+    const hadAdminVerified = !!meta._adminVerified;
+    delete meta._ownerEmail;
+    delete meta._adminVerified;
+
+    let verified = hadAdminVerified;
+
+    if (!verified) {
+      const pkgKey = await kv.get(
+        `admin_verified:package:${packageName || bundle.package}`
+      );
+      if (pkgKey === '1') verified = true;
+    }
+    if (!verified && ownerEmail.endsWith('@calimero.network')) {
+      verified = true;
+    }
+    if (!verified && ownerEmail) {
+      const userId = await kv.get(`email2user:${ownerEmail}`);
+      if (userId) {
+        const userRaw = await kv.get(`user:${userId}`);
+        if (userRaw) {
+          try {
+            const user = JSON.parse(userRaw);
+            if (user.verified) verified = true;
+          } catch {
+            /* skip */
+          }
+        }
+        if (!verified) {
+          const adminVerified = await kv.get(`admin_verified:user:${userId}`);
+          if (adminVerified === '1') verified = true;
+        }
+      }
+    }
+
+    return { ...bundle, metadata: meta, min_runtime_version, verified };
   };
 
   try {
@@ -113,7 +151,8 @@ module.exports = async function handler(req, res) {
         `downloads:${(pkg || '').toLowerCase()}`
       );
       const downloads = downloadCount ? parseInt(downloadCount, 10) : 0;
-      return res.status(200).json([{ ...normalizeBundle(raw), downloads }]);
+      const sanitized = await sanitizeBundle(raw, pkg);
+      return res.status(200).json([{ ...sanitized, downloads }]);
     }
 
     const allPackages = await kv.sMembers('bundles:all');
@@ -135,7 +174,8 @@ module.exports = async function handler(req, res) {
         `downloads:${(packageName || '').toLowerCase()}`
       );
       const downloads = downloadCount ? parseInt(downloadCount, 10) : 0;
-      bundles.push({ ...normalizeBundle(bundle), downloads });
+      const sanitized = await sanitizeBundle(bundle, packageName);
+      bundles.push({ ...sanitized, downloads });
     }
 
     bundles.sort((a, b) => a.package.localeCompare(b.package));

@@ -16,6 +16,7 @@ const {
   getUserByEmail,
   claimUsername,
 } = require('../lib/user-storage');
+const { isAdmin, isBlacklisted } = require('../lib/admin-storage');
 
 const STATE_COOKIE_NAME = 'oauth_state';
 const STATE_MAX_AGE = 600; // 10 minutes
@@ -124,6 +125,11 @@ async function authRoutes(server, options) {
       return reply.redirect(302, `${frontendUrl}?error=oauth_failed`);
     }
 
+    // Block blacklisted users
+    if (await isBlacklisted(user.email)) {
+      return reply.redirect(302, `${frontendUrl}?error=account_suspended`);
+    }
+
     // Create or update user profile in Redis (username/verified persistence)
     await getOrCreateUser(user);
 
@@ -158,6 +164,7 @@ async function authRoutes(server, options) {
     const username = profile?.username ?? null;
     const verified =
       profile?.verified ?? (user.email || '').endsWith('@calimero.network');
+    const adminFlag = await isAdmin(user.email || '');
     return {
       user: {
         id: user.id,
@@ -166,6 +173,7 @@ async function authRoutes(server, options) {
         picture: user.picture,
         username,
         verified,
+        isAdmin: adminFlag,
       },
     };
   });
