@@ -93,17 +93,45 @@ export const getApps = async (params?: {
   });
 };
 
-/** Fetch bundles filtered by metadata.author (e.g. current user email for "My packages"). */
-export const getMyPackages = async (
-  authorEmail: string
-): Promise<AppSummary[]> => {
-  if (!authorEmail?.trim()) return [];
-  const response = await api.get('/v2/bundles', {
-    params: { author: authorEmail.trim() },
-  });
-  const bundles = Array.isArray(response.data) ? response.data : [];
+/** Fetch bundles filtered by metadata.author, preferring username and falling back to email for legacy packages. */
+export const getMyPackages = async (params: {
+  username?: string | null;
+  email?: string | null;
+}): Promise<AppSummary[]> => {
+  const authorCandidates = [
+    params.username?.trim(),
+    params.email?.trim(),
+  ].filter(
+    (value, index, arr): value is string =>
+      !!value && arr.indexOf(value) === index
+  );
+
+  if (authorCandidates.length === 0) return [];
+
+  const responses = await Promise.all(
+    authorCandidates.map(author =>
+      api.get('/v2/bundles', {
+        params: { author },
+      })
+    )
+  );
+
+  const bundles = responses.flatMap(response =>
+    Array.isArray(response.data) ? response.data : []
+  );
+
+  const uniqueBundles = Array.from(
+    new Map(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      bundles.map((bundle: any) => [
+        `${bundle.package}@${bundle.appVersion}`,
+        bundle,
+      ])
+    ).values()
+  );
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return bundles.map((bundle: any) => {
+  return uniqueBundles.map((bundle: any) => {
     const author = bundle.metadata?.author || 'Unknown';
     const verified = !!bundle.verified;
     return {
