@@ -124,18 +124,22 @@ if (isProduction && process.env.REDIS_URL) {
     async scanKeys(pattern) {
       await this._ensureConnected();
       const result = [];
-      for await (const key of redisClient.scanIterator({
+      // node-redis v5+ scanIterator may yield a batch (array of keys) per iteration, not one key.
+      for await (const chunk of redisClient.scanIterator({
         MATCH: pattern,
         COUNT: 500,
       })) {
-        if (key == null) continue;
-        const k =
-          typeof key === 'string'
-            ? key
-            : Buffer.isBuffer(key)
-              ? key.toString('utf8')
-              : String(key);
-        result.push(k);
+        const keys = Array.isArray(chunk) ? chunk : [chunk];
+        for (const key of keys) {
+          if (key == null) continue;
+          const k =
+            typeof key === 'string'
+              ? key
+              : Buffer.isBuffer(key)
+                ? key.toString('utf8')
+                : String(key);
+          result.push(k);
+        }
       }
       return result;
     },
@@ -262,7 +266,12 @@ if (isProduction && process.env.REDIS_URL) {
           pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*') +
           '$'
       );
-      return [...mockStore.keys()].filter(k => regex.test(k));
+      const allKeys = new Set([
+        ...mockStore.keys(),
+        ...mockSets.keys(),
+        ...mockHashes.keys(),
+      ]);
+      return [...allKeys].filter(k => regex.test(k));
     },
 
     // Utility for testing

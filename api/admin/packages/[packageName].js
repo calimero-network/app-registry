@@ -3,6 +3,7 @@
  * DELETE /api/admin/packages/:packageName      — delete entire package
  * PATCH  /api/admin/packages/:packageName      — body: { action: 'verify'|'unverify' }
  */
+const semver = require('semver');
 const { requireAdmin } = require('../../lib/auth-helpers');
 const { kv } = require('../../lib/kv-client');
 const { setAdminVerified } = require('../../lib/admin-storage');
@@ -45,18 +46,19 @@ module.exports = async function handler(req, res) {
       return res.status(200).json({ ok: true });
     }
 
-    if (action === 'verify') {
-      await setAdminVerified('package', packageName, true);
-      // Also patch the latest bundle manifest so frontend sees it immediately
-      const versions = await kv.sMembers(`bundle-versions:${packageName}`);
-      if (versions.length) {
-        const semver = require('semver');
-        const latest = versions.sort((a, b) =>
+    const versions = await kv.sMembers(`bundle-versions:${packageName}`);
+    const latest = versions.length
+      ? versions.sort((a, b) =>
           semver.rcompare(
             semver.valid(a) || '0.0.0',
             semver.valid(b) || '0.0.0'
           )
-        )[0];
+        )[0]
+      : null;
+
+    if (action === 'verify') {
+      await setAdminVerified('package', packageName, true);
+      if (latest) {
         const raw = await kv.get(`bundle:${packageName}/${latest}`);
         if (raw) {
           const stored = JSON.parse(raw);
@@ -73,15 +75,7 @@ module.exports = async function handler(req, res) {
 
     if (action === 'unverify') {
       await setAdminVerified('package', packageName, false);
-      const versions = await kv.sMembers(`bundle-versions:${packageName}`);
-      if (versions.length) {
-        const semver = require('semver');
-        const latest = versions.sort((a, b) =>
-          semver.rcompare(
-            semver.valid(a) || '0.0.0',
-            semver.valid(b) || '0.0.0'
-          )
-        )[0];
+      if (latest) {
         const raw = await kv.get(`bundle:${packageName}/${latest}`);
         if (raw) {
           const stored = JSON.parse(raw);

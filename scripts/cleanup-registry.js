@@ -35,12 +35,16 @@ async function main() {
 
   for (const pattern of PATTERNS) {
     let count = 0;
-    for await (const key of client.scanIterator({
+    for await (const chunk of client.scanIterator({
       MATCH: pattern,
       COUNT: 100,
     })) {
-      await client.del(key);
-      count++;
+      const keys = Array.isArray(chunk) ? chunk : [chunk];
+      for (const key of keys) {
+        if (key == null) continue;
+        await client.del(key);
+        count++;
+      }
     }
     console.log(`Deleted ${count} keys matching ${pattern}`);
     totalDeleted += count;
