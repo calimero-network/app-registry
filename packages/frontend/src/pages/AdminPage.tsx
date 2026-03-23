@@ -473,11 +473,12 @@ function OrgsTab({
     },
   });
 
+  const searchLower = search.toLowerCase();
   const orgs = (data || []).filter(
     o =>
       !search ||
-      o.name.toLowerCase().includes(search) ||
-      o.slug.includes(search)
+      o.name.toLowerCase().includes(searchLower) ||
+      o.slug.toLowerCase().includes(searchLower)
   );
 
   return (

@@ -1,6 +1,6 @@
 /**
  * Admin storage helpers (Redis) — Fastify backend.
- * Mirrors api/lib/admin-storage.js for local dev.
+ * Keep in sync with api/lib/admin-storage.js (Vercel serverless).
  */
 
 const { kv } = require('./kv-client');
@@ -64,11 +64,13 @@ async function getAdminVerified(type, id) {
 }
 
 async function listAdminEmails() {
-  return kv.sMembers(ADMIN_SET);
+  const members = await kv.sMembers(ADMIN_SET);
+  return Array.isArray(members) ? members : [];
 }
 
 async function listBlacklistedEmails() {
-  return kv.sMembers(BLACKLIST_SET);
+  const members = await kv.sMembers(BLACKLIST_SET);
+  return Array.isArray(members) ? members : [];
 }
 
 module.exports = {
