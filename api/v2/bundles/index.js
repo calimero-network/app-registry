@@ -92,9 +92,7 @@ module.exports = async function handler(req, res) {
     });
   }
 
-  const {
-    createBundleSanitizers,
-  } = require('../../../packages/backend/src/lib/bundle-sanitize');
+  const { createBundleSanitizers } = require('../../lib/bundle-sanitize');
   const { sanitizeBundle, sanitizeBundles } = createBundleSanitizers(kv);
 
   try {

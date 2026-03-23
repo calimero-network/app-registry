@@ -12,6 +12,8 @@ import type {
   ApiToken,
 } from '@/types/api';
 
+const AUTH_SESSION_FLAG = 'app_registry_authenticated';
+
 export const api = axios.create({
   baseURL:
     (import.meta as { env?: { VITE_API_URL?: string } }).env?.VITE_API_URL ||
@@ -24,13 +26,30 @@ export const api = axios.create({
 api.interceptors.response.use(
   response => response,
   error => {
-    // Friendly message when backend is not running (proxy returns ECONNREFUSED)
+    const status = error.response?.status;
+    const apiError = error.response?.data;
+
+    if (
+      typeof window !== 'undefined' &&
+      status === 401 &&
+      window.sessionStorage.getItem(AUTH_SESSION_FLAG) === '1'
+    ) {
+      window.sessionStorage.removeItem(AUTH_SESSION_FLAG);
+      if (window.location.pathname !== '/login') {
+        const from = `${window.location.pathname}${window.location.search}`;
+        window.location.assign(
+          `/login?error=session_expired&from=${encodeURIComponent(from)}`
+        );
+      }
+    }
+
+    // Friendly message when the API cannot be reached at all
     if (error.code === 'ERR_NETWORK' || !error.response) {
       error.message =
         'Backend is not running. Start both backend and frontend: pnpm dev:all';
     }
     // eslint-disable-next-line no-console
-    console.error('API Error:', error.response?.data || error.message);
+    console.error('API Error:', apiError || error.message);
     return Promise.reject(error);
   }
 );

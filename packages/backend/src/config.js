@@ -50,7 +50,7 @@ module.exports = {
     })(),
     frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
     cookieName: process.env.AUTH_COOKIE_NAME || 'app_registry_session',
-    cookieMaxAge: 7 * 24 * 60 * 60, // 7 days in seconds
+    cookieMaxAge: 60 * 60, // 1 hour in seconds
     google: {
       clientId: process.env.GOOGLE_CLIENT_ID || '',
       clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',

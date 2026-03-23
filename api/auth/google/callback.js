@@ -9,7 +9,7 @@ const { isBlacklisted } = require('../../lib/admin-storage');
 const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const GOOGLE_USERINFO_URL = 'https://www.googleapis.com/oauth2/v2/userinfo';
 const STATE_COOKIE = 'oauth_state';
-const COOKIE_MAX_AGE = 7 * 24 * 60 * 60; // 7 days
+const COOKIE_MAX_AGE = 60 * 60; // 1 hour
 
 function parseCookies(req) {
   const raw = req.headers.cookie || '';
