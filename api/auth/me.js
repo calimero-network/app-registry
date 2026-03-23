@@ -5,7 +5,11 @@
 const jwt = require('jsonwebtoken');
 const { kv } = require('../lib/kv-client');
 const { getUserById, getUserByEmail } = require('../lib/user-storage');
-const { isAdmin, getAdminVerified } = require('../lib/admin-storage');
+const {
+  isAdmin,
+  getAdminVerified,
+  isBlacklisted,
+} = require('../lib/admin-storage');
 
 const TOKEN_PREFIX = 'apitoken:';
 
@@ -44,6 +48,12 @@ module.exports = async function handler(req, res) {
       const raw = await kv.get(TOKEN_PREFIX + bearer);
       if (raw) {
         const data = JSON.parse(typeof raw === 'string' ? raw : String(raw));
+        if (await isBlacklisted(data.email)) {
+          return res.status(403).json({
+            error: 'account_suspended',
+            message: 'This account has been suspended',
+          });
+        }
         const profile = await getUserByEmail(data.email);
         const adminVerified = profile?.id
           ? await getAdminVerified('user', profile.id)
@@ -80,6 +90,12 @@ module.exports = async function handler(req, res) {
 
   try {
     const payload = jwt.verify(token, sessionSecret, { algorithms: ['HS256'] });
+    if (payload?.email && (await isBlacklisted(payload.email))) {
+      return res.status(403).json({
+        error: 'account_suspended',
+        message: 'This account has been suspended',
+      });
+    }
     const profile =
       (await getUserById(payload.sub)) || (await getUserByEmail(payload.email));
     const adminVerified = profile?.id

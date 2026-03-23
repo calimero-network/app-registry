@@ -24,6 +24,7 @@ const {
 } = require('../lib/org-storage');
 const { verifySessionToken, verifyApiToken } = require('../lib/auth');
 const { getUserByEmail } = require('../lib/user-storage');
+const { isBlacklisted } = require('../lib/admin-storage');
 const { BundleStorageKV } = require('../lib/bundle-storage-kv');
 const config = require('../config');
 
@@ -54,15 +55,31 @@ async function getSessionUser(request) {
 async function requireAuth(request, reply) {
   // Try session cookie
   const sessionUser = await getSessionUser(request);
-  if (sessionUser?.email)
+  if (sessionUser?.email) {
+    if (await isBlacklisted(sessionUser.email)) {
+      reply.code(403).send({
+        error: 'account_suspended',
+        message: 'This account has been suspended',
+      });
+      return null;
+    }
     return { email: sessionUser.email, name: sessionUser.name };
+  }
 
   // Try Bearer token
   const auth = request.headers?.['authorization'];
   if (typeof auth === 'string' && auth.startsWith('Bearer ')) {
     const tokenData = await verifyApiToken(auth.slice(7));
-    if (tokenData?.email)
+    if (tokenData?.email) {
+      if (await isBlacklisted(tokenData.email)) {
+        reply.code(403).send({
+          error: 'account_suspended',
+          message: 'This account has been suspended',
+        });
+        return null;
+      }
       return { email: tokenData.email, name: tokenData.name };
+    }
   }
 
   reply.code(401).send({

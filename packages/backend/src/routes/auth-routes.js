@@ -4,6 +4,7 @@ const {
   exchangeCodeForUser,
   createSessionToken,
   verifySessionToken,
+  verifyApiToken,
   generateState,
   createApiToken,
   listApiTokens,
@@ -139,6 +140,32 @@ async function authRoutes(server, options) {
   server.get('/api/auth/me', async (request, reply) => {
     const user = await resolveUser(request, resolveOpts);
     if (!user) {
+      // Distinguish suspended vs unauthenticated when credentials are present
+      const hadBearer =
+        typeof request.headers?.authorization === 'string' &&
+        request.headers.authorization.startsWith('Bearer ');
+      const hadCookie = Boolean(request.cookies?.[cookieName]);
+      if (hadBearer || hadCookie) {
+        let email;
+        if (hadBearer) {
+          const td = await verifyApiToken(
+            request.headers.authorization.slice(7)
+          );
+          email = td?.email;
+        } else {
+          const su = await verifySessionToken(
+            request.cookies[cookieName],
+            sessionSecret
+          );
+          email = su?.email;
+        }
+        if (email && (await isBlacklisted(email))) {
+          return reply.code(403).send({
+            error: 'account_suspended',
+            message: 'This account has been suspended',
+          });
+        }
+      }
       return reply
         .code(401)
         .send({ error: 'unauthorized', message: 'Not signed in' });

@@ -6,7 +6,7 @@
 const jwt = require('jsonwebtoken');
 const { kv } = require('./kv-client');
 const { getOrgMemberRole } = require('./org-storage');
-const { isAdmin } = require('./admin-storage');
+const { isAdmin, isBlacklisted } = require('./admin-storage');
 
 const TOKEN_PREFIX = 'apitoken:';
 
@@ -41,8 +41,10 @@ async function resolveUser(req) {
         const raw = await kv.get(TOKEN_PREFIX + token);
         if (raw) {
           const data = JSON.parse(typeof raw === 'string' ? raw : String(raw));
-          if (data?.email)
+          if (data?.email) {
+            if (await isBlacklisted(data.email)) return null;
             return { email: data.email, name: data.name || data.email };
+          }
         }
       } catch {
         /* fall through */
@@ -61,8 +63,10 @@ async function resolveUser(req) {
         const payload = jwt.verify(token, sessionSecret, {
           algorithms: ['HS256'],
         });
-        if (payload?.email)
+        if (payload?.email) {
+          if (await isBlacklisted(payload.email)) return null;
           return { id: payload.sub, email: payload.email, name: payload.name };
+        }
       } catch {
         /* fall through */
       }

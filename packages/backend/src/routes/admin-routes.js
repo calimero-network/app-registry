@@ -335,6 +335,7 @@ async function adminRoutes(server, options) {
           verified: org.verified || adminVerified,
           adminVerified,
           createdAt: org.created_at || null,
+          metadata: org.metadata || null,
         });
       } catch {
         /* skip */
