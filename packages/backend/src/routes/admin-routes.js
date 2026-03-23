@@ -225,7 +225,11 @@ async function adminRoutes(server, options) {
       if (!data) continue;
       const bundle = JSON.parse(data).json;
       const adminVerified = await getAdminVerified('package', packageName);
-      const ownerEmail = (bundle.metadata?._ownerEmail || bundle.metadata?.author || '').toLowerCase();
+      const ownerEmail = (
+        bundle.metadata?._ownerEmail ||
+        bundle.metadata?.author ||
+        ''
+      ).toLowerCase();
       const downloads = parseInt(
         (await kv.get(`downloads:${packageName.toLowerCase()}`)) || '0',
         10
@@ -235,8 +239,7 @@ async function adminRoutes(server, options) {
         latestVersion: sorted[0],
         versionCount: versions.length,
         author: bundle.metadata?.author || '',
-        verified:
-          adminVerified || ownerEmail.endsWith('@calimero.network'),
+        verified: adminVerified || ownerEmail.endsWith('@calimero.network'),
         adminVerified,
         downloads,
       });
