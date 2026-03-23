@@ -13,7 +13,7 @@ module.exports = async function handler(req, res) {
   if (!admin) return;
 
   try {
-    const keys = await kv.keys('user:*');
+    const keys = await kv.scan('user:*');
     const [adminEmails, blacklistedEmails] = await Promise.all([
       listAdminEmails(),
       listBlacklistedEmails(),

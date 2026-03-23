@@ -9,7 +9,7 @@ module.exports = async function handler(req, res) {
   if (!admin) return;
 
   try {
-    const keys = await kv.keys('org:*');
+    const keys = await kv.scan('org:*');
     const orgs = [];
     for (const key of keys) {
       // Skip non-root org keys (members, roles, packages, slug index)

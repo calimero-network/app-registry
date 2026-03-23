@@ -37,7 +37,6 @@ interface AdminPackage {
   latestVersion: string;
   versionCount: number;
   author: string;
-  ownerEmail: string;
   verified: boolean;
   adminVerified: boolean;
   downloads: number;

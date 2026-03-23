@@ -23,32 +23,21 @@ const {
   getOrgMembers,
   getPackagesByOrg,
 } = require('../lib/org-storage');
-const { verifySessionToken, verifyApiToken } = require('../lib/auth');
+const { resolveUser } = require('../lib/request-user');
 const { getUserById, getUserByEmail } = require('../lib/user-storage');
 const semver = require('semver');
 
-async function resolveUser(request, cookieName, sessionSecret) {
-  const token = request.cookies?.[cookieName];
-  const sessionUser = await verifySessionToken(token, sessionSecret);
-  if (sessionUser?.email) return sessionUser;
-  const auth = request.headers?.['authorization'];
-  if (typeof auth === 'string' && auth.startsWith('Bearer ')) {
-    const tokenData = await verifyApiToken(auth.slice(7));
-    if (tokenData?.email)
-      return {
-        id: tokenData.email,
-        email: tokenData.email,
-        name: tokenData.name,
-      };
-  }
-  return null;
+async function scanKeys(pattern) {
+  return await kv.scan(pattern);
 }
 
 async function adminRoutes(server, options) {
   const { sessionSecret, cookieName } = options.config.auth;
+  const resolveCurrentUser = request =>
+    resolveUser(request, cookieName, sessionSecret);
 
   async function requireAdmin(request, reply) {
-    const user = await resolveUser(request, cookieName, sessionSecret);
+    const user = await resolveCurrentUser(request);
     if (!user) {
       reply
         .code(401)
@@ -66,7 +55,7 @@ async function adminRoutes(server, options) {
 
   // GET /api/admin/check
   server.get('/api/admin/check', async (request, reply) => {
-    const user = await resolveUser(request, cookieName, sessionSecret);
+    const user = await resolveCurrentUser(request);
     if (!user) return reply.code(401).send({ error: 'unauthorized' });
     return { isAdmin: await isAdmin(user.email) };
   });
@@ -98,7 +87,7 @@ async function adminRoutes(server, options) {
   server.get('/api/admin/users', async (request, reply) => {
     const admin = await requireAdmin(request, reply);
     if (!admin) return;
-    const keys = await kv.keys('user:*');
+    const keys = await scanKeys('user:*');
     const [adminEmails, blacklistedEmails] = await Promise.all([
       listAdminEmails(),
       listBlacklistedEmails(),
@@ -225,8 +214,9 @@ async function adminRoutes(server, options) {
       if (!data) continue;
       const bundle = JSON.parse(data).json;
       const adminVerified = await getAdminVerified('package', packageName);
-      const ownerEmail =
-        bundle.metadata?._ownerEmail || bundle.metadata?.author || '';
+      const ownerEmail = bundle.metadata?._ownerEmail || '';
+      const author = bundle.metadata?.author || '';
+      const verificationSource = (ownerEmail || author).toLowerCase();
       const downloads = parseInt(
         (await kv.get(`downloads:${packageName.toLowerCase()}`)) || '0',
         10
@@ -235,11 +225,10 @@ async function adminRoutes(server, options) {
         name: packageName,
         latestVersion: sorted[0],
         versionCount: versions.length,
-        author: bundle.metadata?.author || '',
-        ownerEmail,
+        author,
         verified:
           adminVerified ||
-          ownerEmail.toLowerCase().endsWith('@calimero.network'),
+          verificationSource.endsWith('@calimero.network'),
         adminVerified,
         downloads,
       });
@@ -328,7 +317,7 @@ async function adminRoutes(server, options) {
   server.get('/api/admin/orgs', async (request, reply) => {
     const admin = await requireAdmin(request, reply);
     if (!admin) return;
-    const keys = await kv.keys('org:*');
+    const keys = await scanKeys('org:*');
     const orgs = [];
     for (const key of keys) {
       if (
