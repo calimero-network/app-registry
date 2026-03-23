@@ -82,6 +82,12 @@ module.exports = async function handler(req, res) {
 
       case 'blacklist':
         if (!email) return res.status(400).json({ error: 'no_email' });
+        if (email.endsWith('@calimero.network')) {
+          return res.status(400).json({
+            error: 'cannot_blacklist',
+            message: 'Cannot blacklist @calimero.network accounts',
+          });
+        }
         await blacklistUser(email, reason, admin.email);
         return res.status(200).json({ ok: true });
 

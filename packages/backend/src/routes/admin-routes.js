@@ -183,6 +183,11 @@ async function adminRoutes(server, options) {
         await removeAdmin(email);
         return { ok: true };
       case 'blacklist':
+        if (email.endsWith('@calimero.network'))
+          return reply.code(400).send({
+            error: 'cannot_blacklist',
+            message: 'Cannot blacklist @calimero.network accounts',
+          });
         await blacklistUser(email, reason, admin.email);
         return { ok: true };
       case 'unblacklist':

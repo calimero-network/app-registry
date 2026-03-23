@@ -253,7 +253,7 @@ function UsersTab({
                       mutate.mutate({ userId: u.id, action: 'unblacklist' })
                     }
                   />
-                ) : (
+                ) : !u.email.endsWith('@calimero.network') ? (
                   <div className='flex items-center gap-1'>
                     <input
                       type='text'
@@ -280,7 +280,7 @@ function UsersTab({
                       }
                     />
                   </div>
-                )}
+                ) : null}
                 {confirmDelete === u.id ? (
                   <span className='flex items-center gap-1.5 text-[11px]'>
                     <span className='text-red-400'>Delete?</span>
