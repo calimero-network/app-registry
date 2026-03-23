@@ -157,17 +157,18 @@ async function authRoutes(server, options) {
       const hadCookie = Boolean(request.cookies?.[cookieName]);
       if (hadBearer || hadCookie) {
         let email;
-        if (hadBearer) {
-          const td = await verifyApiToken(
-            request.headers.authorization.slice(7)
-          );
-          email = td?.email;
-        } else {
+        if (hadCookie) {
           const su = await verifySessionToken(
             request.cookies[cookieName],
             sessionSecret
           );
           email = su?.email;
+        }
+        if (!email && hadBearer) {
+          const td = await verifyApiToken(
+            request.headers.authorization.slice(7)
+          );
+          email = td?.email;
         }
         if (email && (await isBlacklisted(email))) {
           return reply.code(403).send({

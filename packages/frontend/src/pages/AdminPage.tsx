@@ -56,8 +56,12 @@ export default function AdminPage() {
   const [tab, setTab] = useState<Tab>('users');
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
+  if (loading) {
+    return <p className='text-neutral-500 text-sm'>Loading admin panel…</p>;
+  }
+
   // Redirect if not admin
-  if (!loading && (!user || !user.isAdmin)) {
+  if (!user || !user.isAdmin) {
     return <Navigate to='/' replace />;
   }
 
