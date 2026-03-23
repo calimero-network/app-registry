@@ -166,6 +166,14 @@ async function adminRoutes(server, options) {
     }
     const { action, reason } = request.body || {};
     const email = user.email;
+    if (
+      !email &&
+      ['make_admin', 'remove_admin', 'blacklist', 'unblacklist'].includes(
+        action
+      )
+    ) {
+      return reply.code(400).send({ error: 'no_email' });
+    }
     switch (action) {
       case 'verify':
         await setAdminVerified('user', userId, true);

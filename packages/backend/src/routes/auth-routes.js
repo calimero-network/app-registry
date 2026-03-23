@@ -16,7 +16,11 @@ const {
   getUserByEmail,
   claimUsername,
 } = require('../lib/user-storage');
-const { isAdmin, isBlacklisted } = require('../lib/admin-storage');
+const {
+  isAdmin,
+  isBlacklisted,
+  getAdminVerified,
+} = require('../lib/admin-storage');
 
 const STATE_COOKIE_NAME = 'oauth_state';
 const STATE_MAX_AGE = 600; // 10 minutes
@@ -162,8 +166,14 @@ async function authRoutes(server, options) {
     const profile =
       (await getUserById(user.id)) || (await getUserByEmail(user.email));
     const username = profile?.username ?? null;
+    const userId = profile?.id || user.id;
+    const adminVerified = userId
+      ? await getAdminVerified('user', userId)
+      : false;
     const verified =
-      profile?.verified ?? (user.email || '').endsWith('@calimero.network');
+      profile?.verified ||
+      adminVerified ||
+      (user.email || '').endsWith('@calimero.network');
     const adminFlag = await isAdmin(user.email || '');
     return {
       user: {

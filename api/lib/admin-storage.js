@@ -59,16 +59,6 @@ async function unblacklistUser(email) {
   await kv.del(`blacklist:email:${norm}`);
 }
 
-async function getBlacklistDetails(email) {
-  const raw = await kv.get(`blacklist:email:${email.toLowerCase()}`);
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return null;
-  }
-}
-
 async function listAdminEmails() {
   const members = await kv.sMembers(ADMIN_SET);
   return Array.isArray(members) ? members : [];
@@ -102,7 +92,6 @@ module.exports = {
   removeAdmin,
   blacklistUser,
   unblacklistUser,
-  getBlacklistDetails,
   listAdminEmails,
   listBlacklistedEmails,
   setAdminVerified,

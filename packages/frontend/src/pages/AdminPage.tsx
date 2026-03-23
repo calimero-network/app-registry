@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   ShieldCheck,
@@ -54,14 +54,12 @@ interface AdminOrg {
 
 export default function AdminPage() {
   const { user, loading } = useAuth();
-  const navigate = useNavigate();
   const [tab, setTab] = useState<Tab>('users');
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
   // Redirect if not admin
   if (!loading && (!user || !user.isAdmin)) {
-    navigate('/');
-    return null;
+    return <Navigate to='/' replace />;
   }
 
   return (
@@ -139,7 +137,9 @@ function UsersTab({
 }) {
   const qc = useQueryClient();
   const [search, setSearch] = useState('');
-  const [blacklistReason, setBlacklistReason] = useState('');
+  const [blacklistReasons, setBlacklistReasons] = useState<
+    Record<string, string>
+  >({});
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin-users'],
@@ -256,8 +256,13 @@ function UsersTab({
                     <input
                       type='text'
                       placeholder='Reason...'
-                      value={blacklistReason}
-                      onChange={e => setBlacklistReason(e.target.value)}
+                      value={blacklistReasons[u.id] ?? ''}
+                      onChange={e =>
+                        setBlacklistReasons(prev => ({
+                          ...prev,
+                          [u.id]: e.target.value,
+                        }))
+                      }
                       className='input text-[11px] py-1 px-2 h-7 w-28'
                     />
                     <ActionBtn
@@ -268,7 +273,7 @@ function UsersTab({
                         mutate.mutate({
                           userId: u.id,
                           action: 'blacklist',
-                          reason: blacklistReason,
+                          reason: blacklistReasons[u.id] ?? '',
                         })
                       }
                     />
