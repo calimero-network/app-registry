@@ -108,11 +108,13 @@ if (isProduction && process.env.REDIS_URL) {
       return await redisClient.hDel(key, ...fields);
     },
 
-    // Set operations
+    // Set operations (node-redis expects members as variadic args, not a single array)
     async sAdd(key, ...members) {
       await this._ensureConnected();
-      const list = members.flat();
-      return list.length ? await redisClient.sAdd(key, list) : 0;
+      const list = members
+        .flat()
+        .map(m => (Buffer.isBuffer(m) ? m : String(m)));
+      return list.length ? await redisClient.sAdd(key, ...list) : 0;
     },
 
     async sMembers(key) {
@@ -127,7 +129,10 @@ if (isProduction && process.env.REDIS_URL) {
 
     async sRem(key, ...members) {
       await this._ensureConnected();
-      return await redisClient.sRem(key, members);
+      const list = members
+        .flat()
+        .map(m => (Buffer.isBuffer(m) ? m : String(m)));
+      return list.length ? await redisClient.sRem(key, ...list) : 0;
     },
 
     /** Non-blocking SCAN — do not add KEYS; it blocks Redis on large datasets. */
@@ -138,7 +143,14 @@ if (isProduction && process.env.REDIS_URL) {
         MATCH: pattern,
         COUNT: 500,
       })) {
-        result.push(key);
+        if (key == null) continue;
+        const k =
+          typeof key === 'string'
+            ? key
+            : Buffer.isBuffer(key)
+              ? key.toString('utf8')
+              : String(key);
+        result.push(k);
       }
       return result;
     },
@@ -221,12 +233,13 @@ if (isProduction && process.env.REDIS_URL) {
 
     // Set operations
     async sAdd(key, ...members) {
+      const list = members.flat().map(m => String(m));
       if (!mockSets.has(key)) {
         mockSets.set(key, new Set());
       }
       const set = mockSets.get(key);
       let added = 0;
-      members.forEach(m => {
+      list.forEach(m => {
         if (!set.has(m)) {
           set.add(m);
           added++;
@@ -248,8 +261,9 @@ if (isProduction && process.env.REDIS_URL) {
     async sRem(key, ...members) {
       const set = mockSets.get(key);
       if (!set) return 0;
+      const list = members.flat().map(m => String(m));
       let removed = 0;
-      members.forEach(m => {
+      list.forEach(m => {
         if (set.delete(m)) {
           removed++;
         }

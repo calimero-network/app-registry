@@ -23,15 +23,21 @@ module.exports = async function handler(req, res) {
 
     const users = [];
     for (const key of keys) {
-      const raw = await kv.get(key);
+      const keyStr =
+        typeof key === 'string'
+          ? key
+          : Buffer.isBuffer(key)
+            ? key.toString('utf8')
+            : String(key);
+      const raw = await kv.get(keyStr);
       if (!raw) continue;
       try {
         const user = JSON.parse(typeof raw === 'string' ? raw : String(raw));
         if (!user.email) continue;
-        const adminVerified = await getAdminVerified(
-          'user',
-          user.id || key.replace('user:', '')
+        const userIdForVerified = String(
+          user.id ?? keyStr.replace(/^user:/, '')
         );
+        const adminVerified = await getAdminVerified('user', userIdForVerified);
         users.push({
           id: user.id,
           email: user.email,

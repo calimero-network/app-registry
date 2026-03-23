@@ -12,15 +12,21 @@ module.exports = async function handler(req, res) {
     const keys = await kv.scanKeys('org:*');
     const orgs = [];
     for (const key of keys) {
+      const keyStr =
+        typeof key === 'string'
+          ? key
+          : Buffer.isBuffer(key)
+            ? key.toString('utf8')
+            : String(key);
       // Skip non-root org keys (members, roles, packages, slug index)
       if (
-        key.includes(':members') ||
-        key.includes(':roles') ||
-        key.includes(':packages') ||
-        key.startsWith('org:by_slug:')
+        keyStr.includes(':members') ||
+        keyStr.includes(':roles') ||
+        keyStr.includes(':packages') ||
+        keyStr.startsWith('org:by_slug:')
       )
         continue;
-      const raw = await kv.get(key);
+      const raw = await kv.get(keyStr);
       if (!raw) continue;
       try {
         const org = JSON.parse(typeof raw === 'string' ? raw : String(raw));

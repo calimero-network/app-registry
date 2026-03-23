@@ -91,15 +91,21 @@ async function adminRoutes(server, options) {
     const blacklistSet = new Set(blacklistedEmails.map(e => e.toLowerCase()));
     const users = [];
     for (const key of keys) {
-      const raw = await kv.get(key);
+      const keyStr =
+        typeof key === 'string'
+          ? key
+          : Buffer.isBuffer(key)
+            ? key.toString('utf8')
+            : String(key);
+      const raw = await kv.get(keyStr);
       if (!raw) continue;
       try {
         const user = JSON.parse(typeof raw === 'string' ? raw : String(raw));
         if (!user.email) continue;
-        const adminVerified = await getAdminVerified(
-          'user',
-          user.id || key.replace('user:', '')
+        const userIdForVerified = String(
+          user.id ?? keyStr.replace(/^user:/, '')
         );
+        const adminVerified = await getAdminVerified('user', userIdForVerified);
         users.push({
           id: user.id,
           email: user.email,
@@ -129,6 +135,8 @@ async function adminRoutes(server, options) {
     const raw = await kv.get(`user:${userId}`);
     if (!raw) return reply.code(404).send({ error: 'not_found' });
     const user = JSON.parse(raw);
+    if (user.email) await removeAdmin(user.email);
+    await setAdminVerified('user', userId, false);
     await kv.del(`user:${userId}`);
     if (user.email) await kv.del(`email2user:${user.email.toLowerCase()}`);
     if (user.username) await kv.del(`username:${user.username.toLowerCase()}`);
@@ -320,14 +328,20 @@ async function adminRoutes(server, options) {
     const keys = await kv.scanKeys('org:*');
     const orgs = [];
     for (const key of keys) {
+      const keyStr =
+        typeof key === 'string'
+          ? key
+          : Buffer.isBuffer(key)
+            ? key.toString('utf8')
+            : String(key);
       if (
-        key.includes(':members') ||
-        key.includes(':roles') ||
-        key.includes(':packages') ||
-        key.startsWith('org:by_slug:')
+        keyStr.includes(':members') ||
+        keyStr.includes(':roles') ||
+        keyStr.includes(':packages') ||
+        keyStr.startsWith('org:by_slug:')
       )
         continue;
-      const raw = await kv.get(key);
+      const raw = await kv.get(keyStr);
       if (!raw) continue;
       try {
         const org = JSON.parse(typeof raw === 'string' ? raw : String(raw));
@@ -354,7 +368,9 @@ async function adminRoutes(server, options) {
   server.delete('/api/admin/orgs/:orgId', async (request, reply) => {
     const admin = await requireAdmin(request, reply);
     if (!admin) return;
-    await deleteOrg(request.params.orgId);
+    const { orgId } = request.params;
+    await deleteOrg(orgId);
+    await setAdminVerified('org', orgId, false);
     return reply.code(204).send();
   });
 

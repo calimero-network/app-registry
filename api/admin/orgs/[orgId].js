@@ -19,6 +19,7 @@ module.exports = async function handler(req, res) {
 
   if (req.method === 'DELETE') {
     await deleteOrg(orgId);
+    await setAdminVerified('org', orgId, false);
     return res.status(204).end();
   }
 

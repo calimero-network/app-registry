@@ -37,6 +37,9 @@ module.exports = async function handler(req, res) {
   }
 
   if (req.method === 'DELETE') {
+    // Revoke manual admin + verification so re-registration does not inherit them
+    if (user.email) await removeAdmin(user.email);
+    await setAdminVerified('user', userId, false);
     // Delete user profile + indexes
     await kv.del(`user:${userId}`);
     if (user.email) await kv.del(`email2user:${user.email.toLowerCase()}`);
