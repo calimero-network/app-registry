@@ -26,6 +26,10 @@ const {
 const STATE_COOKIE_NAME = 'oauth_state';
 const STATE_MAX_AGE = 600; // 10 minutes
 
+function loginErrorUrl(frontendUrl, error) {
+  return `${frontendUrl}/login?error=${encodeURIComponent(error)}`;
+}
+
 async function authRoutes(server, options) {
   // Rate limit all auth endpoints: 20 requests per IP per minute
   await server.register(rateLimit, {
@@ -85,17 +89,20 @@ async function authRoutes(server, options) {
   server.get('/api/auth/google/callback', async (request, reply) => {
     if (!clientId || !clientSecret) {
       reply.clearCookie(STATE_COOKIE_NAME, { path: '/' });
-      return reply.redirect(302, `${frontendUrl}?error=auth_not_configured`);
+      return reply.redirect(
+        302,
+        loginErrorUrl(frontendUrl, 'auth_not_configured')
+      );
     }
     const { code, state: queryState } = request.query || {};
     const cookieState = request.cookies?.[STATE_COOKIE_NAME];
     reply.clearCookie(STATE_COOKIE_NAME, { path: '/' });
 
     if (!queryState || queryState !== cookieState) {
-      return reply.redirect(302, `${frontendUrl}?error=invalid_state`);
+      return reply.redirect(302, loginErrorUrl(frontendUrl, 'invalid_state'));
     }
     if (!code) {
-      return reply.redirect(302, `${frontendUrl}?error=missing_code`);
+      return reply.redirect(302, loginErrorUrl(frontendUrl, 'missing_code'));
     }
 
     let user;
@@ -108,12 +115,15 @@ async function authRoutes(server, options) {
       );
     } catch (err) {
       server.log.warn({ err }, 'Google OAuth exchange failed');
-      return reply.redirect(302, `${frontendUrl}?error=oauth_failed`);
+      return reply.redirect(302, loginErrorUrl(frontendUrl, 'oauth_failed'));
     }
 
     // Block blacklisted users
     if (await isBlacklisted(user.email)) {
-      return reply.redirect(302, `${frontendUrl}?error=account_suspended`);
+      return reply.redirect(
+        302,
+        loginErrorUrl(frontendUrl, 'account_suspended')
+      );
     }
 
     // Create or update user profile in Redis (username/verified persistence)

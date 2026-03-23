@@ -11,6 +11,10 @@ const GOOGLE_USERINFO_URL = 'https://www.googleapis.com/oauth2/v2/userinfo';
 const STATE_COOKIE = 'oauth_state';
 const COOKIE_MAX_AGE = 60 * 60; // 1 hour
 
+function loginErrorUrl(frontendUrl, error) {
+  return `${frontendUrl}/login?error=${encodeURIComponent(error)}`;
+}
+
 function parseCookies(req) {
   const raw = req.headers.cookie || '';
   return Object.fromEntries(
@@ -33,7 +37,7 @@ module.exports = async function handler(req, res) {
   const redirectUri = `${frontendUrl}/api/auth/google/callback`;
 
   if (!clientId || !clientSecret) {
-    return res.redirect(`${frontendUrl}?error=auth_not_configured`);
+    return res.redirect(loginErrorUrl(frontendUrl, 'auth_not_configured'));
   }
 
   const { code, state: queryState } = req.query || {};
@@ -47,11 +51,11 @@ module.exports = async function handler(req, res) {
   );
 
   if (!queryState || queryState !== cookieState) {
-    res.setHeader('Location', `${frontendUrl}?error=invalid_state`);
+    res.setHeader('Location', loginErrorUrl(frontendUrl, 'invalid_state'));
     return res.status(302).end();
   }
   if (!code) {
-    res.setHeader('Location', `${frontendUrl}?error=missing_code`);
+    res.setHeader('Location', loginErrorUrl(frontendUrl, 'missing_code'));
     return res.status(302).end();
   }
 
@@ -87,13 +91,13 @@ module.exports = async function handler(req, res) {
       picture: profile.picture,
     };
   } catch {
-    res.setHeader('Location', `${frontendUrl}?error=oauth_failed`);
+    res.setHeader('Location', loginErrorUrl(frontendUrl, 'oauth_failed'));
     return res.status(302).end();
   }
 
   // Block blacklisted users before creating a session (fail closed — same as Fastify auth-routes)
   if (await isBlacklisted(user.email)) {
-    res.setHeader('Location', `${frontendUrl}?error=account_suspended`);
+    res.setHeader('Location', loginErrorUrl(frontendUrl, 'account_suspended'));
     return res.status(302).end();
   }
 

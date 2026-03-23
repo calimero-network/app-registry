@@ -1,5 +1,6 @@
 /**
  * Shared bundle sanitization for Fastify server and Vercel api/v2/bundles.
+ * Keep in sync with api/lib/bundle-sanitize.js (Vercel serverless).
  * Strips internal metadata, normalizes min version fields, computes `verified`.
  *
  * @param {object} kv - KV client with async get(key)
