@@ -130,12 +130,7 @@ if (isProduction && process.env.REDIS_URL) {
       return await redisClient.sRem(key, members);
     },
 
-    async keys(pattern) {
-      await this._ensureConnected();
-      return await redisClient.keys(pattern);
-    },
-
-    /** Prefer over KEYS in production — non-blocking SCAN iterator. */
+    /** Non-blocking SCAN — do not add KEYS; it blocks Redis on large datasets. */
     async scanKeys(pattern) {
       await this._ensureConnected();
       const result = [];
@@ -262,15 +257,11 @@ if (isProduction && process.env.REDIS_URL) {
       return removed;
     },
 
-    async keys(pattern) {
+    async scanKeys(pattern) {
       const regex = new RegExp(
         `^${pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*')}$`
       );
       return [...mockStore.keys()].filter(k => regex.test(k));
-    },
-
-    async scanKeys(pattern) {
-      return this.keys(pattern);
     },
 
     // Utility for testing

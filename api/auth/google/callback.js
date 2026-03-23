@@ -91,14 +91,10 @@ module.exports = async function handler(req, res) {
     return res.status(302).end();
   }
 
-  // Block blacklisted users before creating a session
-  try {
-    if (await isBlacklisted(user.email)) {
-      res.setHeader('Location', `${frontendUrl}?error=account_suspended`);
-      return res.status(302).end();
-    }
-  } catch {
-    /* non-fatal */
+  // Block blacklisted users before creating a session (fail closed — same as Fastify auth-routes)
+  if (await isBlacklisted(user.email)) {
+    res.setHeader('Location', `${frontendUrl}?error=account_suspended`);
+    return res.status(302).end();
   }
 
   // Persist user profile in Redis (creates on first login, updates name/picture on subsequent logins)
