@@ -311,6 +311,113 @@ async function buildServer() {
     };
   };
 
+  // Batch version of sanitizeBundle for listings — 2 parallel Redis rounds instead of 4N sequential.
+  const sanitizeBundles = async rawItems => {
+    // Step 1: extract metadata synchronously
+    const processed = rawItems.map(({ bundle, packageName }) => {
+      const raw =
+        bundle.min_runtime_version ?? bundle.minRuntimeVersion ?? '0.1.0';
+      const minRuntimeVersion =
+        raw != null && String(raw).trim() ? String(raw).trim() : '0.1.0';
+      const meta = bundle.metadata ? { ...bundle.metadata } : {};
+      const ownerEmail = (meta._ownerEmail || '').toLowerCase();
+      const hadAdminVerified = !!meta._adminVerified;
+      delete meta._ownerEmail;
+      delete meta._adminVerified;
+      return {
+        bundle,
+        packageName,
+        meta,
+        ownerEmail,
+        hadAdminVerified,
+        minRuntimeVersion,
+      };
+    });
+
+    // Step 2: batch round 1 — admin_verified:package + email2user
+    const uniquePackages = [
+      ...new Set(
+        processed.map(p => p.packageName || p.bundle.package).filter(Boolean)
+      ),
+    ];
+    const uniqueEmails = [
+      ...new Set(
+        processed
+          .map(p => p.ownerEmail)
+          .filter(e => e && !e.endsWith('@calimero.network'))
+      ),
+    ];
+    const [pkgVerifiedVals, userIdVals] = await Promise.all([
+      Promise.all(
+        uniquePackages.map(p => kv.get(`admin_verified:package:${p}`))
+      ),
+      Promise.all(uniqueEmails.map(e => kv.get(`email2user:${e}`))),
+    ]);
+    const pkgVerifiedMap = Object.fromEntries(
+      uniquePackages.map((p, i) => [p, pkgVerifiedVals[i] === '1'])
+    );
+    const emailToUserId = Object.fromEntries(
+      uniqueEmails.map((e, i) => [e, userIdVals[i]])
+    );
+
+    // Step 3: batch round 2 — user records + admin_verified:user
+    const uniqueUserIds = [
+      ...new Set(Object.values(emailToUserId).filter(Boolean)),
+    ];
+    const [userVals, userAdminVerifiedVals] = uniqueUserIds.length
+      ? await Promise.all([
+          Promise.all(uniqueUserIds.map(id => kv.get(`user:${id}`))),
+          Promise.all(
+            uniqueUserIds.map(id => kv.get(`admin_verified:user:${id}`))
+          ),
+        ])
+      : [[], []];
+    const userMap = Object.fromEntries(
+      uniqueUserIds.map((id, i) => {
+        try {
+          return [id, userVals[i] ? JSON.parse(userVals[i]) : null];
+        } catch {
+          return [id, null];
+        }
+      })
+    );
+    const userAdminVerifiedMap = Object.fromEntries(
+      uniqueUserIds.map((id, i) => [id, userAdminVerifiedVals[i] === '1'])
+    );
+
+    // Step 4: compute verified synchronously
+    return processed.map(
+      ({
+        bundle,
+        packageName,
+        meta,
+        ownerEmail,
+        hadAdminVerified,
+        minRuntimeVersion,
+      }) => {
+        let verified = hadAdminVerified;
+        const pkg = packageName || bundle.package;
+        if (!verified && pkgVerifiedMap[pkg]) verified = true;
+        if (!verified && ownerEmail.endsWith('@calimero.network'))
+          verified = true;
+        if (!verified && ownerEmail) {
+          const userId = emailToUserId[ownerEmail];
+          if (userId) {
+            if (userMap[userId]?.verified) verified = true;
+            if (!verified && userAdminVerifiedMap[userId]) verified = true;
+          }
+        }
+        return {
+          ...bundle,
+          metadata: meta,
+          min_runtime_version: minRuntimeVersion,
+          minRuntimeVersion,
+          verified,
+        };
+      }
+    );
+  };
+
   // V2 Bundle API endpoints
 
   // Handle OPTIONS requests for CORS preflight
@@ -403,10 +510,14 @@ async function buildServer() {
             }
           }
 
-          const normalized = await sanitizeBundle(bundle);
-          bundles.push({ normalized, packageName });
+          bundles.push({ rawBundle: bundle, packageName });
         }
       }
+
+      // Batch-sanitize all bundles (2 Redis rounds instead of 4N sequential)
+      const normalizedBundles = await sanitizeBundles(
+        bundles.map(b => ({ bundle: b.rawBundle, packageName: b.packageName }))
+      );
 
       // Batch Redis reads for download counts (one per unique package; keys are canonical lowercase)
       const uniquePackages = [...new Set(bundles.map(b => b.packageName))];
@@ -416,8 +527,8 @@ async function buildServer() {
       const countByPackage = Object.fromEntries(
         uniquePackages.map((p, i) => [p, Number(downloadCounts[i]) || 0])
       );
-      const result = bundles.map(({ normalized, packageName }) => {
-        normalized.downloads = countByPackage[packageName] ?? 0;
+      const result = normalizedBundles.map((normalized, i) => {
+        normalized.downloads = countByPackage[bundles[i].packageName] ?? 0;
         return normalized;
       });
 

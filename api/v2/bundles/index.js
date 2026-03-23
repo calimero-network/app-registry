@@ -92,6 +92,102 @@ module.exports = async function handler(req, res) {
     });
   }
 
+  // Batch version of sanitizeBundle for listings — 2 parallel Redis rounds instead of 4N sequential.
+  const sanitizeBundles = async rawItems => {
+    const processed = rawItems.map(({ bundle, packageName }) => {
+      const v = bundle.min_runtime_version;
+      const min_runtime_version =
+        v != null && String(v).trim() ? String(v).trim() : '0.1.0';
+      const meta = bundle.metadata ? { ...bundle.metadata } : {};
+      const ownerEmail = (meta._ownerEmail || '').toLowerCase();
+      const hadAdminVerified = !!meta._adminVerified;
+      delete meta._ownerEmail;
+      delete meta._adminVerified;
+      return {
+        bundle,
+        packageName,
+        meta,
+        ownerEmail,
+        hadAdminVerified,
+        min_runtime_version,
+      };
+    });
+
+    const uniquePackages = [
+      ...new Set(
+        processed.map(p => p.packageName || p.bundle.package).filter(Boolean)
+      ),
+    ];
+    const uniqueEmails = [
+      ...new Set(
+        processed
+          .map(p => p.ownerEmail)
+          .filter(e => e && !e.endsWith('@calimero.network'))
+      ),
+    ];
+    const [pkgVerifiedVals, userIdVals] = await Promise.all([
+      Promise.all(
+        uniquePackages.map(p => kv.get(`admin_verified:package:${p}`))
+      ),
+      Promise.all(uniqueEmails.map(e => kv.get(`email2user:${e}`))),
+    ]);
+    const pkgVerifiedMap = Object.fromEntries(
+      uniquePackages.map((p, i) => [p, pkgVerifiedVals[i] === '1'])
+    );
+    const emailToUserId = Object.fromEntries(
+      uniqueEmails.map((e, i) => [e, userIdVals[i]])
+    );
+
+    const uniqueUserIds = [
+      ...new Set(Object.values(emailToUserId).filter(Boolean)),
+    ];
+    const [userVals, userAdminVerifiedVals] = uniqueUserIds.length
+      ? await Promise.all([
+          Promise.all(uniqueUserIds.map(id => kv.get(`user:${id}`))),
+          Promise.all(
+            uniqueUserIds.map(id => kv.get(`admin_verified:user:${id}`))
+          ),
+        ])
+      : [[], []];
+    const userMap = Object.fromEntries(
+      uniqueUserIds.map((id, i) => {
+        try {
+          return [id, userVals[i] ? JSON.parse(userVals[i]) : null];
+        } catch {
+          return [id, null];
+        }
+      })
+    );
+    const userAdminVerifiedMap = Object.fromEntries(
+      uniqueUserIds.map((id, i) => [id, userAdminVerifiedVals[i] === '1'])
+    );
+
+    return processed.map(
+      ({
+        bundle,
+        packageName,
+        meta,
+        ownerEmail,
+        hadAdminVerified,
+        min_runtime_version,
+      }) => {
+        let verified = hadAdminVerified;
+        const pkg = packageName || bundle.package;
+        if (!verified && pkgVerifiedMap[pkg]) verified = true;
+        if (!verified && ownerEmail.endsWith('@calimero.network'))
+          verified = true;
+        if (!verified && ownerEmail) {
+          const userId = emailToUserId[ownerEmail];
+          if (userId) {
+            if (userMap[userId]?.verified) verified = true;
+            if (!verified && userAdminVerifiedMap[userId]) verified = true;
+          }
+        }
+        return { ...bundle, metadata: meta, min_runtime_version, verified };
+      }
+    );
+  };
+
   // Normalize min_runtime_version and compute `verified` server-side.
   // Strips _ownerEmail and _adminVerified from metadata so emails are never exposed.
   const sanitizeBundle = async (bundle, packageName) => {
@@ -156,7 +252,7 @@ module.exports = async function handler(req, res) {
     }
 
     const allPackages = await kv.sMembers('bundles:all');
-    const bundles = [];
+    const rawBundles = [];
     for (const packageName of allPackages) {
       if (pkg && packageName !== pkg) continue;
       const versions = await kv.sMembers(`bundle-versions:${packageName}`);
@@ -170,13 +266,27 @@ module.exports = async function handler(req, res) {
       const bundle = JSON.parse(data).json;
       if (developer && bundle.signature?.pubkey !== developer) continue;
       if (author && bundle.metadata?.author !== author) continue;
-      const downloadCount = await kv.get(
-        `downloads:${(packageName || '').toLowerCase()}`
-      );
-      const downloads = downloadCount ? parseInt(downloadCount, 10) : 0;
-      const sanitized = await sanitizeBundle(bundle, packageName);
-      bundles.push({ ...sanitized, downloads });
+      rawBundles.push({ bundle, packageName });
     }
+
+    // Batch-sanitize all bundles and batch-fetch download counts in parallel
+    const uniquePackages = [...new Set(rawBundles.map(b => b.packageName))];
+    const [sanitized, downloadVals] = await Promise.all([
+      sanitizeBundles(rawBundles),
+      Promise.all(
+        uniquePackages.map(p => kv.get(`downloads:${p.toLowerCase()}`))
+      ),
+    ]);
+    const countByPackage = Object.fromEntries(
+      uniquePackages.map((p, i) => [
+        p,
+        downloadVals[i] ? parseInt(downloadVals[i], 10) : 0,
+      ])
+    );
+    const bundles = sanitized.map((s, i) => ({
+      ...s,
+      downloads: countByPackage[rawBundles[i].packageName] ?? 0,
+    }));
 
     bundles.sort((a, b) => a.package.localeCompare(b.package));
     return res.status(200).json(bundles);
