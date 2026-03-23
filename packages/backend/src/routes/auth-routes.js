@@ -6,10 +6,10 @@ const {
   verifySessionToken,
   generateState,
   createApiToken,
-  verifyApiToken,
   listApiTokens,
   revokeApiToken,
 } = require('../lib/auth');
+const { resolveUser } = require('../lib/resolve-user');
 const {
   getOrCreateUser,
   getUserById,
@@ -50,26 +50,7 @@ async function authRoutes(server, options) {
   const redirectUri = `${frontendUrl}/api/auth/google/callback`;
   const isSecure = frontendUrl.startsWith('https://');
 
-  /** Resolve current user from session cookie or Bearer token. Returns null if unauthenticated. */
-  async function resolveUser(request) {
-    // Try session cookie first
-    const token = request.cookies?.[cookieName];
-    const sessionUser = await verifySessionToken(token, sessionSecret);
-    if (sessionUser?.email) return sessionUser;
-    // Try Bearer token
-    const auth = request.headers?.['authorization'];
-    if (typeof auth === 'string' && auth.startsWith('Bearer ')) {
-      const tokenData = await verifyApiToken(auth.slice(7));
-      if (tokenData?.email)
-        return {
-          id: tokenData.email,
-          email: tokenData.email,
-          name: tokenData.name,
-          picture: null,
-        };
-    }
-    return null;
-  }
+  const resolveOpts = { cookieName, sessionSecret };
 
   // GET /api/auth/google — redirect to Google OAuth
   server.get('/api/auth/google', async (request, reply) => {
@@ -156,7 +137,7 @@ async function authRoutes(server, options) {
 
   // GET /api/auth/me — return current user from session cookie or Bearer token
   server.get('/api/auth/me', async (request, reply) => {
-    const user = await resolveUser(request);
+    const user = await resolveUser(request, resolveOpts);
     if (!user) {
       return reply
         .code(401)
@@ -190,7 +171,7 @@ async function authRoutes(server, options) {
 
   // POST /api/auth/username — claim a username (immutable once set)
   server.post('/api/auth/username', async (request, reply) => {
-    const user = await resolveUser(request);
+    const user = await resolveUser(request, resolveOpts);
     if (!user) {
       return reply
         .code(401)
@@ -259,7 +240,7 @@ async function authRoutes(server, options) {
 
   // POST /api/auth/token — create a new API token (requires session or existing Bearer token)
   server.post('/api/auth/token', async (request, reply) => {
-    const user = await resolveUser(request);
+    const user = await resolveUser(request, resolveOpts);
     if (!user) {
       return reply.code(401).send({
         error: 'unauthorized',
@@ -284,7 +265,7 @@ async function authRoutes(server, options) {
 
   // GET /api/auth/tokens — list API tokens for current user (masked)
   server.get('/api/auth/tokens', async (request, reply) => {
-    const user = await resolveUser(request);
+    const user = await resolveUser(request, resolveOpts);
     if (!user) {
       return reply
         .code(401)

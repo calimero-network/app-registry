@@ -119,6 +119,18 @@ if (isProduction && process.env.REDIS_URL) {
       await this._ensureConnected();
       return await redisClient.keys(pattern);
     },
+
+    async scanKeys(pattern) {
+      await this._ensureConnected();
+      const result = [];
+      for await (const key of redisClient.scanIterator({
+        MATCH: pattern,
+        COUNT: 500,
+      })) {
+        result.push(key);
+      }
+      return result;
+    },
   };
 } else {
   // Mock Redis for local development using in-memory storage
@@ -241,6 +253,10 @@ if (isProduction && process.env.REDIS_URL) {
           '$'
       );
       return [...mockStore.keys()].filter(k => regex.test(k));
+    },
+
+    async scanKeys(pattern) {
+      return this.keys(pattern);
     },
 
     // Utility for testing

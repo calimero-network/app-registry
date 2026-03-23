@@ -23,32 +23,16 @@ const {
   getOrgMembers,
   getPackagesByOrg,
 } = require('../lib/org-storage');
-const { verifySessionToken, verifyApiToken } = require('../lib/auth');
+const { resolveUser } = require('../lib/resolve-user');
 const { getUserById, getUserByEmail } = require('../lib/user-storage');
 const semver = require('semver');
 
-async function resolveUser(request, cookieName, sessionSecret) {
-  const token = request.cookies?.[cookieName];
-  const sessionUser = await verifySessionToken(token, sessionSecret);
-  if (sessionUser?.email) return sessionUser;
-  const auth = request.headers?.['authorization'];
-  if (typeof auth === 'string' && auth.startsWith('Bearer ')) {
-    const tokenData = await verifyApiToken(auth.slice(7));
-    if (tokenData?.email)
-      return {
-        id: tokenData.email,
-        email: tokenData.email,
-        name: tokenData.name,
-      };
-  }
-  return null;
-}
-
 async function adminRoutes(server, options) {
   const { sessionSecret, cookieName } = options.config.auth;
+  const resolveOpts = { cookieName, sessionSecret };
 
   async function requireAdmin(request, reply) {
-    const user = await resolveUser(request, cookieName, sessionSecret);
+    const user = await resolveUser(request, resolveOpts);
     if (!user) {
       reply
         .code(401)
@@ -66,7 +50,7 @@ async function adminRoutes(server, options) {
 
   // GET /api/admin/check
   server.get('/api/admin/check', async (request, reply) => {
-    const user = await resolveUser(request, cookieName, sessionSecret);
+    const user = await resolveUser(request, resolveOpts);
     if (!user) return reply.code(401).send({ error: 'unauthorized' });
     return { isAdmin: await isAdmin(user.email) };
   });
@@ -98,7 +82,7 @@ async function adminRoutes(server, options) {
   server.get('/api/admin/users', async (request, reply) => {
     const admin = await requireAdmin(request, reply);
     if (!admin) return;
-    const keys = await kv.keys('user:*');
+    const keys = await kv.scanKeys('user:*');
     const [adminEmails, blacklistedEmails] = await Promise.all([
       listAdminEmails(),
       listBlacklistedEmails(),
@@ -328,7 +312,7 @@ async function adminRoutes(server, options) {
   server.get('/api/admin/orgs', async (request, reply) => {
     const admin = await requireAdmin(request, reply);
     if (!admin) return;
-    const keys = await kv.keys('org:*');
+    const keys = await kv.scanKeys('org:*');
     const orgs = [];
     for (const key of keys) {
       if (

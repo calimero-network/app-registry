@@ -90,7 +90,10 @@ export default function AdminPage() {
         ).map(({ key, label, icon: Icon }) => (
           <button
             key={key}
-            onClick={() => setTab(key)}
+            onClick={() => {
+              setConfirmDelete(null);
+              setTab(key);
+            }}
             className={`flex items-center gap-1.5 px-3 py-2 text-[13px] border-b-2 -mb-px transition-colors ${
               tab === key
                 ? 'border-brand-500 text-brand-400'
