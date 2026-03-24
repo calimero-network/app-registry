@@ -171,7 +171,9 @@ export default function AppDetailPage() {
     !!user &&
     !!bundleAuthor &&
     (bundleAuthor === user.username ||
-      (bundleAuthor.includes('@') && bundleAuthor === user.email));
+      (bundleAuthor.includes('@') &&
+        !user.username &&
+        bundleAuthor === user.email));
   const userEmailLower = user?.email?.toLowerCase() ?? '';
   const isOrgMember =
     !!userEmailLower &&
@@ -401,7 +403,9 @@ export default function AppDetailPage() {
                 !!user &&
                 !!vAuthor &&
                 (vAuthor === user.username ||
-                  (vAuthor.includes('@') && vAuthor === user.email));
+                  (vAuthor.includes('@') &&
+                    !user.username &&
+                    vAuthor === user.email));
               const canEditVersion = isVersionOwner || isOrgMember;
               const isConfirmingThisVersion =
                 confirmDeleteVersion === b.appVersion;
