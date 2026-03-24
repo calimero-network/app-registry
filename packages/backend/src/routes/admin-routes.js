@@ -335,9 +335,9 @@ async function adminRoutes(server, options) {
             ? key.toString('utf8')
             : String(key);
       if (
-        keyStr.includes(':members') ||
-        keyStr.includes(':roles') ||
-        keyStr.includes(':packages') ||
+        keyStr.endsWith(':members') ||
+        keyStr.endsWith(':roles') ||
+        keyStr.endsWith(':packages') ||
         keyStr.startsWith('org:by_slug:')
       )
         continue;

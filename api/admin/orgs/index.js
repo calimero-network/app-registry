@@ -20,9 +20,9 @@ module.exports = async function handler(req, res) {
             : String(key);
       // Skip non-root org keys (members, roles, packages, slug index)
       if (
-        keyStr.includes(':members') ||
-        keyStr.includes(':roles') ||
-        keyStr.includes(':packages') ||
+        keyStr.endsWith(':members') ||
+        keyStr.endsWith(':roles') ||
+        keyStr.endsWith(':packages') ||
         keyStr.startsWith('org:by_slug:')
       )
         continue;
