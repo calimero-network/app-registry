@@ -68,6 +68,38 @@ module.exports = async function handler(req, res) {
   }
 
   const author = latest?.metadata?.author;
+  // #region agent log
+  fetch('http://127.0.0.1:7874/ingest/ca1cd06e-518d-4e5b-8296-4b210a86c60b', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Debug-Session-Id': '396275',
+    },
+    body: JSON.stringify({
+      sessionId: '396275',
+      runId: 'initial-debug',
+      hypothesisId: 'H1',
+      location: 'api/v2/bundles/[package].js:70',
+      message: 'package delete ownership check',
+      data: {
+        pkg,
+        authorKind:
+          typeof author === 'string'
+            ? author.includes('@')
+              ? 'email'
+              : 'username_or_other'
+            : 'missing',
+        hasAuthor: Boolean(author),
+        matchesUserEmail: Boolean(
+          author && user?.email && author === user.email
+        ),
+        userHasEmail: Boolean(user?.email),
+        versionCount: Array.isArray(versions) ? versions.length : null,
+      },
+      timestamp: Date.now(),
+    }),
+  }).catch(() => {});
+  // #endregion
   if (!author || author !== user.email) {
     return res.status(403).json({
       error: 'not_owner',

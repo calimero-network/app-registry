@@ -123,6 +123,33 @@ async function handlePatch(req, res, pkg, version) {
   }
 
   const incomingKey = getPublicKeyFromManifest(body);
+  // #region agent log
+  fetch('http://127.0.0.1:7874/ingest/ca1cd06e-518d-4e5b-8296-4b210a86c60b', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Debug-Session-Id': '396275',
+    },
+    body: JSON.stringify({
+      sessionId: '396275',
+      runId: 'initial-debug',
+      hypothesisId: 'H4',
+      location: 'api/v2/bundles/[package]/[version].js:125',
+      message: 'package patch owner verification',
+      data: {
+        pkg,
+        version,
+        hasExisting: Boolean(existing),
+        incomingKeyPresent: Boolean(incomingKey),
+        existingOwnersCount: Array.isArray(existing?.owners)
+          ? existing.owners.length
+          : 0,
+        allowedOwner: Boolean(isAllowedOwner(existing, incomingKey)),
+      },
+      timestamp: Date.now(),
+    }),
+  }).catch(() => {});
+  // #endregion
   if (!isAllowedOwner(existing, incomingKey)) {
     return res.status(403).json({
       error: 'not_owner',
@@ -211,6 +238,38 @@ module.exports = async function handler(req, res) {
     }
 
     const author = existing.metadata?.author;
+    // #region agent log
+    fetch('http://127.0.0.1:7874/ingest/ca1cd06e-518d-4e5b-8296-4b210a86c60b', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Debug-Session-Id': '396275',
+      },
+      body: JSON.stringify({
+        sessionId: '396275',
+        runId: 'initial-debug',
+        hypothesisId: 'H1',
+        location: 'api/v2/bundles/[package]/[version].js:213',
+        message: 'bundle version delete ownership check',
+        data: {
+          pkg,
+          version,
+          authorKind:
+            typeof author === 'string'
+              ? author.includes('@')
+                ? 'email'
+                : 'username_or_other'
+              : 'missing',
+          hasAuthor: Boolean(author),
+          matchesUserEmail: Boolean(
+            author && user?.email && author === user.email
+          ),
+          userHasEmail: Boolean(user?.email),
+        },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
     if (!author || author !== user.email) {
       return res.status(403).json({
         error: 'not_owner',

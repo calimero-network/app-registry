@@ -99,6 +99,30 @@ async function requireOrgAdminOrOwner(req, res, orgId) {
   const user = await requireAuth(req, res);
   if (!user) return null;
   const role = await getOrgMemberRole(orgId, user.email);
+  // #region agent log
+  fetch('http://127.0.0.1:7874/ingest/ca1cd06e-518d-4e5b-8296-4b210a86c60b', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Debug-Session-Id': '396275',
+    },
+    body: JSON.stringify({
+      sessionId: '396275',
+      runId: 'initial-debug',
+      hypothesisId: 'H3',
+      location: 'api/lib/auth-helpers.js:101',
+      message: 'org admin-or-owner role check',
+      data: {
+        orgId,
+        hasUser: Boolean(user),
+        userHasEmail: Boolean(user?.email),
+        resolvedRole: role || null,
+        allowed: Boolean(role === 'admin' || role === 'owner'),
+      },
+      timestamp: Date.now(),
+    }),
+  }).catch(() => {});
+  // #endregion
   if (role !== 'admin' && role !== 'owner') {
     res.status(403).json({
       error: 'forbidden',
@@ -116,6 +140,30 @@ async function requireOrgOwner(req, res, orgId) {
   const user = await requireAuth(req, res);
   if (!user) return null;
   const role = await getOrgMemberRole(orgId, user.email);
+  // #region agent log
+  fetch('http://127.0.0.1:7874/ingest/ca1cd06e-518d-4e5b-8296-4b210a86c60b', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Debug-Session-Id': '396275',
+    },
+    body: JSON.stringify({
+      sessionId: '396275',
+      runId: 'initial-debug',
+      hypothesisId: 'H3',
+      location: 'api/lib/auth-helpers.js:118',
+      message: 'org owner role check',
+      data: {
+        orgId,
+        hasUser: Boolean(user),
+        userHasEmail: Boolean(user?.email),
+        resolvedRole: role || null,
+        allowed: Boolean(role === 'owner'),
+      },
+      timestamp: Date.now(),
+    }),
+  }).catch(() => {});
+  // #endregion
   if (role !== 'owner') {
     res.status(403).json({
       error: 'forbidden',

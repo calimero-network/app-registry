@@ -6,6 +6,7 @@
  */
 
 const { createClient } = require('redis');
+const { globToRegex } = require('../../shared/glob-to-regex');
 
 const isProduction = process.env.VERCEL === '1' || process.env.REDIS_URL;
 const isDevelopment = !isProduction;
@@ -261,11 +262,7 @@ if (isProduction && process.env.REDIS_URL) {
     },
 
     async scanKeys(pattern) {
-      const regex = new RegExp(
-        '^' +
-          pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*') +
-          '$'
-      );
+      const regex = globToRegex(pattern);
       const allKeys = new Set([
         ...mockStore.keys(),
         ...mockSets.keys(),
