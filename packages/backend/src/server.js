@@ -346,11 +346,12 @@ async function buildServer() {
             }
           }
 
-          // Filter by metadata._ownerEmail (preferred) or metadata.author (legacy) — used by "My packages"
+          // Filter by public metadata.author (username), falling back to
+          // metadata._ownerEmail only for legacy bundles.
           if (author) {
-            const ownerEmail =
-              bundle.metadata?._ownerEmail ?? bundle.metadata?.author;
-            if (!ownerEmail || ownerEmail !== author) {
+            const authorIdentity =
+              bundle.metadata?.author ?? bundle.metadata?._ownerEmail;
+            if (!authorIdentity || authorIdentity !== author) {
               continue;
             }
           }
@@ -495,14 +496,18 @@ async function buildServer() {
         });
       }
 
-      // 4. Org members (role === 'member') may only edit versions they uploaded (author === their email)
+      // 4. Org members (role === 'member') may only edit versions they uploaded
       const orgId = await getPkg2Org(pkg);
       if (orgId && sessionUser?.email) {
         const role = await getOrgMemberRole(orgId, sessionUser.email);
         if (role === 'member') {
-          const versionAuthor =
-            existing.metadata?._ownerEmail ?? existing.metadata?.author;
-          if (versionAuthor !== sessionUser.email) {
+          const sessionProfile = await getUserByEmail(sessionUser.email);
+          if (
+            !manifestOwnedByUser(existing, {
+              email: sessionUser.email,
+              username: sessionProfile?.username ?? null,
+            })
+          ) {
             return reply.code(403).send({
               error: 'forbidden',
               message:
@@ -587,12 +592,22 @@ async function buildServer() {
     return null;
   }
 
+  function manifestOwnedByUser(manifest, user) {
+    const author = manifest?.metadata?.author;
+    const ownerEmail = manifest?.metadata?._ownerEmail;
+
+    if (user?.username && author === user.username) return true;
+    if (user?.email && ownerEmail === user.email) return true;
+    if (user?.email && !user?.username && author === user.email) return true;
+    return false;
+  }
+
   // DELETE /api/v2/bundles/:package/:version - Delete a specific version
   server.delete('/api/v2/bundles/:package/:version', async (request, reply) => {
     try {
       const { package: pkg, version } = request.params;
 
-      const user = await getSessionUser(request);
+      const user = await resolveAuthUser(request);
       if (!user?.email) {
         return reply.code(401).send({
           error: 'unauthorized',
@@ -608,9 +623,7 @@ async function buildServer() {
         });
       }
 
-      const ownerEmail =
-        existing.metadata?._ownerEmail ?? existing.metadata?.author;
-      if (!ownerEmail || ownerEmail !== user.email) {
+      if (!manifestOwnedByUser(existing, user)) {
         return reply.code(403).send({
           error: 'not_owner',
           message: 'Only the package author can delete this version.',
@@ -633,7 +646,7 @@ async function buildServer() {
     try {
       const { package: pkg } = request.params;
 
-      const user = await getSessionUser(request);
+      const user = await resolveAuthUser(request);
       if (!user?.email) {
         return reply.code(401).send({
           error: 'unauthorized',
@@ -651,9 +664,7 @@ async function buildServer() {
 
       // Check ownership from the latest version
       const latest = await bundleStorage.getBundleManifest(pkg, versions[0]);
-      const ownerEmail =
-        latest?.metadata?._ownerEmail ?? latest?.metadata?.author;
-      if (!ownerEmail || ownerEmail !== user.email) {
+      if (!manifestOwnedByUser(latest, user)) {
         return reply.code(403).send({
           error: 'not_owner',
           message: 'Only the package author can delete this package.',

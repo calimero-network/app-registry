@@ -15,6 +15,16 @@ const {
 
 const bundleStorage = new BundleStorageKV();
 
+function manifestOwnedByUser(manifest, user) {
+  const author = manifest?.metadata?.author;
+  const ownerEmail = manifest?.metadata?._ownerEmail;
+
+  if (user?.username && author === user.username) return true;
+  if (user?.email && ownerEmail === user.email) return true;
+  if (user?.email && !user?.username && author === user.email) return true;
+  return false;
+}
+
 function cors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -87,43 +97,7 @@ module.exports = async function handler(req, res) {
         pkgName,
         versions[0]
       );
-      const packageAuthor = latestManifest?.metadata?.author;
-      // #region agent log
-      fetch(
-        'http://127.0.0.1:7874/ingest/ca1cd06e-518d-4e5b-8296-4b210a86c60b',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Debug-Session-Id': '396275',
-          },
-          body: JSON.stringify({
-            sessionId: '396275',
-            runId: 'initial-debug',
-            hypothesisId: 'H2',
-            location: 'api/v2/orgs/[orgId]/packages/index.js:90',
-            message: 'org package link ownership check',
-            data: {
-              orgId,
-              pkgName,
-              authorKind:
-                typeof packageAuthor === 'string'
-                  ? packageAuthor.includes('@')
-                    ? 'email'
-                    : 'username_or_other'
-                  : 'missing',
-              hasAuthor: Boolean(packageAuthor),
-              matchesUserEmail: Boolean(
-                packageAuthor && user?.email && packageAuthor === user.email
-              ),
-              userHasEmail: Boolean(user?.email),
-            },
-            timestamp: Date.now(),
-          }),
-        }
-      ).catch(() => {});
-      // #endregion
-      if (!packageAuthor || packageAuthor !== user.email) {
+      if (!manifestOwnedByUser(latestManifest, user)) {
         return res.status(403).json({
           error: 'forbidden',
           message: `You do not own package '${pkgName}'. Only the package author can link it to an organization`,

@@ -66,11 +66,15 @@ export default function OrgDetailPage() {
   const { user } = useAuth();
 
   // Add member form
-  const [newMemberEmail, setNewMemberEmail] = useState('');
+  const [newMemberUsername, setNewMemberUsername] = useState('');
   const [newMemberRole, setNewMemberRole] = useState<'admin' | 'member'>(
     'member'
   );
-  const [memberEmailTouched, setMemberEmailTouched] = useState(false);
+  const [memberUsernameTouched, setMemberUsernameTouched] = useState(false);
+  const USERNAME_REGEX = /^[a-z0-9]([a-z0-9_-]{0,48}[a-z0-9])?$/;
+
+  const isValidUsername = (value: string) =>
+    USERNAME_REGEX.test(value.trim().replace(/^@+/, '').toLowerCase());
 
   // Link package form
   const [newPackageName, setNewPackageName] = useState('');
@@ -144,16 +148,16 @@ export default function OrgDetailPage() {
     mutationFn: () =>
       addOrgMember(
         decodedOrgId,
-        sanitizeText(newMemberEmail.trim()),
+        sanitizeText(newMemberUsername.trim()),
         newMemberRole
       ),
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: ['org-members', decodedOrgId],
       });
-      setNewMemberEmail('');
+      setNewMemberUsername('');
       setNewMemberRole('member');
-      setMemberEmailTouched(false);
+      setMemberUsernameTouched(false);
     },
   });
 
@@ -251,8 +255,9 @@ export default function OrgDetailPage() {
 
   const handleAddMember = (e: React.FormEvent) => {
     e.preventDefault();
-    setMemberEmailTouched(true);
-    if (!newMemberEmail.trim() || !isValidEmail(newMemberEmail)) return;
+    setMemberUsernameTouched(true);
+    if (!newMemberUsername.trim() || !isValidUsername(newMemberUsername))
+      return;
     addMemberMutation.mutate();
   };
 
@@ -290,11 +295,11 @@ export default function OrgDetailPage() {
     linkPackageMutation.mutate(sanitizeText(newPackageName.trim()));
   };
 
-  const memberEmailErr =
-    memberEmailTouched && newMemberEmail.trim()
-      ? isValidEmail(newMemberEmail)
+  const memberUsernameErr =
+    memberUsernameTouched && newMemberUsername.trim()
+      ? isValidUsername(newMemberUsername)
         ? null
-        : 'Must be a valid email address.'
+        : 'Must be a valid username.'
       : null;
 
   const pkgNameErr = packageNameTouched
@@ -406,27 +411,27 @@ export default function OrgDetailPage() {
             <div className='flex flex-wrap items-start gap-3'>
               <div className='flex-1 min-w-[220px]'>
                 <label className='block text-[11px] text-neutral-500 mb-1'>
-                  Email address
+                  Username
                 </label>
                 <input
-                  type='email'
-                  value={newMemberEmail}
+                  type='text'
+                  value={newMemberUsername}
                   onChange={e => {
-                    setNewMemberEmail(e.target.value);
-                    if (memberEmailTouched && e.target.value.trim())
-                      setMemberEmailTouched(true);
+                    setNewMemberUsername(e.target.value);
+                    if (memberUsernameTouched && e.target.value.trim())
+                      setMemberUsernameTouched(true);
                   }}
-                  onBlur={() => setMemberEmailTouched(true)}
-                  placeholder='member@example.com'
+                  onBlur={() => setMemberUsernameTouched(true)}
+                  placeholder='username'
                   className={`input w-full ${
-                    memberEmailErr
+                    memberUsernameErr
                       ? 'border-red-500/70 focus-visible:ring-red-500/30 focus-visible:border-red-500'
                       : ''
                   }`}
                 />
-                {memberEmailErr && (
+                {memberUsernameErr && (
                   <p className='mt-1 text-[11px] text-red-400'>
-                    {memberEmailErr}
+                    {memberUsernameErr}
                   </p>
                 )}
               </div>

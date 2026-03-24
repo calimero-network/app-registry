@@ -7,6 +7,7 @@ const jwt = require('jsonwebtoken');
 const { kv } = require('./kv-client');
 const { getOrgMemberRole } = require('./org-storage');
 const { isAdmin, isBlacklisted } = require('./admin-storage');
+const { getUserByEmail } = require('./user-storage');
 
 const TOKEN_PREFIX = 'apitoken:';
 
@@ -29,7 +30,7 @@ function parseCookies(req) {
 
 /**
  * Resolve current user from Bearer token or session cookie.
- * Returns { email, name } or null.
+ * Returns { email, name, username } or null.
  */
 async function resolveUser(req) {
   // Try Bearer token first
@@ -43,7 +44,12 @@ async function resolveUser(req) {
           const data = JSON.parse(typeof raw === 'string' ? raw : String(raw));
           if (data?.email) {
             if (await isBlacklisted(data.email)) return null;
-            return { email: data.email, name: data.name || data.email };
+            const profile = await getUserByEmail(data.email);
+            return {
+              email: data.email,
+              name: data.name || data.email,
+              username: profile?.username ?? null,
+            };
           }
         }
       } catch {
@@ -65,7 +71,13 @@ async function resolveUser(req) {
         });
         if (payload?.email) {
           if (await isBlacklisted(payload.email)) return null;
-          return { id: payload.sub, email: payload.email, name: payload.name };
+          const profile = await getUserByEmail(payload.email);
+          return {
+            id: payload.sub,
+            email: payload.email,
+            name: payload.name,
+            username: profile?.username ?? null,
+          };
         }
       } catch {
         /* fall through */
@@ -99,30 +111,6 @@ async function requireOrgAdminOrOwner(req, res, orgId) {
   const user = await requireAuth(req, res);
   if (!user) return null;
   const role = await getOrgMemberRole(orgId, user.email);
-  // #region agent log
-  fetch('http://127.0.0.1:7874/ingest/ca1cd06e-518d-4e5b-8296-4b210a86c60b', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Debug-Session-Id': '396275',
-    },
-    body: JSON.stringify({
-      sessionId: '396275',
-      runId: 'initial-debug',
-      hypothesisId: 'H3',
-      location: 'api/lib/auth-helpers.js:101',
-      message: 'org admin-or-owner role check',
-      data: {
-        orgId,
-        hasUser: Boolean(user),
-        userHasEmail: Boolean(user?.email),
-        resolvedRole: role || null,
-        allowed: Boolean(role === 'admin' || role === 'owner'),
-      },
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {});
-  // #endregion
   if (role !== 'admin' && role !== 'owner') {
     res.status(403).json({
       error: 'forbidden',
@@ -140,30 +128,6 @@ async function requireOrgOwner(req, res, orgId) {
   const user = await requireAuth(req, res);
   if (!user) return null;
   const role = await getOrgMemberRole(orgId, user.email);
-  // #region agent log
-  fetch('http://127.0.0.1:7874/ingest/ca1cd06e-518d-4e5b-8296-4b210a86c60b', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Debug-Session-Id': '396275',
-    },
-    body: JSON.stringify({
-      sessionId: '396275',
-      runId: 'initial-debug',
-      hypothesisId: 'H3',
-      location: 'api/lib/auth-helpers.js:118',
-      message: 'org owner role check',
-      data: {
-        orgId,
-        hasUser: Boolean(user),
-        userHasEmail: Boolean(user?.email),
-        resolvedRole: role || null,
-        allowed: Boolean(role === 'owner'),
-      },
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {});
-  // #endregion
   if (role !== 'owner') {
     res.status(403).json({
       error: 'forbidden',

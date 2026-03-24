@@ -1,65 +1,108 @@
 #!/usr/bin/env node
 /**
- * Clean up all registry data from Redis (same Redis as app-registry backend).
+ * Wipe the registry Redis database completely so local/manual testing can start fresh.
  *
- * Loads REDIS_URL from app-registry root .env or packages/backend/.env.
- * Run from app-registry root: pnpm run clean-registry  (or node scripts/cleanup-registry.js)
+ * Loads REDIS_URL from:
+ *   1. process.env.REDIS_URL
+ *   2. app-registry/.env
+ *   3. app-registry/packages/backend/.env
  *
- * Deletes:
- *   bundle:*, binary:*, bundle-versions:*, provides:*, uses:*, bundles:all
+ * Run from app-registry root:
+ *   pnpm run clean-registry
+ * or:
+ *   node scripts/cleanup-registry.js
+ *
+ * This uses FLUSHDB, so it deletes every key in the currently selected Redis DB.
  */
 
+const fs = require('fs');
+const path = require('path');
 const { createClient } = require('redis');
+/* eslint-disable no-console */
 
-const PATTERNS = [
-  'bundle:*',
-  'binary:*',
-  'bundle-versions:*',
-  'provides:*',
-  'uses:*',
-];
-const SINGLE_KEYS = ['bundles:all'];
+function parseEnvFile(filePath) {
+  if (!fs.existsSync(filePath)) return {};
+
+  const env = {};
+  const content = fs.readFileSync(filePath, 'utf8');
+  for (const line of content.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+
+    const eqIndex = trimmed.indexOf('=');
+    if (eqIndex === -1) continue;
+
+    const key = trimmed.slice(0, eqIndex).trim();
+    let value = trimmed.slice(eqIndex + 1).trim();
+
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+
+    env[key] = value;
+  }
+
+  return env;
+}
+
+function resolveRedisUrl() {
+  if (process.env.REDIS_URL) return process.env.REDIS_URL;
+
+  const root = path.resolve(__dirname, '..');
+  const candidates = [
+    path.join(root, '.env'),
+    path.join(root, 'packages', 'backend', '.env'),
+  ];
+
+  for (const filePath of candidates) {
+    const env = parseEnvFile(filePath);
+    if (env.REDIS_URL) return env.REDIS_URL;
+  }
+
+  return null;
+}
+
+function redactRedisUrl(redisUrl) {
+  try {
+    const url = new URL(redisUrl);
+    if (url.password) url.password = '***';
+    return url.toString();
+  } catch {
+    return '<invalid redis url>';
+  }
+}
 
 async function main() {
-  const client = createClient({
-    url: 'redis://default:6NJB22CPkmhy0AsULTF6Lro8rwHHfvlq@redis-14502.c300.eu-central-1-1.ec2.redns.redis-cloud.com:14502',
-  });
+  const redisUrl = resolveRedisUrl();
+  if (!redisUrl) {
+    throw new Error(
+      'REDIS_URL not found. Set it in the environment, app-registry/.env, or packages/backend/.env.'
+    );
+  }
+
+  const client = createClient({ url: redisUrl });
   client.on('error', err => {
     console.error('Redis error:', err);
   });
 
   await client.connect();
   console.log('Connected to Redis');
+  console.log(`Target DB: ${redactRedisUrl(redisUrl)}`);
 
-  let totalDeleted = 0;
+  const beforeCount = await client.dbSize();
+  console.log(`Keys before wipe: ${beforeCount}`);
 
-  for (const pattern of PATTERNS) {
-    let count = 0;
-    for await (const chunk of client.scanIterator({
-      MATCH: pattern,
-      COUNT: 100,
-    })) {
-      const keys = Array.isArray(chunk) ? chunk : [chunk];
-      for (const key of keys) {
-        if (key == null) continue;
-        await client.del(key);
-        count++;
-      }
-    }
-    console.log(`Deleted ${count} keys matching ${pattern}`);
-    totalDeleted += count;
-  }
+  await client.flushDb();
 
-  for (const key of SINGLE_KEYS) {
-    const n = await client.del(key);
-    if (n > 0) {
-      console.log(`Deleted key: ${key}`);
-      totalDeleted += n;
-    }
-  }
+  const afterCount = await client.dbSize();
 
   await client.quit();
-  console.log(`Done. Total keys deleted: ${totalDeleted}`);
+  console.log(
+    `Done. Database fully cleared. Deleted ${beforeCount} keys, ${afterCount} keys remain.`
+  );
 }
 
 main().catch(err => {

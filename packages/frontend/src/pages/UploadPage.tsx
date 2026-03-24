@@ -13,6 +13,11 @@ import {
 } from 'lucide-react';
 import { pushBundleFile } from '@/lib/api';
 
+type UploadErrorLike = {
+  response?: { data?: { error?: string; message?: string } };
+  message?: string;
+};
+
 export default function UploadPage() {
   const { user } = useAuth();
   const location = useLocation();
@@ -25,6 +30,19 @@ export default function UploadPage() {
   } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const clearSelectedFile = () => {
+    setFile(null);
+    if (inputRef.current) inputRef.current.value = '';
+  };
+
+  const snapshotSelectedFile = async (selected: File): Promise<File> => {
+    const bytes = await selected.arrayBuffer();
+    return new File([bytes], selected.name, {
+      type: selected.type || 'application/octet-stream',
+      lastModified: selected.lastModified,
+    });
+  };
+
   const handlePublish = async () => {
     if (!file) return;
     setError(null);
@@ -33,15 +51,21 @@ export default function UploadPage() {
     try {
       const result = await pushBundleFile(file);
       setSuccess(result);
-      setFile(null);
-      if (inputRef.current) inputRef.current.value = '';
+      clearSelectedFile();
     } catch (err: unknown) {
-      const msg =
-        err && typeof err === 'object' && err !== null && 'response' in err
-          ? (err as { response?: { data?: { message?: string } } }).response
-              ?.data?.message
-          : (err as Error)?.message;
-      setError(msg ?? 'Publish failed');
+      const uploadErr = err as UploadErrorLike;
+      const code = uploadErr?.response?.data?.error;
+      const responseMessage = uploadErr?.response?.data?.message;
+      const fallbackMessage = uploadErr?.message;
+
+      if (code === 'version_not_allowed') {
+        clearSelectedFile();
+        setError(
+          `${responseMessage ?? 'Version is not allowed.'} Rebuild the bundle, then re-select the updated .mpk before publishing again.`
+        );
+      } else {
+        setError(responseMessage ?? fallbackMessage ?? 'Publish failed');
+      }
     } finally {
       setUploading(false);
     }
@@ -93,11 +117,24 @@ export default function UploadPage() {
                 type='file'
                 accept='.mpk'
                 className='text-[13px] text-neutral-300 file:mr-3 file:py-2 file:px-3 file:rounded-md file:border-0 file:bg-brand-600 file:text-neutral-950 file:font-medium file:cursor-pointer cursor-pointer'
-                onChange={e => {
-                  const f = e.target.files?.[0];
-                  setFile(f ?? null);
+                onChange={async e => {
+                  const selected = e.target.files?.[0];
                   setError(null);
                   setSuccess(null);
+                  if (!selected) {
+                    setFile(null);
+                    return;
+                  }
+
+                  try {
+                    const snapshot = await snapshotSelectedFile(selected);
+                    setFile(snapshot);
+                  } catch {
+                    clearSelectedFile();
+                    setError(
+                      'Failed to read the selected .mpk file. Please select it again.'
+                    );
+                  }
                 }}
               />
               <button

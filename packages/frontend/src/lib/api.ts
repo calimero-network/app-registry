@@ -28,6 +28,8 @@ api.interceptors.response.use(
   error => {
     const status = error.response?.status;
     const apiError = error.response?.data;
+    const requestUrl = String(error.config?.url || '');
+    const originalMessage = String(error.cause?.message || error.message || '');
 
     if (
       typeof window !== 'undefined' &&
@@ -45,8 +47,14 @@ api.interceptors.response.use(
 
     // Friendly message when the API cannot be reached at all
     if (error.code === 'ERR_NETWORK' || !error.response) {
-      error.message =
-        'Backend is not running. Start both backend and frontend: pnpm dev:all';
+      if (requestUrl.includes('/v2/bundles/push-file')) {
+        error.message = originalMessage.includes('ERR_UPLOAD_FILE_CHANGED')
+          ? 'The selected .mpk file changed on disk. Re-select the rebuilt file and try again.'
+          : 'Upload failed before the server responded. If you rebuilt the .mpk, re-select it and try again.';
+      } else {
+        error.message =
+          'Backend is not running. Start both backend and frontend: pnpm dev:all';
+      }
     }
     // eslint-disable-next-line no-console
     console.error('API Error:', apiError || error.message);
@@ -368,14 +376,14 @@ export const updateOrg = async (
   return response.data;
 };
 
-/** Add member to org by email (admin only). */
+/** Add member to org by username (admin only). */
 export const addOrgMember = async (
   orgId: string,
-  email: string,
+  username: string,
   role: 'admin' | 'member' = 'member'
 ): Promise<void> => {
   await api.post(`/v2/orgs/${encodeURIComponent(orgId)}/members`, {
-    email: email.trim(),
+    username: username.trim().replace(/^@+/, ''),
     role,
   });
 };
