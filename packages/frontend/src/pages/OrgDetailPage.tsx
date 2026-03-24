@@ -55,10 +55,6 @@ function getApiErrorMessage(error: unknown): string {
   return 'An unexpected error occurred.';
 }
 
-function isValidEmail(input: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.trim());
-}
-
 export default function OrgDetailPage() {
   const { orgId = '' } = useParams<{ orgId: string }>();
   const decodedOrgId = decodeURIComponent(orgId);
