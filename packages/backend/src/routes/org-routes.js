@@ -1,5 +1,5 @@
 /**
- * NPM-style organization API: CRUD orgs, members (emails), package↔org link.
+ * NPM-style organization API: CRUD orgs, members, package↔org link.
  * Write routes require Google OAuth session cookie or Authorization: Bearer <api-token>.
  * Admin-gated writes additionally check org membership role.
  */
@@ -23,7 +23,8 @@ const {
   deleteOrg,
 } = require('../lib/org-storage');
 const { verifySessionToken, verifyApiToken } = require('../lib/auth');
-const { getUserByEmail } = require('../lib/user-storage');
+const { getUserByEmail, getUserByUsername } = require('../lib/user-storage');
+const { isBlacklisted } = require('../lib/admin-storage');
 const { BundleStorageKV } = require('../lib/bundle-storage-kv');
 const config = require('../config');
 
@@ -49,20 +50,46 @@ async function getSessionUser(request) {
 
 /**
  * Resolve the current user from session cookie or Bearer token.
- * Returns { email, name } or sends 401 and returns null.
+ * Returns { email, name, username } or sends 401 and returns null.
  */
 async function requireAuth(request, reply) {
   // Try session cookie
   const sessionUser = await getSessionUser(request);
-  if (sessionUser?.email)
-    return { email: sessionUser.email, name: sessionUser.name };
+  if (sessionUser?.email) {
+    if (await isBlacklisted(sessionUser.email)) {
+      reply.code(403).send({
+        error: 'account_suspended',
+        message: 'This account has been suspended',
+      });
+      return null;
+    }
+    const profile = await getUserByEmail(sessionUser.email);
+    return {
+      email: sessionUser.email,
+      name: sessionUser.name,
+      username: profile?.username ?? null,
+    };
+  }
 
   // Try Bearer token
   const auth = request.headers?.['authorization'];
   if (typeof auth === 'string' && auth.startsWith('Bearer ')) {
     const tokenData = await verifyApiToken(auth.slice(7));
-    if (tokenData?.email)
-      return { email: tokenData.email, name: tokenData.name };
+    if (tokenData?.email) {
+      if (await isBlacklisted(tokenData.email)) {
+        reply.code(403).send({
+          error: 'account_suspended',
+          message: 'This account has been suspended',
+        });
+        return null;
+      }
+      const profile = await getUserByEmail(tokenData.email);
+      return {
+        email: tokenData.email,
+        name: tokenData.name,
+        username: profile?.username ?? null,
+      };
+    }
   }
 
   reply.code(401).send({
@@ -71,6 +98,16 @@ async function requireAuth(request, reply) {
       'Login required or provide an API token (Authorization: Bearer <token>)',
   });
   return null;
+}
+
+function manifestOwnedByUser(manifest, user) {
+  const author = manifest?.metadata?.author;
+  const ownerEmail = manifest?.metadata?._ownerEmail;
+
+  if (user?.username && author === user.username) return true;
+  if (user?.email && ownerEmail === user.email) return true;
+  if (user?.email && !user?.username && author === user.email) return true;
+  return false;
 }
 
 /**
@@ -243,7 +280,7 @@ async function orgRoutes(server) {
     return reply.code(204).send();
   });
 
-  // POST /api/v2/orgs/:orgId/members — add member by email (owner can add admin; admin/owner can add member)
+  // POST /api/v2/orgs/:orgId/members — add member by username
   server.post('/api/v2/orgs/:orgId/members', async (request, reply) => {
     const { orgId } = request.params;
     const org = await getOrg(orgId);
@@ -253,18 +290,18 @@ async function orgRoutes(server) {
         message: 'Organization not found',
       });
     }
-    const { email, role } = request.body || {};
-    if (!email || typeof email !== 'string') {
+    const { username, role } = request.body || {};
+    if (!username || typeof username !== 'string') {
       return reply.code(400).send({
         error: 'bad_request',
-        message: 'Body must include email (string)',
+        message: 'Body must include username (string)',
       });
     }
-    const memberEmail = email.trim();
-    if (!isValidEmail(memberEmail)) {
+    const memberUsername = username.trim().replace(/^@+/, '').toLowerCase();
+    if (!memberUsername) {
       return reply.code(400).send({
         error: 'bad_request',
-        message: 'email is not a valid email address',
+        message: 'username cannot be empty',
       });
     }
     const roleNorm = role === 'admin' ? 'admin' : 'member';
@@ -275,11 +312,19 @@ async function orgRoutes(server) {
       const user = await requireOrgAdminOrOwner(request, reply, orgId);
       if (!user) return;
     }
+    const profile = await getUserByUsername(memberUsername);
+    if (!profile?.email) {
+      return reply.code(404).send({
+        error: 'not_found',
+        message: `User '@${memberUsername}' was not found`,
+      });
+    }
+    const memberEmail = profile.email;
     const existingRole = await getOrgMemberRole(orgId, memberEmail);
     if (existingRole) {
       return reply.code(409).send({
         error: 'conflict',
-        message: 'This email is already a member of the organization',
+        message: `User '@${memberUsername}' is already a member of the organization`,
       });
     }
     await addOrgMember(orgId, memberEmail, roleNorm);
@@ -397,13 +442,12 @@ async function orgRoutes(server) {
       });
     }
 
-    // Verify the requester owns the package (session/token email must match metadata.author)
+    // Verify the requester owns the package.
     const latestManifest = await bundleStorage.getBundleManifest(
       pkgName,
       versions[0]
     );
-    const packageAuthor = latestManifest?.metadata?.author;
-    if (!packageAuthor || packageAuthor !== user.email) {
+    if (!manifestOwnedByUser(latestManifest, user)) {
       return reply.code(403).send({
         error: 'forbidden',
         message: `You do not own package '${pkgName}'. Only the package author can link it to an organization`,

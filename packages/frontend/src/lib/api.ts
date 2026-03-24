@@ -12,6 +12,8 @@ import type {
   ApiToken,
 } from '@/types/api';
 
+const AUTH_SESSION_FLAG = 'app_registry_authenticated';
+
 export const api = axios.create({
   baseURL:
     (import.meta as { env?: { VITE_API_URL?: string } }).env?.VITE_API_URL ||
@@ -24,13 +26,38 @@ export const api = axios.create({
 api.interceptors.response.use(
   response => response,
   error => {
-    // Friendly message when backend is not running (proxy returns ECONNREFUSED)
+    const status = error.response?.status;
+    const apiError = error.response?.data;
+    const requestUrl = String(error.config?.url || '');
+    const originalMessage = String(error.cause?.message || error.message || '');
+
+    if (
+      typeof window !== 'undefined' &&
+      status === 401 &&
+      window.sessionStorage.getItem(AUTH_SESSION_FLAG) === '1'
+    ) {
+      window.sessionStorage.removeItem(AUTH_SESSION_FLAG);
+      if (window.location.pathname !== '/login') {
+        const from = `${window.location.pathname}${window.location.search}`;
+        window.location.assign(
+          `/login?error=session_expired&from=${encodeURIComponent(from)}`
+        );
+      }
+    }
+
+    // Friendly message when the API cannot be reached at all
     if (error.code === 'ERR_NETWORK' || !error.response) {
-      error.message =
-        'Backend is not running. Start both backend and frontend: pnpm dev:all';
+      if (requestUrl.includes('/v2/bundles/push-file')) {
+        error.message = originalMessage.includes('ERR_UPLOAD_FILE_CHANGED')
+          ? 'The selected .mpk file changed on disk. Re-select the rebuilt file and try again.'
+          : 'Upload failed before the server responded. If you rebuilt the .mpk, re-select it and try again.';
+      } else {
+        error.message =
+          'Backend is not running. Start both backend and frontend: pnpm dev:all';
+      }
     }
     // eslint-disable-next-line no-console
-    console.error('API Error:', error.response?.data || error.message);
+    console.error('API Error:', apiError || error.message);
     return Promise.reject(error);
   }
 );
@@ -55,11 +82,7 @@ export const getApps = async (params?: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return bundles.map((bundle: any) => {
     const author = bundle.metadata?.author || 'Unknown';
-    const ownerEmail: string =
-      bundle.metadata?._ownerEmail || bundle.metadata?.author || '';
-    const verified =
-      ownerEmail.includes('@') &&
-      ownerEmail.toLowerCase().endsWith('@calimero.network');
+    const verified = !!bundle.verified;
     return {
       id: bundle.package,
       name: bundle.metadata?.name || bundle.package,
@@ -78,23 +101,47 @@ export const getApps = async (params?: {
   });
 };
 
-/** Fetch bundles filtered by metadata.author (e.g. current user email for "My packages"). */
-export const getMyPackages = async (
-  authorEmail: string
-): Promise<AppSummary[]> => {
-  if (!authorEmail?.trim()) return [];
-  const response = await api.get('/v2/bundles', {
-    params: { author: authorEmail.trim() },
-  });
-  const bundles = Array.isArray(response.data) ? response.data : [];
+/** Fetch bundles filtered by metadata.author, preferring username and falling back to email for legacy packages. */
+export const getMyPackages = async (params: {
+  username?: string | null;
+  email?: string | null;
+}): Promise<AppSummary[]> => {
+  const authorCandidates = [
+    params.username?.trim(),
+    params.email?.trim(),
+  ].filter(
+    (value, index, arr): value is string =>
+      !!value && arr.indexOf(value) === index
+  );
+
+  if (authorCandidates.length === 0) return [];
+
+  const responses = await Promise.all(
+    authorCandidates.map(author =>
+      api.get('/v2/bundles', {
+        params: { author },
+      })
+    )
+  );
+
+  const bundles = responses.flatMap(response =>
+    Array.isArray(response.data) ? response.data : []
+  );
+
+  const uniqueBundles = Array.from(
+    new Map(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      bundles.map((bundle: any) => [
+        `${bundle.package}@${bundle.appVersion}`,
+        bundle,
+      ])
+    ).values()
+  );
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return bundles.map((bundle: any) => {
+  return uniqueBundles.map((bundle: any) => {
     const author = bundle.metadata?.author || 'Unknown';
-    const ownerEmail: string =
-      bundle.metadata?._ownerEmail || bundle.metadata?.author || '';
-    const verified =
-      ownerEmail.includes('@') &&
-      ownerEmail.toLowerCase().endsWith('@calimero.network');
+    const verified = !!bundle.verified;
     return {
       id: bundle.package,
       name: bundle.metadata?.name || bundle.package,
@@ -329,14 +376,14 @@ export const updateOrg = async (
   return response.data;
 };
 
-/** Add member to org by email (admin only). */
+/** Add member to org by username (admin only). */
 export const addOrgMember = async (
   orgId: string,
-  email: string,
+  username: string,
   role: 'admin' | 'member' = 'member'
 ): Promise<void> => {
   await api.post(`/v2/orgs/${encodeURIComponent(orgId)}/members`, {
-    email: email.trim(),
+    username: username.trim().replace(/^@+/, ''),
     role,
   });
 };

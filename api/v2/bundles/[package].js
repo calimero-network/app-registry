@@ -14,6 +14,16 @@ function getStorage() {
   return storage;
 }
 
+function manifestOwnedByUser(manifest, user) {
+  const author = manifest?.metadata?.author;
+  const ownerEmail = manifest?.metadata?._ownerEmail;
+
+  if (user?.username && author === user.username) return true;
+  if (user?.email && ownerEmail === user.email) return true;
+  if (user?.email && !user?.username && author === user.email) return true;
+  return false;
+}
+
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -67,8 +77,7 @@ module.exports = async function handler(req, res) {
     });
   }
 
-  const author = latest?.metadata?.author;
-  if (!author || author !== user.email) {
+  if (!manifestOwnedByUser(latest, user)) {
     return res.status(403).json({
       error: 'not_owner',
       message: 'Only the package author can delete this package.',

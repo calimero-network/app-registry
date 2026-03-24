@@ -1,6 +1,6 @@
 /**
- * GET  /api/v2/orgs/:orgId/members — list members (email + role, public)
- * POST /api/v2/orgs/:orgId/members — add member by email (owner for admin, admin/owner for member)
+ * GET  /api/v2/orgs/:orgId/members — list members
+ * POST /api/v2/orgs/:orgId/members — add member by username
  */
 
 const {
@@ -13,8 +13,10 @@ const {
   requireOrgAdminOrOwner,
   requireOrgOwner,
 } = require('../../../../lib/auth-helpers');
-
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const {
+  getUserByEmail,
+  getUserByUsername,
+} = require('../../../../lib/user-storage');
 
 function cors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -53,7 +55,13 @@ module.exports = async function handler(req, res) {
       const members = [];
       for (const email of emails) {
         const role = await getOrgMemberRole(orgId, email);
-        members.push({ email, role: role || 'member' });
+        const profile = await getUserByEmail(email);
+        members.push({
+          email,
+          username: profile?.username ?? null,
+          verified: profile?.verified ?? email.endsWith('@calimero.network'),
+          role: role || 'member',
+        });
       }
       return res.status(200).json({ members });
     } catch (e) {
@@ -64,18 +72,18 @@ module.exports = async function handler(req, res) {
   }
 
   if (req.method === 'POST') {
-    const { email, role } = req.body || {};
-    if (!email || typeof email !== 'string') {
+    const { username, role } = req.body || {};
+    if (!username || typeof username !== 'string') {
       return res.status(400).json({
         error: 'bad_request',
-        message: 'Body must include email (string)',
+        message: 'Body must include username (string)',
       });
     }
-    const memberEmail = email.trim();
-    if (!EMAIL_REGEX.test(memberEmail)) {
+    const memberUsername = username.trim().replace(/^@+/, '').toLowerCase();
+    if (!memberUsername) {
       return res.status(400).json({
         error: 'bad_request',
-        message: 'email is not a valid email address',
+        message: 'username cannot be empty',
       });
     }
     const roleNorm = role === 'admin' ? 'admin' : 'member';
@@ -88,11 +96,19 @@ module.exports = async function handler(req, res) {
       if (!user) return;
     }
     try {
+      const profile = await getUserByUsername(memberUsername);
+      if (!profile?.email) {
+        return res.status(404).json({
+          error: 'not_found',
+          message: `User '@${memberUsername}' was not found`,
+        });
+      }
+      const memberEmail = profile.email;
       const existingRole = await getOrgMemberRole(orgId, memberEmail);
       if (existingRole) {
         return res.status(409).json({
           error: 'conflict',
-          message: 'This email is already a member of the organization',
+          message: `User '@${memberUsername}' is already a member of the organization`,
         });
       }
       await addOrgMember(orgId, memberEmail, roleNorm);

@@ -4,21 +4,31 @@ const {
   exchangeCodeForUser,
   createSessionToken,
   verifySessionToken,
+  verifyApiToken,
   generateState,
   createApiToken,
-  verifyApiToken,
   listApiTokens,
   revokeApiToken,
 } = require('../lib/auth');
+const { resolveUser } = require('../lib/resolve-user');
 const {
   getOrCreateUser,
   getUserById,
   getUserByEmail,
   claimUsername,
 } = require('../lib/user-storage');
+const {
+  isAdmin,
+  isBlacklisted,
+  getAdminVerified,
+} = require('../lib/admin-storage');
 
 const STATE_COOKIE_NAME = 'oauth_state';
 const STATE_MAX_AGE = 600; // 10 minutes
+
+function loginErrorUrl(frontendUrl, error) {
+  return `${frontendUrl}/login?error=${encodeURIComponent(error)}`;
+}
 
 async function authRoutes(server, options) {
   // Rate limit all auth endpoints: 20 requests per IP per minute
@@ -45,26 +55,7 @@ async function authRoutes(server, options) {
   const redirectUri = `${frontendUrl}/api/auth/google/callback`;
   const isSecure = frontendUrl.startsWith('https://');
 
-  /** Resolve current user from session cookie or Bearer token. Returns null if unauthenticated. */
-  async function resolveUser(request) {
-    // Try session cookie first
-    const token = request.cookies?.[cookieName];
-    const sessionUser = await verifySessionToken(token, sessionSecret);
-    if (sessionUser?.email) return sessionUser;
-    // Try Bearer token
-    const auth = request.headers?.['authorization'];
-    if (typeof auth === 'string' && auth.startsWith('Bearer ')) {
-      const tokenData = await verifyApiToken(auth.slice(7));
-      if (tokenData?.email)
-        return {
-          id: tokenData.email,
-          email: tokenData.email,
-          name: tokenData.name,
-          picture: null,
-        };
-    }
-    return null;
-  }
+  const resolveOpts = { cookieName, sessionSecret };
 
   // GET /api/auth/google — redirect to Google OAuth
   server.get('/api/auth/google', async (request, reply) => {
@@ -98,17 +89,20 @@ async function authRoutes(server, options) {
   server.get('/api/auth/google/callback', async (request, reply) => {
     if (!clientId || !clientSecret) {
       reply.clearCookie(STATE_COOKIE_NAME, { path: '/' });
-      return reply.redirect(302, `${frontendUrl}?error=auth_not_configured`);
+      return reply.redirect(
+        302,
+        loginErrorUrl(frontendUrl, 'auth_not_configured')
+      );
     }
     const { code, state: queryState } = request.query || {};
     const cookieState = request.cookies?.[STATE_COOKIE_NAME];
     reply.clearCookie(STATE_COOKIE_NAME, { path: '/' });
 
     if (!queryState || queryState !== cookieState) {
-      return reply.redirect(302, `${frontendUrl}?error=invalid_state`);
+      return reply.redirect(302, loginErrorUrl(frontendUrl, 'invalid_state'));
     }
     if (!code) {
-      return reply.redirect(302, `${frontendUrl}?error=missing_code`);
+      return reply.redirect(302, loginErrorUrl(frontendUrl, 'missing_code'));
     }
 
     let user;
@@ -121,7 +115,15 @@ async function authRoutes(server, options) {
       );
     } catch (err) {
       server.log.warn({ err }, 'Google OAuth exchange failed');
-      return reply.redirect(302, `${frontendUrl}?error=oauth_failed`);
+      return reply.redirect(302, loginErrorUrl(frontendUrl, 'oauth_failed'));
+    }
+
+    // Block blacklisted users
+    if (await isBlacklisted(user.email)) {
+      return reply.redirect(
+        302,
+        loginErrorUrl(frontendUrl, 'account_suspended')
+      );
     }
 
     // Create or update user profile in Redis (username/verified persistence)
@@ -146,8 +148,35 @@ async function authRoutes(server, options) {
 
   // GET /api/auth/me — return current user from session cookie or Bearer token
   server.get('/api/auth/me', async (request, reply) => {
-    const user = await resolveUser(request);
+    const user = await resolveUser(request, resolveOpts);
     if (!user) {
+      // Distinguish suspended vs unauthenticated when credentials are present
+      const hadBearer =
+        typeof request.headers?.authorization === 'string' &&
+        request.headers.authorization.startsWith('Bearer ');
+      const hadCookie = Boolean(request.cookies?.[cookieName]);
+      if (hadBearer || hadCookie) {
+        let email;
+        if (hadCookie) {
+          const su = await verifySessionToken(
+            request.cookies[cookieName],
+            sessionSecret
+          );
+          email = su?.email;
+        }
+        if (!email && hadBearer) {
+          const td = await verifyApiToken(
+            request.headers.authorization.slice(7)
+          );
+          email = td?.email;
+        }
+        if (email && (await isBlacklisted(email))) {
+          return reply.code(403).send({
+            error: 'account_suspended',
+            message: 'This account has been suspended',
+          });
+        }
+      }
       return reply
         .code(401)
         .send({ error: 'unauthorized', message: 'Not signed in' });
@@ -156,8 +185,15 @@ async function authRoutes(server, options) {
     const profile =
       (await getUserById(user.id)) || (await getUserByEmail(user.email));
     const username = profile?.username ?? null;
+    const userId = profile?.id || user.id;
+    const adminVerified = userId
+      ? await getAdminVerified('user', userId)
+      : false;
     const verified =
-      profile?.verified ?? (user.email || '').endsWith('@calimero.network');
+      profile?.verified ||
+      adminVerified ||
+      (user.email || '').endsWith('@calimero.network');
+    const adminFlag = await isAdmin(user.email || '');
     return {
       user: {
         id: user.id,
@@ -166,13 +202,14 @@ async function authRoutes(server, options) {
         picture: user.picture,
         username,
         verified,
+        isAdmin: adminFlag,
       },
     };
   });
 
   // POST /api/auth/username — claim a username (immutable once set)
   server.post('/api/auth/username', async (request, reply) => {
-    const user = await resolveUser(request);
+    const user = await resolveUser(request, resolveOpts);
     if (!user) {
       return reply
         .code(401)
@@ -241,7 +278,7 @@ async function authRoutes(server, options) {
 
   // POST /api/auth/token — create a new API token (requires session or existing Bearer token)
   server.post('/api/auth/token', async (request, reply) => {
-    const user = await resolveUser(request);
+    const user = await resolveUser(request, resolveOpts);
     if (!user) {
       return reply.code(401).send({
         error: 'unauthorized',
@@ -266,7 +303,7 @@ async function authRoutes(server, options) {
 
   // GET /api/auth/tokens — list API tokens for current user (masked)
   server.get('/api/auth/tokens', async (request, reply) => {
-    const user = await resolveUser(request);
+    const user = await resolveUser(request, resolveOpts);
     if (!user) {
       return reply
         .code(401)

@@ -16,6 +16,7 @@ import OrgDetailPage from './pages/OrgDetailPage';
 import NotFoundPage from './pages/NotFoundPage';
 import EditPackagePage from './pages/EditPackagePage';
 import DocsPage from './pages/DocsPage';
+import AdminPage from './pages/AdminPage';
 
 function App() {
   const { user, loading } = useAuth();
@@ -55,6 +56,14 @@ function App() {
           />
           <Route path='/orgs/:orgId' element={<OrgDetailPage />} />
           <Route path='/docs' element={<DocsPage />} />
+          <Route
+            path='/admin'
+            element={
+              <ProtectedRoute>
+                <AdminPage />
+              </ProtectedRoute>
+            }
+          />
           <Route path='*' element={<NotFoundPage />} />
         </Routes>
       </Layout>

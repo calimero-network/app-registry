@@ -15,6 +15,16 @@ const {
 
 const bundleStorage = new BundleStorageKV();
 
+function manifestOwnedByUser(manifest, user) {
+  const author = manifest?.metadata?.author;
+  const ownerEmail = manifest?.metadata?._ownerEmail;
+
+  if (user?.username && author === user.username) return true;
+  if (user?.email && ownerEmail === user.email) return true;
+  if (user?.email && !user?.username && author === user.email) return true;
+  return false;
+}
+
 function cors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -87,8 +97,7 @@ module.exports = async function handler(req, res) {
         pkgName,
         versions[0]
       );
-      const packageAuthor = latestManifest?.metadata?.author;
-      if (!packageAuthor || packageAuthor !== user.email) {
+      if (!manifestOwnedByUser(latestManifest, user)) {
         return res.status(403).json({
           error: 'forbidden',
           message: `You do not own package '${pkgName}'. Only the package author can link it to an organization`,

@@ -6,6 +6,8 @@
 const jwt = require('jsonwebtoken');
 const { kv } = require('./kv-client');
 const { getOrgMemberRole } = require('./org-storage');
+const { isAdmin, isBlacklisted } = require('./admin-storage');
+const { getUserByEmail } = require('./user-storage');
 
 const TOKEN_PREFIX = 'apitoken:';
 
@@ -28,7 +30,7 @@ function parseCookies(req) {
 
 /**
  * Resolve current user from Bearer token or session cookie.
- * Returns { email, name } or null.
+ * Returns { email, name, username } or null.
  */
 async function resolveUser(req) {
   // Try Bearer token first
@@ -40,8 +42,15 @@ async function resolveUser(req) {
         const raw = await kv.get(TOKEN_PREFIX + token);
         if (raw) {
           const data = JSON.parse(typeof raw === 'string' ? raw : String(raw));
-          if (data?.email)
-            return { email: data.email, name: data.name || data.email };
+          if (data?.email) {
+            if (await isBlacklisted(data.email)) return null;
+            const profile = await getUserByEmail(data.email);
+            return {
+              email: data.email,
+              name: data.name || data.email,
+              username: profile?.username ?? null,
+            };
+          }
         }
       } catch {
         /* fall through */
@@ -60,8 +69,16 @@ async function resolveUser(req) {
         const payload = jwt.verify(token, sessionSecret, {
           algorithms: ['HS256'],
         });
-        if (payload?.email)
-          return { id: payload.sub, email: payload.email, name: payload.name };
+        if (payload?.email) {
+          if (await isBlacklisted(payload.email)) return null;
+          const profile = await getUserByEmail(payload.email);
+          return {
+            id: payload.sub,
+            email: payload.email,
+            name: payload.name,
+            username: profile?.username ?? null,
+          };
+        }
       } catch {
         /* fall through */
       }
@@ -121,9 +138,26 @@ async function requireOrgOwner(req, res, orgId) {
   return user;
 }
 
+/**
+ * Require admin. Returns user or sends 403 and returns null.
+ */
+async function requireAdmin(req, res) {
+  const user = await requireAuth(req, res);
+  if (!user) return null;
+  const admin = await isAdmin(user.email);
+  if (!admin) {
+    res
+      .status(403)
+      .json({ error: 'forbidden', message: 'Admin access required' });
+    return null;
+  }
+  return user;
+}
+
 module.exports = {
   resolveUser,
   requireAuth,
   requireOrgAdminOrOwner,
   requireOrgOwner,
+  requireAdmin,
 };

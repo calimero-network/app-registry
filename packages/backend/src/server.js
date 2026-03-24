@@ -15,6 +15,7 @@ const tar = require('tar');
 // Import config
 const config = require('./config');
 const { BundleStorageKV } = require('./lib/bundle-storage-kv');
+const { createBundleSanitizers } = require('./lib/bundle-sanitize');
 const { kv } = require('./lib/kv-client');
 const {
   verifyManifest,
@@ -81,6 +82,9 @@ async function buildServer() {
 
   // Org routes (NPM-style organizations: CRUD orgs, members, package link)
   await server.register(require('./routes/org-routes'));
+
+  // Admin routes (admin dashboard: users, packages, orgs management)
+  await server.register(require('./routes/admin-routes'), { config });
 
   // Health endpoint
   const healthHandler = async (_request, _reply) => {
@@ -257,19 +261,7 @@ async function buildServer() {
     );
   }
 
-  // Ensure every bundle response includes minRuntimeVersion (default for legacy bundles)
-  const normalizeBundle = bundle => {
-    if (!bundle || typeof bundle !== 'object') return bundle;
-    const raw =
-      bundle.min_runtime_version ?? bundle.minRuntimeVersion ?? '0.1.0';
-    const minRuntimeVersion =
-      raw != null && String(raw).trim() ? String(raw).trim() : '0.1.0';
-    return {
-      ...bundle,
-      min_runtime_version: minRuntimeVersion,
-      minRuntimeVersion,
-    };
-  };
+  const { sanitizeBundle, sanitizeBundles } = createBundleSanitizers(kv);
 
   // V2 Bundle API endpoints
 
@@ -309,7 +301,7 @@ async function buildServer() {
           kv.incr('downloads:total').catch(() => {}),
           kv.incr(`downloads:${canonicalPkg}`).catch(() => {}),
         ]);
-        const normalized = normalizeBundle(bundle);
+        const normalized = await sanitizeBundle(bundle);
         normalized.downloads =
           Number(await kv.get(`downloads:${canonicalPkg}`)) || 0;
         return [normalized];
@@ -354,19 +346,24 @@ async function buildServer() {
             }
           }
 
-          // Filter by metadata._ownerEmail (preferred) or metadata.author (legacy) — used by "My packages"
+          // Filter by public metadata.author (username), falling back to
+          // metadata._ownerEmail only for legacy bundles.
           if (author) {
-            const ownerEmail =
-              bundle.metadata?._ownerEmail ?? bundle.metadata?.author;
-            if (!ownerEmail || ownerEmail !== author) {
+            const authorIdentity =
+              bundle.metadata?.author ?? bundle.metadata?._ownerEmail;
+            if (!authorIdentity || authorIdentity !== author) {
               continue;
             }
           }
 
-          const normalized = normalizeBundle(bundle);
-          bundles.push({ normalized, packageName });
+          bundles.push({ rawBundle: bundle, packageName });
         }
       }
+
+      // Batch-sanitize all bundles (2 Redis rounds instead of 4N sequential)
+      const normalizedBundles = await sanitizeBundles(
+        bundles.map(b => ({ bundle: b.rawBundle, packageName: b.packageName }))
+      );
 
       // Batch Redis reads for download counts (one per unique package; keys are canonical lowercase)
       const uniquePackages = [...new Set(bundles.map(b => b.packageName))];
@@ -376,8 +373,8 @@ async function buildServer() {
       const countByPackage = Object.fromEntries(
         uniquePackages.map((p, i) => [p, Number(downloadCounts[i]) || 0])
       );
-      const result = bundles.map(({ normalized, packageName }) => {
-        normalized.downloads = countByPackage[packageName] ?? 0;
+      const result = normalizedBundles.map((normalized, i) => {
+        normalized.downloads = countByPackage[bundles[i].packageName] ?? 0;
         return normalized;
       });
 
@@ -415,7 +412,7 @@ async function buildServer() {
         });
       }
 
-      const normalized = normalizeBundle(bundle);
+      const normalized = await sanitizeBundle(bundle);
 
       // Count installs: this endpoint is called exactly once per install click in the desktop app
       const canonicalPkg = pkg.toLowerCase();
@@ -499,14 +496,18 @@ async function buildServer() {
         });
       }
 
-      // 4. Org members (role === 'member') may only edit versions they uploaded (author === their email)
+      // 4. Org members (role === 'member') may only edit versions they uploaded
       const orgId = await getPkg2Org(pkg);
       if (orgId && sessionUser?.email) {
         const role = await getOrgMemberRole(orgId, sessionUser.email);
         if (role === 'member') {
-          const versionAuthor =
-            existing.metadata?._ownerEmail ?? existing.metadata?.author;
-          if (versionAuthor !== sessionUser.email) {
+          const sessionProfile = await getUserByEmail(sessionUser.email);
+          if (
+            !manifestOwnedByUser(existing, {
+              email: sessionUser.email,
+              username: sessionProfile?.username ?? null,
+            })
+          ) {
             return reply.code(403).send({
               error: 'forbidden',
               message:
@@ -591,12 +592,22 @@ async function buildServer() {
     return null;
   }
 
+  function manifestOwnedByUser(manifest, user) {
+    const author = manifest?.metadata?.author;
+    const ownerEmail = manifest?.metadata?._ownerEmail;
+
+    if (user?.username && author === user.username) return true;
+    if (user?.email && ownerEmail === user.email) return true;
+    if (user?.email && !user?.username && author === user.email) return true;
+    return false;
+  }
+
   // DELETE /api/v2/bundles/:package/:version - Delete a specific version
   server.delete('/api/v2/bundles/:package/:version', async (request, reply) => {
     try {
       const { package: pkg, version } = request.params;
 
-      const user = await getSessionUser(request);
+      const user = await resolveAuthUser(request);
       if (!user?.email) {
         return reply.code(401).send({
           error: 'unauthorized',
@@ -612,9 +623,7 @@ async function buildServer() {
         });
       }
 
-      const ownerEmail =
-        existing.metadata?._ownerEmail ?? existing.metadata?.author;
-      if (!ownerEmail || ownerEmail !== user.email) {
+      if (!manifestOwnedByUser(existing, user)) {
         return reply.code(403).send({
           error: 'not_owner',
           message: 'Only the package author can delete this version.',
@@ -637,7 +646,7 @@ async function buildServer() {
     try {
       const { package: pkg } = request.params;
 
-      const user = await getSessionUser(request);
+      const user = await resolveAuthUser(request);
       if (!user?.email) {
         return reply.code(401).send({
           error: 'unauthorized',
@@ -655,9 +664,7 @@ async function buildServer() {
 
       // Check ownership from the latest version
       const latest = await bundleStorage.getBundleManifest(pkg, versions[0]);
-      const ownerEmail =
-        latest?.metadata?._ownerEmail ?? latest?.metadata?.author;
-      if (!ownerEmail || ownerEmail !== user.email) {
+      if (!manifestOwnedByUser(latest, user)) {
         return reply.code(403).send({
           error: 'not_owner',
           message: 'Only the package author can delete this package.',

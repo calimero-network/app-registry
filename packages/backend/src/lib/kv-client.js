@@ -6,6 +6,7 @@
  */
 
 const { createClient } = require('redis');
+const { globToRegex } = require('../../../../shared/glob-to-regex');
 
 const isProduction = process.env.VERCEL === '1' || process.env.REDIS_URL;
 const isDevelopment = !isProduction;
@@ -108,11 +109,13 @@ if (isProduction && process.env.REDIS_URL) {
       return await redisClient.hDel(key, ...fields);
     },
 
-    // Set operations
+    // Set operations (node-redis expects members as variadic args, not a single array)
     async sAdd(key, ...members) {
       await this._ensureConnected();
-      const list = members.flat();
-      return list.length ? await redisClient.sAdd(key, list) : 0;
+      const list = members
+        .flat()
+        .map(m => (Buffer.isBuffer(m) ? m : String(m)));
+      return list.length ? await redisClient.sAdd(key, ...list) : 0;
     },
 
     async sMembers(key) {
@@ -127,7 +130,34 @@ if (isProduction && process.env.REDIS_URL) {
 
     async sRem(key, ...members) {
       await this._ensureConnected();
-      return await redisClient.sRem(key, members);
+      const list = members
+        .flat()
+        .map(m => (Buffer.isBuffer(m) ? m : String(m)));
+      return list.length ? await redisClient.sRem(key, ...list) : 0;
+    },
+
+    /** Non-blocking SCAN — do not add KEYS; it blocks Redis on large datasets. */
+    async scanKeys(pattern) {
+      await this._ensureConnected();
+      const result = [];
+      // node-redis v5+ scanIterator may yield a batch (array of keys) per iteration, not one key.
+      for await (const chunk of redisClient.scanIterator({
+        MATCH: pattern,
+        COUNT: 500,
+      })) {
+        const keys = Array.isArray(chunk) ? chunk : [chunk];
+        for (const key of keys) {
+          if (key == null) continue;
+          const k =
+            typeof key === 'string'
+              ? key
+              : Buffer.isBuffer(key)
+                ? key.toString('utf8')
+                : String(key);
+          result.push(k);
+        }
+      }
+      return result;
     },
   };
 } else {
@@ -208,12 +238,13 @@ if (isProduction && process.env.REDIS_URL) {
 
     // Set operations
     async sAdd(key, ...members) {
+      const list = members.flat().map(m => String(m));
       if (!mockSets.has(key)) {
         mockSets.set(key, new Set());
       }
       const set = mockSets.get(key);
       let added = 0;
-      members.forEach(m => {
+      list.forEach(m => {
         if (!set.has(m)) {
           set.add(m);
           added++;
@@ -235,13 +266,24 @@ if (isProduction && process.env.REDIS_URL) {
     async sRem(key, ...members) {
       const set = mockSets.get(key);
       if (!set) return 0;
+      const list = members.flat().map(m => String(m));
       let removed = 0;
-      members.forEach(m => {
+      list.forEach(m => {
         if (set.delete(m)) {
           removed++;
         }
       });
       return removed;
+    },
+
+    async scanKeys(pattern) {
+      const regex = globToRegex(pattern);
+      const allKeys = new Set([
+        ...mockStore.keys(),
+        ...mockSets.keys(),
+        ...mockHashes.keys(),
+      ]);
+      return [...allKeys].filter(k => regex.test(k));
     },
 
     // Utility for testing

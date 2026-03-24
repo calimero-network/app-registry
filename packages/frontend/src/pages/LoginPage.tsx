@@ -7,6 +7,9 @@ const ERROR_MESSAGES: Record<string, string> = {
   invalid_state: 'Invalid OAuth state. Please try again.',
   missing_code: 'No authorization code received. Please try again.',
   oauth_failed: 'Google sign-in failed. Please try again.',
+  account_suspended:
+    'This account has been suspended and cannot sign in to the registry.',
+  session_expired: 'Your session expired after 1 hour. Please sign in again.',
 };
 
 export default function LoginPage() {

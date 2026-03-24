@@ -6,12 +6,13 @@ import { Package, Upload, ArrowRight } from 'lucide-react';
 
 export default function MyPackagesPage() {
   const { user } = useAuth();
+  const username = user?.username ?? '';
   const email = user?.email ?? '';
 
   const { data: packages = [], isLoading } = useQuery({
-    queryKey: ['my-packages', email],
-    queryFn: () => getMyPackages(email),
-    enabled: !!email?.trim(),
+    queryKey: ['my-packages', username, email],
+    queryFn: () => getMyPackages({ username, email }),
+    enabled: !!username?.trim() || !!email?.trim(),
   });
 
   return (
@@ -21,9 +22,12 @@ export default function MyPackagesPage() {
           My packages
         </h1>
         <p className='text-neutral-400 text-sm'>
-          Signed in as {user?.email ?? user?.name ?? 'Unknown'}. Packages whose{' '}
-          <code className='text-brand-600'>author</code> matches your email are
-          listed below.
+          Signed in as{' '}
+          {user?.username
+            ? `@${user.username}`
+            : (user?.email ?? user?.name ?? 'Unknown')}
+          . Packages whose <code className='text-brand-600'>author</code>{' '}
+          matches your username are listed below.
         </p>
       </div>
 
@@ -36,8 +40,8 @@ export default function MyPackagesPage() {
           </h2>
         </div>
         <p className='text-[13px] text-neutral-400 font-light mb-4'>
-          Upload your application from the frontend. Use the same email as your
-          account for the package author so it appears here.
+          Upload your application from the frontend. New packages are published
+          with your username as the public author so they appear here.
         </p>
         <Link
           to='/upload'
@@ -53,13 +57,13 @@ export default function MyPackagesPage() {
         <h2 className='text-[14px] font-medium text-neutral-200 mb-3'>
           Your packages
         </h2>
-        {!email?.trim() ? (
+        {!username?.trim() && !email?.trim() ? (
           <div className='rounded-xl border border-neutral-800 bg-neutral-900/40 p-8 text-center'>
             <Package className='h-12 w-12 text-neutral-600 mx-auto mb-4' />
             <p className='text-neutral-400 text-sm'>
               Sign in to see packages you authored. Set{' '}
               <code className='text-brand-600'>metadata.author</code> to your
-              account email when publishing so they appear here.
+              username when publishing so they appear here.
             </p>
           </div>
         ) : isLoading ? (
@@ -69,8 +73,8 @@ export default function MyPackagesPage() {
             <Package className='h-12 w-12 text-neutral-600 mx-auto mb-4' />
             <p className='text-neutral-400 text-sm'>
               No packages yet. Publish a bundle with{' '}
-              <code className='text-brand-600'>author</code> set to your email (
-              {email}) to see them here.
+              <code className='text-brand-600'>author</code> set to your
+              username ({username ? `@${username}` : email}) to see them here.
             </p>
             <Link
               to='/upload'

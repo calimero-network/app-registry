@@ -23,6 +23,16 @@ function getStorage() {
   return storage;
 }
 
+function manifestOwnedByUser(manifest, user) {
+  const author = manifest?.metadata?.author;
+  const ownerEmail = manifest?.metadata?._ownerEmail;
+
+  if (user?.username && author === user.username) return true;
+  if (user?.email && ownerEmail === user.email) return true;
+  if (user?.email && !user?.username && author === user.email) return true;
+  return false;
+}
+
 let kvClient;
 
 async function getKV() {
@@ -210,8 +220,7 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    const author = existing.metadata?.author;
-    if (!author || author !== user.email) {
+    if (!manifestOwnedByUser(existing, user)) {
       return res.status(403).json({
         error: 'not_owner',
         message: 'Only the package author can delete this version.',

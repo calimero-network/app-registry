@@ -8,6 +8,8 @@ import {
 } from 'react';
 import { api } from '@/lib/api';
 
+const AUTH_SESSION_FLAG = 'app_registry_authenticated';
+
 export interface AuthUser {
   id: string;
   email: string | null;
@@ -15,6 +17,7 @@ export interface AuthUser {
   picture: string | null;
   username: string | null;
   verified: boolean;
+  isAdmin?: boolean;
 }
 
 interface AuthContextValue {
@@ -48,8 +51,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       const { data } = await api.get<{ user: AuthUser }>('/auth/me');
       setUser(data.user);
+      if (typeof window !== 'undefined') {
+        window.sessionStorage.setItem(AUTH_SESSION_FLAG, '1');
+      }
     } catch {
       setUser(null);
+      if (typeof window !== 'undefined') {
+        window.sessionStorage.removeItem(AUTH_SESSION_FLAG);
+      }
     } finally {
       setLoading(false);
     }
@@ -58,6 +67,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
   useEffect(() => {
     refetchUser();
   }, [refetchUser]);
+
+  useEffect(() => {
+    if (!user) return undefined;
+
+    const intervalId = window.setInterval(() => {
+      void refetchUser();
+    }, 60 * 1000);
+
+    return () => window.clearInterval(intervalId);
+  }, [user, refetchUser]);
 
   const login = useCallback(() => {
     // Full-page redirect so the browser goes to backend OAuth and comes back with cookie
@@ -69,6 +88,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
       await api.post('/auth/logout');
     } finally {
       setUser(null);
+      if (typeof window !== 'undefined') {
+        window.sessionStorage.removeItem(AUTH_SESSION_FLAG);
+      }
     }
   }, []);
 

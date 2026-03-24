@@ -92,14 +92,8 @@ module.exports = async function handler(req, res) {
     });
   }
 
-  // Ensure every bundle includes minRuntimeVersion (default for legacy bundles)
-  const normalizeBundle = bundle => {
-    if (!bundle || typeof bundle !== 'object') return bundle;
-    const v = bundle.min_runtime_version;
-    const min_runtime_version =
-      v != null && String(v).trim() ? String(v).trim() : '0.1.0';
-    return { ...bundle, min_runtime_version };
-  };
+  const { createBundleSanitizers } = require('../../lib/bundle-sanitize');
+  const { sanitizeBundle, sanitizeBundles } = createBundleSanitizers(kv);
 
   try {
     const semver = require('semver');
@@ -113,11 +107,12 @@ module.exports = async function handler(req, res) {
         `downloads:${(pkg || '').toLowerCase()}`
       );
       const downloads = downloadCount ? parseInt(downloadCount, 10) : 0;
-      return res.status(200).json([{ ...normalizeBundle(raw), downloads }]);
+      const sanitized = await sanitizeBundle(raw, pkg);
+      return res.status(200).json([{ ...sanitized, downloads }]);
     }
 
     const allPackages = await kv.sMembers('bundles:all');
-    const bundles = [];
+    const rawBundles = [];
     for (const packageName of allPackages) {
       if (pkg && packageName !== pkg) continue;
       const versions = await kv.sMembers(`bundle-versions:${packageName}`);
@@ -130,13 +125,32 @@ module.exports = async function handler(req, res) {
       if (!data) continue;
       const bundle = JSON.parse(data).json;
       if (developer && bundle.signature?.pubkey !== developer) continue;
-      if (author && bundle.metadata?.author !== author) continue;
-      const downloadCount = await kv.get(
-        `downloads:${(packageName || '').toLowerCase()}`
-      );
-      const downloads = downloadCount ? parseInt(downloadCount, 10) : 0;
-      bundles.push({ ...normalizeBundle(bundle), downloads });
+      if (author) {
+        const authorIdentity =
+          bundle.metadata?.author ?? bundle.metadata?._ownerEmail;
+        if (authorIdentity !== author) continue;
+      }
+      rawBundles.push({ bundle, packageName });
     }
+
+    // Batch-sanitize all bundles and batch-fetch download counts in parallel
+    const uniquePackages = [...new Set(rawBundles.map(b => b.packageName))];
+    const [sanitized, downloadVals] = await Promise.all([
+      sanitizeBundles(rawBundles),
+      Promise.all(
+        uniquePackages.map(p => kv.get(`downloads:${p.toLowerCase()}`))
+      ),
+    ]);
+    const countByPackage = Object.fromEntries(
+      uniquePackages.map((p, i) => [
+        p,
+        downloadVals[i] ? parseInt(downloadVals[i], 10) : 0,
+      ])
+    );
+    const bundles = sanitized.map((s, i) => ({
+      ...s,
+      downloads: countByPackage[rawBundles[i].packageName] ?? 0,
+    }));
 
     bundles.sort((a, b) => a.package.localeCompare(b.package));
     return res.status(200).json(bundles);
