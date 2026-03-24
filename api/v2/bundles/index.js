@@ -125,7 +125,11 @@ module.exports = async function handler(req, res) {
       if (!data) continue;
       const bundle = JSON.parse(data).json;
       if (developer && bundle.signature?.pubkey !== developer) continue;
-      if (author && bundle.metadata?.author !== author) continue;
+      if (author) {
+        const authorIdentity =
+          bundle.metadata?.author ?? bundle.metadata?._ownerEmail;
+        if (authorIdentity !== author) continue;
+      }
       rawBundles.push({ bundle, packageName });
     }
 
