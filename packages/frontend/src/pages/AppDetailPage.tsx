@@ -135,10 +135,10 @@ export default function AppDetailPage() {
   if (isLoading) {
     return (
       <div className='space-y-5 animate-pulse'>
-        <div className='h-4 bg-neutral-800 rounded w-20'></div>
-        <div className='h-6 bg-neutral-800 rounded w-1/3'></div>
-        <div className='h-3.5 bg-neutral-800 rounded w-1/2'></div>
-        <div className='h-32 bg-neutral-800/50 rounded-lg'></div>
+        <div className='h-4 bg-white/[0.06] rounded w-20'></div>
+        <div className='h-6 bg-white/[0.06] rounded w-1/3'></div>
+        <div className='h-3.5 bg-white/[0.06] rounded w-1/2'></div>
+        <div className='h-32 bg-white/[0.04] rounded-lg'></div>
       </div>
     );
   }
@@ -187,7 +187,7 @@ export default function AppDetailPage() {
       <BackLink />
 
       {/* Header */}
-      <div>
+      <div className='animate-fade-in'>
         <div className='flex flex-wrap items-center gap-2.5 mb-1'>
           <h1 className='text-xl font-semibold text-neutral-100'>
             {meta?.name || appId}
@@ -223,7 +223,7 @@ export default function AppDetailPage() {
       )}
 
       {/* Info grid */}
-      <div className='grid grid-cols-2 md:grid-cols-4 gap-3'>
+      <div className='grid grid-cols-2 md:grid-cols-4 gap-3 animate-slide-up stagger-1'>
         {meta?.author && (
           <InfoCard
             icon={User}
@@ -267,10 +267,10 @@ export default function AppDetailPage() {
           <p className='section-heading mb-3'>Organization</p>
           <Link
             to={`/orgs/${encodeURIComponent(linkedOrg.id)}`}
-            className='flex items-center justify-between rounded-lg border border-neutral-800 bg-neutral-900/40 px-4 py-3 hover:border-neutral-700 hover:bg-neutral-800/40 transition-colors'
+            className='card flex items-center justify-between px-4 py-3 hover:border-brand-600/30'
           >
             <div className='flex items-center gap-3'>
-              <div className='flex items-center justify-center w-8 h-8 rounded-full bg-neutral-800'>
+              <div className='flex items-center justify-center w-8 h-8 rounded-full bg-white/[0.06] border border-white/[0.06]'>
                 <Building2 className='w-4 h-4 text-neutral-400' />
               </div>
               <div>
@@ -343,7 +343,7 @@ export default function AppDetailPage() {
                     {ifaces.uses.map(u => (
                       <span
                         key={u}
-                        className='pill bg-neutral-800 text-neutral-300 font-mono'
+                        className='pill bg-white/[0.06] text-neutral-300 font-mono'
                       >
                         {u}
                       </span>
@@ -361,7 +361,7 @@ export default function AppDetailPage() {
           <p className='section-heading mb-3'>Tags</p>
           <div className='flex flex-wrap gap-1.5'>
             {meta.tags.map(tag => (
-              <span key={tag} className='pill bg-neutral-800 text-neutral-300'>
+              <span key={tag} className='pill bg-white/[0.06] text-neutral-300'>
                 {tag}
               </span>
             ))}
@@ -578,7 +578,7 @@ function ArtifactRow({
   hash: string | null;
 }) {
   return (
-    <div className='flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-6 py-2 border-b border-neutral-800/60 last:border-0'>
+    <div className='flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-6 py-2 border-b border-white/[0.06] last:border-0'>
       <span className='text-[11px] font-medium text-neutral-400 w-12 flex-shrink-0'>
         {label}
       </span>
@@ -639,7 +639,7 @@ function LinkPill({
       href={href}
       target='_blank'
       rel='noopener noreferrer'
-      className='inline-flex items-center gap-1.5 text-[12px] text-neutral-300 hover:text-white bg-neutral-800 hover:bg-neutral-700 px-2.5 py-1.5 rounded-md transition-all'
+      className='inline-flex items-center gap-1.5 text-[12px] text-neutral-300 hover:text-white bg-white/[0.06] hover:bg-white/[0.1] px-2.5 py-1.5 rounded-md transition-all border border-white/[0.06]'
     >
       <Icon className='w-3.5 h-3.5' />
       {label}

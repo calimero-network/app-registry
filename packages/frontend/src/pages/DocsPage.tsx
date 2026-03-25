@@ -25,7 +25,7 @@ const SECTIONS = [
 
 function Code({ children }: { children: React.ReactNode }) {
   return (
-    <code className='text-[11px] text-brand-600 bg-neutral-900 border border-neutral-800 rounded px-1.5 py-0.5 font-mono'>
+    <code className='text-[11px] text-brand-600 bg-white/[0.04] border border-white/[0.06] rounded px-1.5 py-0.5 font-mono'>
       {children}
     </code>
   );
@@ -33,7 +33,7 @@ function Code({ children }: { children: React.ReactNode }) {
 
 function CodeBlock({ children }: { children: string }) {
   return (
-    <pre className='text-[11.5px] text-neutral-300 bg-neutral-950 border border-neutral-800 rounded-lg p-4 overflow-x-auto font-mono leading-relaxed'>
+    <pre className='text-[11.5px] text-neutral-300 bg-neutral-950 border border-white/[0.06] rounded-lg p-4 overflow-x-auto font-mono leading-relaxed'>
       {children}
     </pre>
   );
@@ -82,7 +82,7 @@ function P({ children }: { children: React.ReactNode }) {
 
 function Note({ children }: { children: React.ReactNode }) {
   return (
-    <div className='rounded-lg border border-brand-900/40 bg-brand-950/20 px-4 py-3 text-[12px] text-neutral-300 font-light leading-relaxed'>
+    <div className='rounded-lg border border-brand-600/20 bg-brand-950/20 px-4 py-3 text-[12px] text-neutral-300 font-light leading-relaxed'>
       {children}
     </div>
   );
@@ -131,7 +131,7 @@ export default function DocsPage() {
   return (
     <div className='flex gap-10'>
       {/* ── Sidebar ── */}
-      <aside className='hidden lg:block w-48 flex-shrink-0'>
+      <aside className='hidden lg:block w-48 flex-shrink-0 animate-slide-in-left'>
         <nav className='sticky top-20'>
           <p className='section-heading mb-3'>On this page</p>
           <ul className='space-y-0.5'>
@@ -141,8 +141,8 @@ export default function DocsPage() {
                   href={`#${id}`}
                   className={`block px-3 py-1.5 rounded-md text-[12px] transition-colors ${
                     activeSection === id
-                      ? 'bg-neutral-800/80 text-brand-600 font-medium'
-                      : 'text-neutral-500 hover:text-neutral-300 hover:bg-neutral-800/40'
+                      ? 'bg-white/[0.06] text-brand-600 font-medium'
+                      : 'text-neutral-500 hover:text-neutral-300 hover:bg-white/[0.04]'
                   }`}
                 >
                   {label}
@@ -150,7 +150,7 @@ export default function DocsPage() {
               </li>
             ))}
           </ul>
-          <div className='mt-5 pt-4 border-t border-neutral-800/60'>
+          <div className='mt-5 pt-4 border-t border-white/[0.06]'>
             <a
               href='https://docs.calimero.network'
               target='_blank'
@@ -165,7 +165,7 @@ export default function DocsPage() {
       </aside>
 
       {/* ── Content ── */}
-      <div className='flex-1 min-w-0 space-y-16 pb-16'>
+      <div className='flex-1 min-w-0 space-y-16 pb-16 animate-fade-in'>
         {/* ══════════════════════════════════════════
             INTRODUCTION
         ══════════════════════════════════════════ */}
@@ -364,7 +364,7 @@ cargo install --path tools/mero-sign`}</CodeBlock>
   "public_key":  "yuKE404BaldXazEIUC4XrVGFyXxxyoRVjrrGhcKk1P4",
   "signer_id":   "did:key:z6Mkt7Ejb12a1BxvRiUpd5YWkMrk8KVjaShW2vMt6trm7FGH"
 }`}</CodeBlock>
-            <div className='rounded-lg border border-neutral-800 bg-neutral-900/40 p-4 space-y-2.5'>
+            <div className='rounded-lg border border-white/[0.06] bg-white/[0.02] p-4 space-y-2.5'>
               {[
                 [
                   'private_key',
@@ -896,7 +896,7 @@ calimero-registry bundle push dist/app-2.0.0 --remote
 # → Bundle stored successfully`}</CodeBlock>
 
             <SubHeading>Member roles</SubHeading>
-            <div className='rounded-lg border border-neutral-800 bg-neutral-900/40 p-4 space-y-2.5'>
+            <div className='rounded-lg border border-white/[0.06] bg-white/[0.02] p-4 space-y-2.5'>
               {[
                 [
                   'Admin',

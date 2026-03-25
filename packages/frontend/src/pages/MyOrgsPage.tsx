@@ -144,15 +144,15 @@ export default function MyOrgsPage() {
 
   return (
     <div className='space-y-8'>
-      <div>
-        <h1 className='text-2xl font-semibold text-neutral-100 mb-2'>
+      <div className='animate-fade-in'>
+        <h1 className='text-xl font-semibold text-neutral-100 mb-2'>
           Organizations
         </h1>
-        <p className='text-neutral-400 text-sm mb-4'>
+        <p className='text-[13px] text-neutral-400 font-light mb-4'>
           Create and manage organizations. Log in with Google to create orgs and
           manage members. Use the CLI with an API token for automation.
         </p>
-        <div className='rounded-lg border border-brand-900/60 bg-brand-950/30 px-4 py-3 flex gap-3'>
+        <div className='rounded-lg border border-brand-900/40 bg-brand-600/[0.04] px-4 py-3 flex gap-3'>
           <Info className='w-4 h-4 text-brand-500 flex-shrink-0 mt-0.5' />
           <p className='text-[13px] text-neutral-300'>
             Org membership is linked to your{' '}
@@ -165,7 +165,7 @@ export default function MyOrgsPage() {
 
       {/* Not logged in */}
       {!email && (
-        <div className='rounded-xl border border-amber-900/60 bg-amber-950/20 p-6 text-center'>
+        <div className='card p-6 text-center border-amber-900/30'>
           <p className='text-neutral-300 text-sm'>
             Sign in with Google to create and manage organizations.
           </p>
@@ -174,7 +174,7 @@ export default function MyOrgsPage() {
 
       {/* Create organization */}
       {email && (
-        <div className='rounded-xl border border-neutral-800 bg-neutral-900/40 p-6'>
+        <div className='card p-6 animate-slide-up stagger-1'>
           <div className='flex items-center gap-2 mb-3'>
             <Plus className='w-4 h-4 text-brand-600' />
             <h2 className='text-[14px] font-medium text-neutral-200'>
@@ -194,10 +194,10 @@ export default function MyOrgsPage() {
                   }}
                   placeholder='Organization name'
                   maxLength={ORG_NAME_MAX}
-                  className={`w-full rounded-lg border bg-neutral-800/60 px-4 py-2.5 text-[13px] text-neutral-200 placeholder:text-neutral-500 focus:outline-none focus:ring-1 transition-colors ${
+                  className={`w-full rounded-lg border bg-white/[0.06] px-4 py-2.5 text-[13px] text-neutral-200 placeholder:text-neutral-500 focus:outline-none focus:ring-1 transition-colors ${
                     nameError
                       ? 'border-red-500/70 focus:border-red-500 focus:ring-red-500/30'
-                      : 'border-neutral-700 focus:border-brand-600 focus:ring-brand-600'
+                      : 'border-white/[0.08] focus:border-brand-600 focus:ring-brand-600'
                   }`}
                 />
                 <span className='absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-neutral-600 pointer-events-none'>
@@ -220,10 +220,10 @@ export default function MyOrgsPage() {
                   }}
                   placeholder='Slug (e.g. my-org)'
                   maxLength={ORG_SLUG_MAX}
-                  className={`w-full rounded-lg border bg-neutral-800/60 px-4 py-2.5 text-[13px] text-neutral-200 placeholder:text-neutral-500 focus:outline-none focus:ring-1 font-mono transition-colors ${
+                  className={`w-full rounded-lg border bg-white/[0.06] px-4 py-2.5 text-[13px] text-neutral-200 placeholder:text-neutral-500 focus:outline-none focus:ring-1 font-mono transition-colors ${
                     slugError
                       ? 'border-red-500/70 focus:border-red-500 focus:ring-red-500/30'
-                      : 'border-neutral-700 focus:border-brand-600 focus:ring-brand-600'
+                      : 'border-white/[0.08] focus:border-brand-600 focus:ring-brand-600'
                   }`}
                 />
                 <span className='absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-neutral-600 pointer-events-none'>
@@ -240,7 +240,7 @@ export default function MyOrgsPage() {
             <button
               type='submit'
               disabled={createOrgMutation.isPending}
-              className='rounded-lg bg-brand-600 hover:bg-brand-500 disabled:opacity-50 disabled:cursor-not-allowed text-neutral-900 px-4 py-2 text-sm font-medium transition-colors'
+              className='rounded-lg bg-brand-600 hover:bg-brand-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 text-sm font-medium transition-colors'
             >
               {createOrgMutation.isPending
                 ? 'Creating…'
@@ -257,18 +257,18 @@ export default function MyOrgsPage() {
 
       {/* CLI Access — API Token */}
       {email && (
-        <div className='rounded-xl border border-neutral-800 bg-neutral-900/40 overflow-hidden'>
+        <div className='card overflow-hidden animate-slide-up stagger-2'>
           <button
             type='button'
             onClick={() => setShowTokenSection(v => !v)}
-            className='w-full flex items-center justify-between px-4 py-3 text-left hover:bg-neutral-800/30 transition-colors'
+            className='w-full flex items-center justify-between px-4 py-3 text-left hover:bg-white/[0.03] transition-colors'
           >
             <div className='flex items-center gap-2'>
               <Terminal className='w-4 h-4 text-brand-600' />
               <span className='text-[14px] font-medium text-neutral-200'>
                 CLI Access
               </span>
-              <span className='pill bg-neutral-700/50 text-neutral-400 text-[10px]'>
+              <span className='pill bg-white/[0.06] text-neutral-400 text-[10px]'>
                 API token
               </span>
             </div>
@@ -280,11 +280,11 @@ export default function MyOrgsPage() {
           </button>
 
           {showTokenSection && (
-            <div className='px-4 pb-4 space-y-4 border-t border-neutral-800'>
+            <div className='px-4 pb-4 space-y-4 border-t border-white/[0.06]'>
               <p className='text-[12px] text-neutral-400 pt-3'>
                 Generate a token to authenticate the CLI for org management and
                 bundle publishing. Configure it once with:
-                <code className='ml-1 bg-neutral-800 px-1.5 py-0.5 rounded text-neutral-300 text-[11px]'>
+                <code className='ml-1 bg-white/[0.06] px-1.5 py-0.5 rounded text-neutral-300 text-[11px]'>
                   calimero-registry config set api-key &lt;token&gt;
                 </code>
               </p>
@@ -296,7 +296,7 @@ export default function MyOrgsPage() {
                   value={newTokenLabel}
                   onChange={e => setNewTokenLabel(e.target.value)}
                   placeholder='Token label (e.g. laptop)'
-                  className='flex-1 min-w-[160px] rounded-lg border border-neutral-700 bg-neutral-800/60 px-3 py-2 text-[13px] text-neutral-200 placeholder:text-neutral-500 focus:border-brand-600 focus:outline-none'
+                  className='flex-1 min-w-[160px] rounded-lg border border-white/[0.08] bg-white/[0.06] px-3 py-2 text-[13px] text-neutral-200 placeholder:text-neutral-500 focus:border-brand-600 focus:outline-none'
                 />
                 <button
                   type='button'
@@ -304,7 +304,7 @@ export default function MyOrgsPage() {
                     createTokenMutation.mutate(newTokenLabel || 'CLI token')
                   }
                   disabled={createTokenMutation.isPending}
-                  className='rounded-lg bg-brand-600 hover:bg-brand-500 disabled:opacity-50 text-neutral-900 px-4 py-2 text-[13px] font-medium transition-colors whitespace-nowrap'
+                  className='rounded-lg bg-brand-600 hover:bg-brand-500 disabled:opacity-50 text-white px-4 py-2 text-[13px] font-medium transition-colors whitespace-nowrap'
                 >
                   {createTokenMutation.isPending
                     ? 'Generating…'
@@ -320,7 +320,7 @@ export default function MyOrgsPage() {
                     Copy this token now — it will not be shown again.
                   </div>
                   <div className='flex items-center gap-2'>
-                    <code className='flex-1 text-[11px] font-mono text-neutral-300 bg-neutral-800 rounded px-2 py-1.5 truncate'>
+                    <code className='flex-1 text-[11px] font-mono text-neutral-300 bg-white/[0.06] rounded px-2 py-1.5 truncate'>
                       {freshToken}
                     </code>
                     <button
@@ -337,7 +337,7 @@ export default function MyOrgsPage() {
                     </button>
                   </div>
                   <div className='flex items-center gap-2'>
-                    <code className='flex-1 text-[11px] font-mono text-neutral-500 bg-neutral-800/60 rounded px-2 py-1.5 truncate'>
+                    <code className='flex-1 text-[11px] font-mono text-neutral-500 bg-white/[0.06] rounded px-2 py-1.5 truncate'>
                       calimero-registry config set api-key {freshToken}
                     </code>
                     <button
@@ -365,7 +365,7 @@ export default function MyOrgsPage() {
                   {tokens.map((t: ApiToken) => (
                     <div
                       key={t.tokenId}
-                      className='flex items-center justify-between rounded-lg bg-neutral-800/40 px-3 py-2'
+                      className='flex items-center justify-between rounded-lg bg-white/[0.04] px-3 py-2'
                     >
                       <div>
                         <span className='text-[13px] text-neutral-300'>
@@ -434,22 +434,22 @@ export default function MyOrgsPage() {
           Organizations
         </h2>
         {!email ? (
-          <div className='rounded-xl border border-neutral-800 bg-neutral-900/40 p-8 text-center'>
-            <Building2 className='h-12 w-12 text-neutral-600 mx-auto mb-4' />
-            <p className='text-neutral-400 text-sm'>
+          <div className='card p-8 text-center'>
+            <Building2 className='h-8 w-8 text-neutral-600 mx-auto mb-4' />
+            <p className='text-[13px] text-neutral-400 font-light'>
               Sign in with Google to see your organizations.
             </p>
           </div>
         ) : isLoading ? (
           <div className='space-y-3 animate-pulse'>
-            <div className='h-14 bg-neutral-800/50 rounded-xl' />
-            <div className='h-14 bg-neutral-800/50 rounded-xl' />
-            <div className='h-14 bg-neutral-800/50 rounded-xl' />
+            <div className='h-14 bg-white/[0.04] rounded-xl' />
+            <div className='h-14 bg-white/[0.04] rounded-xl' />
+            <div className='h-14 bg-white/[0.04] rounded-xl' />
           </div>
         ) : orgs.length === 0 ? (
-          <div className='rounded-xl border border-neutral-800 bg-neutral-900/40 p-8 text-center'>
-            <Building2 className='h-12 w-12 text-neutral-600 mx-auto mb-4' />
-            <p className='text-neutral-400 text-sm'>
+          <div className='card p-8 text-center'>
+            <Building2 className='h-8 w-8 text-neutral-600 mx-auto mb-4' />
+            <p className='text-[13px] text-neutral-400 font-light'>
               No organizations yet. Create one above.
             </p>
           </div>
@@ -459,10 +459,10 @@ export default function MyOrgsPage() {
               <li key={org.id}>
                 <Link
                   to={`/orgs/${encodeURIComponent(org.id)}`}
-                  className='flex items-center justify-between rounded-xl border border-neutral-800 bg-neutral-900/40 px-4 py-3 hover:border-neutral-700 hover:bg-neutral-800/40 transition-colors'
+                  className='card flex items-center justify-between px-4 py-3 hover:border-brand-600/30'
                 >
                   <div className='flex items-center gap-3'>
-                    <div className='flex items-center justify-center w-10 h-10 rounded-full bg-neutral-800'>
+                    <div className='flex items-center justify-center w-10 h-10 rounded-full bg-white/[0.06]'>
                       <Building2 className='w-4 h-4 text-neutral-400' />
                     </div>
                     <div>

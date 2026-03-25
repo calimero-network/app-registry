@@ -20,22 +20,22 @@ export default function LoginPage() {
     : null;
 
   return (
-    <div className='max-w-md mx-auto text-center'>
-      <div className='flex justify-center mb-6'>
-        <div className='rounded-2xl bg-neutral-800/60 p-4'>
-          <Package className='h-10 w-10 text-brand-500' />
+    <div className='max-w-md mx-auto text-center py-12'>
+      <div className='animate-scale-in flex justify-center mb-6'>
+        <div className='relative rounded-2xl bg-surface border border-white/[0.06] p-5'>
+          <Package className='h-10 w-10 text-brand-600 drop-shadow-[0_0_12px_rgba(165,255,17,0.3)]' />
         </div>
       </div>
-      <h1 className='text-xl font-semibold text-neutral-100 mb-2'>
+      <h1 className='animate-slide-up stagger-1 text-xl font-semibold text-neutral-100 mb-2'>
         Sign in to Calimero Registry
       </h1>
-      <p className='text-neutral-400 text-sm mb-8'>
+      <p className='animate-slide-up stagger-2 text-neutral-400 text-sm mb-8'>
         Use your Google account to access your packages and upload apps.
       </p>
 
       {message && (
         <div
-          className='mb-6 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm'
+          className='animate-fade-in mb-6 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm'
           role='alert'
         >
           {message}
@@ -44,7 +44,7 @@ export default function LoginPage() {
 
       <a
         href='/api/auth/google'
-        className='inline-flex items-center justify-center gap-2 w-full py-3 px-4 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-200 font-medium transition-colors border border-neutral-700'
+        className='animate-slide-up stagger-3 inline-flex items-center justify-center gap-2 w-full py-3 px-4 rounded-lg bg-surface border border-white/[0.06] hover:border-white/[0.12] text-neutral-200 font-medium transition-all duration-300 hover:shadow-[0_0_20px_rgba(165,255,17,0.06)]'
       >
         <svg className='h-5 w-5' viewBox='0 0 24 24'>
           <path

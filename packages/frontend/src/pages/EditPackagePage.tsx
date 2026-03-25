@@ -81,9 +81,9 @@ export default function EditPackagePage() {
   if (isLoading) {
     return (
       <div className='space-y-5 animate-pulse'>
-        <div className='h-4 bg-neutral-800 rounded w-20' />
-        <div className='h-6 bg-neutral-800 rounded w-1/3' />
-        <div className='h-32 bg-neutral-800/50 rounded-lg' />
+        <div className='h-4 bg-white/[0.06] rounded w-20' />
+        <div className='h-6 bg-white/[0.06] rounded w-1/3' />
+        <div className='h-32 bg-white/[0.04] rounded-lg' />
       </div>
     );
   }
@@ -110,7 +110,7 @@ export default function EditPackagePage() {
   return (
     <div className='space-y-6'>
       <BackLink appId={appId} />
-      <div>
+      <div className='animate-fade-in'>
         <h1 className='text-xl font-semibold text-neutral-100'>
           Edit package metadata
         </h1>
@@ -119,7 +119,10 @@ export default function EditPackagePage() {
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className='card p-5 space-y-4'>
+      <form
+        onSubmit={handleSubmit}
+        className='card p-5 space-y-4 animate-slide-up stagger-1'
+      >
         <p className='text-[13px] text-neutral-400 font-light'>
           Change name, description, author, or links. After saving, you will
           download <code className='text-brand-600'>manifest.json</code>. Sign
@@ -134,7 +137,7 @@ export default function EditPackagePage() {
             type='text'
             value={form.name}
             onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-            className='w-full px-3 py-2 rounded-md bg-neutral-800 border border-neutral-700 text-neutral-200 text-[13px] focus:border-brand-600 focus:outline-none'
+            className='input'
             placeholder={manifest.metadata?.name || appId}
           />
         </div>
@@ -148,7 +151,7 @@ export default function EditPackagePage() {
               setForm(f => ({ ...f, description: e.target.value }))
             }
             rows={3}
-            className='w-full px-3 py-2 rounded-md bg-neutral-800 border border-neutral-700 text-neutral-200 text-[13px] focus:border-brand-600 focus:outline-none resize-y'
+            className='input resize-y'
             placeholder='Short description'
           />
         </div>
@@ -161,31 +164,28 @@ export default function EditPackagePage() {
               type='url'
               value={form.frontend}
               onChange={e => setForm(f => ({ ...f, frontend: e.target.value }))}
-              className='w-full px-3 py-2 rounded-md bg-neutral-800 border border-neutral-700 text-neutral-200 text-[13px] focus:border-brand-600 focus:outline-none'
+              className='input'
               placeholder='Frontend URL'
             />
             <input
               type='url'
               value={form.github}
               onChange={e => setForm(f => ({ ...f, github: e.target.value }))}
-              className='w-full px-3 py-2 rounded-md bg-neutral-800 border border-neutral-700 text-neutral-200 text-[13px] focus:border-brand-600 focus:outline-none'
+              className='input'
               placeholder='GitHub URL'
             />
             <input
               type='url'
               value={form.docs}
               onChange={e => setForm(f => ({ ...f, docs: e.target.value }))}
-              className='w-full px-3 py-2 rounded-md bg-neutral-800 border border-neutral-700 text-neutral-200 text-[13px] focus:border-brand-600 focus:outline-none'
+              className='input'
               placeholder='Docs URL'
             />
           </div>
         </div>
 
         <div className='flex flex-wrap items-center gap-3 pt-2'>
-          <button
-            type='submit'
-            className='inline-flex items-center gap-2 px-4 py-2 rounded-md bg-brand-600 text-neutral-950 font-medium text-[13px] hover:bg-brand-500 transition-colors'
-          >
+          <button type='submit' className='btn-primary'>
             <Download className='w-4 h-4' />
             Download manifest.json
           </button>
@@ -193,16 +193,16 @@ export default function EditPackagePage() {
       </form>
 
       {submitted && (
-        <div className='card p-5 space-y-3'>
+        <div className='card p-5 space-y-3 animate-slide-up'>
           <p className='text-[13px] font-medium text-neutral-200 flex items-center gap-2'>
             <Download className='w-4 h-4 text-green-500' />
             manifest.json downloaded
           </p>
           <p className='text-[12px] text-neutral-400 font-light'>Next steps:</p>
-          <ol className='list-decimal list-inside space-y-2 text-[12px] text-neutral-300 font-mono bg-neutral-900/60 rounded-lg p-4'>
+          <ol className='list-decimal list-inside space-y-2 text-[12px] text-neutral-300 font-mono bg-white/[0.03] rounded-lg p-4'>
             <li>Sign the file with mero-sign:</li>
           </ol>
-          <pre className='text-[11px] text-neutral-400 bg-neutral-900 rounded-md p-3 overflow-x-auto'>
+          <pre className='text-[11px] text-neutral-400 bg-neutral-950 rounded-md p-3 overflow-x-auto border border-white/[0.06]'>
             {`mero-sign sign manifest.json --key your-key.json`}
           </pre>
           <ol
@@ -211,7 +211,7 @@ export default function EditPackagePage() {
           >
             <li>Publish the signed manifest with the CLI:</li>
           </ol>
-          <pre className='text-[11px] text-neutral-400 bg-neutral-900 rounded-md p-3 overflow-x-auto flex items-center gap-2'>
+          <pre className='text-[11px] text-neutral-400 bg-neutral-950 rounded-md p-3 overflow-x-auto flex items-center gap-2 border border-white/[0.06]'>
             <Terminal className='w-3.5 h-3.5 flex-shrink-0 text-neutral-500' />
             {`calimero-registry bundle edit ${appId} ${version} --remote --manifest signed-manifest.json`}
           </pre>

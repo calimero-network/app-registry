@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Package, Menu, X } from 'lucide-react';
+import { Package, Menu, X, ExternalLink } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { navigation } from '@/constants/navigation';
 import { ProfileDropdown } from './ProfileDropdown';
+import { AnimatedBackground } from './AnimatedBackground';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -15,19 +16,24 @@ export function Layout({ children }: LayoutProps) {
   const { user, loading, logout } = useAuth();
 
   return (
-    <div className='min-h-screen flex flex-col bg-background-secondary'>
-      {/* Header */}
-      <header className='sticky top-0 z-50 bg-background-primary/80 backdrop-blur-xl border-b border-neutral-800/60'>
+    <div className='min-h-screen flex flex-col relative'>
+      <AnimatedBackground />
+
+      <header
+        className='sticky top-0 z-50 backdrop-blur-xl border-b border-white/[0.06]'
+        style={{ background: 'rgba(10, 10, 10, 0.75)' }}
+      >
         <div className='max-w-6xl mx-auto px-4 sm:px-6 lg:px-8'>
           <div className='flex justify-between items-center h-14'>
-            <Link to='/' className='flex items-center gap-2 group'>
-              <Package className='h-5 w-5 text-brand-600 transition-transform group-hover:scale-110' />
-              <span className='text-sm font-medium text-neutral-200'>
+            <Link to='/' className='flex items-center gap-2.5 group'>
+              <div className='relative'>
+                <Package className='h-5 w-5 text-brand-600 transition-all duration-300 group-hover:scale-110 group-hover:drop-shadow-[0_0_8px_rgba(165,255,17,0.4)]' />
+              </div>
+              <span className='text-sm font-semibold text-neutral-100 tracking-tight'>
                 Calimero Registry
               </span>
             </Link>
 
-            {/* Desktop nav */}
             <nav className='hidden md:flex items-center gap-1'>
               {navigation.map(item => {
                 const isActive =
@@ -50,9 +56,8 @@ export function Layout({ children }: LayoutProps) {
               <ProfileDropdown user={user} loading={loading} logout={logout} />
             </nav>
 
-            {/* Mobile menu button */}
             <button
-              className='md:hidden p-1.5 rounded-md text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800/60 transition-all'
+              className='md:hidden p-1.5 rounded-md text-neutral-400 hover:text-neutral-200 hover:bg-white/[0.06] transition-all'
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               aria-label='Toggle menu'
             >
@@ -65,9 +70,11 @@ export function Layout({ children }: LayoutProps) {
           </div>
         </div>
 
-        {/* Mobile nav */}
         {mobileMenuOpen && (
-          <nav className='md:hidden border-t border-neutral-800/60 animate-fade-in'>
+          <nav
+            className='md:hidden border-t border-white/[0.06] animate-fade-in'
+            style={{ background: 'rgba(10, 10, 10, 0.9)' }}
+          >
             <div className='px-4 py-2 space-y-0.5'>
               {navigation.map(item => {
                 const isActive =
@@ -81,8 +88,8 @@ export function Layout({ children }: LayoutProps) {
                     onClick={() => setMobileMenuOpen(false)}
                     className={`flex items-center px-3 py-2 rounded-md text-[13px] font-normal transition-all ${
                       isActive
-                        ? 'bg-neutral-800/80 text-brand-600'
-                        : 'text-neutral-400 hover:bg-neutral-800/40 hover:text-neutral-200'
+                        ? 'bg-white/[0.06] text-brand-600'
+                        : 'text-neutral-400 hover:bg-white/[0.04] hover:text-neutral-200'
                     }`}
                   >
                     <item.icon className='h-3.5 w-3.5 mr-2.5' />
@@ -102,19 +109,23 @@ export function Layout({ children }: LayoutProps) {
         )}
       </header>
 
-      {/* Main content */}
-      <main className='flex-1 max-w-6xl w-full mx-auto py-8 sm:px-6 lg:px-8'>
+      <main className='flex-1 relative z-10 max-w-6xl w-full mx-auto py-8 sm:px-6 lg:px-8'>
         <div className='px-4 sm:px-0 animate-fade-in'>{children}</div>
       </main>
 
-      {/* Footer */}
-      <footer className='border-t border-neutral-800/60'>
-        <div className='max-w-6xl mx-auto py-5 px-4 sm:px-6 lg:px-8'>
-          <div className='flex flex-col sm:flex-row items-center justify-between gap-3'>
-            <p className='text-[12px] text-neutral-500 font-light'>
-              &copy; {new Date().getFullYear()} Calimero Network
-            </p>
-            <div className='flex items-center gap-5'>
+      <footer
+        className='relative z-10 border-t border-white/[0.06]'
+        style={{ background: 'rgba(10, 10, 10, 0.6)' }}
+      >
+        <div className='max-w-6xl mx-auto py-6 px-4 sm:px-6 lg:px-8'>
+          <div className='flex flex-col sm:flex-row items-center justify-between gap-4'>
+            <div className='flex items-center gap-2'>
+              <Package className='h-3.5 w-3.5 text-brand-600/60' />
+              <p className='text-[12px] text-neutral-500 font-light'>
+                &copy; {new Date().getFullYear()} Calimero Network
+              </p>
+            </div>
+            <div className='flex items-center gap-6'>
               {[
                 { href: 'https://calimero.network', label: 'Website' },
                 { href: 'https://docs.calimero.network', label: 'Docs' },
@@ -128,9 +139,10 @@ export function Layout({ children }: LayoutProps) {
                   href={link.href}
                   target='_blank'
                   rel='noopener noreferrer'
-                  className='text-[12px] text-neutral-500 hover:text-neutral-300 font-light transition-colors'
+                  className='inline-flex items-center gap-1 text-[12px] text-neutral-500 hover:text-brand-600 font-light transition-colors duration-200'
                 >
                   {link.label}
+                  <ExternalLink className='h-2.5 w-2.5' />
                 </a>
               ))}
             </div>
