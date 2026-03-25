@@ -240,7 +240,7 @@ export default function MyOrgsPage() {
             <button
               type='submit'
               disabled={createOrgMutation.isPending}
-              className='rounded-lg bg-brand-600 hover:bg-brand-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 text-sm font-medium transition-colors'
+              className='rounded-lg bg-brand-600 hover:bg-brand-500 disabled:opacity-50 disabled:cursor-not-allowed text-black px-4 py-2 text-sm font-medium transition-colors'
             >
               {createOrgMutation.isPending
                 ? 'Creating…'
@@ -304,7 +304,7 @@ export default function MyOrgsPage() {
                     createTokenMutation.mutate(newTokenLabel || 'CLI token')
                   }
                   disabled={createTokenMutation.isPending}
-                  className='rounded-lg bg-brand-600 hover:bg-brand-500 disabled:opacity-50 text-white px-4 py-2 text-[13px] font-medium transition-colors whitespace-nowrap'
+                  className='rounded-lg bg-brand-600 hover:bg-brand-500 disabled:opacity-50 text-black px-4 py-2 text-[13px] font-medium transition-colors whitespace-nowrap'
                 >
                   {createTokenMutation.isPending
                     ? 'Generating…'

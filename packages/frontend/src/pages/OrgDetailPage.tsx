@@ -451,7 +451,7 @@ export default function OrgDetailPage() {
               <button
                 type='submit'
                 disabled={addMemberMutation.isPending}
-                className='inline-flex items-center gap-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 text-[13px] font-medium transition-colors'
+                className='inline-flex items-center gap-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 disabled:opacity-50 disabled:cursor-not-allowed text-black px-4 py-2 text-[13px] font-medium transition-colors'
               >
                 <UserPlus className='w-3.5 h-3.5' />
                 {addMemberMutation.isPending ? 'Adding…' : 'Add member'}
@@ -663,7 +663,7 @@ export default function OrgDetailPage() {
               <button
                 type='submit'
                 disabled={checkingPackage || linkPackageMutation.isPending}
-                className='inline-flex items-center gap-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 text-[13px] font-medium transition-colors'
+                className='inline-flex items-center gap-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 disabled:opacity-50 disabled:cursor-not-allowed text-black px-4 py-2 text-[13px] font-medium transition-colors'
               >
                 <Link2 className='w-3.5 h-3.5' />
                 {checkingPackage
@@ -831,7 +831,7 @@ export default function OrgDetailPage() {
                   type='button'
                   onClick={handleSaveSettings}
                   disabled={updateOrgMutation.isPending}
-                  className='inline-flex items-center gap-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 text-[13px] font-medium transition-colors'
+                  className='inline-flex items-center gap-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 disabled:opacity-50 disabled:cursor-not-allowed text-black px-4 py-2 text-[13px] font-medium transition-colors'
                 >
                   <Save className='w-3.5 h-3.5' />
                   {updateOrgMutation.isPending ? 'Saving…' : 'Save'}
