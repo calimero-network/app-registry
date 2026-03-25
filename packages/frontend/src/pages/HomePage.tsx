@@ -65,7 +65,7 @@ export default function HomePage() {
 
       {/* Stats */}
       <section className='animate-scale-in'>
-        <div className='grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-2xl mx-auto'>
+        <div className='grid grid-cols-2 gap-4 max-w-md mx-auto'>
           <StatCard
             label='Published Apps'
             value={publishedApps}
@@ -76,8 +76,6 @@ export default function HomePage() {
             value={activeDevelopers}
             loading={statsLoading}
           />
-          <StatCard label='Verified' value='100%' loading={false} />
-          <StatCard label='Uptime' value='99.9%' loading={false} />
         </div>
       </section>
 
