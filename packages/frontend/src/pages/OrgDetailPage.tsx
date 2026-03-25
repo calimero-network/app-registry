@@ -308,11 +308,11 @@ export default function OrgDetailPage() {
   if (isLoading) {
     return (
       <div className='space-y-5 animate-pulse'>
-        <div className='h-4 bg-neutral-800 rounded w-24' />
-        <div className='h-6 bg-neutral-800 rounded w-1/3' />
-        <div className='h-3.5 bg-neutral-800 rounded w-1/4' />
-        <div className='h-24 bg-neutral-800/50 rounded-xl' />
-        <div className='h-32 bg-neutral-800/50 rounded-xl' />
+        <div className='h-4 bg-white/[0.06] rounded w-24' />
+        <div className='h-6 bg-white/[0.06] rounded w-1/3' />
+        <div className='h-3.5 bg-white/[0.06] rounded w-1/4' />
+        <div className='h-24 bg-white/[0.04] rounded-xl' />
+        <div className='h-32 bg-white/[0.04] rounded-xl' />
       </div>
     );
   }
@@ -352,8 +352,8 @@ export default function OrgDetailPage() {
       <BackLink />
 
       {/* Header */}
-      <div className='flex items-center gap-3'>
-        <div className='flex items-center justify-center w-10 h-10 rounded-full bg-neutral-800'>
+      <div className='flex items-center gap-3 animate-fade-in'>
+        <div className='flex items-center justify-center w-10 h-10 rounded-full bg-surface border border-white/[0.06]'>
           <Building2 className='w-4 h-4 text-neutral-400' />
         </div>
         <div>
@@ -368,7 +368,7 @@ export default function OrgDetailPage() {
 
       {/* Member notice — shown to regular members (non-admin) */}
       {isMember && !isAdmin && (
-        <div className='rounded-lg border border-brand-900/50 bg-brand-950/20 px-4 py-3 flex gap-3'>
+        <div className='rounded-lg border border-brand-900/40 bg-brand-600/[0.04] px-4 py-3 flex gap-3 animate-fade-in'>
           <Users className='w-4 h-4 text-brand-500 flex-shrink-0 mt-0.5' />
           <div className='space-y-1'>
             <p className='text-[13px] text-neutral-200 font-medium'>
@@ -398,7 +398,7 @@ export default function OrgDetailPage() {
 
         {isAdmin && (
           <form
-            className='mb-4 rounded-xl border border-neutral-800 bg-neutral-900/40 p-4 space-y-3'
+            className='mb-4 rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 space-y-3'
             onSubmit={handleAddMember}
           >
             <p className='text-[12px] font-medium text-neutral-300'>
@@ -440,7 +440,7 @@ export default function OrgDetailPage() {
                   onChange={e =>
                     setNewMemberRole(e.target.value as 'admin' | 'member')
                   }
-                  className='w-full rounded-md border border-neutral-800 bg-neutral-900/60 px-4 py-2 text-[13px] text-neutral-200 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-600/50 focus-visible:border-brand-600/50 transition-all duration-200 cursor-pointer'
+                  className='w-full rounded-md border border-white/[0.06] bg-white/[0.03] px-4 py-2 text-[13px] text-neutral-200 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-600/50 focus-visible:border-brand-600/50 transition-all duration-200 cursor-pointer'
                 >
                   <option value='member'>Member</option>
                   <option value='admin'>Admin</option>
@@ -451,7 +451,7 @@ export default function OrgDetailPage() {
               <button
                 type='submit'
                 disabled={addMemberMutation.isPending}
-                className='inline-flex items-center gap-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 disabled:opacity-50 disabled:cursor-not-allowed text-neutral-900 px-4 py-2 text-[13px] font-medium transition-colors'
+                className='inline-flex items-center gap-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 disabled:opacity-50 disabled:cursor-not-allowed text-black px-4 py-2 text-[13px] font-medium transition-colors'
               >
                 <UserPlus className='w-3.5 h-3.5' />
                 {addMemberMutation.isPending ? 'Adding…' : 'Add member'}
@@ -466,19 +466,19 @@ export default function OrgDetailPage() {
         )}
 
         {membersLoading ? (
-          <div className='rounded-xl border border-neutral-800 bg-neutral-900/40 p-4 animate-pulse'>
-            <div className='h-10 bg-neutral-800/50 rounded mb-2' />
-            <div className='h-10 bg-neutral-800/50 rounded' />
+          <div className='rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 animate-pulse'>
+            <div className='h-10 bg-white/[0.04] rounded mb-2' />
+            <div className='h-10 bg-white/[0.04] rounded' />
           </div>
         ) : members.length === 0 ? (
-          <div className='rounded-xl border border-neutral-800 bg-neutral-900/40 p-4 text-[13px] text-neutral-500'>
+          <div className='rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 text-[13px] text-neutral-500'>
             No members listed.
           </div>
         ) : (
-          <div className='rounded-xl border border-neutral-800 bg-neutral-900/40 overflow-hidden'>
+          <div className='rounded-xl border border-white/[0.06] bg-white/[0.02] overflow-hidden'>
             <table className='w-full text-[13px]'>
               <thead>
-                <tr className='border-b border-neutral-800 bg-neutral-800/30'>
+                <tr className='border-b border-white/[0.06] bg-white/[0.03]'>
                   <th className='text-left py-3 px-5 font-medium text-neutral-300'>
                     Member
                   </th>
@@ -503,7 +503,7 @@ export default function OrgDetailPage() {
                   return (
                     <tr
                       key={member.email}
-                      className='border-b border-neutral-800/80 last:border-0'
+                      className='border-b border-white/[0.05] last:border-0'
                     >
                       <td className='py-3 px-5 text-neutral-400 truncate max-w-[280px]'>
                         <span className='inline-flex items-center gap-1.5'>
@@ -534,7 +534,7 @@ export default function OrgDetailPage() {
                             Admin
                           </span>
                         ) : (
-                          <span className='pill bg-neutral-700/50 text-neutral-400'>
+                          <span className='pill bg-white/[0.06] text-neutral-400'>
                             Member
                           </span>
                         )}
@@ -613,7 +613,7 @@ export default function OrgDetailPage() {
 
         {isAdmin && (
           <form
-            className='mb-4 rounded-xl border border-neutral-800 bg-neutral-900/40 p-4 space-y-3'
+            className='mb-4 rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 space-y-3'
             onSubmit={handleLinkPackage}
           >
             <p className='text-[12px] font-medium text-neutral-300'>
@@ -663,7 +663,7 @@ export default function OrgDetailPage() {
               <button
                 type='submit'
                 disabled={checkingPackage || linkPackageMutation.isPending}
-                className='inline-flex items-center gap-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 disabled:opacity-50 disabled:cursor-not-allowed text-neutral-900 px-4 py-2 text-[13px] font-medium transition-colors'
+                className='inline-flex items-center gap-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 disabled:opacity-50 disabled:cursor-not-allowed text-black px-4 py-2 text-[13px] font-medium transition-colors'
               >
                 <Link2 className='w-3.5 h-3.5' />
                 {checkingPackage
@@ -683,11 +683,11 @@ export default function OrgDetailPage() {
 
         {packagesLoading ? (
           <div className='space-y-2 animate-pulse'>
-            <div className='h-10 bg-neutral-800/50 rounded-xl' />
-            <div className='h-10 bg-neutral-800/50 rounded-xl' />
+            <div className='h-10 bg-white/[0.04] rounded-xl' />
+            <div className='h-10 bg-white/[0.04] rounded-xl' />
           </div>
         ) : packages.length === 0 ? (
-          <div className='rounded-xl border border-neutral-800 bg-neutral-900/40 p-4 text-[13px] text-neutral-500'>
+          <div className='rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 text-[13px] text-neutral-500'>
             No packages linked to this org.
           </div>
         ) : (
@@ -699,7 +699,7 @@ export default function OrgDetailPage() {
                 unlinkPackageMutation.variables === pkg;
               return (
                 <li key={pkg}>
-                  <div className='flex items-center gap-3 rounded-xl border border-neutral-800 bg-neutral-900/40 px-4 py-2.5 group hover:border-neutral-700 hover:bg-neutral-800/40 transition-colors'>
+                  <div className='flex items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-2.5 group hover:border-white/[0.08] hover:bg-white/[0.04] transition-colors'>
                     <Link
                       to={`/apps/${encodeURIComponent(pkg)}`}
                       className='flex-1 min-w-0 flex items-center justify-between'
@@ -775,7 +775,7 @@ export default function OrgDetailPage() {
           </div>
 
           {isEditingSettings ? (
-            <div className='rounded-xl border border-neutral-800 bg-neutral-900/40 p-4 space-y-3'>
+            <div className='rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 space-y-3'>
               <SettingsField
                 label='Display name'
                 value={settingsForm.name}
@@ -831,7 +831,7 @@ export default function OrgDetailPage() {
                   type='button'
                   onClick={handleSaveSettings}
                   disabled={updateOrgMutation.isPending}
-                  className='inline-flex items-center gap-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 disabled:opacity-50 disabled:cursor-not-allowed text-neutral-900 px-4 py-2 text-[13px] font-medium transition-colors'
+                  className='inline-flex items-center gap-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 disabled:opacity-50 disabled:cursor-not-allowed text-black px-4 py-2 text-[13px] font-medium transition-colors'
                 >
                   <Save className='w-3.5 h-3.5' />
                   {updateOrgMutation.isPending ? 'Saving…' : 'Save'}
@@ -839,7 +839,7 @@ export default function OrgDetailPage() {
                 <button
                   type='button'
                   onClick={() => setIsEditingSettings(false)}
-                  className='inline-flex items-center gap-1.5 text-[13px] text-neutral-400 hover:text-neutral-200 px-3 py-2 rounded-lg border border-neutral-700 hover:border-neutral-600 transition-colors'
+                  className='inline-flex items-center gap-1.5 text-[13px] text-neutral-400 hover:text-neutral-200 px-3 py-2 rounded-lg border border-white/[0.08] hover:border-neutral-600 transition-colors'
                 >
                   <X className='w-3.5 h-3.5' />
                   Cancel
@@ -890,7 +890,7 @@ export default function OrgDetailPage() {
               )}
             </div>
           ) : (
-            <div className='rounded-xl border border-neutral-800 bg-neutral-900/40 p-4 text-[13px] text-neutral-500'>
+            <div className='rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 text-[13px] text-neutral-500'>
               No info set.{' '}
               <button
                 type='button'
@@ -987,7 +987,7 @@ function SettingsField({
   multiline?: boolean;
 }) {
   const cls =
-    'w-full rounded-lg border border-neutral-700 bg-neutral-800/60 px-3 py-2 text-[13px] text-neutral-200 placeholder:text-neutral-500 focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600 transition-colors';
+    'w-full rounded-lg border border-white/[0.08] bg-white/[0.06] px-3 py-2 text-[13px] text-neutral-200 placeholder:text-neutral-500 focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600 transition-colors';
   return (
     <div>
       <label className='block text-[11px] text-neutral-500 mb-1'>{label}</label>

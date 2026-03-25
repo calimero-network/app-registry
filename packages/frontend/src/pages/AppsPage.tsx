@@ -54,7 +54,7 @@ export default function AppsPage() {
   return (
     <div className='space-y-6'>
       {/* Header */}
-      <div>
+      <div className='animate-fade-in'>
         <div className='flex items-baseline gap-3'>
           <h1 className='text-xl font-semibold text-neutral-100'>Apps</h1>
           {!isLoading && (
@@ -71,7 +71,7 @@ export default function AppsPage() {
       </div>
 
       {/* Search */}
-      <div className='relative max-w-sm'>
+      <div className='relative max-w-sm animate-slide-up stagger-1'>
         <Search className='absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500 h-3.5 w-3.5' />
         <input
           type='text'
@@ -87,9 +87,9 @@ export default function AppsPage() {
         <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3'>
           {[...Array(6)].map((_, i) => (
             <div key={i} className='card p-4 animate-pulse'>
-              <div className='h-3.5 bg-neutral-800 rounded w-2/3 mb-3'></div>
-              <div className='h-3 bg-neutral-800 rounded w-full mb-2'></div>
-              <div className='h-3 bg-neutral-800 rounded w-1/3'></div>
+              <div className='h-3.5 bg-white/[0.06] rounded w-2/3 mb-3'></div>
+              <div className='h-3 bg-white/[0.06] rounded w-full mb-2'></div>
+              <div className='h-3 bg-white/[0.06] rounded w-1/3'></div>
             </div>
           ))}
         </div>
@@ -103,7 +103,7 @@ export default function AppsPage() {
           </p>
         </div>
       ) : (
-        <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3'>
+        <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 animate-slide-up stagger-2'>
           {filteredApps.map((app: AppSummary) => (
             <AppCard key={app.id} app={app} />
           ))}
@@ -117,7 +117,7 @@ function AppCard({ app }: { app: AppSummary }) {
   return (
     <Link
       to={`/apps/${app.id}`}
-      className='card p-4 group hover:border-brand-600/30 block'
+      className='card p-4 group hover:border-brand-600/30 block glow-border'
     >
       <div className='flex items-start justify-between mb-2'>
         <h3 className='text-[13px] font-medium text-neutral-200 truncate pr-2 group-hover:text-white transition-colors'>

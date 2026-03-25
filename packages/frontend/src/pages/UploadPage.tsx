@@ -74,7 +74,7 @@ export default function UploadPage() {
   return (
     <div className='space-y-8'>
       {/* Header */}
-      <div>
+      <div className='animate-fade-in'>
         <h1 className='text-xl font-semibold text-neutral-100'>
           Publish to the Registry
         </h1>
@@ -94,7 +94,7 @@ export default function UploadPage() {
       </div>
 
       {/* Upload & Publish */}
-      <section className='card p-5'>
+      <section className='card p-5 animate-slide-up stagger-1'>
         <div className='flex items-center gap-2.5 mb-4'>
           <span className='flex-shrink-0 w-6 h-6 rounded-full bg-brand-600/10 text-brand-600 text-[11px] font-medium flex items-center justify-center'>
             •
@@ -141,7 +141,7 @@ export default function UploadPage() {
                 type='button'
                 disabled={!file || uploading}
                 onClick={handlePublish}
-                className='px-4 py-2 rounded-md bg-brand-600 text-neutral-950 font-medium text-[13px] disabled:opacity-50 disabled:cursor-not-allowed hover:bg-brand-500 transition-colors'
+                className='btn-primary disabled:opacity-50 disabled:cursor-not-allowed'
               >
                 {uploading ? 'Publishing…' : 'Publish'}
               </button>
@@ -346,7 +346,7 @@ calimero-registry config set api-key <your-api-key>`}</Pre>
             </span>
             <div>
               <p className='text-neutral-300 mb-1'>Sign the manifest:</p>
-              <pre className='bg-neutral-950 border border-neutral-800 rounded-md px-3 py-2 text-[12px] text-neutral-300 font-mono overflow-x-auto leading-relaxed'>
+              <pre className='bg-neutral-950 border border-white/[0.06] rounded-md px-3 py-2 text-[12px] text-neutral-300 font-mono overflow-x-auto leading-relaxed'>
                 {`mero-sign sign application-1.0.0.mpk/manifest.json \\
   --key key.json`}
               </pre>
@@ -356,7 +356,7 @@ calimero-registry config set api-key <your-api-key>`}</Pre>
             </span>
             <div>
               <p className='text-neutral-300 mb-1'>Push the bundle:</p>
-              <pre className='bg-neutral-950 border border-neutral-800 rounded-md px-3 py-2 text-[12px] text-neutral-300 font-mono overflow-x-auto leading-relaxed'>
+              <pre className='bg-neutral-950 border border-white/[0.06] rounded-md px-3 py-2 text-[12px] text-neutral-300 font-mono overflow-x-auto leading-relaxed'>
                 {`calimero-registry bundle push application-1.0.0.mpk --remote`}
               </pre>
             </div>
@@ -449,7 +449,7 @@ function Section({
 
 function Pre({ children }: { children: string }) {
   return (
-    <pre className='bg-neutral-950 border border-neutral-800 rounded-md p-3.5 text-[12px] text-neutral-300 font-mono overflow-x-auto leading-relaxed'>
+    <pre className='bg-neutral-950 border border-white/[0.06] rounded-md p-3.5 text-[12px] text-neutral-300 font-mono overflow-x-auto leading-relaxed'>
       {children}
     </pre>
   );
@@ -463,7 +463,7 @@ function ScriptBlock({
   children: React.ReactNode;
 }) {
   return (
-    <div className='bg-neutral-900/40 border border-neutral-800/60 rounded-md p-3.5'>
+    <div className='bg-white/[0.02] border border-white/[0.06] rounded-md p-3.5'>
       <div className='flex items-center gap-2 mb-2'>
         <Terminal className='w-3 h-3 text-brand-600' />
         <span className='text-[12px] font-medium text-neutral-300'>
@@ -483,7 +483,7 @@ function DocLink({ href, label }: { href: string; label: string }) {
       href={href}
       target='_blank'
       rel='noopener noreferrer'
-      className='inline-flex items-center gap-1.5 text-[12px] text-neutral-400 hover:text-neutral-200 bg-neutral-800/60 hover:bg-neutral-800 px-2.5 py-1.5 rounded-md transition-all'
+      className='inline-flex items-center gap-1.5 text-[12px] text-neutral-400 hover:text-neutral-200 bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] px-2.5 py-1.5 rounded-md transition-all'
     >
       <ExternalLink className='w-3 h-3' />
       {label}

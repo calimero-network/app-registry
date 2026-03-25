@@ -57,10 +57,10 @@ export default function DeveloperDetailPage() {
   if (isLoading) {
     return (
       <div className='space-y-5 animate-pulse'>
-        <div className='h-4 bg-neutral-800 rounded w-24'></div>
-        <div className='h-6 bg-neutral-800 rounded w-1/3'></div>
-        <div className='h-3.5 bg-neutral-800 rounded w-1/4'></div>
-        <div className='h-24 bg-neutral-800/50 rounded-lg'></div>
+        <div className='h-4 bg-white/[0.06] rounded w-24'></div>
+        <div className='h-6 bg-white/[0.06] rounded w-1/3'></div>
+        <div className='h-3.5 bg-white/[0.06] rounded w-1/4'></div>
+        <div className='h-24 bg-white/[0.04] rounded-lg'></div>
       </div>
     );
   }
@@ -84,8 +84,8 @@ export default function DeveloperDetailPage() {
       <BackLink />
 
       {/* Header */}
-      <div className='flex items-center gap-3'>
-        <div className='flex items-center justify-center w-10 h-10 rounded-full bg-neutral-800'>
+      <div className='flex items-center gap-3 animate-fade-in'>
+        <div className='flex items-center justify-center w-10 h-10 rounded-full bg-surface border border-white/[0.06]'>
           <User className='w-4 h-4 text-neutral-400' />
         </div>
         <div>
@@ -106,12 +106,12 @@ export default function DeveloperDetailPage() {
       {/* Published apps */}
       <div>
         <p className='section-heading mb-3'>Published Applications</p>
-        <div className='grid grid-cols-1 sm:grid-cols-2 gap-3'>
+        <div className='grid grid-cols-1 sm:grid-cols-2 gap-3 animate-slide-up stagger-1'>
           {apps.map(bundle => (
             <Link
               key={bundle.package}
               to={`/apps/${bundle.package}`}
-              className='card p-4 group hover:border-brand-600/30'
+              className='card p-4 group hover:border-brand-600/30 glow-border'
             >
               <div className='flex items-start justify-between mb-1.5'>
                 <h3 className='text-[13px] font-medium text-neutral-200 truncate pr-2 group-hover:text-white transition-colors'>

@@ -17,11 +17,11 @@ export default function MyPackagesPage() {
 
   return (
     <div className='space-y-8'>
-      <div>
-        <h1 className='text-2xl font-semibold text-neutral-100 mb-2'>
+      <div className='animate-fade-in'>
+        <h1 className='text-xl font-semibold text-neutral-100 mb-2'>
           My packages
         </h1>
-        <p className='text-neutral-400 text-sm'>
+        <p className='text-[13px] text-neutral-400 font-light'>
           Signed in as{' '}
           {user?.username
             ? `@${user.username}`
@@ -32,7 +32,7 @@ export default function MyPackagesPage() {
       </div>
 
       {/* Upload a new package */}
-      <div className='rounded-xl border border-neutral-800 bg-neutral-900/40 p-6'>
+      <div className='card p-6 animate-slide-up stagger-1'>
         <div className='flex items-center gap-2 mb-3'>
           <Upload className='w-4 h-4 text-brand-600' />
           <h2 className='text-[14px] font-medium text-neutral-200'>
@@ -54,24 +54,22 @@ export default function MyPackagesPage() {
 
       {/* Package list */}
       <div>
-        <h2 className='text-[14px] font-medium text-neutral-200 mb-3'>
-          Your packages
-        </h2>
+        <h2 className='section-heading mb-3'>Your packages</h2>
         {!username?.trim() && !email?.trim() ? (
-          <div className='rounded-xl border border-neutral-800 bg-neutral-900/40 p-8 text-center'>
-            <Package className='h-12 w-12 text-neutral-600 mx-auto mb-4' />
-            <p className='text-neutral-400 text-sm'>
+          <div className='card p-8 text-center'>
+            <Package className='h-8 w-8 text-neutral-600 mx-auto mb-4' />
+            <p className='text-[13px] text-neutral-400 font-light'>
               Sign in to see packages you authored. Set{' '}
               <code className='text-brand-600'>metadata.author</code> to your
               username when publishing so they appear here.
             </p>
           </div>
         ) : isLoading ? (
-          <p className='text-neutral-500 text-sm'>Loading…</p>
+          <p className='text-[13px] text-neutral-500 font-light'>Loading…</p>
         ) : packages.length === 0 ? (
-          <div className='rounded-xl border border-neutral-800 bg-neutral-900/40 p-8 text-center'>
-            <Package className='h-12 w-12 text-neutral-600 mx-auto mb-4' />
-            <p className='text-neutral-400 text-sm'>
+          <div className='card p-8 text-center'>
+            <Package className='h-8 w-8 text-neutral-600 mx-auto mb-4' />
+            <p className='text-[13px] text-neutral-400 font-light'>
               No packages yet. Publish a bundle with{' '}
               <code className='text-brand-600'>author</code> set to your
               username ({username ? `@${username}` : email}) to see them here.
@@ -90,7 +88,7 @@ export default function MyPackagesPage() {
               <li key={pkg.id}>
                 <Link
                   to={`/apps/${pkg.package_name}`}
-                  className='flex items-center justify-between rounded-lg border border-neutral-800 bg-neutral-900/40 px-4 py-3 hover:border-neutral-700 hover:bg-neutral-800/40 transition-colors'
+                  className='card flex items-center justify-between px-4 py-3 hover:border-brand-600/30'
                 >
                   <div className='flex items-center gap-3'>
                     <Package className='w-4 h-4 text-neutral-500' />

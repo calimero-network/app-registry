@@ -67,7 +67,7 @@ export default function AdminPage() {
 
   return (
     <div className='space-y-6'>
-      <div className='flex items-center gap-3'>
+      <div className='flex items-center gap-3 animate-fade-in'>
         <ShieldCheck className='w-5 h-5 text-brand-500' />
         <div>
           <h1 className='text-xl font-semibold text-neutral-100'>
@@ -80,7 +80,7 @@ export default function AdminPage() {
       </div>
 
       {/* Tabs */}
-      <div className='flex gap-1 border-b border-neutral-800'>
+      <div className='flex gap-1 border-b border-white/[0.06] animate-slide-up stagger-1'>
         {(
           [
             { key: 'users', label: 'Users', icon: Users },
@@ -191,7 +191,7 @@ function UsersTab({
           {[...Array(4)].map((_, i) => (
             <div
               key={i}
-              className='h-12 bg-neutral-800 rounded-lg animate-pulse'
+              className='h-12 bg-white/[0.06] rounded-lg animate-pulse'
             />
           ))}
         </div>
@@ -372,7 +372,7 @@ function PackagesTab({
           {[...Array(4)].map((_, i) => (
             <div
               key={i}
-              className='h-12 bg-neutral-800 rounded-lg animate-pulse'
+              className='h-12 bg-white/[0.06] rounded-lg animate-pulse'
             />
           ))}
         </div>
@@ -499,7 +499,7 @@ function OrgsTab({
           {[...Array(4)].map((_, i) => (
             <div
               key={i}
-              className='h-12 bg-neutral-800 rounded-lg animate-pulse'
+              className='h-12 bg-white/[0.06] rounded-lg animate-pulse'
             />
           ))}
         </div>
@@ -596,7 +596,7 @@ function ActionBtn({
       'text-emerald-500 hover:text-emerald-400 border-emerald-900/40 hover:border-emerald-700/50',
     blue: 'text-brand-500 hover:text-brand-400 border-brand-900/40 hover:border-brand-700/50',
     neutral:
-      'text-neutral-500 hover:text-neutral-300 border-neutral-700/40 hover:border-neutral-600/50',
+      'text-neutral-400 hover:text-white/80 border-white/[0.06] hover:border-white/[0.1]',
   };
   return (
     <button
