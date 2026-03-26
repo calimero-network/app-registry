@@ -732,9 +732,9 @@ async function buildServer() {
         },
       };
     }
-    const DEV_SIGNER_ID =
-      'did:key:z6MknF3p5L5FDHJQ7FREUapuX4Wmp4MtF6WrHYaXS2B3eZQd';
-    if (bundleManifest.signerId === DEV_SIGNER_ID) {
+    const incomingKey = getPublicKeyFromManifest(bundleManifest);
+    const DEV_PUBLIC_KEY = 'c7yxmuCRXfb4Ab4kcl9M3D5lxcpG9BTZm7smM8jMdMI';
+    if (incomingKey === DEV_PUBLIC_KEY) {
       throw {
         statusCode: 403,
         body: {
@@ -744,8 +744,6 @@ async function buildServer() {
         },
       };
     }
-
-    const incomingKey = getPublicKeyFromManifest(bundleManifest);
     const versions = await bundleStorage.getBundleVersions(
       bundleManifest.package
     );
