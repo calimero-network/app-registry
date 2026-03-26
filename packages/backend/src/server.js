@@ -732,6 +732,19 @@ async function buildServer() {
         },
       };
     }
+    const DEV_SIGNER_ID =
+      'did:key:z6MknF3p5L5FDHJQ7FREUapuX4Wmp4MtF6WrHYaXS2B3eZQd';
+    if (bundleManifest.signerId === DEV_SIGNER_ID) {
+      throw {
+        statusCode: 403,
+        body: {
+          error: 'dev_signed_bundle',
+          message:
+            'Development-signed bundles cannot be published to the registry. Build with a release key: mero-sign sign manifest.json --key <release-key.json>',
+        },
+      };
+    }
+
     const incomingKey = getPublicKeyFromManifest(bundleManifest);
     const versions = await bundleStorage.getBundleVersions(
       bundleManifest.package
