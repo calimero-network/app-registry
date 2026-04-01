@@ -52,6 +52,13 @@ export interface BundleSignature {
   signed_at: string;
 }
 
+/** A named service within a multi-service bundle. */
+export interface BundleServiceEntry {
+  name: string;
+  wasm: BundleArtifact;
+  abi?: BundleArtifact;
+}
+
 export interface BundleManifest {
   version: string; // "1.0" (internal manifest version)
   package: string;
@@ -60,8 +67,12 @@ export interface BundleManifest {
   metadata?: BundleMetadata;
   interfaces?: BundleInterfaces;
 
+  /** Single-service WASM (backward compat). Ignored when services is non-empty. */
   wasm?: BundleArtifact;
+  /** Single-service ABI (backward compat). Ignored when services is non-empty. */
   abi?: BundleArtifact;
+  /** Named services for multi-service bundles. */
+  services?: BundleServiceEntry[];
   migrations: BundleArtifact[];
 
   links?: BundleLinks;
