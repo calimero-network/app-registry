@@ -2,7 +2,7 @@ name: AI Code Review
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened]
+    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
     inputs:
       pr_number:
@@ -39,9 +39,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install ai-code-reviewer
-        run: |
-          pip install ai-code-reviewer
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
+        run: pip install git+https://github.com/calimero-network/ai-code-reviewer.git
 
       - name: Determine PR number and agent count
         id: pr
