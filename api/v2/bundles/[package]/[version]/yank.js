@@ -19,8 +19,8 @@ const { kv } = require('../../../../lib/kv-client');
 
 // Scoped packages (@org/name) are allowed; bare path traversal sequences are not.
 const PKG_RE = /^(?:@[\w.-]+\/)?[\w.+-]+$/;
-// Block repeated dots (e.g. `..`) in addition to the character allowlist.
-const VER_RE = /^(?!.*\.{2})[\w.+-]+$/;
+// Must start with a word char; block consecutive dots; allow semver + pre-release/build.
+const VER_RE = /^\w(?!.*\.{2})[\w.+-]*$/;
 
 let _store;
 function getStorage() {
