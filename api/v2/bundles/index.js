@@ -111,6 +111,7 @@ module.exports = async function handler(req, res) {
       return res.status(200).json([{ ...sanitized, downloads }]);
     }
 
+    const { all_versions } = req.query || {};
     const allPackages = await kv.sMembers('bundles:all');
     const rawBundles = [];
     for (const packageName of allPackages) {
@@ -120,17 +121,28 @@ module.exports = async function handler(req, res) {
       const sorted = versions.sort((a, b) =>
         semver.rcompare(semver.valid(a) || '0.0.0', semver.valid(b) || '0.0.0')
       );
-      const latestVersion = sorted[0];
-      const data = await kv.get(`bundle:${packageName}/${latestVersion}`);
-      if (!data) continue;
-      const bundle = JSON.parse(data).json;
-      if (developer && bundle.signature?.pubkey !== developer) continue;
-      if (author) {
-        const authorIdentity =
-          bundle.metadata?.author ?? bundle.metadata?._ownerEmail;
-        if (authorIdentity !== author) continue;
+      if (all_versions === 'true' && pkg) {
+        // Return every published version for this specific package (version picker)
+        for (const ver of sorted) {
+          const data = await kv.get(`bundle:${packageName}/${ver}`);
+          if (!data) continue;
+          const bundle = JSON.parse(data).json;
+          rawBundles.push({ bundle, packageName });
+        }
+      } else {
+        // Default: return only the latest version per package
+        const latestVersion = sorted[0];
+        const data = await kv.get(`bundle:${packageName}/${latestVersion}`);
+        if (!data) continue;
+        const bundle = JSON.parse(data).json;
+        if (developer && bundle.signature?.pubkey !== developer) continue;
+        if (author) {
+          const authorIdentity =
+            bundle.metadata?.author ?? bundle.metadata?._ownerEmail;
+          if (authorIdentity !== author) continue;
+        }
+        rawBundles.push({ bundle, packageName });
       }
-      rawBundles.push({ bundle, packageName });
     }
 
     // Batch-sanitize all bundles and batch-fetch download counts in parallel
