@@ -11,25 +11,20 @@
 const {
   BundleStorageKV,
 } = require('@calimero-network/registry-backend/src/lib/bundle-storage-kv');
-const { requireAuth } = require('../../../../lib/auth-helpers');
+const {
+  requireAuth,
+  manifestOwnedByUser,
+} = require('../../../../lib/auth-helpers');
 const { kv } = require('../../../../lib/kv-client');
 
-const PKG_RE = /^[\w.@/-]+$/;
+// Scoped packages (@org/name) are allowed; bare path traversal sequences are not.
+const PKG_RE = /^(?:@[\w.-]+\/)?[\w.+-]+$/;
 const VER_RE = /^[\w.+-]+$/;
 
 let _store;
 function getStorage() {
   if (!_store) _store = new BundleStorageKV();
   return _store;
-}
-
-function manifestOwnedByUser(manifest, user) {
-  const author = manifest?.metadata?.author;
-  const ownerEmail = manifest?.metadata?._ownerEmail;
-  if (user?.username && author === user.username) return true;
-  if (user?.email && ownerEmail === user.email) return true;
-  if (user?.email && !user?.username && author === user.email) return true;
-  return false;
 }
 
 module.exports = async function handler(req, res) {
@@ -66,9 +61,8 @@ module.exports = async function handler(req, res) {
   try {
     existing = await store.getBundleManifest(pkg, version);
   } catch (e) {
-    return res
-      .status(500)
-      .json({ error: 'internal_error', message: e?.message ?? String(e) });
+    console.error('yank: getBundleManifest failed', e);
+    return res.status(500).json({ error: 'internal_error' });
   }
   if (!existing) return res.status(404).json({ error: 'not_found' });
 
@@ -89,8 +83,7 @@ module.exports = async function handler(req, res) {
     }
     return res.status(200).json({ package: pkg, version, yanked: body.yanked });
   } catch (e) {
-    return res
-      .status(500)
-      .json({ error: 'internal_error', message: e?.message ?? String(e) });
+    console.error('yank: KV write failed', e);
+    return res.status(500).json({ error: 'internal_error' });
   }
 };

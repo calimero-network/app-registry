@@ -154,10 +154,24 @@ async function requireAdmin(req, res) {
   return user;
 }
 
+/**
+ * Check whether a bundle manifest is owned by the given session user.
+ * Ownership is determined by metadata.author (username) or metadata._ownerEmail.
+ */
+function manifestOwnedByUser(manifest, user) {
+  const author = manifest?.metadata?.author;
+  const ownerEmail = manifest?.metadata?._ownerEmail;
+  if (user?.username && author === user.username) return true;
+  if (user?.email && ownerEmail === user.email) return true;
+  if (user?.email && !user?.username && author === user.email) return true;
+  return false;
+}
+
 module.exports = {
   resolveUser,
   requireAuth,
   requireOrgAdminOrOwner,
   requireOrgOwner,
   requireAdmin,
+  manifestOwnedByUser,
 };

@@ -75,6 +75,9 @@ export default function AppDetailPage() {
   const [confirmYankVersion, setConfirmYankVersion] = useState<string | null>(
     null
   );
+  const [confirmUnYankVersion, setConfirmUnYankVersion] = useState<
+    string | null
+  >(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [yankError, setYankError] = useState<string | null>(null);
   const [yankingVersion, setYankingVersion] = useState<string | null>(null);
@@ -474,20 +477,42 @@ export default function AppDetailPage() {
                     )}
                     {isVersionOwner &&
                       (b.yanked ? (
-                        <button
-                          onClick={() => {
-                            setYankingVersion(b.appVersion);
-                            yankVersionMutation.mutate({
-                              version: b.appVersion,
-                              yanked: false,
-                            });
-                          }}
-                          disabled={yankingVersion === b.appVersion}
-                          className='inline-flex items-center gap-1 text-[11px] text-amber-500 hover:text-amber-300 transition-colors disabled:opacity-50'
-                        >
-                          <RotateCcw className='w-3 h-3' />
-                          Unyank
-                        </button>
+                        confirmUnYankVersion === b.appVersion ? (
+                          <span className='flex items-center gap-1.5 text-[11px]'>
+                            <span className='text-amber-400'>Unyank?</span>
+                            <button
+                              onClick={() => {
+                                setConfirmUnYankVersion(null);
+                                setYankingVersion(b.appVersion);
+                                yankVersionMutation.mutate({
+                                  version: b.appVersion,
+                                  yanked: false,
+                                });
+                              }}
+                              disabled={yankingVersion === b.appVersion}
+                              className='text-amber-400 hover:text-amber-300 font-medium transition-colors disabled:opacity-50'
+                            >
+                              Yes
+                            </button>
+                            <button
+                              onClick={() => setConfirmUnYankVersion(null)}
+                              className='text-neutral-500 hover:text-neutral-300 transition-colors'
+                            >
+                              Cancel
+                            </button>
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() =>
+                              setConfirmUnYankVersion(b.appVersion)
+                            }
+                            disabled={yankingVersion === b.appVersion}
+                            className='inline-flex items-center gap-1 text-[11px] text-amber-500 hover:text-amber-300 transition-colors disabled:opacity-50'
+                          >
+                            <RotateCcw className='w-3 h-3' />
+                            Unyank
+                          </button>
+                        )
                       ) : confirmYankVersion === b.appVersion ? (
                         <span className='flex items-center gap-1.5 text-[11px]'>
                           <span className='text-amber-400'>Yank?</span>
