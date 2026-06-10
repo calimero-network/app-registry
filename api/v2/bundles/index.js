@@ -112,6 +112,21 @@ module.exports = async function handler(req, res) {
     }
 
     const { all_versions } = req.query || {};
+
+    if (all_versions === 'true' && !pkg) {
+      return res.status(400).json({
+        error: 'invalid_params',
+        message: 'all_versions requires a package parameter',
+      });
+    }
+    if (all_versions === 'true' && (developer || author)) {
+      return res.status(400).json({
+        error: 'invalid_params',
+        message:
+          'all_versions cannot be combined with developer or author filters',
+      });
+    }
+
     const allPackages = await kv.sMembers('bundles:all');
     const rawBundles = [];
     for (const packageName of allPackages) {
@@ -122,9 +137,9 @@ module.exports = async function handler(req, res) {
         semver.rcompare(semver.valid(a) || '0.0.0', semver.valid(b) || '0.0.0')
       );
       if (all_versions === 'true' && pkg) {
-        // Return every non-yanked published version for this specific package (version picker).
+        // Return every published version with yanked status included (used by version picker).
         // yanked flag is stored separately at bundle-yanked:<pkg>/<ver> so it can be
-        // flipped without touching the immutable bundle manifest.
+        // toggled without touching the immutable bundle manifest.
         for (const ver of sorted) {
           const [data, yankFlag] = await Promise.all([
             kv.get(`bundle:${packageName}/${ver}`),
@@ -132,7 +147,10 @@ module.exports = async function handler(req, res) {
           ]);
           if (!data) continue;
           const bundle = JSON.parse(data).json;
-          rawBundles.push({ bundle: { ...bundle, yanked: yankFlag === '1' }, packageName });
+          rawBundles.push({
+            bundle: { ...bundle, yanked: yankFlag === '1' },
+            packageName,
+          });
         }
       } else {
         // Default: return only the latest version per package
