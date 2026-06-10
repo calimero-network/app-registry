@@ -19,11 +19,14 @@ import {
   Building2,
   ArrowRight,
   BadgeCheck,
+  Ban,
+  RotateCcw,
 } from 'lucide-react';
 import {
   api,
   deleteBundleVersion,
   deletePackage,
+  yankBundleVersion,
   getOrgByPackage,
   getOrgMembers,
 } from '@/lib/api';
@@ -34,6 +37,7 @@ interface V2Bundle {
   package: string;
   appVersion: string;
   verified?: boolean;
+  yanked?: boolean;
   metadata?: {
     name?: string;
     description?: string;
@@ -69,12 +73,13 @@ export default function AppDetailPage() {
   >(null);
   const [confirmDeletePackage, setConfirmDeletePackage] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [yankingVersion, setYankingVersion] = useState<string | null>(null);
 
   const { data: allBundles = [], isLoading } = useQuery({
     queryKey: ['app-bundles', appId],
     queryFn: async () => {
       const response = await api.get('/v2/bundles', {
-        params: { package: appId },
+        params: { package: appId, all_versions: 'true' },
       });
       return (Array.isArray(response.data) ? response.data : []) as V2Bundle[];
     },
@@ -115,6 +120,22 @@ export default function AppDetailPage() {
           ?.message || (err instanceof Error ? err.message : 'Delete failed');
       setDeleteError(msg);
       setConfirmDeletePackage(false);
+    },
+  });
+
+  const yankVersionMutation = useMutation({
+    mutationFn: ({ version, yanked }: { version: string; yanked: boolean }) =>
+      yankBundleVersion(appId, version, yanked),
+    onSuccess: () => {
+      setYankingVersion(null);
+      queryClient.invalidateQueries({ queryKey: ['app-bundles', appId] });
+    },
+    onError: (err: unknown) => {
+      setYankingVersion(null);
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data
+          ?.message || (err instanceof Error ? err.message : 'Yank failed');
+      setDeleteError(msg);
     },
   });
 
@@ -435,6 +456,38 @@ export default function AppDetailPage() {
                         <Pencil className='w-3 h-3' />
                         Edit
                       </Link>
+                    )}
+                    {b.yanked && (
+                      <span className='pill bg-amber-500/10 text-amber-400 text-[10px]'>
+                        Yanked
+                      </span>
+                    )}
+                    {canEditVersion && (
+                      b.yanked ? (
+                        <button
+                          onClick={() => {
+                            setYankingVersion(b.appVersion);
+                            yankVersionMutation.mutate({ version: b.appVersion, yanked: false });
+                          }}
+                          disabled={yankingVersion === b.appVersion}
+                          className='inline-flex items-center gap-1 text-[11px] text-amber-500 hover:text-amber-300 transition-colors disabled:opacity-50'
+                        >
+                          <RotateCcw className='w-3 h-3' />
+                          Unyank
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => {
+                            setYankingVersion(b.appVersion);
+                            yankVersionMutation.mutate({ version: b.appVersion, yanked: true });
+                          }}
+                          disabled={yankingVersion === b.appVersion}
+                          className='inline-flex items-center gap-1 text-[11px] text-neutral-600 hover:text-amber-400 transition-colors disabled:opacity-50'
+                        >
+                          <Ban className='w-3 h-3' />
+                          Yank
+                        </button>
+                      )
                     )}
                     {isVersionOwner && (
                       <>
