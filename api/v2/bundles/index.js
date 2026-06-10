@@ -122,12 +122,17 @@ module.exports = async function handler(req, res) {
         semver.rcompare(semver.valid(a) || '0.0.0', semver.valid(b) || '0.0.0')
       );
       if (all_versions === 'true' && pkg) {
-        // Return every published version for this specific package (version picker)
+        // Return every non-yanked published version for this specific package (version picker).
+        // yanked flag is stored separately at bundle-yanked:<pkg>/<ver> so it can be
+        // flipped without touching the immutable bundle manifest.
         for (const ver of sorted) {
-          const data = await kv.get(`bundle:${packageName}/${ver}`);
+          const [data, yankFlag] = await Promise.all([
+            kv.get(`bundle:${packageName}/${ver}`),
+            kv.get(`bundle-yanked:${packageName}/${ver}`),
+          ]);
           if (!data) continue;
           const bundle = JSON.parse(data).json;
-          rawBundles.push({ bundle, packageName });
+          rawBundles.push({ bundle: { ...bundle, yanked: yankFlag === '1' }, packageName });
         }
       } else {
         // Default: return only the latest version per package
