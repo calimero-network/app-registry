@@ -161,9 +161,9 @@ export const getMyPackages = async (params: {
 };
 
 export const getAppVersions = async (appId: string): Promise<VersionInfo[]> => {
-  // Use V2 Bundle API - get all bundles for this package
+  // Use V2 Bundle API - get all bundles for this package (including yanked)
   const response = await api.get('/v2/bundles', {
-    params: { package: appId },
+    params: { package: appId, all_versions: 'true' },
   });
   const bundles = Array.isArray(response.data) ? response.data : [];
 
@@ -175,7 +175,7 @@ export const getAppVersions = async (appId: string): Promise<VersionInfo[]> => {
     return {
       semver: bundle.appVersion,
       cid: artifactUrl,
-      yanked: false,
+      yanked: bundle.yanked === true,
     };
   });
 };
@@ -267,6 +267,18 @@ export const getBundleManifestRaw = async (
 ): Promise<Record<string, any>> => {
   const response = await api.get(`/v2/bundles/${packageName}/${version}`);
   return response.data;
+};
+
+/** Yank (or unyank) a specific version of a package. Requires login as the package author. */
+export const yankBundleVersion = async (
+  packageName: string,
+  version: string,
+  yanked: boolean
+): Promise<void> => {
+  await api.post(
+    `/v2/bundles/${encodeURIComponent(packageName)}/${encodeURIComponent(version)}/yank`,
+    { yanked }
+  );
 };
 
 /** Delete a specific version of a package. Requires login as the package author. */

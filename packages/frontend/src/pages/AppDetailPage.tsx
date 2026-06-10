@@ -19,11 +19,14 @@ import {
   Building2,
   ArrowRight,
   BadgeCheck,
+  Ban,
+  RotateCcw,
 } from 'lucide-react';
 import {
   api,
   deleteBundleVersion,
   deletePackage,
+  yankBundleVersion,
   getOrgByPackage,
   getOrgMembers,
 } from '@/lib/api';
@@ -34,6 +37,7 @@ interface V2Bundle {
   package: string;
   appVersion: string;
   verified?: boolean;
+  yanked?: boolean;
   metadata?: {
     name?: string;
     description?: string;
@@ -68,13 +72,21 @@ export default function AppDetailPage() {
     string | null
   >(null);
   const [confirmDeletePackage, setConfirmDeletePackage] = useState(false);
+  const [confirmYankVersion, setConfirmYankVersion] = useState<string | null>(
+    null
+  );
+  const [confirmUnYankVersion, setConfirmUnYankVersion] = useState<
+    string | null
+  >(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [yankError, setYankError] = useState<string | null>(null);
+  const [yankingVersion, setYankingVersion] = useState<string | null>(null);
 
   const { data: allBundles = [], isLoading } = useQuery({
     queryKey: ['app-bundles', appId],
     queryFn: async () => {
       const response = await api.get('/v2/bundles', {
-        params: { package: appId },
+        params: { package: appId, all_versions: 'true' },
       });
       return (Array.isArray(response.data) ? response.data : []) as V2Bundle[];
     },
@@ -115,6 +127,23 @@ export default function AppDetailPage() {
           ?.message || (err instanceof Error ? err.message : 'Delete failed');
       setDeleteError(msg);
       setConfirmDeletePackage(false);
+    },
+  });
+
+  const yankVersionMutation = useMutation({
+    mutationFn: ({ version, yanked }: { version: string; yanked: boolean }) =>
+      yankBundleVersion(appId, version, yanked),
+    onSuccess: () => {
+      setYankingVersion(null);
+      setYankError(null);
+      queryClient.invalidateQueries({ queryKey: ['app-bundles', appId] });
+    },
+    onError: (err: unknown) => {
+      setYankingVersion(null);
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data
+          ?.message || (err instanceof Error ? err.message : 'Yank failed');
+      setYankError(msg);
     },
   });
 
@@ -219,6 +248,11 @@ export default function AppDetailPage() {
       {deleteError && (
         <p className='text-[12px] text-red-400 bg-red-900/20 border border-red-800/40 rounded-lg px-3 py-2'>
           {deleteError}
+        </p>
+      )}
+      {yankError && (
+        <p className='text-[12px] text-amber-400 bg-amber-900/20 border border-amber-800/40 rounded-lg px-3 py-2'>
+          {yankError}
         </p>
       )}
 
@@ -436,6 +470,83 @@ export default function AppDetailPage() {
                         Edit
                       </Link>
                     )}
+                    {b.yanked && (
+                      <span className='pill bg-amber-500/10 text-amber-400 text-[10px]'>
+                        Yanked
+                      </span>
+                    )}
+                    {isVersionOwner &&
+                      (b.yanked ? (
+                        confirmUnYankVersion === b.appVersion ? (
+                          <span className='flex items-center gap-1.5 text-[11px]'>
+                            <span className='text-amber-400'>Unyank?</span>
+                            <button
+                              onClick={() => {
+                                setConfirmUnYankVersion(null);
+                                setYankingVersion(b.appVersion);
+                                yankVersionMutation.mutate({
+                                  version: b.appVersion,
+                                  yanked: false,
+                                });
+                              }}
+                              disabled={yankingVersion === b.appVersion}
+                              className='text-amber-400 hover:text-amber-300 font-medium transition-colors disabled:opacity-50'
+                            >
+                              Yes
+                            </button>
+                            <button
+                              onClick={() => setConfirmUnYankVersion(null)}
+                              className='text-neutral-500 hover:text-neutral-300 transition-colors'
+                            >
+                              Cancel
+                            </button>
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() =>
+                              setConfirmUnYankVersion(b.appVersion)
+                            }
+                            disabled={yankingVersion === b.appVersion}
+                            className='inline-flex items-center gap-1 text-[11px] text-amber-500 hover:text-amber-300 transition-colors disabled:opacity-50'
+                          >
+                            <RotateCcw className='w-3 h-3' />
+                            Unyank
+                          </button>
+                        )
+                      ) : confirmYankVersion === b.appVersion ? (
+                        <span className='flex items-center gap-1.5 text-[11px]'>
+                          <span className='text-amber-400'>Yank?</span>
+                          <button
+                            onClick={() => {
+                              setConfirmYankVersion(null);
+                              setYankingVersion(b.appVersion);
+                              yankVersionMutation.mutate({
+                                version: b.appVersion,
+                                yanked: true,
+                              });
+                            }}
+                            disabled={yankingVersion === b.appVersion}
+                            className='text-amber-400 hover:text-amber-300 font-medium transition-colors disabled:opacity-50'
+                          >
+                            Yes
+                          </button>
+                          <button
+                            onClick={() => setConfirmYankVersion(null)}
+                            className='text-neutral-500 hover:text-neutral-300 transition-colors'
+                          >
+                            Cancel
+                          </button>
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => setConfirmYankVersion(b.appVersion)}
+                          disabled={yankingVersion === b.appVersion}
+                          className='inline-flex items-center gap-1 text-[11px] text-neutral-600 hover:text-amber-400 transition-colors disabled:opacity-50'
+                        >
+                          <Ban className='w-3 h-3' />
+                          Yank
+                        </button>
+                      ))}
                     {isVersionOwner && (
                       <>
                         {isConfirmingThisVersion ? (
