@@ -16,6 +16,7 @@ const {
   isAllowedOwner,
 } = require('../../../lib/verify');
 const { requireAuth } = require('../../../lib/auth-helpers');
+const { kv } = require('../../../lib/kv-client');
 
 let storage;
 function getStorage() {
@@ -229,6 +230,8 @@ module.exports = async function handler(req, res) {
 
     try {
       await store.deleteBundleVersion(pkg, version);
+      // Clean up yank flag so a future re-publish of the same semver starts fresh.
+      await kv.del(`bundle-yanked:${pkg}/${version}`).catch(() => {});
       return res.status(200).json({ message: `Deleted ${pkg}@${version}` });
     } catch (error) {
       console.error('DELETE version error:', error);
