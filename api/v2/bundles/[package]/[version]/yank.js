@@ -19,7 +19,8 @@ const { kv } = require('../../../../lib/kv-client');
 
 // Scoped packages (@org/name) are allowed; bare path traversal sequences are not.
 const PKG_RE = /^(?:@[\w.-]+\/)?[\w.+-]+$/;
-const VER_RE = /^[\w.+-]+$/;
+// Block repeated dots (e.g. `..`) in addition to the character allowlist.
+const VER_RE = /^(?!.*\.{2})[\w.+-]+$/;
 
 let _store;
 function getStorage() {
@@ -45,6 +46,9 @@ module.exports = async function handler(req, res) {
     });
   }
 
+  const user = await requireAuth(req, res);
+  if (!user) return;
+
   const body = req.body || {};
   if (typeof body.yanked !== 'boolean') {
     return res.status(400).json({
@@ -52,9 +56,6 @@ module.exports = async function handler(req, res) {
       message: '`yanked` must be a boolean',
     });
   }
-
-  const user = await requireAuth(req, res);
-  if (!user) return;
 
   const store = getStorage();
   let existing;
