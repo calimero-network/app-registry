@@ -20,7 +20,7 @@
     "@calimero-network/mero-tokens": "^0.0.5",
     "@calimero-network/mero-ui": "^1.5.0",
     "@noble/ed25519": "^2.0.0",
-    "@tanstack/react-query": "^4.29.0",
+    "@tanstack/react-query": "^5.90.5",
     "axios": "^1.15.0",
     "canonicalize": "^2.1.0",
     "clsx": "^1.2.1",

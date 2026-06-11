@@ -335,8 +335,8 @@ importers:
         specifier: ^2.0.0
         version: 2.3.0
       '@tanstack/react-query':
-        specifier: ^4.29.0
-        version: 4.42.0(react-dom@19.2.3)(react@19.2.3)
+        specifier: ^5.90.5
+        version: 5.101.0(react@19.2.3)
       axios:
         specifier: ^1.15.0
         version: 1.17.0
@@ -2890,26 +2890,17 @@ packages:
       '@sinonjs/commons': 3.0.1
     dev: true
 
-  /@tanstack/query-core@4.41.0:
-    resolution: {integrity: sha512-193R4Jp9hjvlij6LryxrB5Mpbffd2L9PeWh3KlIy/hJV4SkBOfiQZ+jc5qAZLDCrdbkA5FjGj+UoDYw6TcNnyA==}
+  /@tanstack/query-core@5.101.0:
+    resolution: {integrity: sha512-cQetA74EB+seWySv1TTKr828TnP0u39m6LykwDXIo84SNortpDkp30TMEjkqtYCNP9c40uT/iwl6MLiufEt0Ow==}
     dev: false
 
-  /@tanstack/react-query@4.42.0(react-dom@19.2.3)(react@19.2.3):
-    resolution: {integrity: sha512-j0tiofkzE3CSrYKmVRaKuwGgvCE+P2OOEDlhmfjeZf5ufcuFHwYwwgw3j08n4WYPVZ+OpsHblcFYezhKA3jDwg==}
+  /@tanstack/react-query@5.101.0(react@19.2.3):
+    resolution: {integrity: sha512-rLlJXSpkqfizLWgkR5+eLeIk0MvTx/meEIR7LRjxic+qxiQP8zVjq7BqQkiCMNLQBlLfuOLqqr6KO5GtrDlmSg==}
     peerDependencies:
-      react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
-      react-dom: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
-      react-native: '*'
-    peerDependenciesMeta:
-      react-dom:
-        optional: true
-      react-native:
-        optional: true
+      react: ^18 || ^19
     dependencies:
-      '@tanstack/query-core': 4.41.0
+      '@tanstack/query-core': 5.101.0
       react: 19.2.3
-      react-dom: 19.2.3(react@19.2.3)
-      use-sync-external-store: 1.6.0(react@19.2.3)
     dev: false
 
   /@testing-library/dom@8.20.1:
