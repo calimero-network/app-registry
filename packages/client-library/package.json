@@ -43,7 +43,7 @@
     "eslint-config-prettier": "^9.0.0",
     "typescript": "^5.9.3",
     "tsup": "^8.0.0",
-    "vitest": "^0.29.3",
+    "vitest": "^3.2.6",
     "semantic-release": "^25.0.1",
     "@semantic-release/commit-analyzer": "^13.0.1",
     "@semantic-release/exec": "^7.0.0",
