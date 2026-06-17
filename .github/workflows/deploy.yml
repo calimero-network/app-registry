@@ -15,7 +15,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -38,7 +38,7 @@ jobs:
         run: pnpm format:check
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Check Docker Hub credentials
         id: docker-hub
@@ -64,7 +64,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push to GitHub Container Registry with Kaniko
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: ./packages/backend/Dockerfile
@@ -78,7 +78,7 @@ jobs:
 
       - name: Build and push to Docker Hub with Kaniko (if credentials provided)
         if: steps.docker-hub.outputs.has_credentials == 'true'
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: ./packages/backend/Dockerfile
