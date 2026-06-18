@@ -5,6 +5,7 @@
  */
 
 const { kv } = require('./kv-client');
+const blob = require('./blob-store');
 const semver = require('semver');
 
 class BundleStorageKV {
@@ -52,6 +53,14 @@ class BundleStorageKV {
           'Invalid interfaces.uses: must be an array or undefined/null'
         );
       }
+    }
+
+    // Upload the binary to GCS BEFORE writing the manifest, so a manifest can
+    // never exist in Redis without its blob in the bucket. If the upload throws,
+    // we bail out here and nothing is written. (Re-uploading the same
+    // package@version is idempotent — identical, immutable bytes to the same key.)
+    if (_binary) {
+      await blob.putBinary(key, Buffer.from(_binary, 'hex'));
     }
 
     const bundleKey = `bundle:${key}`;
@@ -105,11 +114,6 @@ class BundleStorageKV {
     // 5. Global bundles list
     await kv.sAdd('bundles:all', manifest.package);
 
-    // 6. Store binary if provided (as hex string)
-    if (_binary) {
-      await kv.set(`binary:${key}`, _binary);
-    }
-
     return manifestData;
   }
 
@@ -117,8 +121,13 @@ class BundleStorageKV {
    * Get V2 Bundle Binary by package and version
    */
   async getBundleBinary(pkg, version) {
-    const key = `binary:${pkg}/${version}`;
-    return await kv.get(key);
+    const key = `${pkg}/${version}`;
+    // Read from GCS first; return a hex string so the artifact route's
+    // `Buffer.from(binaryHex, 'hex')` decode stays unchanged.
+    const buf = await blob.getBinary(key);
+    if (buf) return buf.toString('hex');
+    // Backward-compat: legacy bundles whose binary is still in Redis.
+    return await kv.get(`binary:${key}`);
   }
 
   /**
@@ -215,7 +224,8 @@ class BundleStorageKV {
 
     // Remove manifest and binary
     await kv.del(`bundle:${key}`);
-    await kv.del(`binary:${key}`);
+    await kv.del(`binary:${key}`); // clears legacy Redis copy if present
+    await blob.deleteBinary(key); // clears GCS object
 
     // Remove from version set
     await kv.sRem(`bundle-versions:${pkg}`, version);

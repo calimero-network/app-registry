@@ -14,6 +14,18 @@ NODE_ENV=production         # Environment (development/production)
 REDIS_URL=redis://...       # Redis connection URL (required in production)
 VERCEL=1                    # Set automatically by Vercel (enables Redis)
 
+# Bundle binary storage — Google Cloud Storage (GCS)
+# Raw .mpk bundle blobs are stored in a GCS bucket (not Redis). Manifests,
+# indexes and counters stay in Redis. Objects are written to {GCS_PREFIX}/{package}/{version}.mpk
+GCS_BUCKET=calimero-app-registry  # Bucket name (required to read/write binaries)
+GCS_PREFIX=bundles                # Object key prefix (default: bundles)
+GCS_PROJECT_ID=                   # GCP project id (optional if inferable from creds)
+# Service-account credentials. On Vercel (no key file on disk) use inline creds:
+GCS_CLIENT_EMAIL=                 # service-account email
+GCS_PRIVATE_KEY=                  # service-account private key (PEM; \n-escaped newlines OK)
+# Or, for local/ADC, leave the two above empty and set:
+# GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json
+
 # Development/Testing
 SEED_TEST_APPS=true         # Seed test apps on startup (default: true in dev, false in prod)
 LOG_LEVEL=info              # Logging level (debug, info, warn, error)
@@ -87,3 +99,8 @@ Vercel automatically sets:
 
 - `REDIS_URL` - When you add Marketplace Redis integration
 - All other variables use defaults or are set in `vercel.json`
+
+Set manually in the Vercel project env for bundle binary storage:
+
+- `GCS_BUCKET`, `GCS_PROJECT_ID`, `GCS_CLIENT_EMAIL`, `GCS_PRIVATE_KEY` (and
+  optionally `GCS_PREFIX`). Without these, publishing/serving bundle binaries fails.
