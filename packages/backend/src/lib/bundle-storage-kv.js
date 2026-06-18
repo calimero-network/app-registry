@@ -55,6 +55,14 @@ class BundleStorageKV {
       }
     }
 
+    // Upload the binary to GCS BEFORE writing the manifest, so a manifest can
+    // never exist in Redis without its blob in the bucket. If the upload throws,
+    // we bail out here and nothing is written. (Re-uploading the same
+    // package@version is idempotent — identical, immutable bytes to the same key.)
+    if (_binary) {
+      await blob.putBinary(key, Buffer.from(_binary, 'hex'));
+    }
+
     const bundleKey = `bundle:${key}`;
 
     if (overwrite) {
@@ -105,11 +113,6 @@ class BundleStorageKV {
 
     // 5. Global bundles list
     await kv.sAdd('bundles:all', manifest.package);
-
-    // 6. Store binary in GCS (arrives as a hex string to preserve the contract)
-    if (_binary) {
-      await blob.putBinary(key, Buffer.from(_binary, 'hex'));
-    }
 
     return manifestData;
   }

@@ -9,24 +9,27 @@
 
 const { Storage } = require('@google-cloud/storage');
 
-const BUCKET = process.env.GCS_BUCKET;
-const PREFIX = process.env.GCS_PREFIX || 'bundles';
+// Read GCS config fresh on each access (not captured at module load) so tests
+// and any runtime reconfiguration that mutate process.env are picked up.
+const bucketName = () => process.env.GCS_BUCKET;
+const prefix = () => process.env.GCS_PREFIX || 'bundles';
 
 /**
- * Build the GCS client lazily so importing this module never throws when the
- * bucket isn't configured (e.g. unit tests, or routes that never touch binaries).
+ * Lazily build (and cache) the GCS client + bucket handle. The cache is keyed by
+ * bucket name so a changed GCS_BUCKET rebuilds rather than reusing a stale handle.
  */
 let _storage;
 let _bucket;
+let _bucketName;
 
 function getBucket() {
-  if (_bucket) return _bucket;
-
-  if (!BUCKET) {
+  const name = bucketName();
+  if (!name) {
     throw new Error(
       'GCS_BUCKET is not set — cannot read/write bundle binaries to Google Cloud Storage'
     );
   }
+  if (_bucket && _bucketName === name) return _bucket;
 
   // Credentials resolution order:
   // 1. Inline service-account creds via GCS_CLIENT_EMAIL + GCS_PRIVATE_KEY
@@ -46,11 +49,16 @@ function getBucket() {
   }
 
   _storage = new Storage(options);
-  _bucket = _storage.bucket(BUCKET);
+  _bucket = _storage.bucket(name);
+  _bucketName = name;
   return _bucket;
 }
 
-const objectKey = pkgVersionKey => `${PREFIX}/${pkgVersionKey}.mpk`;
+const objectKey = pkgVersionKey => `${prefix()}/${pkgVersionKey}.mpk`;
+
+/** True when a GCS error means "object not found" across SDK error shapes. */
+const isNotFound = err =>
+  err?.code === 404 || err?.code === '404' || err?.status === 404;
 
 async function putBinary(pkgVersionKey, buffer) {
   await getBucket()
@@ -62,22 +70,38 @@ async function getBinary(pkgVersionKey) {
   // returns Buffer | null
   // When the bucket isn't configured (offline/local dev), return null so callers
   // fall back to the legacy Redis copy instead of erroring on every read.
-  if (!BUCKET) return null;
+  if (!bucketName()) return null;
   try {
     const [contents] = await getBucket()
       .file(objectKey(pkgVersionKey))
       .download();
     return contents;
   } catch (err) {
-    if (err?.code === 404) return null;
+    if (isNotFound(err)) return null;
     throw err;
   }
 }
 
 async function deleteBinary(pkgVersionKey) {
+  // Mirror getBinary: no bucket configured → nothing to delete (don't throw, so
+  // callers like deleteBundleVersion can still clean up Redis + indexes).
+  if (!bucketName()) return;
   await getBucket()
     .file(objectKey(pkgVersionKey))
     .delete({ ignoreNotFound: true });
 }
 
-module.exports = { putBinary, getBinary, deleteBinary, objectKey };
+/** Test hook: drop the cached client so a later call rebuilds from current env. */
+function _resetForTests() {
+  _storage = undefined;
+  _bucket = undefined;
+  _bucketName = undefined;
+}
+
+module.exports = {
+  putBinary,
+  getBinary,
+  deleteBinary,
+  objectKey,
+  _resetForTests,
+};
