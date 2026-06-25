@@ -140,7 +140,13 @@ describe('Multi-service bundle storage', () => {
   });
 
   test('rejects a service name that violates the charset (e.g. traversal/uppercase)', async () => {
-    for (const bad of ['../evil', 'Lobby', 'has space', 'app']) {
+    // Each iteration is independent: clear state + assert per-name so a name
+    // that wrongly slipped through couldn't be masked by a later "already
+    // exists" error or a single end-of-loop assertion.
+    for (const bad of ['../evil', 'Lobby', 'has space', ' lobby ', 'app']) {
+      mockKVData.clear();
+      mockKVSets.clear();
+      jest.clearAllMocks();
       const manifest = {
         ...baseManifest(),
         services: [{ name: bad, wasm: { path: 'x.wasm', hash: 'h', size: 1 } }],
@@ -148,8 +154,8 @@ describe('Multi-service bundle storage', () => {
       await expect(storage.storeBundleManifest(manifest)).rejects.toThrow(
         /Invalid service name/
       );
+      expect(kv.setNX).not.toHaveBeenCalled();
     }
-    expect(kv.setNX).not.toHaveBeenCalled();
   });
 
   test('rejects a service name longer than 64 characters', async () => {

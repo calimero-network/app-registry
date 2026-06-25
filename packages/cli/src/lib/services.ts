@@ -20,7 +20,16 @@ export interface ServiceSource {
   abi?: string; // optional path to the service ABI JSON file
 }
 
-/** Service names must be filesystem-safe and collision-free with the main `app.wasm`. */
+/**
+ * Service names must be filesystem-safe and collision-free with the main
+ * `app.wasm`.
+ *
+ * NOTE: this regex and the rules in {@link validateServiceName} (≤64 chars,
+ * not "app") are mirrored backend-side in
+ * packages/backend/src/lib/bundle-storage-kv.js (storeBundleManifest). They are
+ * not shared at the module level (ESM/TS CLI vs CJS backend), so any change
+ * here must be reflected there and vice versa.
+ */
 const SERVICE_NAME_RE = /^[a-z0-9][a-z0-9_-]*$/;
 
 /**
@@ -125,15 +134,25 @@ export function assertUniqueServiceNames(services: ServiceSource[]): void {
  * Reject an archive path that isn't a safe, bundle-relative path. A `.mpk`
  * unpacked from an untrusted source (or a hand-crafted manifest) could carry a
  * `path` like `/etc/passwd` or `../../x`; packing such a path would read files
- * from outside the bundle directory. Paths must be relative and free of any
- * `..` segment (checked against both separators for cross-platform safety).
+ * from outside the bundle directory. Paths must be relative, non-empty, and
+ * free of any `.` or `..` segment (checked against both separators for
+ * cross-platform safety). Our generated paths (`app.wasm`, `abi.json`,
+ * `services/<name>.wasm`) never contain a dot *segment*, so rejecting them is
+ * safe and keeps the guard strict.
  * @throws Error on an unsafe path.
  */
 export function assertSafeBundlePath(p: string): void {
   const segments = p.split(/[\\/]/);
-  if (p.startsWith('/') || /^[a-zA-Z]:/.test(p) || segments.includes('..')) {
+  if (
+    !p ||
+    p.startsWith('/') ||
+    /^[a-zA-Z]:/.test(p) ||
+    segments.includes('..') ||
+    segments.includes('.') ||
+    segments.includes('')
+  ) {
     throw new Error(
-      `Unsafe bundle path "${p}": must be relative and contain no ".." segments.`
+      `Unsafe bundle path "${p}": must be a non-empty relative path with no "." or ".." segments.`
     );
   }
 }

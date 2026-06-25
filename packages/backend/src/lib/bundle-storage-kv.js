@@ -62,6 +62,14 @@ class BundleStorageKV {
     // reserved "app") — a client bypassing the CLI must not be able to persist
     // a name like "../evil" or "app" that becomes a filesystem path segment
     // when a consumer later unpacks the bundle.
+    //
+    // NOTE: SERVICE_NAME_RE and these rules are mirrored in the CLI's
+    // packages/cli/src/lib/services.ts (validateServiceName). The two are not
+    // shared at the module level (CJS backend vs ESM/TS CLI build), so keep
+    // them in sync — any change here must be reflected there and vice versa.
+    // The name is validated as-is (not trimmed): the regex already rejects
+    // whitespace, and trimming server-side would diverge the stored manifest
+    // from the bytes the signature was computed over.
     if (manifestJson.services !== undefined && manifestJson.services !== null) {
       if (!Array.isArray(manifestJson.services)) {
         throw new Error('Invalid services: must be an array or undefined/null');
@@ -72,19 +80,22 @@ class BundleStorageKV {
         if (!svc || typeof svc !== 'object' || Array.isArray(svc)) {
           throw new Error('Invalid service: each service must be an object');
         }
-        if (typeof svc.name !== 'string' || svc.name.trim().length === 0) {
+        if (typeof svc.name !== 'string' || svc.name.length === 0) {
           throw new Error('Invalid service: missing or empty name');
         }
-        const name = svc.name.trim();
-        if (!SERVICE_NAME_RE.test(name) || name.length > 64 || name === 'app') {
+        if (
+          !SERVICE_NAME_RE.test(svc.name) ||
+          svc.name.length > 64 ||
+          svc.name === 'app'
+        ) {
           throw new Error(
             `Invalid service name "${svc.name}": must match ^[a-z0-9][a-z0-9_-]*$, be at most 64 chars, and not be "app"`
           );
         }
-        if (seenNames.has(name)) {
-          throw new Error(`Invalid service: duplicate name "${name}"`);
+        if (seenNames.has(svc.name)) {
+          throw new Error(`Invalid service: duplicate name "${svc.name}"`);
         }
-        seenNames.add(name);
+        seenNames.add(svc.name);
         if (
           !svc.wasm ||
           typeof svc.wasm !== 'object' ||

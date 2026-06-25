@@ -215,4 +215,14 @@ describe('assertSafeBundlePath', () => {
       /Unsafe bundle path/
     );
   });
+
+  it('rejects "." segments and empty segments', () => {
+    expect(() => assertSafeBundlePath('services/./x.wasm')).toThrow(
+      /Unsafe bundle path/
+    );
+    expect(() => assertSafeBundlePath('services//x.wasm')).toThrow(
+      /Unsafe bundle path/
+    );
+    expect(() => assertSafeBundlePath('')).toThrow(/Unsafe bundle path/);
+  });
 });
