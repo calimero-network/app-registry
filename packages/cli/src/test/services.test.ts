@@ -5,6 +5,7 @@ import {
   serviceWasmPath,
   serviceAbiPath,
   assertUniqueServiceNames,
+  assertSafeBundlePath,
   collectBundleFiles,
 } from '../lib/services.js';
 import type { BundleManifest } from '../lib/local-storage.js';
@@ -172,5 +173,46 @@ describe('collectBundleFiles', () => {
       ],
     };
     expect(collectBundleFiles(m)).toEqual(['manifest.json', 'app.wasm']);
+  });
+
+  it('rejects a service path that escapes the bundle directory', () => {
+    const m: BundleManifest = {
+      ...base,
+      services: [
+        {
+          name: 'evil',
+          wasm: { path: '../../etc/passwd', hash: 'h', size: 1 },
+        },
+      ],
+    };
+    expect(() => collectBundleFiles(m)).toThrow(/Unsafe bundle path/);
+  });
+});
+
+describe('assertSafeBundlePath', () => {
+  it('accepts safe relative paths', () => {
+    expect(() => assertSafeBundlePath('app.wasm')).not.toThrow();
+    expect(() => assertSafeBundlePath('services/lobby.wasm')).not.toThrow();
+  });
+
+  it('rejects absolute paths', () => {
+    expect(() => assertSafeBundlePath('/etc/passwd')).toThrow(
+      /Unsafe bundle path/
+    );
+    expect(() => assertSafeBundlePath('C:\\Windows\\x')).toThrow(
+      /Unsafe bundle path/
+    );
+  });
+
+  it('rejects ".." traversal with either separator', () => {
+    expect(() => assertSafeBundlePath('../app.wasm')).toThrow(
+      /Unsafe bundle path/
+    );
+    expect(() => assertSafeBundlePath('services/../../app.wasm')).toThrow(
+      /Unsafe bundle path/
+    );
+    expect(() => assertSafeBundlePath('services\\..\\app.wasm')).toThrow(
+      /Unsafe bundle path/
+    );
   });
 });

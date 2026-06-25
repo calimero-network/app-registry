@@ -567,11 +567,13 @@ Note:
         // Copy service files (under services/) preserving their archive paths.
         // Assert each destination stays inside outputDir/services/ — defence in
         // depth against a crafted name escaping the directory (e.g. "../app"),
-        // independent of validateServiceName.
-        const servicesPrefix = path.join(outputDir, 'services') + path.sep;
+        // independent of validateServiceName. Uses path.relative so the check
+        // is correct regardless of OS path separator.
+        const servicesDir = path.join(outputDir, 'services');
         for (const { relPath, content } of serviceFilesToWrite) {
           const dest = path.join(outputDir, relPath);
-          if (!dest.startsWith(servicesPrefix)) {
+          const rel = path.relative(servicesDir, dest);
+          if (rel.startsWith('..') || path.isAbsolute(rel)) {
             console.error(
               `❌ Refusing to write service file outside services/: ${relPath}`
             );
@@ -718,12 +720,11 @@ Note:
           // and was verified above, so a parse failure is a hard error — never
           // fall back silently, which would drop service files from the archive
           // while still reporting success.
-          let archiveFiles: string[];
+          let dirManifest: BundleManifest;
           try {
-            const dirManifest = JSON.parse(
+            dirManifest = JSON.parse(
               fs.readFileSync(manifestInDir, 'utf8')
             ) as BundleManifest;
-            archiveFiles = collectBundleFiles(dirManifest);
           } catch (e) {
             console.error(
               `❌ Failed to parse manifest.json in ${fullPath}: ${
@@ -733,6 +734,25 @@ Note:
             console.error(
               '   Fix the manifest JSON and retry (service files would otherwise be silently omitted).'
             );
+            process.exit(1);
+          }
+
+          // A bundle must declare its main app WASM; without it the archive
+          // would omit app.wasm and still "succeed".
+          if (!dirManifest.wasm?.path) {
+            console.error(
+              '❌ manifest.json has no main wasm (wasm.path). A bundle must include its main application.'
+            );
+            process.exit(1);
+          }
+
+          // Collect the files to pack; rejects unsafe paths (absolute / "..")
+          // that a crafted manifest could use to read outside the directory.
+          let archiveFiles: string[];
+          try {
+            archiveFiles = collectBundleFiles(dirManifest);
+          } catch (e) {
+            console.error(`❌ ${e instanceof Error ? e.message : String(e)}`);
             process.exit(1);
           }
 

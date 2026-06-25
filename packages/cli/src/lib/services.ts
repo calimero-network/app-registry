@@ -68,7 +68,10 @@ export function parseServiceSpec(spec: string): ServiceSource {
 
   let abi: string | undefined;
   // Optional ",abi=<path>" tail, tolerant of whitespace around the separator.
-  const abiMatch = rest.match(/,\s*abi\s*=\s*(.*)$/);
+  // The abi value may not contain a comma ([^,]*), so a stray second ",abi="
+  // leaves a comma in the WASM path and is caught by the check below. The `*`
+  // (not `+`) still matches an empty value so it reports "empty abi path".
+  const abiMatch = rest.match(/,\s*abi\s*=\s*([^,]*)$/);
   if (abiMatch) {
     abi = abiMatch[1].trim();
     rest = rest.slice(0, abiMatch.index).trim();
@@ -119,10 +122,30 @@ export function assertUniqueServiceNames(services: ServiceSource[]): void {
 }
 
 /**
+ * Reject an archive path that isn't a safe, bundle-relative path. A `.mpk`
+ * unpacked from an untrusted source (or a hand-crafted manifest) could carry a
+ * `path` like `/etc/passwd` or `../../x`; packing such a path would read files
+ * from outside the bundle directory. Paths must be relative and free of any
+ * `..` segment (checked against both separators for cross-platform safety).
+ * @throws Error on an unsafe path.
+ */
+export function assertSafeBundlePath(p: string): void {
+  const segments = p.split(/[\\/]/);
+  if (p.startsWith('/') || /^[a-zA-Z]:/.test(p) || segments.includes('..')) {
+    throw new Error(
+      `Unsafe bundle path "${p}": must be relative and contain no ".." segments.`
+    );
+  }
+}
+
+/**
  * Collect the list of files (relative to the bundle directory) that a manifest
  * references and that must therefore be packed into the `.mpk`. Always includes
  * `manifest.json` and the main `wasm.path`; includes the main `abi.path` and
  * each service's `wasm.path` / `abi.path` when present.
+ *
+ * Every referenced path is checked with {@link assertSafeBundlePath} so a
+ * crafted manifest can't pull files from outside the bundle directory.
  *
  * Used by `bundle push` when packing a directory so service WASMs are not
  * silently dropped from the archive.
@@ -135,6 +158,7 @@ export function collectBundleFiles(manifest: BundleManifest): string[] {
     if (svc.wasm?.path) files.push(svc.wasm.path);
     if (svc.abi?.path) files.push(svc.abi.path);
   }
+  files.forEach(assertSafeBundlePath);
   // De-dupe while preserving order (a malformed manifest could repeat a path).
   return [...new Set(files)];
 }
