@@ -85,6 +85,16 @@ describe('validateServiceName', () => {
     );
     expect(() => validateServiceName('a'.repeat(64))).not.toThrow();
   });
+
+  it('rejects non-string names (e.g. a number from manifest JSON)', () => {
+    // Manifest JSON can violate the `string` type at runtime.
+    expect(() => validateServiceName(123 as unknown as string)).toThrow(
+      /Invalid service name/
+    );
+    expect(() => validateServiceName(null as unknown as string)).toThrow(
+      /Invalid service name/
+    );
+  });
 });
 
 describe('artifact path helpers', () => {

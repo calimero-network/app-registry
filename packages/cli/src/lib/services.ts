@@ -38,7 +38,12 @@ const SERVICE_NAME_RE = /^[a-z0-9][a-z0-9_-]*$/;
  * @throws Error on an invalid name.
  */
 export function validateServiceName(name: string): void {
-  if (!name || !SERVICE_NAME_RE.test(name)) {
+  // Guard the runtime type: `name` is typed string, but it often comes from
+  // parsed manifest JSON, where it could be a number/boolean/etc. Without this,
+  // `RegExp.test(123)` would coerce to "123" and pass, and a numeric 123 would
+  // be treated as distinct from the string "123" by the uniqueness check while
+  // colliding on the same `services/123.wasm` path.
+  if (typeof name !== 'string' || !SERVICE_NAME_RE.test(name)) {
     throw new Error(
       `Invalid service name "${name}". Use lowercase letters, digits, "-" or "_" (must start alphanumeric).`
     );
