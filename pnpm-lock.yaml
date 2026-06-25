@@ -327,19 +327,19 @@ importers:
     dependencies:
       '@calimero-network/mero-icons':
         specifier: ^0.0.6
-        version: 0.0.6(react@19.2.3)
+        version: 0.0.6(react@19.2.7)
       '@calimero-network/mero-tokens':
         specifier: ^0.0.5
         version: 0.0.5
       '@calimero-network/mero-ui':
         specifier: ^1.5.0
-        version: 1.5.0(@floating-ui/dom@1.7.6)(@tiptap/core@3.27.1)(@tiptap/pm@3.27.1)(@types/react-dom@19.2.3)(@types/react@19.2.7)(react-dom@19.2.3)(react@19.2.3)
+        version: 1.5.0(@floating-ui/dom@1.7.6)(@tiptap/core@3.27.1)(@tiptap/pm@3.27.1)(@types/react-dom@19.2.3)(@types/react@19.2.7)(react-dom@19.2.3)(react@19.2.7)
       '@noble/ed25519':
         specifier: ^3.1.0
         version: 3.1.0
       '@tanstack/react-query':
         specifier: ^5.90.5
-        version: 5.101.0(react@19.2.3)
+        version: 5.101.0(react@19.2.7)
       axios:
         specifier: ^1.15.0
         version: 1.17.0
@@ -351,16 +351,16 @@ importers:
         version: 2.1.1
       lucide-react:
         specifier: ^0.263.1
-        version: 0.263.1(react@19.2.3)
+        version: 0.263.1(react@19.2.7)
       react:
-        specifier: ^19.2.0
-        version: 19.2.3
+        specifier: ^19.2.7
+        version: 19.2.7
       react-dom:
         specifier: ^19.2.0
-        version: 19.2.3(react@19.2.3)
+        version: 19.2.3(react@19.2.7)
       react-router-dom:
         specifier: ^6.8.0
-        version: 6.30.2(react-dom@19.2.3)(react@19.2.3)
+        version: 6.30.2(react-dom@19.2.3)(react@19.2.7)
       tailwind-merge:
         specifier: ^3.6.0
         version: 3.6.0
@@ -373,7 +373,7 @@ importers:
         version: 5.17.0
       '@testing-library/react':
         specifier: ^13.4.0
-        version: 13.4.0(@types/react@19.2.7)(react-dom@19.2.3)(react@19.2.3)
+        version: 13.4.0(@types/react@19.2.7)(react-dom@19.2.3)(react@19.2.7)
       '@types/react':
         specifier: ^19.2.2
         version: 19.2.7
@@ -815,34 +815,34 @@ packages:
     resolution: {integrity: sha512-0hYQ8SB4Db5zvZB4axdMHGwEaQjkZzFjQiN9LVYvIFB2nSUHW9tYpxWriPrWDASIxiaXax83REcLxuSdnGPZtw==}
     dev: true
 
-  /@calimero-network/mero-icons@0.0.6(react@19.2.3):
+  /@calimero-network/mero-icons@0.0.6(react@19.2.7):
     resolution: {integrity: sha512-pKxSazpsvSFgdFCJAloO5tnWsB/6O4jKundiKerbYWn8G2H2RXAsiGuvlMYDrK5PwByY5O3xB4vOtd2LgmwY3Q==}
     peerDependencies:
       react: ^18.3.1
     dependencies:
-      react: 19.2.3
+      react: 19.2.7
     dev: false
 
   /@calimero-network/mero-tokens@0.0.5:
     resolution: {integrity: sha512-kHR3lyI0e0Cd9EQLAGkv3++jbuuQ0lIRujGaukHSFyMTsywQxi0zAt7eJ0FtBK72A8ZiliWDI+wpoRXWDwFttw==}
     dev: false
 
-  /@calimero-network/mero-ui@1.5.0(@floating-ui/dom@1.7.6)(@tiptap/core@3.27.1)(@tiptap/pm@3.27.1)(@types/react-dom@19.2.3)(@types/react@19.2.7)(react-dom@19.2.3)(react@19.2.3):
+  /@calimero-network/mero-ui@1.5.0(@floating-ui/dom@1.7.6)(@tiptap/core@3.27.1)(@tiptap/pm@3.27.1)(@types/react-dom@19.2.3)(@types/react@19.2.7)(react-dom@19.2.3)(react@19.2.7):
     resolution: {integrity: sha512-R9VJfOCvZLtwUXFKDOQCnsrbMVGeyT+osawX3VHh/hHQCLtevXKhzZYRhAPaHVo8m1K2Sz8Kxq9qXbfL3rBuQA==}
     peerDependencies:
       react: '>=19.0.0'
       react-dom: '>=19.0.0'
     dependencies:
-      '@calimero-network/mero-icons': 0.0.6(react@19.2.3)
+      '@calimero-network/mero-icons': 0.0.6(react@19.2.7)
       '@tiptap/extension-color': 3.14.0(@tiptap/extension-text-style@3.14.0)
       '@tiptap/extension-link': 3.14.0(@tiptap/core@3.27.1)(@tiptap/pm@3.27.1)
       '@tiptap/extension-text-align': 3.14.0(@tiptap/core@3.27.1)
       '@tiptap/extension-text-style': 3.14.0(@tiptap/core@3.27.1)
       '@tiptap/extension-underline': 3.14.0(@tiptap/core@3.27.1)
-      '@tiptap/react': 3.14.0(@floating-ui/dom@1.7.6)(@tiptap/core@3.27.1)(@tiptap/pm@3.27.1)(@types/react-dom@19.2.3)(@types/react@19.2.7)(react-dom@19.2.3)(react@19.2.3)
+      '@tiptap/react': 3.14.0(@floating-ui/dom@1.7.6)(@tiptap/core@3.27.1)(@tiptap/pm@3.27.1)(@types/react-dom@19.2.3)(@types/react@19.2.7)(react-dom@19.2.3)(react@19.2.7)
       '@tiptap/starter-kit': 3.14.0
-      react: 19.2.3
-      react-dom: 19.2.3(react@19.2.3)
+      react: 19.2.7
+      react-dom: 19.2.3(react@19.2.7)
     transitivePeerDependencies:
       - '@floating-ui/dom'
       - '@tiptap/core'
@@ -1985,8 +1985,8 @@ packages:
       uint8arrays: 5.1.0
     dev: false
 
-  /@napi-rs/wasm-runtime@1.1.5(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0):
-    resolution: {integrity: sha512-AWPoBRJ9tsnVhor4sjO7rkni+7p+2IAEFj6cx06UgP10jkQHqay/36uRV/bFkgrh18D9vb4cr8Q0Pthskgzy+Q==}
+  /@napi-rs/wasm-runtime@1.1.6(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0):
+    resolution: {integrity: sha512-ZLv/JdUfkvOy9eCnnBaGfiO+XimbjebAeO+MRQqD/B+FR1tnRN0tpKSJHRbE8sFfS6aqsXZ67TQjfwfsxULVbg==}
     requiresBuild: true
     peerDependencies:
       '@emnapi/core': ^1.7.1
@@ -1994,7 +1994,7 @@ packages:
     dependencies:
       '@emnapi/core': 1.10.0
       '@emnapi/runtime': 1.10.0
-      '@tybys/wasm-util': 0.10.2
+      '@tybys/wasm-util': 0.10.3
     dev: true
     optional: true
 
@@ -2594,13 +2594,13 @@ packages:
     resolution: {integrity: sha512-cQetA74EB+seWySv1TTKr828TnP0u39m6LykwDXIo84SNortpDkp30TMEjkqtYCNP9c40uT/iwl6MLiufEt0Ow==}
     dev: false
 
-  /@tanstack/react-query@5.101.0(react@19.2.3):
+  /@tanstack/react-query@5.101.0(react@19.2.7):
     resolution: {integrity: sha512-rLlJXSpkqfizLWgkR5+eLeIk0MvTx/meEIR7LRjxic+qxiQP8zVjq7BqQkiCMNLQBlLfuOLqqr6KO5GtrDlmSg==}
     peerDependencies:
       react: ^18 || ^19
     dependencies:
       '@tanstack/query-core': 5.101.0
-      react: 19.2.3
+      react: 19.2.7
     dev: false
 
   /@testing-library/dom@8.20.1:
@@ -2632,7 +2632,7 @@ packages:
       redent: 3.0.0
     dev: true
 
-  /@testing-library/react@13.4.0(@types/react@19.2.7)(react-dom@19.2.3)(react@19.2.3):
+  /@testing-library/react@13.4.0(@types/react@19.2.7)(react-dom@19.2.3)(react@19.2.7):
     resolution: {integrity: sha512-sXOGON+WNTh3MLE9rve97ftaZukN3oNf2KjDy7YTx6hcTO2uuLHuCGynMDhFwGw/jYf4OJ2Qk0i4i79qMNNkyw==}
     engines: {node: '>=12'}
     peerDependencies:
@@ -2642,8 +2642,8 @@ packages:
       '@babel/runtime': 7.28.4
       '@testing-library/dom': 8.20.1
       '@types/react-dom': 18.3.7(@types/react@19.2.7)
-      react: 19.2.3
-      react-dom: 19.2.3(react@19.2.3)
+      react: 19.2.7
+      react-dom: 19.2.3(react@19.2.7)
     transitivePeerDependencies:
       - '@types/react'
     dev: true
@@ -2962,7 +2962,7 @@ packages:
       prosemirror-view: 1.41.9
     dev: false
 
-  /@tiptap/react@3.14.0(@floating-ui/dom@1.7.6)(@tiptap/core@3.27.1)(@tiptap/pm@3.27.1)(@types/react-dom@19.2.3)(@types/react@19.2.7)(react-dom@19.2.3)(react@19.2.3):
+  /@tiptap/react@3.14.0(@floating-ui/dom@1.7.6)(@tiptap/core@3.27.1)(@tiptap/pm@3.27.1)(@types/react-dom@19.2.3)(@types/react@19.2.7)(react-dom@19.2.3)(react@19.2.7):
     resolution: {integrity: sha512-Eo/nLyKxHvnLIF4gI2WFhGJiVrqfA6XL9kismVG9NwBNF/NblMDmZZu6Z2SH/ONJQz2Egn7UBPNp3BMq/qZDcg==}
     peerDependencies:
       '@tiptap/core': ^3.14.0
@@ -2978,9 +2978,9 @@ packages:
       '@types/react-dom': 19.2.3(@types/react@19.2.7)
       '@types/use-sync-external-store': 0.0.6
       fast-equals: 5.4.0
-      react: 19.2.3
-      react-dom: 19.2.3(react@19.2.3)
-      use-sync-external-store: 1.6.0(react@19.2.3)
+      react: 19.2.7
+      react-dom: 19.2.3(react@19.2.7)
+      use-sync-external-store: 1.6.0(react@19.2.7)
     optionalDependencies:
       '@tiptap/extension-bubble-menu': 3.27.1(@tiptap/core@3.27.1)(@tiptap/pm@3.27.1)
       '@tiptap/extension-floating-menu': 3.27.1(@floating-ui/dom@1.7.6)(@tiptap/core@3.27.1)(@tiptap/pm@3.27.1)
@@ -3022,8 +3022,8 @@ packages:
     engines: {node: '>= 10'}
     dev: false
 
-  /@tybys/wasm-util@0.10.2:
-    resolution: {integrity: sha512-RoBvJ2X0wuKlWFIjrwffGw1IqZHKQqzIchKaadZZfnNpsAYp2mM0h36JtPCjNDAHGgYez/15uMBpfGwchhiMgg==}
+  /@tybys/wasm-util@0.10.3:
+    resolution: {integrity: sha512-F3fo1MYrRJYL3zER0OUOmkutjr1Vp23m7OsSgp7nq4SP6OqX6C/56XFIPAl5bt3zaBRjmW7SGz3u/6LwFpYcOg==}
     requiresBuild: true
     dependencies:
       tslib: 2.8.1
@@ -3643,7 +3643,7 @@ packages:
     dependencies:
       '@emnapi/core': 1.10.0
       '@emnapi/runtime': 1.10.0
-      '@napi-rs/wasm-runtime': 1.1.5(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)
+      '@napi-rs/wasm-runtime': 1.1.6(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)
     dev: true
     optional: true
 
@@ -7762,12 +7762,12 @@ packages:
       yallist: 4.0.0
     dev: true
 
-  /lucide-react@0.263.1(react@19.2.3):
+  /lucide-react@0.263.1(react@19.2.7):
     resolution: {integrity: sha512-keqxAx97PlaEN89PXZ6ki1N8nRjGWtDa4021GFYLNj0RgruM5odbpl8GHTExj0hhPq3sF6Up0gnxt6TSHu+ovw==}
     peerDependencies:
       react: ^16.5.1 || ^17.0.0 || ^18.0.0
     dependencies:
-      react: 19.2.3
+      react: 19.2.7
     dev: false
 
   /lz-string@1.5.0:
@@ -9176,12 +9176,12 @@ packages:
       strip-json-comments: 2.0.1
     dev: true
 
-  /react-dom@19.2.3(react@19.2.3):
+  /react-dom@19.2.3(react@19.2.7):
     resolution: {integrity: sha512-yELu4WmLPw5Mr/lmeEpox5rw3RETacE++JgHqQzd2dg+YbJuat3jH4ingc+WPZhxaoFzdv9y33G+F7Nl5O0GBg==}
     peerDependencies:
       react: ^19.2.3
     dependencies:
-      react: 19.2.3
+      react: 19.2.7
       scheduler: 0.27.0
 
   /react-is@17.0.2:
@@ -9207,7 +9207,7 @@ packages:
     engines: {node: '>=0.10.0'}
     dev: true
 
-  /react-router-dom@6.30.2(react-dom@19.2.3)(react@19.2.3):
+  /react-router-dom@6.30.2(react-dom@19.2.3)(react@19.2.7):
     resolution: {integrity: sha512-l2OwHn3UUnEVUqc6/1VMmR1cvZryZ3j3NzapC2eUXO1dB0sYp5mvwdjiXhpUbRb21eFow3qSxpP8Yv6oAU824Q==}
     engines: {node: '>=14.0.0'}
     peerDependencies:
@@ -9215,23 +9215,23 @@ packages:
       react-dom: '>=16.8'
     dependencies:
       '@remix-run/router': 1.23.1
-      react: 19.2.3
-      react-dom: 19.2.3(react@19.2.3)
-      react-router: 6.30.2(react@19.2.3)
+      react: 19.2.7
+      react-dom: 19.2.3(react@19.2.7)
+      react-router: 6.30.2(react@19.2.7)
     dev: false
 
-  /react-router@6.30.2(react@19.2.3):
+  /react-router@6.30.2(react@19.2.7):
     resolution: {integrity: sha512-H2Bm38Zu1bm8KUE5NVWRMzuIyAV8p/JrOaBJAwVmp37AXG72+CZJlEBw6pdn9i5TBgLMhNDgijS4ZlblpHyWTA==}
     engines: {node: '>=14.0.0'}
     peerDependencies:
       react: '>=16.8'
     dependencies:
       '@remix-run/router': 1.23.1
-      react: 19.2.3
+      react: 19.2.7
     dev: false
 
-  /react@19.2.3:
-    resolution: {integrity: sha512-Ku/hhYbVjOQnXDZFv2+RibmLFGwFdeeKHFcOTlrt7xplBnya5OGn/hIRDsqDiSUcfORsDC7MPxwork8jBwsIWA==}
+  /react@19.2.7:
+    resolution: {integrity: sha512-HNe9WslTbXmFK8o8cmwgAeJFSBvt1bPdHCVKtaaV+WlAN36mpT4hcRpwbf3fY56ar2oIXzsBpOAiIRHAdY0OlQ==}
     engines: {node: '>=0.10.0'}
 
   /read-cache@1.0.0:
@@ -10697,12 +10697,12 @@ packages:
     engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
     dev: true
 
-  /use-sync-external-store@1.6.0(react@19.2.3):
+  /use-sync-external-store@1.6.0(react@19.2.7):
     resolution: {integrity: sha512-Pp6GSwGP/NrPIrxVFAIkOQeyw8lFenOHijQWkUTrDvrF4ALqylP2C/KCkeS9dpUM3KvYRQhna5vt7IL95+ZQ9w==}
     peerDependencies:
       react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
     dependencies:
-      react: 19.2.3
+      react: 19.2.7
     dev: false
 
   /util-deprecate@1.0.2:
