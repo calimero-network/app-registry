@@ -171,6 +171,10 @@ export function assertSafeBundlePath(p: string): void {
  * Every referenced path is checked with {@link assertSafeBundlePath} so a
  * crafted manifest can't pull files from outside the bundle directory.
  *
+ * Throws if a declared service has no `wasm.path` — packing must not silently
+ * drop a service that the manifest advertises. (Callers like `bundle push`
+ * also guard this earlier with a friendlier message.)
+ *
  * Used by `bundle push` when packing a directory so service WASMs are not
  * silently dropped from the archive.
  */
@@ -179,7 +183,12 @@ export function collectBundleFiles(manifest: BundleManifest): string[] {
   if (manifest.wasm?.path) files.push(manifest.wasm.path);
   if (manifest.abi?.path) files.push(manifest.abi.path);
   for (const svc of manifest.services ?? []) {
-    if (svc.wasm?.path) files.push(svc.wasm.path);
+    if (!svc.wasm?.path) {
+      throw new Error(
+        `Service "${svc?.name ?? '<unnamed>'}" has no wasm.path; cannot pack the bundle.`
+      );
+    }
+    files.push(svc.wasm.path);
     if (svc.abi?.path) files.push(svc.abi.path);
   }
   files.forEach(assertSafeBundlePath);

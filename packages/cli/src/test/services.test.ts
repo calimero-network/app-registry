@@ -185,6 +185,14 @@ describe('collectBundleFiles', () => {
     expect(collectBundleFiles(m)).toEqual(['manifest.json', 'app.wasm']);
   });
 
+  it('throws when a declared service has no wasm.path', () => {
+    const m = {
+      ...base,
+      services: [{ name: 'lobby' }],
+    } as unknown as BundleManifest;
+    expect(() => collectBundleFiles(m)).toThrow(/has no wasm.path/);
+  });
+
   it('rejects a service path that escapes the bundle directory', () => {
     const m: BundleManifest = {
       ...base,
