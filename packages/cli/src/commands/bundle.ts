@@ -419,6 +419,27 @@ Note:
         }
 
         for (const { src, baseDir } of allServiceSources) {
+          // Guard runtime types: manifest-config entries are parsed JSON, so
+          // `wasm`/`abi` could be objects (e.g. a BundleArtifact copied from a
+          // built manifest) rather than file-path strings. Without this,
+          // path.resolve would coerce an object to "[object Object]" and yield
+          // a misleading "not found" error.
+          if (typeof src.wasm !== 'string' || src.wasm.length === 0) {
+            console.error(
+              `❌ Service "${src.name}" wasm must be a file path string.`
+            );
+            process.exit(1);
+          }
+          if (
+            src.abi !== undefined &&
+            (typeof src.abi !== 'string' || src.abi.length === 0)
+          ) {
+            console.error(
+              `❌ Service "${src.name}" abi must be a file path string.`
+            );
+            process.exit(1);
+          }
+
           // Resolve + read the service WASM.
           const svcWasmPath = path.resolve(baseDir, src.wasm);
           if (!fs.existsSync(svcWasmPath)) {

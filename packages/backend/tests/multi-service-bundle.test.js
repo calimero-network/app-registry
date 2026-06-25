@@ -35,6 +35,13 @@ jest.mock('../src/lib/kv-client', () => ({
   },
 }));
 
+// Mock the blob store so any test that adds `_binary` to a manifest doesn't hit
+// real GCS (which throws when GCS_BUCKET is unset, e.g. in CI).
+jest.mock('../src/lib/blob-store', () => ({
+  putBinary: jest.fn(async () => {}),
+  getBinary: jest.fn(async () => null),
+}));
+
 const { kv } = require('../src/lib/kv-client');
 
 const baseManifest = () => ({
@@ -167,6 +174,39 @@ describe('Multi-service bundle storage', () => {
     };
     await expect(storage.storeBundleManifest(manifest)).rejects.toThrow(
       /Invalid service name/
+    );
+    expect(kv.setNX).not.toHaveBeenCalled();
+  });
+
+  test('rejects an unsafe service wasm.path', async () => {
+    const manifest = {
+      ...baseManifest(),
+      services: [
+        {
+          name: 'lobby',
+          wasm: { path: '../../etc/passwd', hash: 'h', size: 1 },
+        },
+      ],
+    };
+    await expect(storage.storeBundleManifest(manifest)).rejects.toThrow(
+      /unsafe wasm.path/
+    );
+    expect(kv.setNX).not.toHaveBeenCalled();
+  });
+
+  test('rejects an unsafe service abi.path', async () => {
+    const manifest = {
+      ...baseManifest(),
+      services: [
+        {
+          name: 'lobby',
+          wasm: { path: 'services/lobby.wasm', hash: 'h', size: 1 },
+          abi: { path: '/etc/shadow', hash: 'h', size: 1 },
+        },
+      ],
+    };
+    await expect(storage.storeBundleManifest(manifest)).rejects.toThrow(
+      /unsafe abi.path/
     );
     expect(kv.setNX).not.toHaveBeenCalled();
   });

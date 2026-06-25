@@ -8,6 +8,24 @@ const { kv } = require('./kv-client');
 const blob = require('./blob-store');
 const semver = require('semver');
 
+/**
+ * True if a bundle artifact path is NOT a safe, bundle-relative path: it is a
+ * non-string, empty, absolute, or contains a `.`/`..`/empty segment. Mirrors
+ * the CLI's assertSafeBundlePath (packages/cli/src/lib/services.ts); keep the
+ * two in sync.
+ */
+function isUnsafeBundlePath(p) {
+  if (typeof p !== 'string' || p.length === 0) return true;
+  const segments = p.split(/[\\/]/);
+  return (
+    p.startsWith('/') ||
+    /^[a-zA-Z]:/.test(p) ||
+    segments.includes('..') ||
+    segments.includes('.') ||
+    segments.includes('')
+  );
+}
+
 class BundleStorageKV {
   constructor() {
     // No in-memory state needed - all operations use KV
@@ -104,6 +122,27 @@ class BundleStorageKV {
           throw new Error(
             `Invalid service "${svc.name}": missing wasm artifact`
           );
+        }
+        // Validate artifact paths so a client bypassing the CLI can't persist
+        // a wasm/abi path like '../../etc/passwd' that a downstream consumer
+        // might trust when reconstructing files. Mirrors the CLI's
+        // assertSafeBundlePath (packages/cli/src/lib/services.ts).
+        if (isUnsafeBundlePath(svc.wasm.path)) {
+          throw new Error(
+            `Invalid service "${svc.name}": unsafe wasm.path "${svc.wasm.path}"`
+          );
+        }
+        if (svc.abi !== undefined && svc.abi !== null) {
+          if (typeof svc.abi !== 'object' || Array.isArray(svc.abi)) {
+            throw new Error(
+              `Invalid service "${svc.name}": abi must be an artifact object`
+            );
+          }
+          if (isUnsafeBundlePath(svc.abi.path)) {
+            throw new Error(
+              `Invalid service "${svc.name}": unsafe abi.path "${svc.abi.path}"`
+            );
+          }
         }
       }
     }
