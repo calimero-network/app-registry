@@ -52,7 +52,11 @@ export interface BundleSignature {
   signed_at: string;
 }
 
-/** A named service within a multi-service bundle. */
+/**
+ * A named service shipped alongside the main application in a multi-service
+ * bundle (e.g. a "lobby" matchmaking service next to a "tictactoe" main app).
+ * Packed under `services/<name>.wasm` (+ optional `services/<name>.abi.json`).
+ */
 export interface BundleServiceEntry {
   name: string;
   wasm: BundleArtifact;
@@ -67,11 +71,15 @@ export interface BundleManifest {
   metadata?: BundleMetadata;
   interfaces?: BundleInterfaces;
 
-  /** Single-service WASM (backward compat). Ignored when services is non-empty. */
+  /** The MAIN application WASM (packed as `app.wasm`). Always present. */
   wasm?: BundleArtifact;
-  /** Single-service ABI (backward compat). Ignored when services is non-empty. */
+  /** The MAIN application ABI (packed as `abi.json`), if any. */
   abi?: BundleArtifact;
-  /** Named services for multi-service bundles. */
+  /**
+   * Additional named services shipped alongside the main app. Optional and
+   * omitted entirely for single-app bundles, so existing manifests are
+   * unchanged (and their signatures still verify).
+   */
   services?: BundleServiceEntry[];
   migrations: BundleArtifact[];
 

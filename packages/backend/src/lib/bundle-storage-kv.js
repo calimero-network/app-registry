@@ -55,6 +55,33 @@ class BundleStorageKV {
       }
     }
 
+    // Validate services structure before storage to prevent partial writes.
+    // Services are optional; when present they must be an array of named
+    // entries each carrying a wasm artifact. Names must be unique.
+    if (manifestJson.services !== undefined && manifestJson.services !== null) {
+      if (!Array.isArray(manifestJson.services)) {
+        throw new Error('Invalid services: must be an array or undefined/null');
+      }
+      const seenNames = new Set();
+      for (const svc of manifestJson.services) {
+        if (!svc || typeof svc !== 'object' || Array.isArray(svc)) {
+          throw new Error('Invalid service: each service must be an object');
+        }
+        if (typeof svc.name !== 'string' || svc.name.trim().length === 0) {
+          throw new Error('Invalid service: missing or empty name');
+        }
+        if (seenNames.has(svc.name)) {
+          throw new Error(`Invalid service: duplicate name "${svc.name}"`);
+        }
+        seenNames.add(svc.name);
+        if (!svc.wasm || typeof svc.wasm !== 'object') {
+          throw new Error(
+            `Invalid service "${svc.name}": missing wasm artifact`
+          );
+        }
+      }
+    }
+
     // Upload the binary to GCS BEFORE writing the manifest, so a manifest can
     // never exist in Redis without its blob in the bucket. If the upload throws,
     // we bail out here and nothing is written. (Re-uploading the same
