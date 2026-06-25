@@ -34,6 +34,13 @@ export function validateServiceName(name: string): void {
       `Invalid service name "${name}". Use lowercase letters, digits, "-" or "_" (must start alphanumeric).`
     );
   }
+  // Bound the length so it can't blow past filesystem path-component limits
+  // (most systems cap a component at 255 bytes; "<name>.abi.json" adds 9).
+  if (name.length > 64) {
+    throw new Error(
+      `Invalid service name "${name}": must be at most 64 characters.`
+    );
+  }
   if (name === 'app') {
     throw new Error(
       'Service name "app" is reserved for the main application. Choose another name.'
@@ -73,6 +80,14 @@ export function parseServiceSpec(spec: string): ServiceSource {
   const wasm = rest;
   if (!wasm) {
     throw new Error(`Invalid --service "${spec}": missing WASM path.`);
+  }
+  // A comma here means either a comma in the WASM path (unsupported — it would
+  // be silently truncated) or a malformed abi tail (e.g. ",ab=" / ",abi"). Fail
+  // loudly rather than packing the wrong file.
+  if (wasm.includes(',')) {
+    throw new Error(
+      `Invalid --service "${spec}": unexpected comma in WASM path. Use "name=path.wasm,abi=path.json"; commas in paths are not supported.`
+    );
   }
 
   validateServiceName(name);

@@ -74,7 +74,11 @@ class BundleStorageKV {
           throw new Error(`Invalid service: duplicate name "${svc.name}"`);
         }
         seenNames.add(svc.name);
-        if (!svc.wasm || typeof svc.wasm !== 'object') {
+        if (
+          !svc.wasm ||
+          typeof svc.wasm !== 'object' ||
+          Array.isArray(svc.wasm)
+        ) {
           throw new Error(
             `Invalid service "${svc.name}": missing wasm artifact`
           );

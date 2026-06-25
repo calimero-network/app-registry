@@ -223,6 +223,13 @@ Note:
           console.error('❌ Invalid manifest: "uses" must be an array');
           process.exit(1);
         }
+        if (
+          manifestConfig.services !== undefined &&
+          !Array.isArray(manifestConfig.services)
+        ) {
+          console.error('❌ Invalid manifest: "services" must be an array');
+          process.exit(1);
+        }
 
         // CLI options take precedence - if CLI provides exports/uses, use only those
         const finalExports =
@@ -390,7 +397,20 @@ Note:
         // Relative archive path -> file content, written into outputDir below.
         const serviceFilesToWrite: { relPath: string; content: Buffer }[] = [];
 
-        // Reject duplicate names up front (covers --service + manifest overlap).
+        // Validate every service name BEFORE checking uniqueness, so a bad name
+        // reports a name error rather than a misleading "duplicate" one. CLI
+        // entries were already validated in parseServiceSpec; re-checking is
+        // harmless and also covers manifest entries (which skip that path).
+        for (const { src } of allServiceSources) {
+          try {
+            validateServiceName(src.name);
+          } catch (e) {
+            console.error(`❌ ${e instanceof Error ? e.message : String(e)}`);
+            process.exit(1);
+          }
+        }
+
+        // Then reject duplicate names (covers --service + manifest overlap).
         try {
           assertUniqueServiceNames(allServiceSources.map(s => s.src));
         } catch (e) {
@@ -399,14 +419,6 @@ Note:
         }
 
         for (const { src, baseDir } of allServiceSources) {
-          // Manifest-sourced entries haven't been name-validated yet.
-          try {
-            validateServiceName(src.name);
-          } catch (e) {
-            console.error(`❌ ${e instanceof Error ? e.message : String(e)}`);
-            process.exit(1);
-          }
-
           // Resolve + read the service WASM.
           const svcWasmPath = path.resolve(baseDir, src.wasm);
           if (!fs.existsSync(svcWasmPath)) {
@@ -552,9 +564,19 @@ Note:
           fs.writeFileSync(path.join(outputDir, 'abi.json'), abiContent);
         }
 
-        // Copy service files (under services/) preserving their archive paths
+        // Copy service files (under services/) preserving their archive paths.
+        // Assert each destination stays inside outputDir/services/ — defence in
+        // depth against a crafted name escaping the directory (e.g. "../app"),
+        // independent of validateServiceName.
+        const servicesPrefix = path.join(outputDir, 'services') + path.sep;
         for (const { relPath, content } of serviceFilesToWrite) {
           const dest = path.join(outputDir, relPath);
+          if (!dest.startsWith(servicesPrefix)) {
+            console.error(
+              `❌ Refusing to write service file outside services/: ${relPath}`
+            );
+            process.exit(1);
+          }
           fs.mkdirSync(path.dirname(dest), { recursive: true });
           fs.writeFileSync(dest, content);
         }
@@ -692,18 +714,26 @@ Note:
           tempMpk = path.join(fullPath, `.temp-push-${Date.now()}.mpk`);
 
           // Derive the file list from the manifest so service WASMs (and any
-          // ABIs) are packed, not just the main app. Falls back to the legacy
-          // app.wasm/abi.json set if the manifest can't be read.
-          let archiveFiles = ['manifest.json', 'app.wasm'];
+          // ABIs) are packed, not just the main app. manifest.json is required
+          // and was verified above, so a parse failure is a hard error — never
+          // fall back silently, which would drop service files from the archive
+          // while still reporting success.
+          let archiveFiles: string[];
           try {
             const dirManifest = JSON.parse(
               fs.readFileSync(manifestInDir, 'utf8')
             ) as BundleManifest;
             archiveFiles = collectBundleFiles(dirManifest);
-          } catch {
-            if (fs.existsSync(path.join(fullPath, 'abi.json'))) {
-              archiveFiles.push('abi.json');
-            }
+          } catch (e) {
+            console.error(
+              `❌ Failed to parse manifest.json in ${fullPath}: ${
+                e instanceof Error ? e.message : String(e)
+              }`
+            );
+            console.error(
+              '   Fix the manifest JSON and retry (service files would otherwise be silently omitted).'
+            );
+            process.exit(1);
           }
 
           // Verify every referenced file exists before packing.

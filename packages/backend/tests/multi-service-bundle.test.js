@@ -114,6 +114,17 @@ describe('Multi-service bundle storage', () => {
     expect(kv.setNX).not.toHaveBeenCalled();
   });
 
+  test('rejects a service whose wasm is an array, not an object', async () => {
+    const manifest = {
+      ...baseManifest(),
+      services: [{ name: 'lobby', wasm: [] }],
+    };
+    await expect(storage.storeBundleManifest(manifest)).rejects.toThrow(
+      'Invalid service "lobby": missing wasm artifact'
+    );
+    expect(kv.setNX).not.toHaveBeenCalled();
+  });
+
   test('rejects duplicate service names', async () => {
     const manifest = {
       ...baseManifest(),

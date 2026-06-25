@@ -57,6 +57,12 @@ describe('parseServiceSpec', () => {
       /Invalid service name/
     );
   });
+
+  it('rejects a comma in the WASM path rather than truncating it', () => {
+    expect(() => parseServiceSpec('lobby=path/to,file.wasm')).toThrow(
+      /unexpected comma in WASM path/
+    );
+  });
 });
 
 describe('validateServiceName', () => {
@@ -70,6 +76,13 @@ describe('validateServiceName', () => {
     expect(() => validateServiceName('Lobby')).toThrow();
     expect(() => validateServiceName('-lobby')).toThrow();
     expect(() => validateServiceName('app')).toThrow(/reserved/);
+  });
+
+  it('rejects a name longer than 64 characters', () => {
+    expect(() => validateServiceName('a'.repeat(65))).toThrow(
+      /at most 64 characters/
+    );
+    expect(() => validateServiceName('a'.repeat(64))).not.toThrow();
   });
 });
 
