@@ -57,11 +57,16 @@ class BundleStorageKV {
 
     // Validate services structure before storage to prevent partial writes.
     // Services are optional; when present they must be an array of named
-    // entries each carrying a wasm artifact. Names must be unique.
+    // entries each carrying a wasm artifact. The backend is the authoritative
+    // store, so it enforces the same name rules as the CLI (charset, length,
+    // reserved "app") — a client bypassing the CLI must not be able to persist
+    // a name like "../evil" or "app" that becomes a filesystem path segment
+    // when a consumer later unpacks the bundle.
     if (manifestJson.services !== undefined && manifestJson.services !== null) {
       if (!Array.isArray(manifestJson.services)) {
         throw new Error('Invalid services: must be an array or undefined/null');
       }
+      const SERVICE_NAME_RE = /^[a-z0-9][a-z0-9_-]*$/;
       const seenNames = new Set();
       for (const svc of manifestJson.services) {
         if (!svc || typeof svc !== 'object' || Array.isArray(svc)) {
@@ -70,10 +75,16 @@ class BundleStorageKV {
         if (typeof svc.name !== 'string' || svc.name.trim().length === 0) {
           throw new Error('Invalid service: missing or empty name');
         }
-        if (seenNames.has(svc.name)) {
-          throw new Error(`Invalid service: duplicate name "${svc.name}"`);
+        const name = svc.name.trim();
+        if (!SERVICE_NAME_RE.test(name) || name.length > 64 || name === 'app') {
+          throw new Error(
+            `Invalid service name "${svc.name}": must match ^[a-z0-9][a-z0-9_-]*$, be at most 64 chars, and not be "app"`
+          );
         }
-        seenNames.add(svc.name);
+        if (seenNames.has(name)) {
+          throw new Error(`Invalid service: duplicate name "${name}"`);
+        }
+        seenNames.add(name);
         if (
           !svc.wasm ||
           typeof svc.wasm !== 'object' ||

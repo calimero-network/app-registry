@@ -746,6 +746,17 @@ Note:
             process.exit(1);
           }
 
+          // Each declared service must carry a wasm.path; otherwise it would be
+          // listed in the manifest but silently dropped from the archive.
+          for (const svc of dirManifest.services ?? []) {
+            if (!svc?.wasm?.path) {
+              console.error(
+                `❌ Service "${svc?.name ?? '<unnamed>'}" in manifest.json has no wasm.path.`
+              );
+              process.exit(1);
+            }
+          }
+
           // Collect the files to pack; rejects unsafe paths (absolute / "..")
           // that a crafted manifest could use to read outside the directory.
           let archiveFiles: string[];

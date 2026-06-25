@@ -138,4 +138,30 @@ describe('Multi-service bundle storage', () => {
     );
     expect(kv.setNX).not.toHaveBeenCalled();
   });
+
+  test('rejects a service name that violates the charset (e.g. traversal/uppercase)', async () => {
+    for (const bad of ['../evil', 'Lobby', 'has space', 'app']) {
+      const manifest = {
+        ...baseManifest(),
+        services: [{ name: bad, wasm: { path: 'x.wasm', hash: 'h', size: 1 } }],
+      };
+      await expect(storage.storeBundleManifest(manifest)).rejects.toThrow(
+        /Invalid service name/
+      );
+    }
+    expect(kv.setNX).not.toHaveBeenCalled();
+  });
+
+  test('rejects a service name longer than 64 characters', async () => {
+    const manifest = {
+      ...baseManifest(),
+      services: [
+        { name: 'a'.repeat(65), wasm: { path: 'x.wasm', hash: 'h', size: 1 } },
+      ],
+    };
+    await expect(storage.storeBundleManifest(manifest)).rejects.toThrow(
+      /Invalid service name/
+    );
+    expect(kv.setNX).not.toHaveBeenCalled();
+  });
 });
