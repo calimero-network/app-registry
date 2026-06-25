@@ -4,6 +4,7 @@ import {
   validateServiceName,
   serviceWasmPath,
   serviceAbiPath,
+  isUnderServicesDir,
   assertUniqueServiceNames,
   assertSafeBundlePath,
   collectBundleFiles,
@@ -102,6 +103,13 @@ describe('artifact path helpers', () => {
     expect(serviceWasmPath('lobby')).toBe('services/lobby.wasm');
     expect(serviceAbiPath('lobby')).toBe('services/lobby.abi.json');
   });
+
+  it('isUnderServicesDir accepts services/ paths and rejects top-level ones', () => {
+    expect(isUnderServicesDir('services/lobby.wasm')).toBe(true);
+    expect(isUnderServicesDir('app.wasm')).toBe(false);
+    expect(isUnderServicesDir('abi.json')).toBe(false);
+    expect(isUnderServicesDir('servicesX/lobby.wasm')).toBe(false);
+  });
 });
 
 describe('assertUniqueServiceNames', () => {
@@ -172,19 +180,6 @@ describe('collectBundleFiles', () => {
     ]);
   });
 
-  it('de-dupes repeated paths', () => {
-    const m: BundleManifest = {
-      ...base,
-      services: [
-        {
-          name: 'dup',
-          wasm: { path: 'app.wasm', hash: 'h', size: 1 },
-        },
-      ],
-    };
-    expect(collectBundleFiles(m)).toEqual(['manifest.json', 'app.wasm']);
-  });
-
   it('throws when a declared service has no wasm.path', () => {
     const m = {
       ...base,
@@ -193,13 +188,25 @@ describe('collectBundleFiles', () => {
     expect(() => collectBundleFiles(m)).toThrow(/has no wasm.path/);
   });
 
+  it('rejects a service whose wasm.path is not under services/', () => {
+    const m: BundleManifest = {
+      ...base,
+      services: [
+        // Would collide with the main app's app.wasm on unpack.
+        { name: 'dup', wasm: { path: 'app.wasm', hash: 'h', size: 1 } },
+      ],
+    };
+    expect(() => collectBundleFiles(m)).toThrow(/must be under services\//);
+  });
+
   it('rejects a service path that escapes the bundle directory', () => {
     const m: BundleManifest = {
       ...base,
       services: [
         {
           name: 'evil',
-          wasm: { path: '../../etc/passwd', hash: 'h', size: 1 },
+          // Under services/ (passes that check) but still traverses out.
+          wasm: { path: 'services/../../etc/passwd', hash: 'h', size: 1 },
         },
       ],
     };

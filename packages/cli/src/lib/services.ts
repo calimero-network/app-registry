@@ -122,6 +122,18 @@ export function serviceAbiPath(name: string): string {
 }
 
 /**
+ * True if a service artifact path lives under the `services/` directory (the
+ * layout {@link serviceWasmPath}/{@link serviceAbiPath} emit). Service
+ * artifacts must stay under `services/` so they can't collide with the main
+ * app's top-level `app.wasm` / `abi.json`. Mirrors the backend's
+ * `underServicesDir` (packages/backend/src/lib/bundle-storage-kv.js) — keep the
+ * two in sync.
+ */
+export function isUnderServicesDir(p: string): boolean {
+  return typeof p === 'string' && /^services[\\/]/.test(p);
+}
+
+/**
  * Reject duplicate service names across the merged set (CLI + manifest config).
  * @throws Error listing the first duplicate found.
  */
@@ -183,13 +195,29 @@ export function collectBundleFiles(manifest: BundleManifest): string[] {
   if (manifest.wasm?.path) files.push(manifest.wasm.path);
   if (manifest.abi?.path) files.push(manifest.abi.path);
   for (const svc of manifest.services ?? []) {
+    const label = svc?.name ?? '<unnamed>';
     if (!svc.wasm?.path) {
       throw new Error(
-        `Service "${svc?.name ?? '<unnamed>'}" has no wasm.path; cannot pack the bundle.`
+        `Service "${label}" has no wasm.path; cannot pack the bundle.`
+      );
+    }
+    // Service artifacts must live under services/ (matches the backend's
+    // storeBundleManifest check), so packing fails fast locally instead of
+    // succeeding here and being rejected by the registry after upload.
+    if (!isUnderServicesDir(svc.wasm.path)) {
+      throw new Error(
+        `Service "${label}" wasm.path "${svc.wasm.path}" must be under services/.`
       );
     }
     files.push(svc.wasm.path);
-    if (svc.abi?.path) files.push(svc.abi.path);
+    if (svc.abi?.path) {
+      if (!isUnderServicesDir(svc.abi.path)) {
+        throw new Error(
+          `Service "${label}" abi.path "${svc.abi.path}" must be under services/.`
+        );
+      }
+      files.push(svc.abi.path);
+    }
   }
   files.forEach(assertSafeBundlePath);
   // De-dupe while preserving order (a malformed manifest could repeat a path).
