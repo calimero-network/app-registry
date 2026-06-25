@@ -136,8 +136,14 @@ describe('Multi-service bundle storage', () => {
     const manifest = {
       ...baseManifest(),
       services: [
-        { name: 'lobby', wasm: { path: 'a.wasm', hash: 'h', size: 1 } },
-        { name: 'lobby', wasm: { path: 'b.wasm', hash: 'h', size: 2 } },
+        {
+          name: 'lobby',
+          wasm: { path: 'services/lobby.wasm', hash: 'h', size: 1 },
+        },
+        {
+          name: 'lobby',
+          wasm: { path: 'services/lobby2.wasm', hash: 'h', size: 2 },
+        },
       ],
     };
     await expect(storage.storeBundleManifest(manifest)).rejects.toThrow(
@@ -189,7 +195,20 @@ describe('Multi-service bundle storage', () => {
       ],
     };
     await expect(storage.storeBundleManifest(manifest)).rejects.toThrow(
-      /unsafe wasm.path/
+      /wasm.path .* under services\//
+    );
+    expect(kv.setNX).not.toHaveBeenCalled();
+  });
+
+  test('rejects a service wasm.path not under services/ (collision with app.wasm)', async () => {
+    const manifest = {
+      ...baseManifest(),
+      services: [
+        { name: 'lobby', wasm: { path: 'app.wasm', hash: 'h', size: 1 } },
+      ],
+    };
+    await expect(storage.storeBundleManifest(manifest)).rejects.toThrow(
+      /wasm.path .* under services\//
     );
     expect(kv.setNX).not.toHaveBeenCalled();
   });
@@ -206,7 +225,7 @@ describe('Multi-service bundle storage', () => {
       ],
     };
     await expect(storage.storeBundleManifest(manifest)).rejects.toThrow(
-      /unsafe abi.path/
+      /abi.path .* under services\//
     );
     expect(kv.setNX).not.toHaveBeenCalled();
   });

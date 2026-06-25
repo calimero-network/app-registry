@@ -26,6 +26,16 @@ function isUnsafeBundlePath(p) {
   );
 }
 
+/**
+ * True if a service artifact path lives under the `services/` directory (the
+ * layout the CLI emits). Combined with isUnsafeBundlePath this stops a service
+ * artifact from claiming a top-level name like `app.wasm` and colliding with
+ * the main application on unpack.
+ */
+function underServicesDir(p) {
+  return typeof p === 'string' && /^services[\\/]/.test(p);
+}
+
 class BundleStorageKV {
   constructor() {
     // No in-memory state needed - all operations use KV
@@ -126,10 +136,15 @@ class BundleStorageKV {
         // Validate artifact paths so a client bypassing the CLI can't persist
         // a wasm/abi path like '../../etc/passwd' that a downstream consumer
         // might trust when reconstructing files. Mirrors the CLI's
-        // assertSafeBundlePath (packages/cli/src/lib/services.ts).
-        if (isUnsafeBundlePath(svc.wasm.path)) {
+        // assertSafeBundlePath (packages/cli/src/lib/services.ts). Service
+        // artifacts must also live under `services/` so they can't collide
+        // with the main app's `app.wasm` / `abi.json`.
+        if (
+          isUnsafeBundlePath(svc.wasm.path) ||
+          !underServicesDir(svc.wasm.path)
+        ) {
           throw new Error(
-            `Invalid service "${svc.name}": unsafe wasm.path "${svc.wasm.path}"`
+            `Invalid service "${svc.name}": wasm.path "${svc.wasm.path}" must be a safe relative path under services/`
           );
         }
         if (svc.abi !== undefined && svc.abi !== null) {
@@ -138,9 +153,12 @@ class BundleStorageKV {
               `Invalid service "${svc.name}": abi must be an artifact object`
             );
           }
-          if (isUnsafeBundlePath(svc.abi.path)) {
+          if (
+            isUnsafeBundlePath(svc.abi.path) ||
+            !underServicesDir(svc.abi.path)
+          ) {
             throw new Error(
-              `Invalid service "${svc.name}": unsafe abi.path "${svc.abi.path}"`
+              `Invalid service "${svc.name}": abi.path "${svc.abi.path}" must be a safe relative path under services/`
             );
           }
         }
