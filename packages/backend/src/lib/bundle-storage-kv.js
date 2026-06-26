@@ -8,6 +8,34 @@ const { kv } = require('./kv-client');
 const blob = require('./blob-store');
 const semver = require('semver');
 
+/**
+ * True if a bundle artifact path is NOT a safe, bundle-relative path: it is a
+ * non-string, empty, absolute, or contains a `.`/`..`/empty segment. Mirrors
+ * the CLI's assertSafeBundlePath (packages/cli/src/lib/services.ts); keep the
+ * two in sync.
+ */
+function isUnsafeBundlePath(p) {
+  if (typeof p !== 'string' || p.length === 0) return true;
+  const segments = p.split(/[\\/]/);
+  return (
+    p.startsWith('/') ||
+    /^[a-zA-Z]:/.test(p) ||
+    segments.includes('..') ||
+    segments.includes('.') ||
+    segments.includes('')
+  );
+}
+
+/**
+ * True if a service artifact path lives under the `services/` directory (the
+ * layout the CLI emits). Combined with isUnsafeBundlePath this stops a service
+ * artifact from claiming a top-level name like `app.wasm` and colliding with
+ * the main application on unpack.
+ */
+function underServicesDir(p) {
+  return typeof p === 'string' && /^services[\\/]/.test(p);
+}
+
 class BundleStorageKV {
   constructor() {
     // No in-memory state needed - all operations use KV
@@ -52,6 +80,88 @@ class BundleStorageKV {
         throw new Error(
           'Invalid interfaces.uses: must be an array or undefined/null'
         );
+      }
+    }
+
+    // Validate services structure before storage to prevent partial writes.
+    // Services are optional; when present they must be an array of named
+    // entries each carrying a wasm artifact. The backend is the authoritative
+    // store, so it enforces the same name rules as the CLI (charset, length,
+    // reserved "app") — a client bypassing the CLI must not be able to persist
+    // a name like "../evil" or "app" that becomes a filesystem path segment
+    // when a consumer later unpacks the bundle.
+    //
+    // NOTE: SERVICE_NAME_RE and these rules are mirrored in the CLI's
+    // packages/cli/src/lib/services.ts (validateServiceName). The two are not
+    // shared at the module level (CJS backend vs ESM/TS CLI build), so keep
+    // them in sync — any change here must be reflected there and vice versa.
+    // The name is validated as-is (not trimmed): the regex already rejects
+    // whitespace, and trimming server-side would diverge the stored manifest
+    // from the bytes the signature was computed over.
+    if (manifestJson.services !== undefined && manifestJson.services !== null) {
+      if (!Array.isArray(manifestJson.services)) {
+        throw new Error('Invalid services: must be an array or undefined/null');
+      }
+      const SERVICE_NAME_RE = /^[a-z0-9][a-z0-9_-]*$/;
+      const seenNames = new Set();
+      for (const svc of manifestJson.services) {
+        if (!svc || typeof svc !== 'object' || Array.isArray(svc)) {
+          throw new Error('Invalid service: each service must be an object');
+        }
+        if (typeof svc.name !== 'string' || svc.name.length === 0) {
+          throw new Error('Invalid service: missing or empty name');
+        }
+        if (
+          !SERVICE_NAME_RE.test(svc.name) ||
+          svc.name.length > 64 ||
+          svc.name === 'app'
+        ) {
+          throw new Error(
+            `Invalid service name "${svc.name}": must match ^[a-z0-9][a-z0-9_-]*$, be at most 64 chars, and not be "app"`
+          );
+        }
+        if (seenNames.has(svc.name)) {
+          throw new Error(`Invalid service: duplicate name "${svc.name}"`);
+        }
+        seenNames.add(svc.name);
+        if (
+          !svc.wasm ||
+          typeof svc.wasm !== 'object' ||
+          Array.isArray(svc.wasm)
+        ) {
+          throw new Error(
+            `Invalid service "${svc.name}": missing wasm artifact`
+          );
+        }
+        // Validate artifact paths so a client bypassing the CLI can't persist
+        // a wasm/abi path like '../../etc/passwd' that a downstream consumer
+        // might trust when reconstructing files. Mirrors the CLI's
+        // assertSafeBundlePath (packages/cli/src/lib/services.ts). Service
+        // artifacts must also live under `services/` so they can't collide
+        // with the main app's `app.wasm` / `abi.json`.
+        if (
+          isUnsafeBundlePath(svc.wasm.path) ||
+          !underServicesDir(svc.wasm.path)
+        ) {
+          throw new Error(
+            `Invalid service "${svc.name}": wasm.path "${svc.wasm.path}" must be a safe relative path under services/`
+          );
+        }
+        if (svc.abi !== undefined && svc.abi !== null) {
+          if (typeof svc.abi !== 'object' || Array.isArray(svc.abi)) {
+            throw new Error(
+              `Invalid service "${svc.name}": abi must be an artifact object`
+            );
+          }
+          if (
+            isUnsafeBundlePath(svc.abi.path) ||
+            !underServicesDir(svc.abi.path)
+          ) {
+            throw new Error(
+              `Invalid service "${svc.name}": abi.path "${svc.abi.path}" must be a safe relative path under services/`
+            );
+          }
+        }
       }
     }
 

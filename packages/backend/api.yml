@@ -146,14 +146,20 @@ components:
             author:
               type: string
         wasm:
-          type: object
-          properties:
-            path:
-              type: string
-            hash:
-              type: string
-            size:
-              type: integer
+          description: The main application WASM artifact (packed as app.wasm).
+          $ref: '#/components/schemas/BundleArtifact'
+        abi:
+          description: The main application ABI artifact (packed as abi.json), if any.
+          $ref: '#/components/schemas/BundleArtifact'
+        services:
+          type: array
+          description: >-
+            Additional named services shipped alongside the main app (e.g. a
+            "lobby" service next to a "tictactoe" main app). Optional and
+            omitted entirely for single-app bundles, so existing manifests and
+            their signatures are unaffected.
+          items:
+            $ref: '#/components/schemas/BundleServiceEntry'
         links:
           type: object
           properties:
@@ -174,3 +180,31 @@ components:
               type: string
             signedAt:
               type: string
+    BundleArtifact:
+      type: object
+      description: A file packed in the bundle, referenced by its in-bundle path.
+      properties:
+        path:
+          type: string
+          description: Path of the file within the bundle (e.g. app.wasm, services/lobby.wasm).
+        hash:
+          type: string
+          nullable: true
+          description: SHA-256 hex digest of the file contents.
+        size:
+          type: integer
+          description: File size in bytes.
+    BundleServiceEntry:
+      type: object
+      required:
+        - name
+        - wasm
+      description: A named service shipped alongside the main application.
+      properties:
+        name:
+          type: string
+          description: Service name; also its file stem under services/.
+        wasm:
+          $ref: '#/components/schemas/BundleArtifact'
+        abi:
+          $ref: '#/components/schemas/BundleArtifact'

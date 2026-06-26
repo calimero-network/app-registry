@@ -11,10 +11,23 @@ import fs from 'fs';
 import path from 'path';
 import * as tar from 'tar';
 import crypto from 'crypto';
-import { LocalDataStore, BundleManifest } from '../lib/local-storage.js';
+import {
+  LocalDataStore,
+  BundleManifest,
+  BundleServiceEntry,
+} from '../lib/local-storage.js';
 import { LocalConfig } from '../lib/local-config.js';
 import { LocalArtifactServer } from '../lib/local-artifacts.js';
 import { RemoteConfig } from '../lib/remote-config.js';
+import {
+  ServiceSource,
+  parseServiceSpec,
+  validateServiceName,
+  serviceWasmPath,
+  serviceAbiPath,
+  assertUniqueServiceNames,
+  collectBundleFiles,
+} from '../lib/services.js';
 
 interface BundlePushPayload {
   version: string;
@@ -26,6 +39,7 @@ interface BundlePushPayload {
   interfaces?: BundleManifest['interfaces'];
   wasm?: BundleManifest['wasm'];
   abi?: BundleManifest['abi'];
+  services?: BundleManifest['services'];
   migrations?: BundleManifest['migrations'];
   links?: BundleManifest['links'];
   signature?: BundleManifest['signature'];
@@ -61,6 +75,8 @@ interface BundleManifestConfig {
   exports?: string[];
   uses?: string[];
   abi?: string | BundleManifest['abi']; // Can be file path string or BundleArtifact object
+  /** Additional services, each referencing source file paths (relative to this manifest). */
+  services?: ServiceSource[];
 }
 
 function createCreateCommand(): Command {
@@ -95,6 +111,13 @@ function createCreateCommand(): Command {
       }
     )
     .option('--abi <path>', 'Path to ABI JSON file to include in bundle')
+    .option(
+      '--service <spec>',
+      'Add a service WASM alongside the main app: "name=path.wasm" or "name=path.wasm,abi=path.json" (repeatable)',
+      (value, prev: ServiceSource[]) => {
+        return [...(prev || []), parseServiceSpec(value)];
+      }
+    )
     .addHelpText(
       'after',
       `
@@ -105,6 +128,7 @@ Examples:
   $ calimero-registry bundle create app.wasm com.calimero.myapp 1.0.0 --name "My App" --frontend https://app.example.com
   $ calimero-registry bundle create app.wasm com.calimero.myapp 1.0.0 --abi abi.json
   $ calimero-registry bundle create app.wasm --manifest manifest.json --abi res/abi.json
+  $ calimero-registry bundle create tictactoe.wasm com.calimero.ttt 1.0.0 --service lobby=lobby.wasm,abi=lobby-abi.json
 
 Manifest File Format (JSON):
   {
@@ -119,7 +143,10 @@ Manifest File Format (JSON):
     "docs": "https://docs.example.com",
     "exports": ["interface1", "interface2"],
     "uses": ["interface3"],
-    "abi": "res/abi.json"
+    "abi": "res/abi.json",
+    "services": [
+      { "name": "lobby", "wasm": "res/lobby.wasm", "abi": "res/lobby-abi.json" }
+    ]
   }
 
 Note:
@@ -129,6 +156,8 @@ Note:
   - The -o/--output option overrides manifest.output if both are provided
   - ABI can be provided via --abi flag or manifest.abi field (file path string)
   - ABI file will be included in the bundle and referenced in the manifest
+  - The main app is always packed as app.wasm; services are packed under services/<name>.wasm
+  - Services merge from --service flags and manifest.services; names must be unique
 `
     )
     .action(async (wasmFile, pkg, version, options) => {
@@ -192,6 +221,13 @@ Note:
         }
         if (manifestUses !== undefined && !Array.isArray(manifestUses)) {
           console.error('❌ Invalid manifest: "uses" must be an array');
+          process.exit(1);
+        }
+        if (
+          manifestConfig.services !== undefined &&
+          !Array.isArray(manifestConfig.services)
+        ) {
+          console.error('❌ Invalid manifest: "services" must be an array');
           process.exit(1);
         }
 
@@ -339,6 +375,144 @@ Note:
           process.exit(1);
         }
 
+        // Handle services (additional WASMs alongside the main app).
+        // Sources come from --service flags (paths relative to cwd) and/or the
+        // manifest's "services" array (paths relative to the manifest file).
+        const cliServices: ServiceSource[] = options.service || [];
+        const manifestServices: ServiceSource[] = Array.isArray(
+          manifestConfig.services
+        )
+          ? manifestConfig.services
+          : [];
+        const manifestDir = options.manifest
+          ? path.dirname(path.resolve(options.manifest))
+          : process.cwd();
+
+        const allServiceSources: { src: ServiceSource; baseDir: string }[] = [
+          ...cliServices.map(src => ({ src, baseDir: process.cwd() })),
+          ...manifestServices.map(src => ({ src, baseDir: manifestDir })),
+        ];
+
+        const serviceArtifacts: BundleServiceEntry[] = [];
+        // Relative archive path -> file content, written into outputDir below.
+        const serviceFilesToWrite: { relPath: string; content: Buffer }[] = [];
+
+        // Validate every service name BEFORE checking uniqueness, so a bad name
+        // reports a name error rather than a misleading "duplicate" one. CLI
+        // entries were already validated in parseServiceSpec; re-checking is
+        // harmless and also covers manifest entries (which skip that path).
+        for (const { src } of allServiceSources) {
+          try {
+            validateServiceName(src.name);
+          } catch (e) {
+            console.error(`❌ ${e instanceof Error ? e.message : String(e)}`);
+            process.exit(1);
+          }
+        }
+
+        // Then reject duplicate names (covers --service + manifest overlap).
+        try {
+          assertUniqueServiceNames(allServiceSources.map(s => s.src));
+        } catch (e) {
+          console.error(`❌ ${e instanceof Error ? e.message : String(e)}`);
+          process.exit(1);
+        }
+
+        for (const { src, baseDir } of allServiceSources) {
+          // Guard runtime types: manifest-config entries are parsed JSON, so
+          // `wasm`/`abi` could be objects (e.g. a BundleArtifact copied from a
+          // built manifest) rather than file-path strings. Without this,
+          // path.resolve would coerce an object to "[object Object]" and yield
+          // a misleading "not found" error.
+          if (typeof src.wasm !== 'string' || src.wasm.length === 0) {
+            console.error(
+              `❌ Service "${src.name}" wasm must be a file path string.`
+            );
+            process.exit(1);
+          }
+          if (
+            src.abi !== undefined &&
+            (typeof src.abi !== 'string' || src.abi.length === 0)
+          ) {
+            console.error(
+              `❌ Service "${src.name}" abi must be a file path string.`
+            );
+            process.exit(1);
+          }
+
+          // Resolve + read the service WASM.
+          const svcWasmPath = path.resolve(baseDir, src.wasm);
+          if (!fs.existsSync(svcWasmPath)) {
+            console.error(
+              `❌ Service "${src.name}" WASM not found: ${src.wasm}`
+            );
+            console.error(`   Resolved path: ${svcWasmPath}`);
+            process.exit(1);
+          }
+          const svcWasmContent = fs.readFileSync(svcWasmPath);
+          const svcWasmHash = crypto
+            .createHash('sha256')
+            .update(svcWasmContent)
+            .digest('hex');
+          const wasmArchivePath = serviceWasmPath(src.name);
+
+          const entry: BundleServiceEntry = {
+            name: src.name,
+            wasm: {
+              path: wasmArchivePath,
+              hash: svcWasmHash,
+              size: svcWasmContent.length,
+            },
+          };
+          serviceFilesToWrite.push({
+            relPath: wasmArchivePath,
+            content: svcWasmContent,
+          });
+
+          // Resolve + read the optional service ABI.
+          if (src.abi) {
+            const svcAbiPath = path.resolve(baseDir, src.abi);
+            if (!fs.existsSync(svcAbiPath)) {
+              console.error(
+                `❌ Service "${src.name}" ABI not found: ${src.abi}`
+              );
+              console.error(`   Resolved path: ${svcAbiPath}`);
+              process.exit(1);
+            }
+            const svcAbiContent = fs.readFileSync(svcAbiPath);
+            try {
+              JSON.parse(svcAbiContent.toString('utf8'));
+            } catch (error) {
+              console.error(
+                `❌ Service "${src.name}" ABI is not valid JSON: ${src.abi}`
+              );
+              console.error(
+                error instanceof Error ? error.message : 'Invalid JSON'
+              );
+              process.exit(1);
+            }
+            const svcAbiHash = crypto
+              .createHash('sha256')
+              .update(svcAbiContent)
+              .digest('hex');
+            const abiArchivePath = serviceAbiPath(src.name);
+            entry.abi = {
+              path: abiArchivePath,
+              hash: svcAbiHash,
+              size: svcAbiContent.length,
+            };
+            serviceFilesToWrite.push({
+              relPath: abiArchivePath,
+              content: svcAbiContent,
+            });
+          }
+
+          serviceArtifacts.push(entry);
+          console.log(
+            `   Including service: ${src.name} (${path.basename(svcWasmPath)})`
+          );
+        }
+
         // Build metadata
         const metadata: {
           name: string;
@@ -382,6 +556,7 @@ Note:
             size: wasmSize,
           },
           abi: abiArtifact || undefined,
+          services: serviceArtifacts.length > 0 ? serviceArtifacts : undefined,
           migrations: [],
           links: Object.keys(links).length > 0 ? links : undefined,
           signature: undefined,
@@ -410,12 +585,36 @@ Note:
           fs.writeFileSync(path.join(outputDir, 'abi.json'), abiContent);
         }
 
+        // Copy service files (under services/) preserving their archive paths.
+        // Assert each destination stays inside outputDir/services/ — defence in
+        // depth against a crafted name escaping the directory (e.g. "../app"),
+        // independent of validateServiceName. Uses path.relative so the check
+        // is correct regardless of OS path separator.
+        const servicesDir = path.join(outputDir, 'services');
+        for (const { relPath, content } of serviceFilesToWrite) {
+          const dest = path.join(outputDir, relPath);
+          const rel = path.relative(servicesDir, dest);
+          if (rel.startsWith('..') || path.isAbsolute(rel)) {
+            console.error(
+              `❌ Refusing to write service file outside services/: ${relPath}`
+            );
+            process.exit(1);
+          }
+          fs.mkdirSync(path.dirname(dest), { recursive: true });
+          fs.writeFileSync(dest, content);
+        }
+
         console.log(`✅ Bundle files written to: ${outputDir}`);
         console.log(`   Package: ${finalPackage}`);
         console.log(`   Version: ${finalVersion}`);
         console.log(`   WASM Hash: ${wasmHash}`);
         if (abiArtifact) {
           console.log(`   ABI Hash: ${abiArtifact.hash}`);
+        }
+        if (serviceArtifacts.length > 0) {
+          console.log(
+            `   Services: ${serviceArtifacts.map(s => s.name).join(', ')}`
+          );
         }
         console.log('');
         console.log('Next steps:');
@@ -536,16 +735,77 @@ Note:
             process.exit(1);
           }
           tempMpk = path.join(fullPath, `.temp-push-${Date.now()}.mpk`);
-          const archiveFiles = ['manifest.json', 'app.wasm'];
-          if (fs.existsSync(path.join(fullPath, 'abi.json'))) {
-            archiveFiles.push('abi.json');
+
+          // Derive the file list from the manifest so service WASMs (and any
+          // ABIs) are packed, not just the main app. manifest.json is required
+          // and was verified above, so a parse failure is a hard error — never
+          // fall back silently, which would drop service files from the archive
+          // while still reporting success.
+          let dirManifest: BundleManifest;
+          try {
+            dirManifest = JSON.parse(
+              fs.readFileSync(manifestInDir, 'utf8')
+            ) as BundleManifest;
+          } catch (e) {
+            console.error(
+              `❌ Failed to parse manifest.json in ${fullPath}: ${
+                e instanceof Error ? e.message : String(e)
+              }`
+            );
+            console.error(
+              '   Fix the manifest JSON and retry (service files would otherwise be silently omitted).'
+            );
+            process.exit(1);
           }
+
+          // A bundle must declare its main app WASM; without it the archive
+          // would omit app.wasm and still "succeed".
+          if (!dirManifest.wasm?.path) {
+            console.error(
+              '❌ manifest.json has no main wasm (wasm.path). A bundle must include its main application.'
+            );
+            process.exit(1);
+          }
+
+          // Each declared service must carry a wasm.path; otherwise it would be
+          // listed in the manifest but silently dropped from the archive.
+          for (const svc of dirManifest.services ?? []) {
+            if (!svc?.wasm?.path) {
+              console.error(
+                `❌ Service "${svc?.name ?? '<unnamed>'}" in manifest.json has no wasm.path.`
+              );
+              process.exit(1);
+            }
+          }
+
+          // Collect the files to pack; rejects unsafe paths (absolute / "..")
+          // that a crafted manifest could use to read outside the directory.
+          let archiveFiles: string[];
+          try {
+            archiveFiles = collectBundleFiles(dirManifest);
+          } catch (e) {
+            console.error(`❌ ${e instanceof Error ? e.message : String(e)}`);
+            process.exit(1);
+          }
+
+          // Verify every referenced file exists before packing.
+          for (const f of archiveFiles) {
+            if (!fs.existsSync(path.join(fullPath, f))) {
+              console.error(
+                `❌ Bundle file referenced by manifest not found: ${f}`
+              );
+              process.exit(1);
+            }
+          }
+
           await tar.create(
             { gzip: true, file: tempMpk, cwd: fullPath },
             archiveFiles
           );
           mpkPath = tempMpk;
-          console.log(`📦 Packed directory into temporary bundle`);
+          console.log(
+            `📦 Packed directory into temporary bundle (${archiveFiles.length} files)`
+          );
         }
 
         console.log(`📦 Processing bundle: ${path.basename(mpkPath)}`);
@@ -891,6 +1151,9 @@ async function pushToRemote(
     }
     if (manifest.abi !== undefined) {
       payload.abi = manifest.abi;
+    }
+    if (manifest.services !== undefined) {
+      payload.services = manifest.services;
     }
     // Always include migrations even if empty — dropping [] changes the signed payload
     payload.migrations = manifest.migrations ?? [];
