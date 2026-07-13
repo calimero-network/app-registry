@@ -64,5 +64,10 @@
     "javascript"
   ],
   "author": "Calimero Network",
-  "license": "MIT"
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/calimero-network/app-registry.git",
+    "directory": "packages/client-library"
+  }
 }
