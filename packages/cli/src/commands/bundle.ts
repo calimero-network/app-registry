@@ -675,7 +675,7 @@ Note:
 `
     )
     .action(async (bundleFile, options) => {
-      let mpkPath: string = '';
+      let mpkPath: string;
       let tempMpk: string | null = null;
       try {
         // Warn if remote-only options are used without --remote

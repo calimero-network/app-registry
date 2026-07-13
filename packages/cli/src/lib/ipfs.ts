@@ -19,7 +19,8 @@ export async function uploadToIPFS(filePath: string): Promise<string> {
     return simulatedCid;
   } catch (error) {
     throw new Error(
-      `Failed to upload to IPFS: ${error instanceof Error ? error.message : 'Unknown error'}`
+      `Failed to upload to IPFS: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      { cause: error }
     );
   }
 }
@@ -47,7 +48,8 @@ export async function downloadFromIPFS(
     return finalOutputPath;
   } catch (error) {
     throw new Error(
-      `Failed to download from IPFS: ${error instanceof Error ? error.message : 'Unknown error'}`
+      `Failed to download from IPFS: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      { cause: error }
     );
   }
 }
