@@ -177,7 +177,8 @@ export class LocalDataStore {
       throw new Error(
         `Failed to save data: ${
           error instanceof Error ? error.message : 'Unknown error'
-        }`
+        }`,
+        { cause: error }
       );
     }
   }
