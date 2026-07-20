@@ -32,7 +32,7 @@
     "release:major": "npm run version:major && git add package.json && git commit -m \"feat(cli): breaking change - bump version to $(npm run version:major --silent)\" && git tag cli-v$(npm run version:major --silent)"
   },
   "dependencies": {
-    "@fastify/cors": "^11.1.0",
+    "@fastify/cors": "^11.3.0",
     "@noble/ed25519": "^3.1.0",
     "axios": "^1.15.0",
     "bs58": "^5.0.0",
