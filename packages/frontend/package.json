@@ -24,7 +24,7 @@
     "axios": "^1.18.0",
     "canonicalize": "^2.1.0",
     "clsx": "^2.1.1",
-    "lucide-react": "^0.263.1",
+    "lucide-react": "^1.25.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-router-dom": "^6.8.0",
