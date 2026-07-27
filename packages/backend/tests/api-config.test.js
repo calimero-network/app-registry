@@ -93,3 +93,46 @@ describe('security headers', () => {
     expect(headerValue(siteRule, 'X-Content-Type-Options')).toBe('nosniff');
   });
 });
+
+describe('cross-package imports resolve', () => {
+  // Handlers under api/ reach into the backend package by deep path
+  // (`@calimero-network/registry-backend/src/lib/*`). That is the established
+  // convention here — nine handlers do it and have shipped that way — but it
+  // rests on the backend package NOT declaring an `exports` map, since one
+  // would make every unlisted subpath unreachable.
+  //
+  // Nothing in a Jest run would notice: Jest resolves through its own moduleer
+  // and the failure would first appear as a 500 from a deployed function. This
+  // resolves each import the way Node does at runtime, so restricting the
+  // subpaths (or moving a file) fails here instead of in production.
+
+  /** Every distinct `@calimero-network/registry-backend/...` specifier under api/. */
+  function collectBackendImports(dir, acc = new Map()) {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        collectBackendImports(full, acc);
+      } else if (entry.name.endsWith('.js')) {
+        const source = fs.readFileSync(full, 'utf8');
+        const re = /require\(\s*'(@calimero-network\/registry-backend[^']*)'/g;
+        let match;
+        while ((match = re.exec(source)) !== null) {
+          if (!acc.has(match[1])) acc.set(match[1], full);
+        }
+      }
+    }
+    return acc;
+  }
+
+  const imports = [...collectBackendImports(path.join(ROOT, 'api')).entries()];
+
+  test('the scan found the deep imports it is meant to guard', () => {
+    expect(imports.length).toBeGreaterThanOrEqual(3);
+  });
+
+  test.each(imports)('%s resolves from its importer', (specifier, importer) => {
+    expect(() =>
+      require.resolve(specifier, { paths: [path.dirname(importer)] })
+    ).not.toThrow();
+  });
+});
