@@ -331,6 +331,15 @@ class BundleStorageKV {
    * instead — as the listing endpoints used to — serialises them, which on a
    * cross-region Redis (~85ms RTT) turned 50 packages into ~9.6s.
    *
+   * KNOWN GAP: `includeYanked` is currently only requested by the all-versions
+   * query, so the default per-package-latest listing never resolves yank
+   * status. A latest version that has been yanked (e.g. for a security issue)
+   * is therefore presented like any healthy release and is not filtered out.
+   * Enabling it for the browse listing is cheap — the lookups ride the same
+   * pipelined round trip — but it adds a field to the most-consumed endpoint's
+   * response, so it wants to be a deliberate API change rather than a
+   * side effect. Pinned in tests/bundle-listing-parity.test.js.
+   *
    * @param {object}  [opts]
    * @param {string}  [opts.package]      Restrict to a single package.
    * @param {boolean} [opts.allVersions]  Every version instead of just latest.

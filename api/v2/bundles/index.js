@@ -96,6 +96,13 @@ module.exports = async function handler(req, res) {
     // (for the browse/list views), in a fixed 3 Redis round trips either way.
     // yanked is stored separately at bundle-yanked:<pkg>/<ver> so it can be
     // toggled without touching the immutable bundle manifest.
+    //
+    // NOTE: `?package=X` alone returns the LATEST version here, while the
+    // Fastify copy (packages/backend/src/server.js) returns every version for
+    // the same query and ignores all_versions entirely. That difference
+    // pre-dates the batching work and is deliberately preserved — changing it
+    // either way is an API decision affecting the frontend and CLI. Both
+    // behaviours are pinned in tests/bundle-listing-parity.test.js.
     const wantAllVersions = all_versions === 'true' && !!pkg;
     const entries = await store.listBundleManifests({
       package: pkg || null,
@@ -104,7 +111,8 @@ module.exports = async function handler(req, res) {
     });
 
     // Filtering, sanitization, download counts and ordering are shared with
-    // the Fastify copy of this endpoint so the two cannot disagree.
+    // the Fastify copy, so the two cannot disagree on how a listing entry is
+    // built. They still differ on which versions they select — see above.
     const bundles = await buildBundleListing({
       entries,
       kv,
