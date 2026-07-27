@@ -33,7 +33,7 @@
     "ajv-formats": "^2.1.1",
     "canonicalize": "^2.1.0",
     "dotenv": "^17.2.4",
-    "fastify": "^5.8.3",
+    "fastify": "^5.10.0",
     "ipfs-http-client": "^60.0.1",
     "js-yaml": "^5.2.1",
     "jsonwebtoken": "^9.0.3",
