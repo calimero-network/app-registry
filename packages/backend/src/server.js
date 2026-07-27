@@ -285,7 +285,13 @@ async function buildServer() {
   // GET /api/v2/bundles - List all bundles
   server.get('/api/v2/bundles', async (request, reply) => {
     try {
-      const { package: pkg, version, developer, author } = request.query || {};
+      const {
+        package: pkg,
+        version,
+        developer,
+        author,
+        all_versions,
+      } = request.query || {};
 
       // If specific package and version requested, return single bundle
       // (Same semantics as GET /api/v2/bundles/:package/:version - also increment download count)
@@ -308,26 +314,40 @@ async function buildServer() {
         return [normalized];
       }
 
-      // Fetch bundles. When a specific package is requested, return all its
-      // versions (for version history). Otherwise return only the latest
-      // version per package (for the browse/list views). Fixed 3 Redis round
-      // trips regardless of how many packages are published.
-      //
-      // NOTE: this server treats any `?package=X` as "all versions" and does
-      // not read `all_versions` or resolve yank flags, whereas the deployed
-      // Vercel copy (api/v2/bundles/index.js) returns only the latest version
-      // unless all_versions=true. That difference pre-dates the batching work
-      // and is deliberately preserved — self-hosted callers rely on
-      // `?package=X` returning history. Both behaviours are pinned in
-      // tests/bundle-listing-parity.test.js.
+      // Query semantics are kept identical to the deployed Vercel copy
+      // (api/v2/bundles/index.js) — see tests/bundle-listing-parity.test.js.
+      // This server used to treat any `?package=X` as "all versions" and never
+      // resolved yank flags, which broke clients that point at a self-hosted
+      // registry: the desktop app renders one card per returned bundle, so a
+      // name-filtered browse produced a duplicate card per version, and its
+      // `bundle.yanked === true` check silently matched nothing, offering
+      // yanked releases for install.
+      if (all_versions === 'true' && !pkg) {
+        return reply.code(400).send({
+          error: 'invalid_params',
+          message: 'all_versions requires a package parameter',
+        });
+      }
+      if (all_versions === 'true' && (developer || author)) {
+        return reply.code(400).send({
+          error: 'invalid_params',
+          message:
+            'all_versions cannot be combined with developer or author filters',
+        });
+      }
+
+      // Every version (for the version picker) or just the latest per package
+      // (for the browse/list views). Fixed 3 Redis round trips either way.
+      const wantAllVersions = all_versions === 'true' && !!pkg;
       const entries = await bundleStorage.listBundleManifests({
         package: pkg || null,
-        allVersions: !!pkg,
+        allVersions: wantAllVersions,
+        includeYanked: wantAllVersions,
       });
 
       // Filtering, sanitization, download counts and ordering are shared with
       // the Vercel copy, so the two cannot disagree on how a listing entry is
-      // built. They still differ on which versions they select — see above.
+      // built either.
       return await buildBundleListing({ entries, kv, developer, author });
     } catch (error) {
       server.log.error('Error listing bundles:', error);

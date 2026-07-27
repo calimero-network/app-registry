@@ -7,26 +7,29 @@
  * BOTH real endpoints with the same queries and records exactly where they
  * agree and where they do not.
  *
- * ── The known divergence ────────────────────────────────────────────────────
- * `?package=X` with no `all_versions` returns different things:
+ * ── Why they were aligned toward Vercel ─────────────────────────────────────
+ * The two used to disagree on `?package=X` with no `all_versions`: Vercel
+ * returned the latest version only, Fastify returned every version and never
+ * populated `yanked` (it did not read `all_versions` at all). That pre-dated
+ * the batching work — on the previous commit the Vercel handler branched on
+ * `all_versions === 'true' && pkg` while Fastify used
+ * `const versionList = pkg ? versions : [versions[0]]`.
  *
- *   Vercel   → the latest version only. All-versions requires all_versions=true,
- *              which also populates `yanked`.
- *   Fastify  → every version of X, and never populates `yanked`. It does not
- *              read the `all_versions` param at all.
+ * Fastify was moved onto Vercel's semantics, not the other way round, because
+ * Vercel's are the ones live clients are written against and the divergence
+ * was actively breaking the desktop app against self-hosted registries. Its
+ * registry client (apps/desktop/src/utils/registry.ts in the tauri-app repo)
+ * takes an arbitrary registry URL and:
  *
- * This is PRE-EXISTING, not introduced by the batching work. On the commit
- * before it, the Vercel handler branched on `all_versions === 'true' && pkg`
- * while Fastify used `const versionList = pkg ? versions : [versions[0]]`.
- * The shared helpers preserved each side's behaviour exactly.
+ *   - `fetchAppsFromRegistry` maps ONE bundle to ONE app card carrying
+ *     `latest_version`. Against Fastify, a name-filtered browse returned every
+ *     version, so the marketplace rendered a duplicate card per version.
+ *   - `fetchAppVersions` requests `all_versions=true` and drops entries where
+ *     `bundle.yanked === true`. Fastify never set the field, so that check
+ *     matched nothing and yanked releases were offered for install.
  *
- * It is pinned rather than unified here because aligning it is an API decision
- * with client impact in both directions: making Vercel return full history for
- * `?package=X` changes the production contract the frontend and CLI depend on,
- * and making Fastify require `all_versions=true` breaks self-hosted callers
- * that rely on `?package=X` returning history. Whichever way it goes should be
- * a deliberate change with its own release note — and these tests will fail
- * loudly when someone makes it, which is the point.
+ * Production behaviour is therefore unchanged (verified byte-identical against
+ * apps.calimero.network), and self-hosted now matches it.
  */
 
 const store = new Map();
@@ -195,71 +198,84 @@ describe('where the two endpoints agree', () => {
   });
 });
 
-describe('KNOWN DIVERGENCE: ?package=X without all_versions', () => {
-  // See the file header. These assertions describe current behaviour on each
-  // side; they are not an endorsement of the difference.
-
-  test('Vercel returns the latest version only', async () => {
-    const res = await callVercel({ package: PKG });
-
-    expect(res.body.map(b => b.appVersion)).toEqual(['1.10.0']);
-  });
-
-  test('Fastify returns every version', async () => {
-    const res = await callFastify(`?package=${PKG}`);
-
-    expect(res.body.map(b => b.appVersion)).toEqual([
-      '1.10.0',
-      '1.2.0',
-      '1.0.0',
-    ]);
-  });
-
-  test('the two therefore disagree on result count for the same query', async () => {
+describe('?package=X without all_versions returns the latest version only', () => {
+  test('on both endpoints', async () => {
     const vercel = await callVercel({ package: PKG });
     const fastify = await callFastify(`?package=${PKG}`);
 
-    // Fails the day someone aligns them — which is the intent.
-    expect(vercel.body).toHaveLength(1);
-    expect(fastify.body).toHaveLength(3);
+    expect(vercel.body.map(b => b.appVersion)).toEqual(['1.10.0']);
+    expect(fastify.body.map(b => b.appVersion)).toEqual(['1.10.0']);
   });
 });
 
-describe('KNOWN DIVERGENCE: all_versions and yank status', () => {
-  test('Vercel honours all_versions=true and populates yanked', async () => {
+describe('all_versions and yank status', () => {
+  test('both return every version, newest first, with yank flags', async () => {
     store.set(`bundle-yanked:${PKG}/1.2.0`, '1');
 
-    const res = await callVercel({ package: PKG, all_versions: 'true' });
+    const vercel = await callVercel({ package: PKG, all_versions: 'true' });
+    const fastify = await callFastify(`?package=${PKG}&all_versions=true`);
 
-    expect(res.body.map(b => b.appVersion)).toEqual([
-      '1.10.0',
-      '1.2.0',
-      '1.0.0',
-    ]);
-    expect(res.body.map(b => b.yanked)).toEqual([false, true, false]);
+    for (const res of [vercel, fastify]) {
+      expect(res.body.map(b => b.appVersion)).toEqual([
+        '1.10.0',
+        '1.2.0',
+        '1.0.0',
+      ]);
+      expect(res.body.map(b => b.yanked)).toEqual([false, true, false]);
+    }
   });
 
-  test('Fastify ignores all_versions and never populates yanked', async () => {
+  test('both reject all_versions without a package', async () => {
+    const vercel = await callVercel({ all_versions: 'true' });
+    const fastify = await callFastify('?all_versions=true');
+
+    expect(vercel.statusCode).toBe(400);
+    expect(fastify.statusCode).toBe(400);
+    expect(vercel.body.error).toBe('invalid_params');
+    expect(fastify.body.error).toBe('invalid_params');
+  });
+
+  test('both reject all_versions combined with developer or author', async () => {
+    const vercel = await callVercel({
+      package: PKG,
+      all_versions: 'true',
+      developer: 'pk-alice',
+    });
+    const fastify = await callFastify(
+      `?package=${PKG}&all_versions=true&developer=pk-alice`
+    );
+
+    expect(vercel.statusCode).toBe(400);
+    expect(fastify.statusCode).toBe(400);
+  });
+});
+
+describe('contract the desktop app depends on', () => {
+  // tauri-app apps/desktop/src/utils/registry.ts talks to an arbitrary registry
+  // URL, so these must hold on BOTH deployments or the marketplace misbehaves.
+
+  test('a name-filtered browse yields exactly one card per package', async () => {
+    // fetchAppsFromRegistry maps one bundle to one app card carrying
+    // latest_version. More than one entry per package renders duplicates.
+    const vercel = await callVercel({ package: PKG });
+    const fastify = await callFastify(`?package=${PKG}`);
+
+    expect(vercel.body).toHaveLength(1);
+    expect(fastify.body).toHaveLength(1);
+  });
+
+  test('the version list carries yanked so the app can filter it', async () => {
+    // fetchAppVersions drops entries where `bundle.yanked === true` — strict
+    // equality, so a missing field silently offers yanked releases to install.
     store.set(`bundle-yanked:${PKG}/1.2.0`, '1');
 
-    const res = await callFastify(`?package=${PKG}&all_versions=true`);
+    const vercel = await callVercel({ package: PKG, all_versions: 'true' });
+    const fastify = await callFastify(`?package=${PKG}&all_versions=true`);
 
-    // Same versions as without the flag — the param is not read at all.
-    expect(res.body.map(b => b.appVersion)).toHaveLength(3);
-    expect(res.body.every(b => !('yanked' in b))).toBe(true);
-  });
-
-  test('Vercel rejects all_versions without a package', async () => {
-    const res = await callVercel({ all_versions: 'true' });
-
-    expect(res.statusCode).toBe(400);
-    expect(res.body.error).toBe('invalid_params');
-  });
-
-  test('Fastify has no such validation', async () => {
-    const res = await callFastify('?all_versions=true');
-
-    expect(res.statusCode).toBe(200);
+    for (const res of [vercel, fastify]) {
+      const installable = res.body.filter(b => b.yanked !== true);
+      expect(installable.map(b => b.appVersion)).toEqual(['1.10.0', '1.0.0']);
+    }
   });
 });
 
