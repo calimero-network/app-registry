@@ -16,6 +16,7 @@ const tar = require('tar');
 const config = require('./config');
 const { BundleStorageKV } = require('./lib/bundle-storage-kv');
 const { createBundleSanitizers } = require('./lib/bundle-sanitize');
+const { buildBundleListing } = require('./lib/bundle-listing');
 const { kv } = require('./lib/kv-client');
 const {
   verifyManifest,
@@ -261,7 +262,7 @@ async function buildServer() {
     );
   }
 
-  const { sanitizeBundle, sanitizeBundles } = createBundleSanitizers(kv);
+  const { sanitizeBundle } = createBundleSanitizers(kv);
 
   // V2 Bundle API endpoints
 
@@ -316,51 +317,9 @@ async function buildServer() {
         allVersions: !!pkg,
       });
 
-      const bundles = [];
-      for (const { packageName, bundle } of entries) {
-        // Filter by developer pubkey if specified
-        if (developer) {
-          const bundlePubkey = bundle.signature?.pubkey;
-          if (!bundlePubkey || bundlePubkey !== developer) {
-            continue;
-          }
-        }
-
-        // Filter by public metadata.author (username), falling back to
-        // metadata._ownerEmail only for legacy bundles.
-        if (author) {
-          const authorIdentity =
-            bundle.metadata?.author ?? bundle.metadata?._ownerEmail;
-          if (!authorIdentity || authorIdentity !== author) {
-            continue;
-          }
-        }
-
-        bundles.push({ rawBundle: bundle, packageName });
-      }
-
-      // Batch-sanitize all bundles (2 Redis rounds instead of 4N sequential)
-      const normalizedBundles = await sanitizeBundles(
-        bundles.map(b => ({ bundle: b.rawBundle, packageName: b.packageName }))
-      );
-
-      // Batch Redis reads for download counts (one per unique package; keys are canonical lowercase)
-      const uniquePackages = [...new Set(bundles.map(b => b.packageName))];
-      const downloadCounts = await Promise.all(
-        uniquePackages.map(p => kv.get(`downloads:${p.toLowerCase()}`))
-      );
-      const countByPackage = Object.fromEntries(
-        uniquePackages.map((p, i) => [p, Number(downloadCounts[i]) || 0])
-      );
-      const result = normalizedBundles.map((normalized, i) => {
-        normalized.downloads = countByPackage[bundles[i].packageName] ?? 0;
-        return normalized;
-      });
-
-      // Sort by package name
-      result.sort((a, b) => a.package.localeCompare(b.package));
-
-      return result;
+      // Filtering, sanitization, download counts and ordering are shared with
+      // the Vercel copy of this endpoint so the two cannot disagree.
+      return await buildBundleListing({ entries, kv, developer, author });
     } catch (error) {
       server.log.error('Error listing bundles:', error);
       return reply.code(500).send({

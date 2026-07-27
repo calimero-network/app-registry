@@ -7,7 +7,12 @@ const {
   BundleStorageKV,
 } = require('@calimero-network/registry-backend/src/lib/bundle-storage-kv');
 const { kv } = require('@calimero-network/registry-backend/src/lib/kv-client');
-const { createBundleSanitizers } = require('../../lib/bundle-sanitize');
+const {
+  createBundleSanitizers,
+} = require('@calimero-network/registry-backend/src/lib/bundle-sanitize');
+const {
+  buildBundleListing,
+} = require('@calimero-network/registry-backend/src/lib/bundle-listing');
 
 // Singleton storage instance (shared Redis connection with the sibling bundle
 // endpoints — this handler used to open a second one of its own).
@@ -55,7 +60,7 @@ module.exports = async function handler(req, res) {
   }
 
   const store = getStorage();
-  const { sanitizeBundle, sanitizeBundles } = createBundleSanitizers(kv);
+  const { sanitizeBundle } = createBundleSanitizers(kv);
 
   try {
     const { package: pkg, version, developer, author } = req.query || {};
@@ -98,42 +103,14 @@ module.exports = async function handler(req, res) {
       includeYanked: wantAllVersions,
     });
 
-    const rawBundles = [];
-    for (const { packageName, bundle, yanked } of entries) {
-      if (wantAllVersions) {
-        rawBundles.push({ bundle: { ...bundle, yanked }, packageName });
-        continue;
-      }
-      if (developer && bundle.signature?.pubkey !== developer) continue;
-      if (author) {
-        const authorIdentity =
-          bundle.metadata?.author ?? bundle.metadata?._ownerEmail;
-        if (authorIdentity !== author) continue;
-      }
-      rawBundles.push({ bundle, packageName });
-    }
-
-    // Batch-sanitize all bundles and batch-fetch download counts in parallel
-    const uniquePackages = [...new Set(rawBundles.map(b => b.packageName))];
-    const [sanitized, downloadVals] = await Promise.all([
-      sanitizeBundles(rawBundles),
-      Promise.all(
-        uniquePackages.map(p => kv.get(`downloads:${p.toLowerCase()}`))
-      ),
-    ]);
-    const countByPackage = Object.fromEntries(
-      uniquePackages.map((p, i) => [
-        p,
-        downloadVals[i] ? parseInt(downloadVals[i], 10) : 0,
-      ])
-    );
-    const bundles = sanitized.map((s, i) => ({
-      ...s,
-      downloads: countByPackage[rawBundles[i].packageName] ?? 0,
-    }));
-
-    // Stable sort, so the version-descending order within a package survives.
-    bundles.sort((a, b) => a.package.localeCompare(b.package));
+    // Filtering, sanitization, download counts and ordering are shared with
+    // the Fastify copy of this endpoint so the two cannot disagree.
+    const bundles = await buildBundleListing({
+      entries,
+      kv,
+      developer,
+      author,
+    });
     return sendCached(res, bundles);
   } catch (error) {
     console.error('List Error:', error);

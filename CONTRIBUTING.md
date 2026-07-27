@@ -337,6 +337,32 @@ Each package has its own test suite:
 - **Client Library** - Vitest for unit tests
 - **CLI** - Vitest for command testing
 
+### Testing the deployed API
+
+The serverless handlers in the root `api/` directory are what actually serve
+production on Vercel; the Fastify server in `packages/backend/src/server.js` is
+used for Docker and self-hosted deploys. Both exist, and where they implement
+the same route they must not drift — shared logic belongs in
+`packages/backend/src/lib/` so both can call it.
+
+Tests for the `api/` handlers live in `packages/backend/tests/` (there is no
+separate test package for the root `api/` directory) and require the handler
+module directly:
+
+- `api-handler-contract.test.js` sweeps every handler under `api/`
+  automatically, so a new endpoint is covered as soon as it is added.
+- `api-config.test.js` pins `vercel.json` — CORS, the functions glob, and the
+  SPA catch-all that keeps `/api` from being rewritten to `index.html`.
+- `api-read-endpoints.test.js` and `bundle-listing*.test.js` cover behaviour.
+
+Two things to know when writing these:
+
+- CORS comes from the `/api/(.*)` headers block in `vercel.json`, not from
+  handler code, so do not assert it per handler.
+- Redis round trips are the dominant cost in production. Fan out with
+  `Promise.all` (node-redis pipelines commands issued in the same tick) rather
+  than awaiting inside a loop.
+
 ### Running Tests
 
 ```bash
