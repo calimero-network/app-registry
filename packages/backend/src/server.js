@@ -307,57 +307,36 @@ async function buildServer() {
         return [normalized];
       }
 
-      // Get all bundle packages
-      const allPackages = await bundleStorage.getAllBundles();
-
       // Fetch bundles. When a specific package is requested, return all its
       // versions (for version history). Otherwise return only the latest
-      // version per package (for the browse/list views).
+      // version per package (for the browse/list views). Fixed 3 Redis round
+      // trips regardless of how many packages are published.
+      const entries = await bundleStorage.listBundleManifests({
+        package: pkg || null,
+        allVersions: !!pkg,
+      });
+
       const bundles = [];
-      for (const packageName of allPackages) {
-        // Filter by package if specified
-        if (pkg && packageName !== pkg) {
-          continue;
-        }
-
-        const versions = await bundleStorage.getBundleVersions(packageName);
-        if (versions.length === 0) {
-          continue;
-        }
-
-        // When querying a specific package return all versions; otherwise latest only
-        const versionList = pkg ? versions : [versions[0]];
-
-        for (const ver of versionList) {
-          const bundle = await bundleStorage.getBundleManifest(
-            packageName,
-            ver
-          );
-
-          if (!bundle) {
+      for (const { packageName, bundle } of entries) {
+        // Filter by developer pubkey if specified
+        if (developer) {
+          const bundlePubkey = bundle.signature?.pubkey;
+          if (!bundlePubkey || bundlePubkey !== developer) {
             continue;
           }
-
-          // Filter by developer pubkey if specified
-          if (developer) {
-            const bundlePubkey = bundle.signature?.pubkey;
-            if (!bundlePubkey || bundlePubkey !== developer) {
-              continue;
-            }
-          }
-
-          // Filter by public metadata.author (username), falling back to
-          // metadata._ownerEmail only for legacy bundles.
-          if (author) {
-            const authorIdentity =
-              bundle.metadata?.author ?? bundle.metadata?._ownerEmail;
-            if (!authorIdentity || authorIdentity !== author) {
-              continue;
-            }
-          }
-
-          bundles.push({ rawBundle: bundle, packageName });
         }
+
+        // Filter by public metadata.author (username), falling back to
+        // metadata._ownerEmail only for legacy bundles.
+        if (author) {
+          const authorIdentity =
+            bundle.metadata?.author ?? bundle.metadata?._ownerEmail;
+          if (!authorIdentity || authorIdentity !== author) {
+            continue;
+          }
+        }
+
+        bundles.push({ rawBundle: bundle, packageName });
       }
 
       // Batch-sanitize all bundles (2 Redis rounds instead of 4N sequential)
