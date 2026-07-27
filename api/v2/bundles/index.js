@@ -3,65 +3,43 @@
  * GET /api/v2/bundles
  */
 
-let kvClient;
+const {
+  BundleStorageKV,
+} = require('@calimero-network/registry-backend/src/lib/bundle-storage-kv');
+const { kv } = require('@calimero-network/registry-backend/src/lib/kv-client');
+const {
+  createBundleSanitizers,
+} = require('@calimero-network/registry-backend/src/lib/bundle-sanitize');
+const {
+  buildBundleListing,
+} = require('@calimero-network/registry-backend/src/lib/bundle-listing');
 
-async function getKV() {
-  if (kvClient) return kvClient;
-
-  const isProduction = process.env.VERCEL === '1' || !!process.env.REDIS_URL;
-
-  if (isProduction && process.env.REDIS_URL) {
-    const { createClient } = require('redis');
-    const redisClient = createClient({ url: process.env.REDIS_URL });
-    redisClient.on('error', err => console.error('Redis error:', err));
-
-    kvClient = {
-      _connected: false,
-      _connecting: null,
-      async _ensureConnected() {
-        if (this._connected) return;
-        if (this._connecting) {
-          await this._connecting;
-          return;
-        }
-        this._connecting = redisClient
-          .connect()
-          .then(() => {
-            this._connected = true;
-            this._connecting = null;
-          })
-          .catch(error => {
-            this._connected = false;
-            this._connecting = null;
-            throw error;
-          });
-        await this._connecting;
-      },
-      async get(key) {
-        await this._ensureConnected();
-        return await redisClient.get(key);
-      },
-      async sMembers(key) {
-        await this._ensureConnected();
-        return await redisClient.sMembers(key);
-      },
-    };
-    return kvClient;
+// Singleton storage instance (shared Redis connection with the sibling bundle
+// endpoints — this handler used to open a second one of its own).
+let storage;
+function getStorage() {
+  if (!storage) {
+    storage = new BundleStorageKV();
   }
+  return storage;
+}
 
-  // Mock for development
-  const mockStore = new Map();
-  const mockSets = new Map();
-  kvClient = {
-    async get(key) {
-      return mockStore.get(key) ?? null;
-    },
-    async sMembers(key) {
-      const set = mockSets.get(key);
-      return set ? Array.from(set) : [];
-    },
-  };
-  return kvClient;
+/**
+ * Listings are derived purely from published bundles — no auth is read and
+ * nothing is mutated — so they are safe to cache publicly at the CDN. This is
+ * what makes the endpoint feel instant: Vercel serves it from the edge without
+ * invoking the function at all. `stale-while-revalidate` keeps the once-a-minute
+ * refresh off the user's critical path, so a newly pushed bundle shows up within
+ * ~60s while nobody ever waits on a cold read.
+ *
+ * Only ever set on 2xx — a cached 404/500 would outlive the condition.
+ */
+function sendCached(res, payload) {
+  res.setHeader(
+    'Cache-Control',
+    'public, s-maxage=60, stale-while-revalidate=86400'
+  );
+  return res.status(200).json(payload);
 }
 
 module.exports = async function handler(req, res) {
@@ -81,34 +59,21 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  let kv;
-  try {
-    kv = await getKV();
-  } catch (e) {
-    console.error('KV init failed:', e);
-    return res.status(500).json({
-      error: 'kv_init_failed',
-      message: e?.message ?? String(e),
-    });
-  }
-
-  const { createBundleSanitizers } = require('../../lib/bundle-sanitize');
-  const { sanitizeBundle, sanitizeBundles } = createBundleSanitizers(kv);
+  const store = getStorage();
+  const { sanitizeBundle } = createBundleSanitizers(kv);
 
   try {
-    const semver = require('semver');
     const { package: pkg, version, developer, author } = req.query || {};
 
     if (pkg && version) {
-      const data = await kv.get(`bundle:${pkg}/${version}`);
-      if (!data) return res.status(404).json({ error: 'not_found' });
-      const raw = JSON.parse(data).json;
+      const raw = await store.getBundleManifest(pkg, version);
+      if (!raw) return res.status(404).json({ error: 'not_found' });
       const downloadCount = await kv.get(
         `downloads:${(pkg || '').toLowerCase()}`
       );
       const downloads = downloadCount ? parseInt(downloadCount, 10) : 0;
       const sanitized = await sanitizeBundle(raw, pkg);
-      return res.status(200).json([{ ...sanitized, downloads }]);
+      return sendCached(res, [{ ...sanitized, downloads }]);
     }
 
     const { all_versions } = req.query || {};
@@ -127,68 +92,34 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    const allPackages = await kv.sMembers('bundles:all');
-    const rawBundles = [];
-    for (const packageName of allPackages) {
-      if (pkg && packageName !== pkg) continue;
-      const versions = await kv.sMembers(`bundle-versions:${packageName}`);
-      if (versions.length === 0) continue;
-      const sorted = versions.sort((a, b) =>
-        semver.rcompare(semver.valid(a) || '0.0.0', semver.valid(b) || '0.0.0')
-      );
-      if (all_versions === 'true' && pkg) {
-        // Return every published version with yanked status included (used by version picker).
-        // yanked flag is stored separately at bundle-yanked:<pkg>/<ver> so it can be
-        // toggled without touching the immutable bundle manifest.
-        for (const ver of sorted) {
-          const [data, yankFlag] = await Promise.all([
-            kv.get(`bundle:${packageName}/${ver}`),
-            kv.get(`bundle-yanked:${packageName}/${ver}`),
-          ]);
-          if (!data) continue;
-          const bundle = JSON.parse(data).json;
-          rawBundles.push({
-            bundle: { ...bundle, yanked: yankFlag === '1' },
-            packageName,
-          });
-        }
-      } else {
-        // Default: return only the latest version per package
-        const latestVersion = sorted[0];
-        const data = await kv.get(`bundle:${packageName}/${latestVersion}`);
-        if (!data) continue;
-        const bundle = JSON.parse(data).json;
-        if (developer && bundle.signature?.pubkey !== developer) continue;
-        if (author) {
-          const authorIdentity =
-            bundle.metadata?.author ?? bundle.metadata?._ownerEmail;
-          if (authorIdentity !== author) continue;
-        }
-        rawBundles.push({ bundle, packageName });
-      }
-    }
+    // Every version (for the version picker) or just the latest per package
+    // (for the browse/list views), in a fixed 3 Redis round trips either way.
+    // yanked is stored separately at bundle-yanked:<pkg>/<ver> so it can be
+    // toggled without touching the immutable bundle manifest.
+    //
+    // NOTE: `?package=X` alone returns the LATEST version here, while the
+    // Fastify copy (packages/backend/src/server.js) returns every version for
+    // the same query and ignores all_versions entirely. That difference
+    // pre-dates the batching work and is deliberately preserved — changing it
+    // either way is an API decision affecting the frontend and CLI. Both
+    // behaviours are pinned in tests/bundle-listing-parity.test.js.
+    const wantAllVersions = all_versions === 'true' && !!pkg;
+    const entries = await store.listBundleManifests({
+      package: pkg || null,
+      allVersions: wantAllVersions,
+      includeYanked: wantAllVersions,
+    });
 
-    // Batch-sanitize all bundles and batch-fetch download counts in parallel
-    const uniquePackages = [...new Set(rawBundles.map(b => b.packageName))];
-    const [sanitized, downloadVals] = await Promise.all([
-      sanitizeBundles(rawBundles),
-      Promise.all(
-        uniquePackages.map(p => kv.get(`downloads:${p.toLowerCase()}`))
-      ),
-    ]);
-    const countByPackage = Object.fromEntries(
-      uniquePackages.map((p, i) => [
-        p,
-        downloadVals[i] ? parseInt(downloadVals[i], 10) : 0,
-      ])
-    );
-    const bundles = sanitized.map((s, i) => ({
-      ...s,
-      downloads: countByPackage[rawBundles[i].packageName] ?? 0,
-    }));
-
-    bundles.sort((a, b) => a.package.localeCompare(b.package));
-    return res.status(200).json(bundles);
+    // Filtering, sanitization, download counts and ordering are shared with
+    // the Fastify copy, so the two cannot disagree on how a listing entry is
+    // built. They still differ on which versions they select — see above.
+    const bundles = await buildBundleListing({
+      entries,
+      kv,
+      developer,
+      author,
+    });
+    return sendCached(res, bundles);
   } catch (error) {
     console.error('List Error:', error);
     return res.status(500).json({

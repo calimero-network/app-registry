@@ -16,6 +16,7 @@ const tar = require('tar');
 const config = require('./config');
 const { BundleStorageKV } = require('./lib/bundle-storage-kv');
 const { createBundleSanitizers } = require('./lib/bundle-sanitize');
+const { buildBundleListing } = require('./lib/bundle-listing');
 const { kv } = require('./lib/kv-client');
 const {
   verifyManifest,
@@ -261,7 +262,7 @@ async function buildServer() {
     );
   }
 
-  const { sanitizeBundle, sanitizeBundles } = createBundleSanitizers(kv);
+  const { sanitizeBundle } = createBundleSanitizers(kv);
 
   // V2 Bundle API endpoints
 
@@ -284,7 +285,13 @@ async function buildServer() {
   // GET /api/v2/bundles - List all bundles
   server.get('/api/v2/bundles', async (request, reply) => {
     try {
-      const { package: pkg, version, developer, author } = request.query || {};
+      const {
+        package: pkg,
+        version,
+        developer,
+        author,
+        all_versions,
+      } = request.query || {};
 
       // If specific package and version requested, return single bundle
       // (Same semantics as GET /api/v2/bundles/:package/:version - also increment download count)
@@ -307,81 +314,41 @@ async function buildServer() {
         return [normalized];
       }
 
-      // Get all bundle packages
-      const allPackages = await bundleStorage.getAllBundles();
-
-      // Fetch bundles. When a specific package is requested, return all its
-      // versions (for version history). Otherwise return only the latest
-      // version per package (for the browse/list views).
-      const bundles = [];
-      for (const packageName of allPackages) {
-        // Filter by package if specified
-        if (pkg && packageName !== pkg) {
-          continue;
-        }
-
-        const versions = await bundleStorage.getBundleVersions(packageName);
-        if (versions.length === 0) {
-          continue;
-        }
-
-        // When querying a specific package return all versions; otherwise latest only
-        const versionList = pkg ? versions : [versions[0]];
-
-        for (const ver of versionList) {
-          const bundle = await bundleStorage.getBundleManifest(
-            packageName,
-            ver
-          );
-
-          if (!bundle) {
-            continue;
-          }
-
-          // Filter by developer pubkey if specified
-          if (developer) {
-            const bundlePubkey = bundle.signature?.pubkey;
-            if (!bundlePubkey || bundlePubkey !== developer) {
-              continue;
-            }
-          }
-
-          // Filter by public metadata.author (username), falling back to
-          // metadata._ownerEmail only for legacy bundles.
-          if (author) {
-            const authorIdentity =
-              bundle.metadata?.author ?? bundle.metadata?._ownerEmail;
-            if (!authorIdentity || authorIdentity !== author) {
-              continue;
-            }
-          }
-
-          bundles.push({ rawBundle: bundle, packageName });
-        }
+      // Query semantics are kept identical to the deployed Vercel copy
+      // (api/v2/bundles/index.js) — see tests/bundle-listing-parity.test.js.
+      // This server used to treat any `?package=X` as "all versions" and never
+      // resolved yank flags, which broke clients that point at a self-hosted
+      // registry: the desktop app renders one card per returned bundle, so a
+      // name-filtered browse produced a duplicate card per version, and its
+      // `bundle.yanked === true` check silently matched nothing, offering
+      // yanked releases for install.
+      if (all_versions === 'true' && !pkg) {
+        return reply.code(400).send({
+          error: 'invalid_params',
+          message: 'all_versions requires a package parameter',
+        });
+      }
+      if (all_versions === 'true' && (developer || author)) {
+        return reply.code(400).send({
+          error: 'invalid_params',
+          message:
+            'all_versions cannot be combined with developer or author filters',
+        });
       }
 
-      // Batch-sanitize all bundles (2 Redis rounds instead of 4N sequential)
-      const normalizedBundles = await sanitizeBundles(
-        bundles.map(b => ({ bundle: b.rawBundle, packageName: b.packageName }))
-      );
-
-      // Batch Redis reads for download counts (one per unique package; keys are canonical lowercase)
-      const uniquePackages = [...new Set(bundles.map(b => b.packageName))];
-      const downloadCounts = await Promise.all(
-        uniquePackages.map(p => kv.get(`downloads:${p.toLowerCase()}`))
-      );
-      const countByPackage = Object.fromEntries(
-        uniquePackages.map((p, i) => [p, Number(downloadCounts[i]) || 0])
-      );
-      const result = normalizedBundles.map((normalized, i) => {
-        normalized.downloads = countByPackage[bundles[i].packageName] ?? 0;
-        return normalized;
+      // Every version (for the version picker) or just the latest per package
+      // (for the browse/list views). Fixed 3 Redis round trips either way.
+      const wantAllVersions = all_versions === 'true' && !!pkg;
+      const entries = await bundleStorage.listBundleManifests({
+        package: pkg || null,
+        allVersions: wantAllVersions,
+        includeYanked: wantAllVersions,
       });
 
-      // Sort by package name
-      result.sort((a, b) => a.package.localeCompare(b.package));
-
-      return result;
+      // Filtering, sanitization, download counts and ordering are shared with
+      // the Vercel copy, so the two cannot disagree on how a listing entry is
+      // built either.
+      return await buildBundleListing({ entries, kv, developer, author });
     } catch (error) {
       server.log.error('Error listing bundles:', error);
       return reply.code(500).send({
