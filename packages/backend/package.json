@@ -32,10 +32,10 @@
     "ajv": "^8.20.0",
     "ajv-formats": "^2.1.1",
     "canonicalize": "^2.1.0",
-    "dotenv": "^17.2.4",
-    "fastify": "^5.8.3",
+    "dotenv": "^17.4.2",
+    "fastify": "^5.10.0",
     "ipfs-http-client": "^60.0.1",
-    "js-yaml": "^5.2.1",
+    "js-yaml": "^5.2.2",
     "jsonwebtoken": "^9.0.3",
     "lru-cache": "^11.5.1",
     "multibase": "^4.0.6",
@@ -43,12 +43,12 @@
     "node-fetch": "^3.3.2",
     "pino": "^10.3.1",
     "semver": "^7.8.5",
-    "tar": "^7.5.11"
+    "tar": "^7.5.22"
   },
   "devDependencies": {
     "@types/jest": "^30.0.0",
     "eslint": "^8.55.0",
-    "eslint-config-prettier": "^9.0.0",
+    "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.6",
     "jest": "^30.0.5",
     "nodemon": "^3.0.2",
