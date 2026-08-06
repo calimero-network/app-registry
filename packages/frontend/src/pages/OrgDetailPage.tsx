@@ -37,12 +37,11 @@ import {
   AlertTriangle,
   Globe,
   Mail,
-  Github,
-  Twitter,
   MapPin,
   ExternalLink,
   BadgeCheck,
 } from 'lucide-react';
+import { GithubIcon, TwitterXIcon } from '@/components/BrandIcons';
 
 /** Extract a readable message from an Axios or generic error. */
 function getApiErrorMessage(error: unknown): string {
@@ -871,7 +870,7 @@ export default function OrgDetailPage() {
               )}
               {m.github && (
                 <OrgInfoRow
-                  icon={Github}
+                  icon={GithubIcon}
                   label='GitHub'
                   value={m.github}
                   href={m.github}
@@ -879,7 +878,7 @@ export default function OrgDetailPage() {
               )}
               {m.twitter && (
                 <OrgInfoRow
-                  icon={Twitter}
+                  icon={TwitterXIcon}
                   label='Twitter / X'
                   value={m.twitter}
                   href={m.twitter}

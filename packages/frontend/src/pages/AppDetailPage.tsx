@@ -10,7 +10,6 @@ import {
   Hash,
   HardDrive,
   Clock,
-  Github,
   BookOpen,
   Globe,
   Shield,
@@ -22,6 +21,7 @@ import {
   Ban,
   RotateCcw,
 } from 'lucide-react';
+import { GithubIcon } from '@/components/BrandIcons';
 import {
   api,
   deleteBundleVersion,
@@ -286,7 +286,7 @@ export default function AppDetailPage() {
               <LinkPill href={links.frontend} icon={Globe} label='Open App' />
             )}
             {links.github && (
-              <LinkPill href={links.github} icon={Github} label='GitHub' />
+              <LinkPill href={links.github} icon={GithubIcon} label='GitHub' />
             )}
             {links.docs && (
               <LinkPill href={links.docs} icon={BookOpen} label='Docs' />
