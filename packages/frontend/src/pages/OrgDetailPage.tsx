@@ -40,6 +40,7 @@ import {
   MapPin,
   ExternalLink,
   BadgeCheck,
+  Bot,
 } from 'lucide-react';
 import { GithubIcon, TwitterXIcon } from '@/components/BrandIcons';
 
@@ -511,7 +512,9 @@ export default function OrgDetailPage() {
                               ? `@${member.username}`
                               : '(no username)'}
                           </span>
-                          {member.verified && (
+                          {/* A bot inherits `verified` from its email domain,
+                              where the badge reads as a vouched-for human. */}
+                          {member.verified && !member.isBot && (
                             <BadgeCheck className='h-3.5 w-3.5 flex-shrink-0 text-emerald-400' />
                           )}
                           {isCurrentUserRow && (
@@ -522,7 +525,14 @@ export default function OrgDetailPage() {
                         </span>
                       </td>
                       <td className='py-3 px-5'>
-                        {member.role === 'owner' ? (
+                        {/* Bots are denied every non-publish route, so their
+                            stored role grants nothing worth showing. */}
+                        {member.isBot ? (
+                          <span className='inline-flex items-center gap-1 pill bg-sky-500/10 text-sky-400'>
+                            <Bot className='w-3 h-3' />
+                            Bot
+                          </span>
+                        ) : member.role === 'owner' ? (
                           <span className='inline-flex items-center gap-1 pill bg-emerald-500/10 text-emerald-400'>
                             <Shield className='w-3 h-3' />
                             Owner

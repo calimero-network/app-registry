@@ -532,6 +532,7 @@ async function orgRoutes(server) {
           username: profile?.username ?? null,
           verified: profile?.verified ?? email.endsWith('@calimero.network'),
           role: role || 'member',
+          isBot: await isBot(email),
         };
       })
     );

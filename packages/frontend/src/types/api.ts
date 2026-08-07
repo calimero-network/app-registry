@@ -101,6 +101,7 @@ export interface OrgMember {
   username: string | null;
   verified?: boolean;
   role: 'owner' | 'admin' | 'member';
+  isBot?: boolean;
 }
 
 export interface ApiToken {
