@@ -48,14 +48,23 @@ function createRefreshStorage(
     return token;
   }
 
+  // A record that will not parse is unusable either way, so it reads as a bad
+  // token rather than escaping as a 500 from whatever route asked.
+  function readRecord(raw) {
+    if (!raw) return null;
+    if (typeof raw !== 'string') return raw;
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  }
+
   async function revoke(token) {
     if (!token) return;
     const hash = hashToken(token);
-    const raw = await kv.get(REFRESH_PREFIX + hash);
-    if (raw) {
-      const rec = typeof raw === 'string' ? JSON.parse(raw) : raw;
-      await kv.sRem(USER_REFRESH_PREFIX + rec.email, hash);
-    }
+    const rec = readRecord(await kv.get(REFRESH_PREFIX + hash));
+    if (rec?.email) await kv.sRem(USER_REFRESH_PREFIX + rec.email, hash);
     await kv.del(REFRESH_PREFIX + hash);
   }
 
@@ -64,9 +73,11 @@ function createRefreshStorage(
     if (!token) return null;
     const raw = await kv.get(keyFor(token));
     if (!raw) return null;
-    const rec = typeof raw === 'string' ? JSON.parse(raw) : raw;
+
     // The kv wrapper has no EXPIRE, so expiry is enforced here and the dead
-    // record is cleaned up on the way past rather than lingering.
+    // record is cleaned up on the way past rather than lingering. A record that
+    // will not parse is equally unusable, so it takes the same path.
+    const rec = readRecord(raw);
     if (!rec?.expiresAt || (nowMs ?? Date.now()) >= rec.expiresAt) {
       await revoke(token);
       return null;

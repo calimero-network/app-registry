@@ -141,6 +141,20 @@ describe('refresh tokens', () => {
     expect(await r.rotate(undefined)).toBeNull();
   });
 
+  it('treats an unparseable stored record as a bad token, not a crash', async () => {
+    const kv = makeKv();
+    const r = createRefreshStorage(kv);
+    const token = await r.issue(EMAIL, 'user-1');
+    const key = [...kv.store.keys()].find(k => k.startsWith('refresh:'));
+    kv.store.set(key, '{ this is not json');
+
+    // A partial write must not turn a routine bad-token path into a 500.
+    await expect(r.verify(token)).resolves.toBeNull();
+    await expect(r.rotate(token)).resolves.toBeNull();
+    await expect(r.revoke(token)).resolves.not.toThrow();
+    expect(kv.store.has(key)).toBe(false);
+  });
+
   it('issues distinct tokens and normalises the email', async () => {
     const kv = makeKv();
     const r = createRefreshStorage(kv);

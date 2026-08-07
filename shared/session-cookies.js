@@ -15,9 +15,12 @@ const sessionCookieName = () =>
   process.env.AUTH_COOKIE_NAME || 'app_registry_session';
 const refreshCookieName = () => `${sessionCookieName()}_refresh`;
 
-// Scoped to the refresh endpoint, so the long-lived credential is not attached
-// to every ordinary request the way the session cookie is.
-const REFRESH_COOKIE_PATH = '/api/auth/refresh';
+// Narrow enough that the long-lived credential is not attached to ordinary API
+// requests, wide enough that logout still receives it: RFC 6265 path-matching
+// sends a cookie only to its own path or a subpath, so scoping this to
+// /api/auth/refresh would leave the sibling /api/auth/logout unable to read the
+// token it is supposed to revoke.
+const REFRESH_COOKIE_PATH = '/api/auth';
 
 function sessionCookie(token, { maxAge = SESSION_MAX_AGE } = {}) {
   return `${sessionCookieName()}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}; Secure`;

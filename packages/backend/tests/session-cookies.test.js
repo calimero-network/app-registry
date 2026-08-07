@@ -1,0 +1,77 @@
+/**
+ * Session and refresh cookie shapes.
+ *
+ * The refresh cookie's Path is load-bearing and easy to get wrong by eye: RFC
+ * 6265 sends a cookie only to its own path or a subpath, so scoping it to
+ * /api/auth/refresh silently stops /api/auth/logout from ever seeing the token
+ * it is meant to revoke. These assert the path rule directly rather than
+ * trusting a reading of it.
+ */
+
+const {
+  REFRESH_COOKIE_PATH,
+  sessionCookie,
+  refreshCookie,
+  clearedSessionCookie,
+  clearedRefreshCookie,
+  SESSION_MAX_AGE,
+  REFRESH_MAX_AGE,
+} = require('../../../shared/session-cookies');
+
+/** RFC 6265 section 5.1.4 path-match. */
+function pathMatches(requestPath, cookiePath) {
+  if (requestPath === cookiePath) return true;
+  if (!requestPath.startsWith(cookiePath)) return false;
+  if (cookiePath.endsWith('/')) return true;
+  return requestPath[cookiePath.length] === '/';
+}
+
+describe('refresh cookie path', () => {
+  it('reaches every endpoint that needs the token', () => {
+    for (const p of ['/api/auth/refresh', '/api/auth/logout']) {
+      expect(pathMatches(p, REFRESH_COOKIE_PATH)).toBe(true);
+    }
+  });
+
+  it('is not attached to ordinary API traffic', () => {
+    for (const p of [
+      '/api/v2/bundles',
+      '/api/v2/orgs/x/members',
+      '/api/stats',
+    ]) {
+      expect(pathMatches(p, REFRESH_COOKIE_PATH)).toBe(false);
+    }
+  });
+
+  it('would not have reached logout under the narrower path', () => {
+    // Guards the regression directly: this is the shape that broke revocation.
+    expect(pathMatches('/api/auth/logout', '/api/auth/refresh')).toBe(false);
+  });
+});
+
+describe('cookie attributes', () => {
+  it('sets the hardening flags on both cookies', () => {
+    for (const c of [sessionCookie('t'), refreshCookie('t')]) {
+      expect(c).toContain('HttpOnly');
+      expect(c).toContain('Secure');
+      expect(c).toContain('SameSite=Lax');
+    }
+  });
+
+  it('scopes the session cookie site-wide and the refresh cookie to auth', () => {
+    expect(sessionCookie('t')).toContain('Path=/;');
+    expect(refreshCookie('t')).toContain(`Path=${REFRESH_COOKIE_PATH};`);
+  });
+
+  it('clearing uses Max-Age=0 on the same path, so the browser drops it', () => {
+    expect(clearedSessionCookie()).toContain('Max-Age=0');
+    expect(clearedRefreshCookie()).toContain('Max-Age=0');
+    expect(clearedRefreshCookie()).toContain(`Path=${REFRESH_COOKIE_PATH};`);
+  });
+
+  it('keeps the session shorter than the refresh window', () => {
+    expect(SESSION_MAX_AGE).toBeLessThan(REFRESH_MAX_AGE);
+    expect(SESSION_MAX_AGE).toBe(60 * 60 * 12);
+    expect(REFRESH_MAX_AGE).toBe(60 * 60 * 24 * 30);
+  });
+});
