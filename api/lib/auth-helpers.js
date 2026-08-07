@@ -6,7 +6,7 @@
 const jwt = require('jsonwebtoken');
 const { kv } = require('./kv-client');
 const { getOrgMemberRole } = require('./org-storage');
-const { isAdmin, isBlacklisted } = require('./admin-storage');
+const { isAdmin, isBlacklisted, isBot } = require('./admin-storage');
 const { getUserByEmail } = require('./user-storage');
 
 const TOKEN_PREFIX = 'apitoken:';
@@ -98,6 +98,17 @@ async function requireAuth(req, res) {
       error: 'unauthorized',
       message:
         'Login required or provide an API token (Authorization: Bearer <token>)',
+    });
+    return null;
+  }
+  // Bots may publish and nothing else. The publish endpoints call resolveUser
+  // directly, so denying here confines them to exactly that surface, and any
+  // future endpoint guarded by requireAuth excludes them by default.
+  if (await isBot(user.email)) {
+    res.status(403).json({
+      error: 'bot_forbidden',
+      message:
+        'Bot accounts may only publish packages and new versions of them',
     });
     return null;
   }
