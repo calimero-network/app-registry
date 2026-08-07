@@ -24,6 +24,7 @@ const {
 } = require('../lib/admin-storage');
 
 const { refresh } = require('../lib/refresh-storage');
+const { refreshSession } = require('../../../../shared/refresh-flow');
 const {
   REFRESH_MAX_AGE,
   REFRESH_COOKIE_PATH,
@@ -295,50 +296,27 @@ async function authRoutes(server, options) {
     return reply.send(result);
   });
 
-  // POST /api/auth/logout — clear session cookie
   // POST /api/auth/refresh — trade a refresh cookie for a fresh session cookie
   server.post('/api/auth/refresh', async (request, reply) => {
-    const clearBoth = () => {
-      reply.clearCookie(cookieName, { path: '/' });
-      reply.clearCookie(refreshCookieName(), { path: REFRESH_COOKIE_PATH });
-    };
+    const result = await refreshSession(
+      { refresh, isBlacklisted, getUserByEmail },
+      request.cookies?.[refreshCookieName()]
+    );
 
-    const presented = request.cookies?.[refreshCookieName()];
-    if (!presented) {
+    if (!result.ok) {
+      if (result.clearCookies) {
+        reply.clearCookie(cookieName, { path: '/' });
+        reply.clearCookie(refreshCookieName(), { path: REFRESH_COOKIE_PATH });
+      }
       return reply
-        .code(401)
-        .send({ error: 'no_refresh_token', message: 'No refresh token' });
+        .code(result.status)
+        .send({ error: result.error, message: result.message });
     }
 
-    // Single-use: rotating retires the presented token, so a leaked one is
-    // only good until the real client next refreshes.
-    const rotated = await refresh.rotate(presented);
-    if (!rotated) {
-      clearBoth();
-      return reply
-        .code(401)
-        .send({ error: 'invalid_refresh_token', message: 'Session expired' });
-    }
-
-    // Re-checked on every refresh, so suspending an account ends its sessions
-    // at the next refresh rather than when the refresh token finally lapses.
-    if (await isBlacklisted(rotated.email)) {
-      await refresh.revokeAllForEmail(rotated.email);
-      clearBoth();
-      return reply.code(403).send({
-        error: 'account_suspended',
-        message: 'This account has been suspended',
-      });
-    }
-
-    const profile = await getUserByEmail(rotated.email);
+    // createSessionToken takes the subject as `id` and derives `sub` itself.
+    const { sub, ...claims } = result.claims;
     const token = await createSessionToken(
-      {
-        id: rotated.userId ?? profile?.id,
-        email: rotated.email,
-        name: profile?.name ?? rotated.email,
-        picture: profile?.picture ?? null,
-      },
+      { ...claims, id: sub },
       sessionSecret,
       authConfig.cookieMaxAge ?? cookieMaxAge
     );
@@ -350,14 +328,14 @@ async function authRoutes(server, options) {
       sameSite: 'lax',
       secure: isSecure,
     });
-    reply.setCookie(refreshCookieName(), rotated.token, {
+    reply.setCookie(refreshCookieName(), result.refreshToken, {
       path: REFRESH_COOKIE_PATH,
       httpOnly: true,
       maxAge: REFRESH_MAX_AGE,
       sameSite: 'lax',
       secure: isSecure,
     });
-    return reply.code(200).send({ email: rotated.email });
+    return reply.code(200).send({ email: result.email });
   });
 
   server.post('/api/auth/logout', async (request, reply) => {

@@ -3,13 +3,15 @@
  *
  * The refresh token is single-use: each call retires the presented token and
  * issues a new one, so a leaked token is only good until the real client next
- * refreshes.
+ * refreshes. What to answer is decided in shared/refresh-flow.js; this handler
+ * only signs the session and writes cookies.
  */
 
 const jwt = require('jsonwebtoken');
 const { refresh } = require('../lib/refresh-storage');
 const { getUserByEmail } = require('../lib/user-storage');
 const { isBlacklisted } = require('../lib/admin-storage');
+const { refreshSession } = require('../../shared/refresh-flow');
 const {
   SESSION_MAX_AGE,
   refreshCookieName,
@@ -36,14 +38,6 @@ function parseCookies(req) {
   return out;
 }
 
-// Status is explicit: a suspended account answers 403 here and on the Fastify
-// route, so a client can tell "log in again" from "you are blocked" whichever
-// runtime served it.
-function signOut(res, status, error, message) {
-  res.setHeader('Set-Cookie', [clearedSessionCookie(), clearedRefreshCookie()]);
-  return res.status(status).json({ error, message });
-}
-
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
 
@@ -64,40 +58,31 @@ module.exports = async function handler(req, res) {
       .json({ error: 'not_configured', message: 'SESSION_SECRET is not set' });
   }
 
-  const rotated = await refresh.rotate(presented);
-  if (!rotated) {
-    // Expired, unknown, or already spent. Clear both cookies so the client
-    // stops retrying with a credential that will never work again.
-    return signOut(res, 401, 'invalid_refresh_token', 'Session expired');
-  }
-
-  // Re-check on every refresh rather than only at login, so suspending an
-  // account ends its sessions at the next refresh instead of in 30 days.
-  if (await isBlacklisted(rotated.email)) {
-    await refresh.revokeAllForEmail(rotated.email);
-    return signOut(
-      res,
-      403,
-      'account_suspended',
-      'This account has been suspended'
-    );
-  }
-
-  const profile = await getUserByEmail(rotated.email);
-  const token = jwt.sign(
-    {
-      sub: rotated.userId ?? profile?.id,
-      email: rotated.email,
-      name: profile?.name ?? rotated.email,
-      picture: profile?.picture ?? null,
-    },
-    sessionSecret,
-    { algorithm: 'HS256', expiresIn: SESSION_MAX_AGE }
+  const result = await refreshSession(
+    { refresh, isBlacklisted, getUserByEmail },
+    presented
   );
+
+  if (!result.ok) {
+    if (result.clearCookies) {
+      res.setHeader('Set-Cookie', [
+        clearedSessionCookie(),
+        clearedRefreshCookie(),
+      ]);
+    }
+    return res
+      .status(result.status)
+      .json({ error: result.error, message: result.message });
+  }
+
+  const token = jwt.sign(result.claims, sessionSecret, {
+    algorithm: 'HS256',
+    expiresIn: SESSION_MAX_AGE,
+  });
 
   res.setHeader('Set-Cookie', [
     sessionCookie(token),
-    refreshCookie(rotated.token),
+    refreshCookie(result.refreshToken),
   ]);
-  return res.status(200).json({ email: rotated.email });
+  return res.status(200).json({ email: result.email });
 };
