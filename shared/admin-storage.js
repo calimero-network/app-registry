@@ -5,12 +5,22 @@
 
 const ADMIN_SET = 'admin:set';
 const BLACKLIST_SET = 'blacklist:set';
+const BOT_SET = 'bot:set';
 
 function createAdminStorage(kv) {
+  /** Returns true if email belongs to a bot account (any org, any domain). */
+  async function isBot(email) {
+    if (!email) return false;
+    return !!(await kv.sIsMember(BOT_SET, email.toLowerCase()));
+  }
+
   /** Returns true if email has admin access. */
   async function isAdmin(email) {
     if (!email) return false;
     const norm = email.toLowerCase();
+    // Checked before the domain grant, and denied outright rather than merely
+    // skipped, so a bot stays non-admin even if it reaches ADMIN_SET.
+    if (await isBot(norm)) return false;
     if (norm.endsWith('@calimero.network')) return true;
     const result = await kv.sIsMember(ADMIN_SET, norm);
     return !!result;
@@ -74,8 +84,19 @@ function createAdminStorage(kv) {
     return val === '1';
   }
 
+  async function addBot(email) {
+    await kv.sAdd(BOT_SET, email.toLowerCase());
+  }
+
+  async function removeBot(email) {
+    await kv.sRem(BOT_SET, email.toLowerCase());
+  }
+
   return {
     isAdmin,
+    isBot,
+    addBot,
+    removeBot,
     isBlacklisted,
     addAdmin,
     removeAdmin,

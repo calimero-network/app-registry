@@ -559,6 +559,21 @@ async function buildServer() {
     return null;
   }
 
+  /**
+   * Bots may publish and nothing else. Publish and delete share resolveAuthUser
+   * here, so the mutating non-publish routes deny bots explicitly.
+   */
+  async function denyBot(user, reply) {
+    const { isBot } = require('./lib/admin-storage');
+    if (!user?.email || !(await isBot(user.email))) return false;
+    reply.code(403).send({
+      error: 'bot_forbidden',
+      message:
+        'Bot accounts may only publish packages and new versions of them',
+    });
+    return true;
+  }
+
   function manifestOwnedByUser(manifest, user) {
     const author = manifest?.metadata?.author;
     const ownerEmail = manifest?.metadata?._ownerEmail;
@@ -581,6 +596,7 @@ async function buildServer() {
           message: 'Login required to delete bundles.',
         });
       }
+      if (await denyBot(user, reply)) return;
 
       const existing = await bundleStorage.getBundleManifest(pkg, version);
       if (!existing) {
@@ -620,6 +636,7 @@ async function buildServer() {
           message: 'Login required to delete packages.',
         });
       }
+      if (await denyBot(user, reply)) return;
 
       const versions = await bundleStorage.getBundleVersions(pkg);
       if (versions.length === 0) {

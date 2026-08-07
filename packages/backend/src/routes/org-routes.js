@@ -24,7 +24,7 @@ const {
 } = require('../lib/org-storage');
 const { verifySessionToken, verifyApiToken } = require('../lib/auth');
 const { getUserByEmail, getUserByUsername } = require('../lib/user-storage');
-const { isBlacklisted } = require('../lib/admin-storage');
+const { isBlacklisted, isBot } = require('../lib/admin-storage');
 const { BundleStorageKV } = require('../lib/bundle-storage-kv');
 const config = require('../config');
 
@@ -49,6 +49,20 @@ async function getSessionUser(request) {
 }
 
 /**
+ * Bots may publish and nothing else, and publishing resolves its user without
+ * requireAuth. Denying here keeps every requireAuth-guarded route closed to
+ * them, including ones added later.
+ */
+async function denyBot(reply, user) {
+  if (!(await isBot(user.email))) return user;
+  reply.code(403).send({
+    error: 'bot_forbidden',
+    message: 'Bot accounts may only publish packages and new versions of them',
+  });
+  return null;
+}
+
+/**
  * Resolve the current user from session cookie or Bearer token.
  * Returns { email, name, username } or sends 401 and returns null.
  */
@@ -64,11 +78,11 @@ async function requireAuth(request, reply) {
       return null;
     }
     const profile = await getUserByEmail(sessionUser.email);
-    return {
+    return denyBot(reply, {
       email: sessionUser.email,
       name: sessionUser.name,
       username: profile?.username ?? null,
-    };
+    });
   }
 
   // Try Bearer token
@@ -84,11 +98,11 @@ async function requireAuth(request, reply) {
         return null;
       }
       const profile = await getUserByEmail(tokenData.email);
-      return {
+      return denyBot(reply, {
         email: tokenData.email,
         name: tokenData.name,
         username: profile?.username ?? null,
-      };
+      });
     }
   }
 
