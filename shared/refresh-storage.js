@@ -75,14 +75,20 @@ function createRefreshStorage(
   }
 
   /**
-   * Single-use: verifying a refresh token also retires it. A leaked token is
+   * Single-use: rotating retires the presented token. A leaked token is
    * therefore only good until the legitimate client next refreshes.
+   *
+   * DEL decides the winner rather than the preceding read: it is atomic and
+   * reports how many keys it removed, so of several callers presenting the
+   * same token concurrently, exactly one sees a non-zero count and the rest
+   * get null instead of a second live token.
    * @returns {Promise<{token: string, email: string, userId: string|null} | null>}
    */
   async function rotate(token, nowMs) {
     const rec = await verify(token, nowMs);
     if (!rec) return null;
-    await revoke(token);
+    if (!(await kv.del(keyFor(token)))) return null;
+    await kv.sRem(USER_REFRESH_PREFIX + rec.email, hashToken(token));
     const next = await issue(rec.email, rec.userId, nowMs);
     return { token: next, email: rec.email, userId: rec.userId };
   }

@@ -77,6 +77,25 @@ describe('refresh tokens', () => {
     expect(await r.rotate(first)).toBeNull();
   });
 
+  it('lets only one of several concurrent rotations win', async () => {
+    const kv = makeKv();
+    const r = createRefreshStorage(kv);
+    const token = await r.issue(EMAIL, 'user-1');
+
+    // Two tabs refreshing at the same moment both read a live record; the
+    // atomic delete is what decides which one may mint a replacement.
+    const results = await Promise.all([
+      r.rotate(token),
+      r.rotate(token),
+      r.rotate(token),
+    ]);
+
+    const winners = results.filter(Boolean);
+    expect(winners).toHaveLength(1);
+    expect(await r.verify(winners[0].token)).not.toBeNull();
+    expect(await r.verify(token)).toBeNull();
+  });
+
   it('expires without any sweeper, and cleans up on the way past', async () => {
     const kv = makeKv();
     const r = createRefreshStorage(kv, { maxAgeSeconds: 60 });

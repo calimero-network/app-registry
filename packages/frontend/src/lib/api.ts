@@ -22,13 +22,22 @@ export const api = axios.create({
   withCredentials: true, // send cookies (session) with requests
 });
 
+// Its own instance, sharing the configured baseURL so the refresh reaches the
+// same host as everything else (the frontend deploys separately from the API),
+// but carrying no interceptor, so a 401 on refresh cannot recurse.
+const authClient = axios.create({
+  baseURL: api.defaults.baseURL,
+  timeout: 10000,
+  withCredentials: true,
+});
+
 // Shared across concurrent 401s so a page issuing several requests refreshes
 // once rather than spending one single-use refresh token per request.
 let refreshInFlight: Promise<boolean> | null = null;
 
 function refreshSession(): Promise<boolean> {
-  refreshInFlight ??= axios
-    .post('/api/auth/refresh', null, { withCredentials: true })
+  refreshInFlight ??= authClient
+    .post('/auth/refresh', null)
     .then(() => true)
     .catch(() => false)
     .finally(() => {

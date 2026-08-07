@@ -36,9 +36,12 @@ function parseCookies(req) {
   return out;
 }
 
-function signOut(res, error, message) {
+// Status is explicit: a suspended account answers 403 here and on the Fastify
+// route, so a client can tell "log in again" from "you are blocked" whichever
+// runtime served it.
+function signOut(res, status, error, message) {
   res.setHeader('Set-Cookie', [clearedSessionCookie(), clearedRefreshCookie()]);
-  return res.status(401).json({ error, message });
+  return res.status(status).json({ error, message });
 }
 
 module.exports = async function handler(req, res) {
@@ -65,14 +68,19 @@ module.exports = async function handler(req, res) {
   if (!rotated) {
     // Expired, unknown, or already spent. Clear both cookies so the client
     // stops retrying with a credential that will never work again.
-    return signOut(res, 'invalid_refresh_token', 'Session expired');
+    return signOut(res, 401, 'invalid_refresh_token', 'Session expired');
   }
 
   // Re-check on every refresh rather than only at login, so suspending an
   // account ends its sessions at the next refresh instead of in 30 days.
   if (await isBlacklisted(rotated.email)) {
     await refresh.revokeAllForEmail(rotated.email);
-    return signOut(res, 'account_suspended', 'This account has been suspended');
+    return signOut(
+      res,
+      403,
+      'account_suspended',
+      'This account has been suspended'
+    );
   }
 
   const profile = await getUserByEmail(rotated.email);
