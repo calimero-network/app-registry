@@ -15,6 +15,9 @@ const {
 } = require('../../lib/verify');
 const { resolveUser } = require('../../lib/auth-helpers');
 const { getUserByEmail } = require('../../lib/user-storage');
+const { isBot } = require('../../lib/admin-storage');
+const { getPkg2Org, setPkg2Org } = require('../../lib/org-storage');
+const { autolinkBotPackage } = require('../../../shared/bot-autolink');
 
 // Singleton storage instance
 let storage;
@@ -132,6 +135,12 @@ module.exports = async function handler(req, res) {
       process.env.ALLOW_BUNDLE_OVERWRITE === '1';
 
     await store.storeBundleManifest(bundleManifest, overwrite);
+
+    await autolinkBotPackage(
+      { isBot, getUserByEmail, getPkg2Org, setPkg2Org },
+      ownerEmail,
+      bundleManifest.package
+    );
 
     return res.status(201).json({
       message: 'Bundle published successfully',

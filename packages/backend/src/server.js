@@ -26,10 +26,13 @@ const {
 const {
   isAllowedToPublish,
   getPkg2Org,
+  setPkg2Org,
   getOrgMemberRole,
 } = require('./lib/org-storage');
 const { verifySessionToken, verifyApiToken } = require('./lib/auth');
 const { getUserByEmail } = require('./lib/user-storage');
+const { isBot } = require('./lib/admin-storage');
+const { autolinkBotPackage } = require('../../../shared/bot-autolink');
 
 async function buildServer() {
   const server = fastify({
@@ -788,6 +791,13 @@ async function buildServer() {
       process.env.ALLOW_BUNDLE_OVERWRITE === 'true' ||
       process.env.ALLOW_BUNDLE_OVERWRITE === '1';
     await bundleStorage.storeBundleManifest(bundleManifest, overwrite);
+
+    await autolinkBotPackage(
+      { isBot, getUserByEmail, getPkg2Org, setPkg2Org },
+      userEmail,
+      bundleManifest.package
+    );
+
     return {
       package: bundleManifest.package,
       version: bundleManifest.appVersion,
