@@ -17,6 +17,7 @@ const {
   getUserByEmail,
   getUserByUsername,
 } = require('../../../../lib/user-storage');
+const { isBot } = require('../../../../lib/admin-storage');
 
 function cors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -61,6 +62,7 @@ module.exports = async function handler(req, res) {
           username: profile?.username ?? null,
           verified: profile?.verified ?? email.endsWith('@calimero.network'),
           role: role || 'member',
+          isBot: await isBot(email),
         });
       }
       return res.status(200).json({ members });
