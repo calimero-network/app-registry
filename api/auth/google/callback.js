@@ -5,11 +5,16 @@
 const jwt = require('jsonwebtoken');
 const { getOrCreateUser } = require('../../lib/user-storage');
 const { isBlacklisted } = require('../../lib/admin-storage');
+const { refresh } = require('../../lib/refresh-storage');
+const {
+  SESSION_MAX_AGE,
+  sessionCookie,
+  refreshCookie,
+} = require('../../../shared/session-cookies');
 
 const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const GOOGLE_USERINFO_URL = 'https://www.googleapis.com/oauth2/v2/userinfo';
 const STATE_COOKIE = 'oauth_state';
-const COOKIE_MAX_AGE = 60 * 60; // 1 hour
 
 function loginErrorUrl(frontendUrl, error) {
   return `${frontendUrl}/login?error=${encodeURIComponent(error)}`;
@@ -33,7 +38,6 @@ module.exports = async function handler(req, res) {
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
   const sessionSecret = process.env.SESSION_SECRET;
-  const cookieName = process.env.AUTH_COOKIE_NAME || 'app_registry_session';
   const redirectUri = `${frontendUrl}/api/auth/google/callback`;
 
   if (!clientId || !clientSecret) {
@@ -111,13 +115,19 @@ module.exports = async function handler(req, res) {
   const token = jwt.sign(
     { sub: user.id, email: user.email, name: user.name, picture: user.picture },
     sessionSecret,
-    { algorithm: 'HS256', expiresIn: COOKIE_MAX_AGE }
+    { algorithm: 'HS256', expiresIn: SESSION_MAX_AGE }
   );
 
-  res.setHeader(
-    'Set-Cookie',
-    `${cookieName}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${COOKIE_MAX_AGE}; Secure`
-  );
+  const setCookies = [sessionCookie(token)];
+  // A failed refresh issue must not block the login: the user still gets a
+  // valid session, they just re-authenticate when it lapses.
+  try {
+    setCookies.push(refreshCookie(await refresh.issue(user.email, user.id)));
+  } catch {
+    /* session-only login */
+  }
+
+  res.setHeader('Set-Cookie', setCookies);
   res.setHeader('Location', `${frontendUrl}/my-packages`);
   return res.status(302).end();
 };

@@ -23,6 +23,13 @@ const {
   getAdminVerified,
 } = require('../lib/admin-storage');
 
+const { refresh } = require('../lib/refresh-storage');
+const {
+  REFRESH_MAX_AGE,
+  REFRESH_COOKIE_PATH,
+  refreshCookieName,
+} = require('../../../../shared/session-cookies');
+
 const STATE_COOKIE_NAME = 'oauth_state';
 const STATE_MAX_AGE = 600; // 10 minutes
 
@@ -142,6 +149,24 @@ async function authRoutes(server, options) {
       sameSite: 'lax',
       secure: isSecure,
     });
+
+    // A failed refresh issue must not block the login: the user still gets a
+    // valid session, they just re-authenticate when it lapses.
+    try {
+      reply.setCookie(
+        refreshCookieName(),
+        await refresh.issue(user.email, user.id),
+        {
+          path: REFRESH_COOKIE_PATH,
+          httpOnly: true,
+          maxAge: REFRESH_MAX_AGE,
+          sameSite: 'lax',
+          secure: isSecure,
+        }
+      );
+    } catch {
+      /* session-only login */
+    }
 
     return reply.redirect(302, `${frontendUrl}/my-packages`);
   });
@@ -271,8 +296,83 @@ async function authRoutes(server, options) {
   });
 
   // POST /api/auth/logout — clear session cookie
+  // POST /api/auth/refresh — trade a refresh cookie for a fresh session cookie
+  server.post('/api/auth/refresh', async (request, reply) => {
+    const clearBoth = () => {
+      reply.clearCookie(cookieName, { path: '/' });
+      reply.clearCookie(refreshCookieName(), { path: REFRESH_COOKIE_PATH });
+    };
+
+    const presented = request.cookies?.[refreshCookieName()];
+    if (!presented) {
+      return reply
+        .code(401)
+        .send({ error: 'no_refresh_token', message: 'No refresh token' });
+    }
+
+    // Single-use: rotating retires the presented token, so a leaked one is
+    // only good until the real client next refreshes.
+    const rotated = await refresh.rotate(presented);
+    if (!rotated) {
+      clearBoth();
+      return reply
+        .code(401)
+        .send({ error: 'invalid_refresh_token', message: 'Session expired' });
+    }
+
+    // Re-checked on every refresh, so suspending an account ends its sessions
+    // at the next refresh rather than when the refresh token finally lapses.
+    if (await isBlacklisted(rotated.email)) {
+      await refresh.revokeAllForEmail(rotated.email);
+      clearBoth();
+      return reply.code(403).send({
+        error: 'account_suspended',
+        message: 'This account has been suspended',
+      });
+    }
+
+    const profile = await getUserByEmail(rotated.email);
+    const token = await createSessionToken(
+      {
+        id: rotated.userId ?? profile?.id,
+        email: rotated.email,
+        name: profile?.name ?? rotated.email,
+        picture: profile?.picture ?? null,
+      },
+      sessionSecret,
+      authConfig.cookieMaxAge ?? cookieMaxAge
+    );
+
+    reply.setCookie(cookieName, token, {
+      path: '/',
+      httpOnly: true,
+      maxAge: authConfig.cookieMaxAge ?? cookieMaxAge,
+      sameSite: 'lax',
+      secure: isSecure,
+    });
+    reply.setCookie(refreshCookieName(), rotated.token, {
+      path: REFRESH_COOKIE_PATH,
+      httpOnly: true,
+      maxAge: REFRESH_MAX_AGE,
+      sameSite: 'lax',
+      secure: isSecure,
+    });
+    return reply.code(200).send({ email: rotated.email });
+  });
+
   server.post('/api/auth/logout', async (request, reply) => {
+    const presented = request.cookies?.[refreshCookieName()];
+    if (presented) {
+      // Clearing the cookie alone would leave a token that still works if it
+      // was captured, so retire it server-side too.
+      try {
+        await refresh.revoke(presented);
+      } catch {
+        /* logout still succeeds */
+      }
+    }
     reply.clearCookie(cookieName, { path: '/' });
+    reply.clearCookie(refreshCookieName(), { path: REFRESH_COOKIE_PATH });
     return reply.code(204).send();
   });
 

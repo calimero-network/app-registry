@@ -22,10 +22,25 @@ export const api = axios.create({
   withCredentials: true, // send cookies (session) with requests
 });
 
+// Shared across concurrent 401s so a page issuing several requests refreshes
+// once rather than spending one single-use refresh token per request.
+let refreshInFlight: Promise<boolean> | null = null;
+
+function refreshSession(): Promise<boolean> {
+  refreshInFlight ??= axios
+    .post('/api/auth/refresh', null, { withCredentials: true })
+    .then(() => true)
+    .catch(() => false)
+    .finally(() => {
+      refreshInFlight = null;
+    });
+  return refreshInFlight;
+}
+
 // Error interceptor
 api.interceptors.response.use(
   response => response,
-  error => {
+  async error => {
     const status = error.response?.status;
     const apiError = error.response?.data;
     const requestUrl = String(error.config?.url || '');
@@ -36,6 +51,16 @@ api.interceptors.response.use(
       status === 401 &&
       window.sessionStorage.getItem(AUTH_SESSION_FLAG) === '1'
     ) {
+      // The session cookie expiring is routine; only send the user to /login
+      // once the refresh token is gone too. `_retried` bounds this to a single
+      // attempt so a persistent 401 cannot loop.
+      const original = error.config;
+      const isRefreshCall = requestUrl.includes('/auth/refresh');
+      if (original && !original._retried && !isRefreshCall) {
+        original._retried = true;
+        if (await refreshSession()) return api(original);
+      }
+
       window.sessionStorage.removeItem(AUTH_SESSION_FLAG);
       if (window.location.pathname !== '/login') {
         const from = `${window.location.pathname}${window.location.search}`;

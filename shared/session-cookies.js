@@ -1,0 +1,43 @@
+/**
+ * Session and refresh cookie shapes.
+ * Used by both the Vercel serverless API and Fastify backend.
+ */
+
+// Raised from one hour: the old value logged people out mid-task. The refresh
+// cookie below is what actually keeps a session alive, so this stays short
+// enough that a stolen session cookie has a bounded life.
+const SESSION_MAX_AGE =
+  Number(process.env.SESSION_MAX_AGE_SECONDS) || 60 * 60 * 12;
+const REFRESH_MAX_AGE =
+  Number(process.env.REFRESH_MAX_AGE_SECONDS) || 60 * 60 * 24 * 30;
+
+const sessionCookieName = () =>
+  process.env.AUTH_COOKIE_NAME || 'app_registry_session';
+const refreshCookieName = () => `${sessionCookieName()}_refresh`;
+
+// Scoped to the refresh endpoint, so the long-lived credential is not attached
+// to every ordinary request the way the session cookie is.
+const REFRESH_COOKIE_PATH = '/api/auth/refresh';
+
+function sessionCookie(token, { maxAge = SESSION_MAX_AGE } = {}) {
+  return `${sessionCookieName()}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}; Secure`;
+}
+
+function refreshCookie(token, { maxAge = REFRESH_MAX_AGE } = {}) {
+  return `${refreshCookieName()}=${token}; Path=${REFRESH_COOKIE_PATH}; HttpOnly; SameSite=Lax; Max-Age=${maxAge}; Secure`;
+}
+
+const clearedSessionCookie = () => sessionCookie('', { maxAge: 0 });
+const clearedRefreshCookie = () => refreshCookie('', { maxAge: 0 });
+
+module.exports = {
+  SESSION_MAX_AGE,
+  REFRESH_MAX_AGE,
+  REFRESH_COOKIE_PATH,
+  sessionCookieName,
+  refreshCookieName,
+  sessionCookie,
+  refreshCookie,
+  clearedSessionCookie,
+  clearedRefreshCookie,
+};
