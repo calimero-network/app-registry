@@ -19,9 +19,15 @@ const {
   getPublicKeyFromManifest,
   normalizeSignature,
 } = require('../../lib/verify');
-const { isAllowedToPublish } = require('../../lib/org-storage');
+const {
+  isAllowedToPublish,
+  getPkg2Org,
+  setPkg2Org,
+} = require('../../lib/org-storage');
 const { resolveUser } = require('../../lib/auth-helpers');
 const { getUserByEmail } = require('../../lib/user-storage');
+const { isBot } = require('../../lib/admin-storage');
+const { autolinkBotPackage } = require('../../../shared/bot-autolink');
 
 // Disable Vercel's default body parser so we can handle multipart ourselves
 module.exports.config = {
@@ -248,6 +254,12 @@ module.exports = async function handler(req, res) {
 
     bundleManifest._binary = buffer.toString('hex');
     await store.storeBundleManifest(bundleManifest, overwrite);
+
+    await autolinkBotPackage(
+      { isBot, getUserByEmail, getPkg2Org, setPkg2Org },
+      ownerEmail,
+      bundleManifest.package
+    );
 
     return res.status(201).json({
       message: 'Bundle published successfully',
