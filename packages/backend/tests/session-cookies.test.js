@@ -47,6 +47,21 @@ describe('refresh cookie path', () => {
     // Guards the regression directly: this is the shape that broke revocation.
     expect(pathMatches('/api/auth/logout', '/api/auth/refresh')).toBe(false);
   });
+
+  it('covers the rest of /api/auth too, which is the accepted trade', () => {
+    // Pinned so the real reach and the documented reach cannot drift: these
+    // carry the token as a side effect of keeping logout reachable.
+    for (const p of [
+      '/api/auth/me',
+      '/api/auth/token',
+      '/api/auth/tokens',
+      '/api/auth/username',
+      '/api/auth/google',
+      '/api/auth/google/callback',
+    ]) {
+      expect(pathMatches(p, REFRESH_COOKIE_PATH)).toBe(true);
+    }
+  });
 });
 
 describe('cookie attributes', () => {

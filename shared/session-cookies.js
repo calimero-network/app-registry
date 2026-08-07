@@ -15,11 +15,12 @@ const sessionCookieName = () =>
   process.env.AUTH_COOKIE_NAME || 'app_registry_session';
 const refreshCookieName = () => `${sessionCookieName()}_refresh`;
 
-// Narrow enough that the long-lived credential is not attached to ordinary API
-// requests, wide enough that logout still receives it: RFC 6265 path-matching
-// sends a cookie only to its own path or a subpath, so scoping this to
-// /api/auth/refresh would leave the sibling /api/auth/logout unable to read the
-// token it is supposed to revoke.
+// RFC 6265 sends a cookie only to its own path or a subpath, so /api/auth/refresh
+// would leave the sibling /api/auth/logout unable to read the token it revokes.
+// This covers every /api/auth/* route, not just those two - deliberately wider
+// than needed, because the alternative is moving logout under the refresh path
+// and breaking a public URL. Keeps the token off bundle, org and stats traffic,
+// which is where the volume is. No /api/auth handler logs or echoes cookies.
 const REFRESH_COOKIE_PATH = '/api/auth';
 
 function sessionCookie(token, { maxAge = SESSION_MAX_AGE } = {}) {
