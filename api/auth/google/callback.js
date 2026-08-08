@@ -39,11 +39,10 @@ module.exports = async function handler(req, res) {
   const cookies = parseCookies(req.headers.cookie);
   const cookieState = cookies[STATE_COOKIE];
 
-  // Clear state cookie
-  res.setHeader(
-    'Set-Cookie',
-    `${STATE_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0; Secure`
-  );
+  // Collected rather than written now: setHeader replaces, so a later
+  // Set-Cookie write would drop this one and leave oauth_state in place.
+  const clearedState = `${STATE_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0; Secure`;
+  res.setHeader('Set-Cookie', clearedState);
 
   if (!queryState || queryState !== cookieState) {
     res.setHeader('Location', loginErrorUrl(frontendUrl, 'invalid_state'));
@@ -109,7 +108,7 @@ module.exports = async function handler(req, res) {
     { algorithm: 'HS256', expiresIn: SESSION_MAX_AGE }
   );
 
-  const setCookies = [sessionCookie(token)];
+  const setCookies = [clearedState, sessionCookie(token)];
   // A failed refresh issue must not block the login: the user still gets a
   // valid session, they just re-authenticate when it lapses.
   try {

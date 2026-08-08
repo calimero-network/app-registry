@@ -9,13 +9,16 @@
  */
 
 /**
+ * @param {{signSession: (claims: object) => Promise<string>}} deps signSession
+ *   is passed in because the two runtimes sign differently, and because doing
+ *   it here keeps every fallible step ahead of the rotation.
  * @returns {Promise<
- *   | {ok: true, email: string, refreshToken: string, claims: object}
+ *   | {ok: true, email: string, sessionToken: string, refreshToken: string}
  *   | {ok: false, status: number, error: string, message: string, clearCookies: boolean}
  * >}
  */
 async function refreshSession(deps, presentedToken) {
-  const { refresh, isBlacklisted, getUserByEmail } = deps;
+  const { refresh, isBlacklisted, getUserByEmail, signSession } = deps;
 
   if (!presentedToken) {
     return {
@@ -65,6 +68,18 @@ async function refreshSession(deps, presentedToken) {
     };
   }
 
+  const claims = {
+    sub: held.userId ?? profile.id,
+    email: held.email,
+    name: profile.name ?? held.email,
+    picture: profile.picture ?? null,
+  };
+
+  // Signed before the token is spent, for the same reason the reads are: a
+  // failure here would otherwise discard the replacement while the presented
+  // token was already gone, and the client would be holding a dead cookie.
+  const sessionToken = await signSession(claims);
+
   // Spend it last. Losing this race means another tab rotated first, and its
   // reply already carries the replacement cookies. `held` is handed back so
   // this does not re-read a record it already has; the DEL inside is what
@@ -74,14 +89,9 @@ async function refreshSession(deps, presentedToken) {
 
   return {
     ok: true,
-    email: rotated.email,
+    email: held.email,
+    sessionToken,
     refreshToken: rotated.token,
-    claims: {
-      sub: rotated.userId ?? profile?.id,
-      email: rotated.email,
-      name: profile?.name ?? rotated.email,
-      picture: profile?.picture ?? null,
-    },
   };
 }
 

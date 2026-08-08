@@ -46,7 +46,16 @@ module.exports = async function handler(req, res) {
 
   try {
     const result = await refreshSession(
-      { refresh, isBlacklisted, getUserByEmail },
+      {
+        refresh,
+        isBlacklisted,
+        getUserByEmail,
+        signSession: async claims =>
+          jwt.sign(claims, sessionSecret, {
+            algorithm: 'HS256',
+            expiresIn: SESSION_MAX_AGE,
+          }),
+      },
       presented
     );
 
@@ -62,13 +71,8 @@ module.exports = async function handler(req, res) {
         .json({ error: result.error, message: result.message });
     }
 
-    const token = jwt.sign(result.claims, sessionSecret, {
-      algorithm: 'HS256',
-      expiresIn: SESSION_MAX_AGE,
-    });
-
     res.setHeader('Set-Cookie', [
-      sessionCookie(token),
+      sessionCookie(result.sessionToken),
       refreshCookie(result.refreshToken),
     ]);
     return res.status(200).json({ email: result.email });

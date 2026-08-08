@@ -301,7 +301,18 @@ async function authRoutes(server, options) {
     let result;
     try {
       result = await refreshSession(
-        { refresh, isBlacklisted, getUserByEmail },
+        {
+          refresh,
+          isBlacklisted,
+          getUserByEmail,
+          // createSessionToken takes the subject as `id` and derives `sub`.
+          signSession: async ({ sub, ...claims }) =>
+            createSessionToken(
+              { ...claims, id: sub },
+              sessionSecret,
+              authConfig.cookieMaxAge ?? cookieMaxAge
+            ),
+        },
         request.cookies?.[refreshCookieName()]
       );
     } catch (err) {
@@ -325,17 +336,9 @@ async function authRoutes(server, options) {
         .send({ error: result.error, message: result.message });
     }
 
-    // createSessionToken takes the subject as `id` and derives `sub` itself.
-    const { sub, ...claims } = result.claims;
-    const token = await createSessionToken(
-      { ...claims, id: sub },
-      sessionSecret,
-      authConfig.cookieMaxAge ?? cookieMaxAge
-    );
-
     reply.setCookie(
       cookieName,
-      token,
+      result.sessionToken,
       sessionCookieOptions({
         maxAge: authConfig.cookieMaxAge ?? cookieMaxAge,
         secure: isSecure,

@@ -43,6 +43,7 @@ function makeDeps({
         return blacklisted;
       },
       getUserByEmail: async () => profile,
+      signSession: async c => `signed:${c.sub}`,
     },
   };
 }
@@ -136,13 +137,8 @@ describe('refreshSession', () => {
     expect(r).toEqual({
       ok: true,
       email: EMAIL,
+      sessionToken: 'signed:u1',
       refreshToken: 'next-token',
-      claims: {
-        sub: 'u1',
-        email: EMAIL,
-        name: 'Ronit Chawla',
-        picture: 'pic',
-      },
     });
   });
 
@@ -152,7 +148,8 @@ describe('refreshSession', () => {
       profile: { id: 'p1' },
     });
     const r = await refreshSession(deps, 'good-token');
-    expect(r.claims).toMatchObject({ sub: 'p1', name: EMAIL, picture: null });
+    // sub falls back to the profile id when the token carries none.
+    expect(r.sessionToken).toBe('signed:p1');
   });
 
   it('refuses and revokes when the profile is gone', async () => {
@@ -171,6 +168,21 @@ describe('refreshSession', () => {
       clearCookies: true,
     });
     expect(calls.revokeAll).toEqual([EMAIL]);
+    expect(calls.rotated).toBe(0);
+  });
+
+  it('does not spend the token when signing throws', async () => {
+    const { deps, calls } = makeDeps({
+      rotated: { token: 'next', email: EMAIL, userId: 'u1' },
+      profile: { id: 'u1' },
+    });
+    deps.signSession = async () => {
+      throw new Error('sign failed');
+    };
+    await expect(refreshSession(deps, 'good-token')).rejects.toThrow(
+      'sign failed'
+    );
+    // Otherwise the replacement is discarded while the presented token is gone.
     expect(calls.rotated).toBe(0);
   });
 
