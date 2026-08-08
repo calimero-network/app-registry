@@ -856,9 +856,39 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       publish: \${{ steps.decide.outputs.publish }}
+      package: \${{ steps.read.outputs.package }}
+      version: \${{ steps.read.outputs.version }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: Read the package id and version
+        id: read
+        working-directory: logic
+        run: |
+          meta=$(cargo metadata --no-deps --format-version 1)
+          # The calimero table sits on the workspace for a multi-service
+          # bundle and on the package otherwise.
+          package=$(jq -er 'first((.metadata.calimero.package,
+            .packages[].metadata.calimero.package) | select(. != null))
+            // error("no calimero package id")' <<<"$meta")
+          version=$(jq -er '[.packages[].version] | unique | if length == 1
+            then .[0] else error("members disagree") end' <<<"$meta")
+
+          # Validate before either reaches a URL: an empty package would query
+          # .../bundles//, and a 404 there reads as "not published".
+          case "$package" in
+            '' | *[!a-zA-Z0-9.-]*) echo "::error::bad package"; exit 1 ;;
+          esac
+          [[ "$version" =~ ^[0-9]+\\.[0-9]+\\.[0-9]+$ ]] || {
+            echo "::error::version must be X.Y.Z"; exit 1; }
+
+          echo "package=$package" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
       - id: decide
+        env:
+          PACKAGE: \${{ steps.read.outputs.package }}
+          VERSION: \${{ steps.read.outputs.version }}
         run: |
           # An unreachable registry must not read as "not published": that
           # would republish blind. Only a definite 404 means new.
@@ -874,6 +904,10 @@ jobs:
     needs: check
     if: needs.check.outputs.publish == 'true'
     runs-on: ubuntu-latest
+    # Through the environment, never inlined: a template expression is
+    # substituted before the shell sees it, so a crafted value would run.
+    env:
+      PACKAGE: \${{ needs.check.outputs.package }}
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -889,23 +923,29 @@ jobs:
 
       - name: Verify the signer still matches the published package
         run: |
-          local_signer=$(cargo mero key derive-signer-id --key "$RUNNER_TEMP/key.json")
+          signer=$(cargo mero key derive-signer-id --key "$RUNNER_TEMP/key.json")
           published=$(curl -fsS "https://apps.calimero.network/api/v2/bundles?package=$PACKAGE" \\
             | jq -er '.[0].signerId // ""')
-          if [ -n "$published" ] && [ "$local_signer" != "$published" ]; then
+          if [ -n "$published" ] && [ "$signer" != "$published" ]; then
             echo "::error::key does not match the published signer; this would"
             echo "::error::land as a NEW application id instead of an upgrade"
             exit 1
           fi
 
-      - run: cargo mero bundle --key "$RUNNER_TEMP/key.json"
+      - name: Build & sign
+        id: build
         working-directory: logic
+        # --print-output-path rather than rebuilding the versioned filename
+        # here, so it has one author and cannot drift out of step.
+        run: |
+          mpk=$(cargo mero bundle --key "$RUNNER_TEMP/key.json" --print-output-path | tail -1)
+          echo "mpk=$mpk" >> "$GITHUB_OUTPUT"
 
       - name: Remove signing key
         if: always()
         run: rm -f "$RUNNER_TEMP/key.json"
 
-      - run: cargo mero publish "dist/$PACKAGE-$VERSION.mpk"
+      - run: cargo mero publish "\${{ steps.build.outputs.mpk }}"
         working-directory: logic
         env:
           CALIMERO_API_KEY: \${{ secrets.CALIMERO_REGISTRY_API_KEY }}`}</CodeBlock>
