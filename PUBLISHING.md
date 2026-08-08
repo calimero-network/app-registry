@@ -217,10 +217,12 @@ jobs:
           case "$package" in
             '' | *[!a-zA-Z0-9.-]*) echo "::error::bad package id '$package'"; exit 1 ;;
           esac
-          # A regex, not a glob: in a glob `*` spans dots, so 1.2.3.4 would
-          # pass, as would a trailing newline forging a second output entry.
-          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
-            echo "::error::version must be X.Y.Z (got '$version')"; exit 1; }
+          # Full semver, not bare X.Y.Z: the registry accepts pre-releases and
+          # orders them correctly, so rejecting 1.0.0-rc.1 would fail a release
+          # it would have taken. Anchored, so a trailing newline cannot forge a
+          # second GITHUB_OUTPUT entry.
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$ ]] || {
+            echo "::error::version must be semver (got '$version')"; exit 1; }
 
           echo "package=$package" >> "$GITHUB_OUTPUT"
           echo "version=$version" >> "$GITHUB_OUTPUT"
@@ -291,6 +293,9 @@ jobs:
         env:
           CALIMERO_API_KEY: ${{ secrets.CALIMERO_REGISTRY_API_KEY }}
 ```
+
+A pre-release version publishes like any other: bumping to `1.0.0-rc.1` on the default branch releases it, and the registry orders it below `1.0.0` rather than treating it as latest.
+If you would rather keep pre-releases out of the registry entirely, narrow the version check to `^[0-9]+\.[0-9]+\.[0-9]+$` and they will fail the gate instead.
 
 ### Why the registry decides, not git
 

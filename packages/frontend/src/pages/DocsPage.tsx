@@ -879,8 +879,10 @@ jobs:
           case "$package" in
             '' | *[!a-zA-Z0-9.-]*) echo "::error::bad package"; exit 1 ;;
           esac
-          [[ "$version" =~ ^[0-9]+\\.[0-9]+\\.[0-9]+$ ]] || {
-            echo "::error::version must be X.Y.Z"; exit 1; }
+          # Full semver: the registry accepts and orders pre-releases, so
+          # rejecting 1.0.0-rc.1 would fail a release it would have taken.
+          [[ "$version" =~ ^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?(\\+[0-9A-Za-z.-]+)?$ ]] || {
+            echo "::error::version must be semver"; exit 1; }
 
           echo "package=$package" >> "$GITHUB_OUTPUT"
           echo "version=$version" >> "$GITHUB_OUTPUT"
