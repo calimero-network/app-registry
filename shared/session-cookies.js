@@ -12,8 +12,10 @@
 // `Number(x) || fallback` would discard an explicit 0, which is how an operator
 // disables a cookie during an incident. Only unset or unusable values fall back.
 function seconds(name, fallback) {
-  const raw = process.env[name];
-  if (raw === undefined || raw === '') return fallback;
+  // Trimmed first: Number('  ') is 0, so a templated value that resolved to a
+  // space would otherwise pass validation and disable the cookie outright.
+  const raw = String(process.env[name] ?? '').trim();
+  if (raw === '') return fallback;
   const n = Number(raw);
   return Number.isInteger(n) && n >= 0 ? n : fallback;
 }
@@ -33,12 +35,21 @@ const refreshCookieName = () => `${sessionCookieName()}_refresh`;
 // which is where the volume is. No /api/auth handler logs or echoes cookies.
 const REFRESH_COOKIE_PATH = '/api/auth';
 
-function sessionCookie(token, { maxAge = SESSION_MAX_AGE } = {}) {
-  return `${sessionCookieName()}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}; Secure`;
+// `secure` defaults on, so the serverless handlers keep the behaviour they
+// have always had, but it is a parameter rather than a constant so the header
+// and option forms cannot disagree about it.
+function sessionCookie(
+  token,
+  { maxAge = SESSION_MAX_AGE, secure = true } = {}
+) {
+  return `${sessionCookieName()}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${secure ? '; Secure' : ''}`;
 }
 
-function refreshCookie(token, { maxAge = REFRESH_MAX_AGE } = {}) {
-  return `${refreshCookieName()}=${token}; Path=${REFRESH_COOKIE_PATH}; HttpOnly; SameSite=Lax; Max-Age=${maxAge}; Secure`;
+function refreshCookie(
+  token,
+  { maxAge = REFRESH_MAX_AGE, secure = true } = {}
+) {
+  return `${refreshCookieName()}=${token}; Path=${REFRESH_COOKIE_PATH}; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${secure ? '; Secure' : ''}`;
 }
 
 const clearedSessionCookie = () => sessionCookie('', { maxAge: 0 });

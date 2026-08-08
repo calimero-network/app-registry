@@ -66,8 +66,10 @@ async function refreshSession(deps, presentedToken) {
   }
 
   // Spend it last. Losing this race means another tab rotated first, and its
-  // reply already carries the replacement cookies.
-  const rotated = await refresh.rotate(presentedToken);
+  // reply already carries the replacement cookies. `held` is handed back so
+  // this does not re-read a record it already has; the DEL inside is what
+  // decides the winner, not the read.
+  const rotated = await refresh.rotate(presentedToken, undefined, held);
   if (!rotated) return invalidRefresh();
 
   return {

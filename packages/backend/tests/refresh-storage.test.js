@@ -167,6 +167,30 @@ describe('refresh tokens', () => {
     expect(await r.revokeAllForEmail(EMAIL)).toBe(2);
   });
 
+  it('a pre-verified record skips the read but not the atomic delete', async () => {
+    const kv = makeKv();
+    const r = createRefreshStorage(kv);
+    const token = await r.issue(EMAIL, 'user-1');
+    const held = await r.verify(token);
+
+    let reads = 0;
+    const get = kv.get.bind(kv);
+    kv.get = async k => {
+      reads++;
+      return get(k);
+    };
+
+    // Three callers all hand back the same already-verified record. The DEL is
+    // still what decides, so exactly one may mint a replacement.
+    const out = await Promise.all([
+      r.rotate(token, undefined, held),
+      r.rotate(token, undefined, held),
+      r.rotate(token, undefined, held),
+    ]);
+    expect(out.filter(Boolean)).toHaveLength(1);
+    expect(reads).toBe(0);
+  });
+
   it('default lifetime is 30 days', async () => {
     const r = createRefreshStorage(makeKv());
     expect(r.maxAgeSeconds).toBe(60 * 60 * 24 * 30);

@@ -126,3 +126,16 @@ describe('fastify cookie options', () => {
     });
   });
 });
+
+describe('secure flag on the header form', () => {
+  it('is on by default, matching what the serverless handlers have always sent', () => {
+    expect(sessionCookie('t')).toContain('; Secure');
+    expect(refreshCookie('t')).toContain('; Secure');
+    expect(clearedSessionCookie()).toContain('; Secure');
+  });
+
+  it('can be turned off, so the two cookie forms cannot disagree', () => {
+    expect(sessionCookie('t', { secure: false })).not.toContain('Secure');
+    expect(refreshCookie('t', { secure: false })).not.toContain('Secure');
+  });
+});

@@ -96,11 +96,14 @@ function createRefreshStorage(
    * DEL decides the winner rather than the preceding read: it is atomic and
    * reports how many keys it removed, so of several callers presenting the
    * same token concurrently, exactly one sees a non-zero count and the rest
-   * get null instead of a second live token.
+   * get null instead of a second live token. That is why `known` is safe to
+   * pass: a caller that has already verified saves the read without weakening
+   * anything, since the read was never what decided the outcome.
+   * @param {{email: string, userId: string|null}} [known] result of an earlier verify
    * @returns {Promise<{token: string, email: string, userId: string|null} | null>}
    */
-  async function rotate(token, nowMs) {
-    const rec = await verify(token, nowMs);
+  async function rotate(token, nowMs, known) {
+    const rec = known ?? (await verify(token, nowMs));
     if (!rec) return null;
     if (!(await kv.del(keyFor(token)))) return null;
     await kv.sRem(USER_REFRESH_PREFIX + rec.email, hashToken(token));
