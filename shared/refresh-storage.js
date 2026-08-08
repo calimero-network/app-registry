@@ -35,6 +35,11 @@ function createRefreshStorage(
     if (!norm) throw new Error('email required');
     const token = newToken();
     const now = nowMs ?? Date.now();
+    // Index first. These are two writes with no transaction between them, and
+    // the orders fail differently: a record with no index entry is a live token
+    // revokeAllForEmail would miss, while an index entry with no record is
+    // inert and gets swept on the next revoke.
+    await kv.sAdd(USER_REFRESH_PREFIX + norm, hashToken(token));
     await kv.set(
       keyFor(token),
       JSON.stringify({
@@ -44,7 +49,6 @@ function createRefreshStorage(
         expiresAt: now + maxAgeSeconds * 1000,
       })
     );
-    await kv.sAdd(USER_REFRESH_PREFIX + norm, hashToken(token));
     return token;
   }
 

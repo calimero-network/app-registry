@@ -1,3 +1,7 @@
+const {
+  SESSION_MAX_AGE,
+} = require('@calimero-network/registry-shared/session-cookies');
+
 module.exports = {
   ipfs: {
     gateways: process.env.IPFS_GATEWAYS
@@ -50,8 +54,9 @@ module.exports = {
     })(),
     frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
     cookieName: process.env.AUTH_COOKIE_NAME || 'app_registry_session',
-    // Kept in step with shared/session-cookies.js, which the serverless API uses.
-    cookieMaxAge: Number(process.env.SESSION_MAX_AGE_SECONDS) || 60 * 60,
+    // Taken from the shared module rather than re-derived, so the two runtimes
+    // cannot disagree and an explicit 0 is honoured here too.
+    cookieMaxAge: SESSION_MAX_AGE,
     google: {
       clientId: process.env.GOOGLE_CLIENT_ID || '',
       clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',

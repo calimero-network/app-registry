@@ -114,8 +114,10 @@ module.exports = async function handler(req, res) {
   // valid session, they just re-authenticate when it lapses.
   try {
     setCookies.push(refreshCookie(await refresh.issue(user.email, user.id)));
-  } catch {
-    /* session-only login */
+  } catch (err) {
+    // Login still succeeds without it, but systemic failure here looks like
+    // "nobody stays signed in" rather than an outage, so it must be visible.
+    console.error('GET /api/auth/google/callback: refresh issue failed:', err);
   }
 
   res.setHeader('Set-Cookie', setCookies);

@@ -163,8 +163,10 @@ async function authRoutes(server, options) {
         await refresh.issue(user.email, user.id),
         refreshCookieOptions({ secure: isSecure })
       );
-    } catch {
-      /* session-only login */
+    } catch (err) {
+      // Login still succeeds without it, but systemic failure here looks like
+      // "nobody stays signed in" rather than an outage, so it must be visible.
+      request.log.warn({ err }, 'login: refresh issue failed, session-only');
     }
 
     return reply.redirect(302, `${frontendUrl}/my-packages`);
@@ -296,10 +298,22 @@ async function authRoutes(server, options) {
 
   // POST /api/auth/refresh — trade a refresh cookie for a fresh session cookie
   server.post('/api/auth/refresh', async (request, reply) => {
-    const result = await refreshSession(
-      { refresh, isBlacklisted, getUserByEmail },
-      request.cookies?.[refreshCookieName()]
-    );
+    let result;
+    try {
+      result = await refreshSession(
+        { refresh, isBlacklisted, getUserByEmail },
+        request.cookies?.[refreshCookieName()]
+      );
+    } catch (err) {
+      // Matches the serverless route: a Redis fault answers 500 with the
+      // cookies untouched, so a retry can still succeed. The token is not
+      // spent until after every fallible read, so it is still good.
+      request.log.error({ err }, 'refresh failed');
+      return reply.code(500).send({
+        error: 'internal_error',
+        message: 'Could not refresh session',
+      });
+    }
 
     if (!result.ok) {
       if (result.clearCookies) {
