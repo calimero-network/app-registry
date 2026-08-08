@@ -26,7 +26,9 @@ app-registry/
 | [backend](./packages/backend)               | API server, signature validation, Redis KV | Fastify, Node.js         |
 | [frontend](./packages/frontend)             | Web UI — browse, upload, org management    | React, TypeScript, Vite  |
 | [client-library](./packages/client-library) | TypeScript client for the API              | TypeScript, Axios        |
-| [cli](./packages/cli)                       | Bundle create/push/edit, org management    | TypeScript, Commander.js |
+| [cli](./packages/cli)                       | Org management, metadata edits             | TypeScript, Commander.js |
+
+Apps are built and published with [`cargo mero`](https://github.com/calimero-network/core/tree/master/tools/cargo-mero), which lives in the `core` repo. Nothing in this monorepo builds bundles.
 
 ---
 
@@ -52,35 +54,40 @@ pnpm dev:all
 
 ### Bundle format
 
-Apps are distributed as `.mpk` files — gzip-compressed tar archives:
+Apps are distributed as `.mpk` files - gzip-compressed tar archives. A single-service app keeps its wasm at the root; a workspace shipping several services puts each under `services/`:
 
 ```
-bundle.mpk
-├── manifest.json   ← metadata + Ed25519 signature
-├── app.wasm        ← compiled WebAssembly module
-└── abi.json        ← optional ABI schema
+bundle.mpk                        bundle.mpk  (multi-service)
+├── manifest.json                 ├── manifest.json
+├── app.wasm                      └── services/
+└── abi.json                          ├── registry.wasm
+                                      ├── registry-abi.json
+                                      ├── docs.wasm
+                                      └── docs-abi.json
 ```
+
+Every service carries its own ABI, and the ABI is also embedded in the wasm as the `calimero_abi_v1` custom section, which is what a node reads to plan a state migration on upgrade.
 
 ### Publish workflow
 
+Bundle metadata comes from a `[package.metadata.calimero]` table in the app's `Cargo.toml`, so there is no `manifest.json` to hand-write.
+
 ```
-1. cargo build --target wasm32-unknown-unknown --release
+1. cargo mero key generate -o key.json          # one-time, keep it out of git
 
-2. mero-sign generate-key --output key.json          # one-time
+2. cargo mero bundle --key key.json --bump patch
+   # → compiles every service to wasm32, embeds the ABI, size-optimizes
+   # → writes and signs manifest.json, packs dist/<package>-<version>.mpk
+   # → --bump asks the registry for the highest published version
 
-3. calimero-registry bundle create app.wasm com.example.myapp 1.0.0 \
-     --name "My App" --abi res/abi.json --output dist/myapp
-   # → writes dist/myapp/manifest.json + dist/myapp/app.wasm (not packed yet)
-
-4. mero-sign sign dist/myapp/manifest.json --key key.json
-   # → adds signature field to manifest.json
-
-5. calimero-registry bundle push dist/myapp --remote
-   # → CLI packs files into .mpk on the fly
-   # → registry validates Ed25519 signature
-   # → stores manifest + binary
+3. export CALIMERO_API_KEY=<token>              # Organizations page → CLI Access
+   cargo mero publish dist/<package>-<version>.mpk
+   # → POST /api/v2/bundles/push
+   # → registry validates the Ed25519 signature and the signer's ownership
    # → app visible in the UI
 ```
+
+For CI, bumping the version in `Cargo.toml` is the release; see [PUBLISHING.md](PUBLISHING.md).
 
 ### Signature verification
 
@@ -97,39 +104,53 @@ The same process runs on the node side when the Calimero Desktop app installs a 
 
 ## Ownership and publishing rights
 
-Who can push a new version or PATCH metadata for a package:
+There are two push endpoints, and they do not authorize the same way:
 
-| Scenario           | Authorization                                                                                                                    |
-| ------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
-| First publish      | Any signed request — signer's email (from Google session or API token) becomes the author                                        |
-| New version / edit | Bundle has a valid Ed25519 signature AND pusher's email matches original author, OR is a member of the org linked to the package |
-| Delete version     | Signed in (Google session) as the `metadata.author` email                                                                        |
+| Endpoint                         | Used by                                   | Authorization for an existing package                                      |
+| -------------------------------- | ----------------------------------------- | -------------------------------------------------------------------------- |
+| `POST /api/v2/bundles/push`      | `cargo mero publish`, `calimero-registry` | Signing key matches the package's signer, or is in `owners[]`              |
+| `POST /api/v2/bundles/push-file` | Browser upload                            | The above, **or** the uploader's email is in the org linked to the package |
 
-`metadata.author` is set server-side from the Google session on first push and cannot be overwritten via edit.
+Both require a valid Ed25519 signature, and both refuse the well-known dev key. `push-file` additionally rejects a version that is not greater than the latest published one; `push` leaves version ordering to the caller, which is why `cargo mero bundle --bump` exists.
+
+| Scenario       | Authorization                                                                  |
+| -------------- | ------------------------------------------------------------------------------ |
+| First publish  | Any signed request. The account behind the token or session becomes the author |
+| Delete version | Signed in (Google session) as the `metadata.author` email                      |
+
+`metadata.author` is set server-side on first publish and carried forward from the oldest version onto every later one, so a manifest cannot set or change it.
+
+### App identity is package + signer
+
+A node derives an app's `ApplicationId` from `SHA-256(borsh(package, signerId))`, not from the wasm.
+Publishing the same package under a different key produces a **different application**, not an upgrade, and existing installs never see it.
+That is what the signer pin above protects: the registry refuses the mismatch rather than letting the identity break silently.
 
 ---
 
 ## Organizations
 
-Organizations let teams collectively manage packages. Members are identified by **email address** — no shared keys required. Browser org management uses your Google session. CLI org management uses an API token.
+Organizations let teams collectively manage packages. Members are identified by **email address**, so there are no shared keys to distribute or rotate. Browser org management uses your Google session. CLI org management uses an API token.
 
 ```
 admin@example.com creates org → adds alice@example.com (member)
                               → links com.my-org.app to org
 
-alice@example.com pushes a new version:
-  → bundle signed with Alice's mero-sign key (any valid Ed25519 key)
-  → CLI authenticates via API token → resolves alice@example.com
-  → registry: is alice@example.com in org members? YES → 200 OK
+alice@example.com uploads a new version from the browser:
+  → bundle signed with Alice's own key (any valid Ed25519 key)
+  → session resolves → alice@example.com
+  → registry: is alice@example.com in org members? YES → 201 Created
 
 Admin removes alice:
   → registry: is alice@example.com in org members? NO → 403 Forbidden (immediate)
 ```
 
+Org membership substitutes for a key match on the browser upload and on metadata edits. `cargo mero publish` goes through the signature-only endpoint, so a CI release still signs with the key that published the package; a **bot account** holding that key is how an org releases without tying it to a person.
+
 ### Getting started with orgs
 
 1. **Sign in** with Google at the registry web UI
-2. **Create an org** from the Organizations page — you become the admin
+2. **Create an org** from the Organizations page, where you become the admin
 3. **Get a CLI API token** from the Organizations page → CLI Access section:
    ```bash
    calimero-registry config set api-key <token>
@@ -137,7 +158,7 @@ Admin removes alice:
    ```
 4. **Add members** by email from the web UI or CLI
 5. **Link packages** from the web UI or CLI (must be the original package author or org admin)
-6. **Members push bundles** using their own mero-sign key — the registry checks their email against the org
+6. **Members upload bundles** signed with their own key, and the registry checks their email against the org
 
 ### Org CLI commands
 
@@ -163,10 +184,23 @@ calimero-registry org packages unlink <org-id> com.my-org.app
 
 ## CLI reference
 
+Building and publishing is `cargo mero`:
+
+```bash
+cargo mero new <name>                       # scaffold an app
+cargo mero build                            # compile to wasm32, embed the ABI
+cargo mero test                             # node-free test suite
+cargo mero bundle --key <file> [--bump patch|minor|major]
+cargo mero publish <mpk>                    # needs CALIMERO_API_KEY
+cargo mero key generate -o <file>
+cargo mero key derive-signer-id -k <file>
+cargo mero sign <manifest.json> --key <file>
+```
+
+`calimero-registry` covers what talks to the registry rather than to your app:
+
 ```bash
 # Bundle commands
-calimero-registry bundle create <wasm> <package> <version> [options]
-calimero-registry bundle push   <dir|file.mpk>  --remote | --local
 calimero-registry bundle edit   <package> <version> --remote [--manifest signed.json]
 calimero-registry bundle get    <package> <version> --local
 
@@ -258,21 +292,21 @@ pnpm test:coverage
 
 The registry frontend ships a built-in **Docs** page (`/docs`) covering:
 
-- What Calimero apps are and the bundle format
-- mero-sign key generation and manifest signing
-- Full CLI reference with examples
-- Creating and publishing bundles step-by-step
-- Testing with local registry and scripts
-- Frontend upload and edit flows
-- Versioning rules
-- Organizations — setup, membership, package linking, revocation
-- Installation and signature validation in Calimero Desktop
+- The bundle format and the manifest, single- and multi-service
+- The `cargo mero` workflow, from scaffold to published bundle
+- Signing keys, `signerId` derivation, and why app identity is package + signer
+- Publishing from the terminal, from the browser, and from CI
+- Organizations: setup, membership, bot accounts, package linking, revocation
+- Registry CLI reference for org administration and metadata edits
+- Installation and signature validation on a node
 
 ---
 
 ## Links
 
 - [Official docs](https://docs.calimero.network)
+- [Publishing guide](PUBLISHING.md) - building, signing, and releasing from CI
+- [cargo mero](https://github.com/calimero-network/core/tree/master/tools/cargo-mero) - the app toolchain
 - [GitHub](https://github.com/calimero-network/app-registry)
 - [Issues](https://github.com/calimero-network/app-registry/issues)
 - [Contributing](CONTRIBUTING.md)
