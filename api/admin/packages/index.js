@@ -1,7 +1,7 @@
 /** GET /api/admin/packages — list all packages */
-const { requireAdmin } = require('../../lib/auth-helpers');
-const { kv } = require('../../lib/kv-client');
-const { getAdminVerified } = require('../../lib/admin-storage');
+const { requireAdmin } = require('#api-lib/auth-helpers');
+const { kv } = require('#api-lib/kv-client');
+const { getAdminVerified } = require('#api-lib/admin-storage');
 const semver = require('semver');
 
 module.exports = async function handler(req, res) {

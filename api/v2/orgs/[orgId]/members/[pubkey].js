@@ -11,11 +11,8 @@ const {
   getOrgMemberRole,
   updateOrgMemberRole,
   removeOrgMember,
-} = require('../../../../lib/org-storage');
-const {
-  requireAuth,
-  requireOrgOwner,
-} = require('../../../../lib/auth-helpers');
+} = require('#api-lib/org-storage');
+const { requireAuth, requireOrgOwner } = require('#api-lib/auth-helpers');
 
 async function countOrgOwners(orgId) {
   const members = await getOrgMembers(orgId);

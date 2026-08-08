@@ -3,7 +3,7 @@
  */
 
 const jwt = require('jsonwebtoken');
-const { kv } = require('../../lib/kv-client');
+const { kv } = require('#api-lib/kv-client');
 
 const TOKEN_PREFIX = 'apitoken:';
 const USER_TOKENS_PREFIX = 'user_tokens:';

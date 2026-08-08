@@ -11,11 +11,8 @@
 const {
   BundleStorageKV,
 } = require('@calimero-network/registry-backend/src/lib/bundle-storage-kv');
-const {
-  requireAuth,
-  manifestOwnedByUser,
-} = require('../../../../lib/auth-helpers');
-const { kv } = require('../../../../lib/kv-client');
+const { requireAuth, manifestOwnedByUser } = require('#api-lib/auth-helpers');
+const { kv } = require('#api-lib/kv-client');
 
 // Scoped packages (@org/name) are allowed; bare path traversal sequences are not.
 const PKG_RE = /^(?:@[\w.-]+\/)?[\w.+-]+$/;

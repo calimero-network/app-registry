@@ -7,7 +7,7 @@
  * No auth; call after a successful artifact download/install.
  */
 
-const { kv } = require('../../lib/kv-client');
+const { kv } = require('#api-lib/kv-client');
 
 const PACKAGE_REGEX = /^[a-z0-9][a-z0-9.-]*[a-z0-9]$/i;
 

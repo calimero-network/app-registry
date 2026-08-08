@@ -3,15 +3,15 @@
  * DELETE /api/admin/users/:userId      — delete user
  * PATCH  /api/admin/users/:userId      — body: { action: 'verify'|'unverify'|'make_admin'|'remove_admin'|'blacklist'|'unblacklist', reason? }
  */
-const { requireAdmin } = require('../../lib/auth-helpers');
-const { kv } = require('../../lib/kv-client');
+const { requireAdmin } = require('#api-lib/auth-helpers');
+const { kv } = require('#api-lib/kv-client');
 const {
   addAdmin,
   removeAdmin,
   blacklistUser,
   unblacklistUser,
   setAdminVerified,
-} = require('../../lib/admin-storage');
+} = require('#api-lib/admin-storage');
 
 module.exports = async function handler(req, res) {
   const admin = await requireAdmin(req, res);

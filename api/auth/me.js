@@ -3,13 +3,13 @@
  */
 
 const jwt = require('jsonwebtoken');
-const { kv } = require('../lib/kv-client');
-const { getUserById, getUserByEmail } = require('../lib/user-storage');
+const { kv } = require('#api-lib/kv-client');
+const { getUserById, getUserByEmail } = require('#api-lib/user-storage');
 const {
   isAdmin,
   getAdminVerified,
   isBlacklisted,
-} = require('../lib/admin-storage');
+} = require('#api-lib/admin-storage');
 
 const TOKEN_PREFIX = 'apitoken:';
 

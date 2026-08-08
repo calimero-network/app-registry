@@ -1,11 +1,11 @@
 /** GET /api/admin/users — list all user profiles */
-const { requireAdmin } = require('../../lib/auth-helpers');
-const { kv } = require('../../lib/kv-client');
+const { requireAdmin } = require('#api-lib/auth-helpers');
+const { kv } = require('#api-lib/kv-client');
 const {
   listAdminEmails,
   listBlacklistedEmails,
   getAdminVerified,
-} = require('../../lib/admin-storage');
+} = require('#api-lib/admin-storage');
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).end();

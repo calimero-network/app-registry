@@ -2,7 +2,7 @@
  * POST /api/auth/logout — clear session cookie and revoke the refresh token
  */
 
-const { refresh } = require('../lib/refresh-storage');
+const { refresh } = require('#api-lib/refresh-storage');
 const {
   refreshCookieName,
   clearedSessionCookie,

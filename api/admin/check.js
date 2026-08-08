@@ -1,6 +1,6 @@
 /** GET /api/admin/check — returns { isAdmin: bool } */
-const { requireAuth } = require('../lib/auth-helpers');
-const { isAdmin } = require('../lib/admin-storage');
+const { requireAuth } = require('#api-lib/auth-helpers');
+const { isAdmin } = require('#api-lib/admin-storage');
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).end();

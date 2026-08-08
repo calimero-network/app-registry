@@ -14,9 +14,9 @@ const {
   verifyManifest,
   getPublicKeyFromManifest,
   isAllowedOwner,
-} = require('../../../lib/verify');
-const { requireAuth } = require('../../../lib/auth-helpers');
-const { kv } = require('../../../lib/kv-client');
+} = require('#api-lib/verify');
+const { requireAuth } = require('#api-lib/auth-helpers');
+const { kv } = require('#api-lib/kv-client');
 
 let storage;
 function getStorage() {

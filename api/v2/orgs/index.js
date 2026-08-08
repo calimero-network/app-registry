@@ -10,8 +10,8 @@ const {
   getOrgsByMember,
   getPkg2Org,
   addOrgMember,
-} = require('../../lib/org-storage');
-const { requireAuth } = require('../../lib/auth-helpers');
+} = require('#api-lib/org-storage');
+const { requireAuth } = require('#api-lib/auth-helpers');
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const SLUG_REGEX = /^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$/;

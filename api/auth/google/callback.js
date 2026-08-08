@@ -3,9 +3,9 @@
  */
 
 const jwt = require('jsonwebtoken');
-const { getOrCreateUser } = require('../../lib/user-storage');
-const { isBlacklisted } = require('../../lib/admin-storage');
-const { refresh } = require('../../lib/refresh-storage');
+const { getOrCreateUser } = require('#api-lib/user-storage');
+const { isBlacklisted } = require('#api-lib/admin-storage');
+const { refresh } = require('#api-lib/refresh-storage');
 const {
   SESSION_MAX_AGE,
   sessionCookie,

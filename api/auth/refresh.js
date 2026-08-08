@@ -8,9 +8,9 @@
  */
 
 const jwt = require('jsonwebtoken');
-const { refresh } = require('../lib/refresh-storage');
-const { getUserByEmail } = require('../lib/user-storage');
-const { isBlacklisted } = require('../lib/admin-storage');
+const { refresh } = require('#api-lib/refresh-storage');
+const { getUserByEmail } = require('#api-lib/user-storage');
+const { isBlacklisted } = require('#api-lib/admin-storage');
 const {
   refreshSession,
 } = require('@calimero-network/registry-shared/refresh-flow');
