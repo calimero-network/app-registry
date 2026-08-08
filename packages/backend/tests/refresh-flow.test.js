@@ -104,6 +104,7 @@ describe('refreshSession', () => {
     // verify saw a live token, but another tab spent it first.
     const { deps } = makeDeps({
       held: { email: EMAIL, userId: 'u1' },
+      profile: { id: 'u1' },
       rotated: null,
     });
     const r = await refreshSession(deps, 'raced-token');
@@ -154,19 +155,29 @@ describe('refreshSession', () => {
     expect(r.claims).toMatchObject({ sub: 'p1', name: EMAIL, picture: null });
   });
 
-  it('still succeeds when no profile exists', async () => {
-    const { deps } = makeDeps({
+  it('refuses and revokes when the profile is gone', async () => {
+    // Login always writes a profile, so its absence means the account was
+    // deleted. Admin deletion does not blacklist, so this is the only thing
+    // stopping a deleted user refreshing for the life of the token.
+    const { deps, calls } = makeDeps({
       rotated: { token: 'next', email: EMAIL, userId: 'u1' },
       profile: null,
     });
     const r = await refreshSession(deps, 'good-token');
-    expect(r.ok).toBe(true);
-    expect(r.claims).toMatchObject({ sub: 'u1', name: EMAIL });
+    expect(r).toMatchObject({
+      ok: false,
+      status: 401,
+      error: 'account_gone',
+      clearCookies: true,
+    });
+    expect(calls.revokeAll).toEqual([EMAIL]);
+    expect(calls.rotated).toBe(0);
   });
 
   it('does not revoke anything for a healthy account', async () => {
     const { deps, calls } = makeDeps({
       rotated: { token: 'next', email: EMAIL, userId: 'u1' },
+      profile: { id: 'u1' },
     });
     await refreshSession(deps, 'good-token');
     expect(calls.revokeAll).toEqual([]);

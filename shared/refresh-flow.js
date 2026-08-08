@@ -51,6 +51,19 @@ async function refreshSession(deps, presentedToken) {
   }
 
   const profile = await getUserByEmail(held.email);
+  // Login always writes a profile, so its absence means the account was
+  // deleted. Blacklisting is not the only way an account ends, and without
+  // this a deleted user keeps refreshing for the life of the refresh token.
+  if (!profile) {
+    await refresh.revokeAllForEmail(held.email);
+    return {
+      ok: false,
+      status: 401,
+      error: 'account_gone',
+      message: 'Session expired',
+      clearCookies: true,
+    };
+  }
 
   // Spend it last. Losing this race means another tab rotated first, and its
   // reply already carries the replacement cookies.

@@ -63,14 +63,13 @@ api.interceptors.response.use(
     const requestUrl = String(error.config?.url || '');
     const originalMessage = String(error.cause?.message || error.message || '');
 
-    if (
-      typeof window !== 'undefined' &&
-      status === 401 &&
-      window.sessionStorage.getItem(AUTH_SESSION_FLAG) === '1'
-    ) {
-      // The session cookie expiring is routine; only send the user to /login
-      // once the refresh token is gone too. `_retried` bounds this to a single
-      // attempt so a persistent 401 cannot loop.
+    if (typeof window !== 'undefined' && status === 401) {
+      // Attempted whatever AUTH_SESSION_FLAG says. The flag lives in
+      // sessionStorage, which is per-tab, so a link opened in a new tab has no
+      // flag while still carrying a perfectly good refresh cookie. Gating the
+      // recovery on it would leave that tab unable to help itself. A signed-out
+      // visitor just gets one cheap 401 from the refresh endpoint.
+      // `_retried` bounds this to a single attempt so a persistent 401 cannot loop.
       const original = error.config;
       const isRefreshCall = requestUrl.includes('/auth/refresh');
       if (original && !original._retried && !isRefreshCall) {
@@ -85,7 +84,15 @@ api.interceptors.response.use(
         // own terms and keep the session, so an outage does not log everyone out.
         return Promise.reject(error);
       }
+    }
 
+    // Only a tab that believed it was signed in gets sent to /login; an
+    // anonymous visitor hitting a 401 is not "expired", just not signed in.
+    if (
+      typeof window !== 'undefined' &&
+      status === 401 &&
+      window.sessionStorage.getItem(AUTH_SESSION_FLAG) === '1'
+    ) {
       window.sessionStorage.removeItem(AUTH_SESSION_FLAG);
       if (window.location.pathname !== '/login') {
         const from = `${window.location.pathname}${window.location.search}`;
