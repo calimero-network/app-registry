@@ -73,7 +73,6 @@ api.interceptors.response.use(
     const apiError = error.response?.data;
     const requestUrl = String(error.config?.url || '');
     const originalMessage = String(error.cause?.message || error.message || '');
-    let expired = false;
 
     if (typeof window !== 'undefined' && status === 401) {
       // Attempted whatever AUTH_SESSION_FLAG says. The flag lives in
@@ -87,29 +86,35 @@ api.interceptors.response.use(
       if (original && !original._retried && !isRefreshCall) {
         original._retried = true;
         const outcome = await refreshSession();
-        // Retried even when the refresh was refused: another tab may have
-        // rotated first, in which case its reply already left fresh cookies in
-        // the shared jar and this request now succeeds. `_retried` means a
-        // second 401 falls straight through to the sign-out below.
-        if (outcome === 'renewed' || outcome === 'expired') {
-          if (outcome === 'renewed') return api(original);
-          // The server refused a credential this tab was holding, so the
-          // session really is over regardless of what sessionStorage knows.
-          expired = true;
-        } else {
-          // Unreachable, or nothing was presented: let the request fail on its
-          // own terms rather than declaring the session over.
-          return Promise.reject(error);
+
+        if (outcome === 'renewed') return api(original);
+
+        if (outcome === 'expired') {
+          // Refused, but a refusal proves this tab was holding a credential,
+          // so record that the tab had a session. Then retry anyway: a tab
+          // that lost a rotation race sees its own token refused while the
+          // winning tab has already put fresh cookies in the shared jar. If
+          // the retry 401s too, `_retried` sends it to the sign-out below,
+          // where the flag now guarantees the redirect happens.
+          window.sessionStorage.setItem(AUTH_SESSION_FLAG, '1');
+          return api(original);
         }
+
+        // Unreachable: say nothing about the session, just fail the request.
+        if (outcome === 'unavailable') return Promise.reject(error);
+
+        // 'anonymous' - nothing was presented. Falls through rather than
+        // returning, so a tab that believed it was signed in still gets signed
+        // out; a visitor who never was simply fails the flag check below.
       }
     }
 
-    // A tab that believed it was signed in, or one the server just told its
-    // credential was dead. An anonymous visitor's 401 is neither.
+    // Only a tab that believed it was signed in. An anonymous visitor's 401 is
+    // not an expiry.
     if (
       typeof window !== 'undefined' &&
       status === 401 &&
-      (expired || window.sessionStorage.getItem(AUTH_SESSION_FLAG) === '1')
+      window.sessionStorage.getItem(AUTH_SESSION_FLAG) === '1'
     ) {
       window.sessionStorage.removeItem(AUTH_SESSION_FLAG);
       if (window.location.pathname !== '/login') {
