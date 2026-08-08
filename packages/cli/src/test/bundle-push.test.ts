@@ -144,31 +144,32 @@ describe('Bundle Push - Remote', () => {
       expect(headers.Authorization).toBe(`Bearer ${apiKey}`);
     });
 
-    it('should handle timeout', async () => {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 1000);
-
+    it('should reject with AbortError when the signal fires', async () => {
+      // The stub has to honour the signal. One that ignores it resolves
+      // normally, and an assertion written inside a catch block then never
+      // runs at all - which is how this passed while testing nothing.
       vi.mocked(global.fetch).mockImplementation(
-        () =>
-          new Promise(resolve => {
-            setTimeout(() => {
-              resolve({
-                status: 201,
-                json: async () => ({}),
-              });
-            }, 2000);
+        (_url, init) =>
+          new Promise((_resolve, reject) => {
+            init?.signal?.addEventListener('abort', () =>
+              reject(
+                Object.assign(new Error('The operation was aborted'), {
+                  name: 'AbortError',
+                })
+              )
+            );
           })
       );
 
-      try {
-        await fetch('https://example.com', {
-          signal: controller.signal,
-        });
-      } catch (error: unknown) {
-        expect(error instanceof Error && error.name).toBe('AbortError');
-      } finally {
-        clearTimeout(timeoutId);
-      }
+      const controller = new AbortController();
+      const pending = fetch('https://example.com', {
+        signal: controller.signal,
+      });
+      controller.abort();
+
+      // rejects, so a request that never aborts fails the test rather than
+      // passing silently. No wall-clock timer, so nothing here is load-flaky.
+      await expect(pending).rejects.toMatchObject({ name: 'AbortError' });
     });
   });
 
