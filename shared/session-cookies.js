@@ -9,9 +9,17 @@
 // Lengthening it was how staying signed in used to be bought; the refresh
 // cookie below now does that instead, and does it revocably. Tunable via
 // SESSION_MAX_AGE_SECONDS if a deployment wants a different trade.
-const SESSION_MAX_AGE = Number(process.env.SESSION_MAX_AGE_SECONDS) || 60 * 60;
-const REFRESH_MAX_AGE =
-  Number(process.env.REFRESH_MAX_AGE_SECONDS) || 60 * 60 * 24 * 30;
+// `Number(x) || fallback` would discard an explicit 0, which is how an operator
+// disables a cookie during an incident. Only unset or unusable values fall back.
+function seconds(name, fallback) {
+  const raw = process.env[name];
+  if (raw === undefined || raw === '') return fallback;
+  const n = Number(raw);
+  return Number.isInteger(n) && n >= 0 ? n : fallback;
+}
+
+const SESSION_MAX_AGE = seconds('SESSION_MAX_AGE_SECONDS', 60 * 60);
+const REFRESH_MAX_AGE = seconds('REFRESH_MAX_AGE_SECONDS', 60 * 60 * 24 * 30);
 
 const sessionCookieName = () =>
   process.env.AUTH_COOKIE_NAME || 'app_registry_session';
@@ -54,7 +62,29 @@ function refreshCookieOptions({ maxAge = REFRESH_MAX_AGE, secure } = {}) {
   };
 }
 
+/**
+ * Parse a Cookie header. A malformed percent-escape yields the raw value rather
+ * than throwing, so one corrupted cookie cannot 500 an entire request.
+ */
+function parseCookies(header) {
+  const out = {};
+  for (const part of String(header || '').split(';')) {
+    const i = part.indexOf('=');
+    if (i < 0) continue;
+    const k = part.slice(0, i).trim();
+    const v = part.slice(i + 1).trim();
+    if (!k) continue;
+    try {
+      out[k] = decodeURIComponent(v);
+    } catch {
+      out[k] = v;
+    }
+  }
+  return out;
+}
+
 module.exports = {
+  parseCookies,
   SESSION_MAX_AGE,
   REFRESH_MAX_AGE,
   REFRESH_COOKIE_PATH,

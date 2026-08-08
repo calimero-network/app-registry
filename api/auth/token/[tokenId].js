@@ -4,26 +4,12 @@
 
 const jwt = require('jsonwebtoken');
 const { kv } = require('#api-lib/kv-client');
+const {
+  parseCookies,
+} = require('@calimero-network/registry-shared/session-cookies');
 
 const TOKEN_PREFIX = 'apitoken:';
 const USER_TOKENS_PREFIX = 'user_tokens:';
-
-function parseCookies(req) {
-  const raw = req.headers?.cookie || '';
-  const result = {};
-  for (const part of raw.split(';')) {
-    const idx = part.indexOf('=');
-    if (idx < 0) continue;
-    const k = part.slice(0, idx).trim();
-    const v = part.slice(idx + 1).trim();
-    try {
-      result[k] = decodeURIComponent(v);
-    } catch {
-      result[k] = v;
-    }
-  }
-  return result;
-}
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -36,7 +22,7 @@ module.exports = async function handler(req, res) {
   // Revoke requires a session cookie (not just a Bearer token) for security
   const cookieName = process.env.AUTH_COOKIE_NAME || 'app_registry_session';
   const sessionSecret = process.env.SESSION_SECRET;
-  const cookies = parseCookies(req);
+  const cookies = parseCookies(req.headers?.cookie);
   const sessionToken = cookies[cookieName];
 
   let sessionUser = null;

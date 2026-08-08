@@ -15,19 +15,33 @@ function makeDeps({
   rotated = null,
   blacklisted = false,
   profile = null,
+  held = undefined,
+  onBlacklist = null,
 } = {}) {
-  const calls = { revokeAll: [] };
+  const calls = { revokeAll: [], rotated: 0 };
   return {
     calls,
     deps: {
       refresh: {
-        rotate: async () => rotated,
+        // Non-destructive read. Defaults to agreeing with `rotated` so the
+        // common cases stay terse; `held` sets them apart for the race test.
+        verify: async () =>
+          held !== undefined
+            ? held
+            : rotated && { email: rotated.email, userId: rotated.userId },
+        rotate: async () => {
+          calls.rotated++;
+          return rotated;
+        },
         revokeAllForEmail: async e => {
           calls.revokeAll.push(e);
           return 1;
         },
       },
-      isBlacklisted: async () => blacklisted,
+      isBlacklisted: async () => {
+        if (onBlacklist) onBlacklist();
+        return blacklisted;
+      },
       getUserByEmail: async () => profile,
     },
   };
@@ -46,15 +60,54 @@ describe('refreshSession', () => {
     });
   });
 
-  it('401s and clears when the token is expired, unknown or spent', async () => {
+  it('401s without clearing when the token is expired, unknown or spent', async () => {
     const { deps } = makeDeps({ rotated: null });
     const r = await refreshSession(deps, 'stale-token');
     expect(r).toMatchObject({
       ok: false,
       status: 401,
       error: 'invalid_refresh_token',
-      clearCookies: true,
+      // Must not clear: cookies are shared across tabs, so a tab that lost a
+      // rotation race would wipe the credentials the winner just installed.
+      clearCookies: false,
     });
+  });
+
+  it('does not spend the token when the blacklist check throws', async () => {
+    const { deps, calls } = makeDeps({
+      rotated: { token: 'new', email: EMAIL, userId: 'u1' },
+      onBlacklist: () => {
+        throw new Error('redis down');
+      },
+    });
+    await expect(refreshSession(deps, 'good-token')).rejects.toThrow(
+      'redis down'
+    );
+    // The client still holds a token that works, so a retry can succeed.
+    expect(calls.rotated).toBe(0);
+  });
+
+  it('does not spend the token when the profile lookup throws', async () => {
+    const { deps, calls } = makeDeps({
+      rotated: { token: 'new', email: EMAIL, userId: 'u1' },
+    });
+    deps.getUserByEmail = async () => {
+      throw new Error('redis down');
+    };
+    await expect(refreshSession(deps, 'good-token')).rejects.toThrow(
+      'redis down'
+    );
+    expect(calls.rotated).toBe(0);
+  });
+
+  it('401s without clearing when rotation loses a concurrent race', async () => {
+    // verify saw a live token, but another tab spent it first.
+    const { deps } = makeDeps({
+      held: { email: EMAIL, userId: 'u1' },
+      rotated: null,
+    });
+    const r = await refreshSession(deps, 'raced-token');
+    expect(r).toMatchObject({ status: 401, clearCookies: false });
   });
 
   it('403s for a suspended account and kills its other sessions', async () => {

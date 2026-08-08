@@ -7,6 +7,7 @@ const { getOrCreateUser } = require('#api-lib/user-storage');
 const { isBlacklisted } = require('#api-lib/admin-storage');
 const { refresh } = require('#api-lib/refresh-storage');
 const {
+  parseCookies,
   SESSION_MAX_AGE,
   sessionCookie,
   refreshCookie,
@@ -18,16 +19,6 @@ const STATE_COOKIE = 'oauth_state';
 
 function loginErrorUrl(frontendUrl, error) {
   return `${frontendUrl}/login?error=${encodeURIComponent(error)}`;
-}
-
-function parseCookies(req) {
-  const raw = req.headers.cookie || '';
-  return Object.fromEntries(
-    raw.split(';').map(c => {
-      const [k, ...v] = c.trim().split('=');
-      return [k, decodeURIComponent(v.join('='))];
-    })
-  );
 }
 
 module.exports = async function handler(req, res) {
@@ -45,7 +36,7 @@ module.exports = async function handler(req, res) {
   }
 
   const { code, state: queryState } = req.query || {};
-  const cookies = parseCookies(req);
+  const cookies = parseCookies(req.headers.cookie);
   const cookieState = cookies[STATE_COOKIE];
 
   // Clear state cookie

@@ -4,6 +4,7 @@
 
 const { refresh } = require('#api-lib/refresh-storage');
 const {
+  parseCookies,
   refreshCookieName,
   clearedSessionCookie,
   clearedRefreshCookie,
@@ -12,22 +13,17 @@ const {
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
 
-  const raw = req.headers?.cookie || '';
-  const name = refreshCookieName();
-  for (const part of raw.split(';')) {
-    const i = part.indexOf('=');
-    if (i < 0) continue;
-    if (part.slice(0, i).trim() !== name) continue;
+  const presented = parseCookies(req.headers?.cookie)[refreshCookieName()];
+  if (presented) {
     // Clearing the cookie alone would leave a token that still works if it was
     // captured, so retire it server-side too. Logout still succeeds if that
     // fails, but it is logged: the session survives server-side while the user
     // believes it ended, and nothing else would surface that.
     try {
-      await refresh.revoke(decodeURIComponent(part.slice(i + 1).trim()));
+      await refresh.revoke(presented);
     } catch (err) {
       console.error('POST /api/auth/logout: refresh revoke failed:', err);
     }
-    break;
   }
 
   res.setHeader('Set-Cookie', [clearedSessionCookie(), clearedRefreshCookie()]);

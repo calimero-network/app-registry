@@ -15,6 +15,7 @@ const {
   refreshSession,
 } = require('@calimero-network/registry-shared/refresh-flow');
 const {
+  parseCookies,
   SESSION_MAX_AGE,
   refreshCookieName,
   sessionCookie,
@@ -23,30 +24,13 @@ const {
   clearedRefreshCookie,
 } = require('@calimero-network/registry-shared/session-cookies');
 
-function parseCookies(req) {
-  const raw = req.headers?.cookie || '';
-  const out = {};
-  for (const part of raw.split(';')) {
-    const i = part.indexOf('=');
-    if (i < 0) continue;
-    const k = part.slice(0, i).trim();
-    const v = part.slice(i + 1).trim();
-    try {
-      out[k] = decodeURIComponent(v);
-    } catch {
-      out[k] = v;
-    }
-  }
-  return out;
-}
-
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
 
   // Checked before configuration: a caller with no refresh cookie is
   // unauthenticated whatever the server is missing, and answering 401 keeps a
   // misconfigured deployment from reporting its own state to anonymous callers.
-  const presented = parseCookies(req)[refreshCookieName()];
+  const presented = parseCookies(req.headers?.cookie)[refreshCookieName()];
   if (!presented) {
     return res
       .status(401)

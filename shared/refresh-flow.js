@@ -29,33 +29,34 @@ async function refreshSession(deps, presentedToken) {
     };
   }
 
-  const rotated = await refresh.rotate(presentedToken);
-  if (!rotated) {
-    return {
-      ok: false,
-      status: 401,
-      error: 'invalid_refresh_token',
-      message: 'Session expired',
-      // Expired, unknown, or already spent: clear both so the client stops
-      // retrying with a credential that will never work again.
-      clearCookies: true,
-    };
-  }
+  // Everything that can fail happens before the token is spent. Rotating first
+  // and then throwing in isBlacklisted or getUserByEmail would leave the client
+  // holding a token this call had already deleted, turning a transient fault
+  // into a full re-login. verify does not consume, so it is safe to read here.
+  const held = await refresh.verify(presentedToken);
+  if (!held) return invalidRefresh();
 
   // Re-checked on every refresh rather than only at login, so suspending an
   // account ends its sessions within the session lifetime.
-  if (await isBlacklisted(rotated.email)) {
-    await refresh.revokeAllForEmail(rotated.email);
+  if (await isBlacklisted(held.email)) {
+    await refresh.revokeAllForEmail(held.email);
     return {
       ok: false,
       status: 403,
       error: 'account_suspended',
       message: 'This account has been suspended',
+      // Definitive, unlike an unusable token: take the session down with it.
       clearCookies: true,
     };
   }
 
-  const profile = await getUserByEmail(rotated.email);
+  const profile = await getUserByEmail(held.email);
+
+  // Spend it last. Losing this race means another tab rotated first, and its
+  // reply already carries the replacement cookies.
+  const rotated = await refresh.rotate(presentedToken);
+  if (!rotated) return invalidRefresh();
+
   return {
     ok: true,
     email: rotated.email,
@@ -66,6 +67,19 @@ async function refreshSession(deps, presentedToken) {
       name: profile?.name ?? rotated.email,
       picture: profile?.picture ?? null,
     },
+  };
+}
+
+function invalidRefresh() {
+  return {
+    ok: false,
+    status: 401,
+    error: 'invalid_refresh_token',
+    message: 'Session expired',
+    // Deliberately does not clear. Cookies are shared across tabs, so a tab
+    // that lost a rotation race would otherwise wipe the credentials the
+    // winning tab just installed and sign both of them out.
+    clearCookies: false,
   };
 }
 

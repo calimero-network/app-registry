@@ -76,10 +76,14 @@ api.interceptors.response.use(
       if (original && !original._retried && !isRefreshCall) {
         original._retried = true;
         const outcome = await refreshSession();
-        if (outcome === 'renewed') return api(original);
+        // Retried even when the refresh was refused: another tab may have
+        // rotated first, in which case its reply already left fresh cookies in
+        // the shared jar and this request now succeeds. `_retried` means a
+        // second 401 falls straight through to the sign-out below.
+        if (outcome !== 'unavailable') return api(original);
         // Refresh unreachable rather than refused: let this request fail on its
         // own terms and keep the session, so an outage does not log everyone out.
-        if (outcome === 'unavailable') return Promise.reject(error);
+        return Promise.reject(error);
       }
 
       window.sessionStorage.removeItem(AUTH_SESSION_FLAG);
