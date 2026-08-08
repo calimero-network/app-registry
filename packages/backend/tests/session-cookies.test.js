@@ -16,6 +16,8 @@ const {
   clearedRefreshCookie,
   SESSION_MAX_AGE,
   REFRESH_MAX_AGE,
+  sessionCookieOptions,
+  refreshCookieOptions,
 } = require('../../../shared/session-cookies');
 
 /** RFC 6265 section 5.1.4 path-match. */
@@ -88,5 +90,37 @@ describe('cookie attributes', () => {
     expect(SESSION_MAX_AGE).toBeLessThan(REFRESH_MAX_AGE);
     expect(SESSION_MAX_AGE).toBe(60 * 60 * 12);
     expect(REFRESH_MAX_AGE).toBe(60 * 60 * 24 * 30);
+  });
+});
+
+describe('fastify cookie options', () => {
+  it('carry the same attributes as the header form', () => {
+    // Login, refresh and logout all build cookies from these, so the two
+    // shapes agreeing is what stops a flag being added to one and not the
+    // other.
+    const s = sessionCookieOptions({ secure: true });
+    expect(s).toEqual({
+      path: '/',
+      httpOnly: true,
+      maxAge: SESSION_MAX_AGE,
+      sameSite: 'lax',
+      secure: true,
+    });
+
+    const r = refreshCookieOptions({ secure: true });
+    expect(r).toEqual({
+      path: REFRESH_COOKIE_PATH,
+      httpOnly: true,
+      maxAge: REFRESH_MAX_AGE,
+      sameSite: 'lax',
+      secure: true,
+    });
+  });
+
+  it('take an overridden session lifetime and a non-https secure flag', () => {
+    expect(sessionCookieOptions({ maxAge: 60, secure: false })).toMatchObject({
+      maxAge: 60,
+      secure: false,
+    });
   });
 });

@@ -26,9 +26,10 @@ const {
 const { refresh } = require('../lib/refresh-storage');
 const { refreshSession } = require('../../../../shared/refresh-flow');
 const {
-  REFRESH_MAX_AGE,
   REFRESH_COOKIE_PATH,
   refreshCookieName,
+  sessionCookieOptions,
+  refreshCookieOptions,
 } = require('../../../../shared/session-cookies');
 
 const STATE_COOKIE_NAME = 'oauth_state';
@@ -143,13 +144,14 @@ async function authRoutes(server, options) {
       authConfig.cookieMaxAge ?? cookieMaxAge
     );
 
-    reply.setCookie(cookieName, token, {
-      path: '/',
-      httpOnly: true,
-      maxAge: authConfig.cookieMaxAge ?? cookieMaxAge,
-      sameSite: 'lax',
-      secure: isSecure,
-    });
+    reply.setCookie(
+      cookieName,
+      token,
+      sessionCookieOptions({
+        maxAge: authConfig.cookieMaxAge ?? cookieMaxAge,
+        secure: isSecure,
+      })
+    );
 
     // A failed refresh issue must not block the login: the user still gets a
     // valid session, they just re-authenticate when it lapses.
@@ -157,13 +159,7 @@ async function authRoutes(server, options) {
       reply.setCookie(
         refreshCookieName(),
         await refresh.issue(user.email, user.id),
-        {
-          path: REFRESH_COOKIE_PATH,
-          httpOnly: true,
-          maxAge: REFRESH_MAX_AGE,
-          sameSite: 'lax',
-          secure: isSecure,
-        }
+        refreshCookieOptions({ secure: isSecure })
       );
     } catch {
       /* session-only login */
@@ -321,20 +317,19 @@ async function authRoutes(server, options) {
       authConfig.cookieMaxAge ?? cookieMaxAge
     );
 
-    reply.setCookie(cookieName, token, {
-      path: '/',
-      httpOnly: true,
-      maxAge: authConfig.cookieMaxAge ?? cookieMaxAge,
-      sameSite: 'lax',
-      secure: isSecure,
-    });
-    reply.setCookie(refreshCookieName(), result.refreshToken, {
-      path: REFRESH_COOKIE_PATH,
-      httpOnly: true,
-      maxAge: REFRESH_MAX_AGE,
-      sameSite: 'lax',
-      secure: isSecure,
-    });
+    reply.setCookie(
+      cookieName,
+      token,
+      sessionCookieOptions({
+        maxAge: authConfig.cookieMaxAge ?? cookieMaxAge,
+        secure: isSecure,
+      })
+    );
+    reply.setCookie(
+      refreshCookieName(),
+      result.refreshToken,
+      refreshCookieOptions({ secure: isSecure })
+    );
     return reply.code(200).send({ email: result.email });
   });
 
@@ -342,11 +337,13 @@ async function authRoutes(server, options) {
     const presented = request.cookies?.[refreshCookieName()];
     if (presented) {
       // Clearing the cookie alone would leave a token that still works if it
-      // was captured, so retire it server-side too.
+      // was captured, so retire it server-side too. Logout still succeeds if
+      // that fails, but it is logged: the session survives server-side while
+      // the user believes it ended, and nothing else would surface that.
       try {
         await refresh.revoke(presented);
-      } catch {
-        /* logout still succeeds */
+      } catch (err) {
+        request.log.warn({ err }, 'logout: refresh revoke failed');
       }
     }
     reply.clearCookie(cookieName, { path: '/' });

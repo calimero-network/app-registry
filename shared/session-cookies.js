@@ -34,6 +34,24 @@ function refreshCookie(token, { maxAge = REFRESH_MAX_AGE } = {}) {
 const clearedSessionCookie = () => sessionCookie('', { maxAge: 0 });
 const clearedRefreshCookie = () => refreshCookie('', { maxAge: 0 });
 
+// Fastify sets cookies from an options object rather than a header string, so
+// these carry the same attributes in the shape it wants. Login, refresh and
+// logout all go through them, so a change to the hardening flags lands
+// everywhere at once instead of needing to be repeated per call site.
+function sessionCookieOptions({ maxAge = SESSION_MAX_AGE, secure } = {}) {
+  return { path: '/', httpOnly: true, maxAge, sameSite: 'lax', secure };
+}
+
+function refreshCookieOptions({ maxAge = REFRESH_MAX_AGE, secure } = {}) {
+  return {
+    path: REFRESH_COOKIE_PATH,
+    httpOnly: true,
+    maxAge,
+    sameSite: 'lax',
+    secure,
+  };
+}
+
 module.exports = {
   SESSION_MAX_AGE,
   REFRESH_MAX_AGE,
@@ -44,4 +62,6 @@ module.exports = {
   refreshCookie,
   clearedSessionCookie,
   clearedRefreshCookie,
+  sessionCookieOptions,
+  refreshCookieOptions,
 };
