@@ -2,6 +2,10 @@
 
 A command-line interface tool for the Calimero Network App Registry. Provides easy-to-use commands for managing applications, developers, and attestations directly from the terminal.
 
+> **Building and publishing bundles is not this tool's job.** Use [`cargo mero`](https://github.com/calimero-network/core/tree/master/tools/cargo-mero): `cargo mero bundle` to build and sign, `cargo mero publish` to upload. See [PUBLISHING.md](../../PUBLISHING.md).
+>
+> This CLI covers organization administration (`org`), bundle metadata edits (`bundle edit`), and a local registry for development (`local`). The `org` and `bundle` command references live in the [repository README](../../README.md#cli-reference); the sections below predate them.
+
 ## 🚀 Features
 
 - **Interactive Commands**: User-friendly interactive prompts
