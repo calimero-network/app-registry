@@ -11,7 +11,7 @@ const mockKv = {
   sMembers: jest.fn(),
 };
 
-jest.mock('../../../packages/backend/src/lib/kv-client', () => ({
+jest.mock('../src/lib/kv-client', () => ({
   kv: mockKv,
 }));
 

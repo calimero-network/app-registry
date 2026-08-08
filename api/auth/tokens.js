@@ -2,8 +2,8 @@
  * GET /api/auth/tokens — list API tokens for current user (masked)
  */
 
-const { resolveUser } = require('../lib/auth-helpers');
-const { kv } = require('../lib/kv-client');
+const { resolveUser } = require('#api-lib/auth-helpers');
+const { kv } = require('#api-lib/kv-client');
 
 const TOKEN_PREFIX = 'apitoken:';
 const USER_TOKENS_PREFIX = 'user_tokens:';

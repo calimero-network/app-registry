@@ -18,16 +18,18 @@ const {
   verifyManifest,
   getPublicKeyFromManifest,
   normalizeSignature,
-} = require('../../lib/verify');
+} = require('#api-lib/verify');
 const {
   isAllowedToPublish,
   getPkg2Org,
   setPkg2Org,
-} = require('../../lib/org-storage');
-const { resolveUser } = require('../../lib/auth-helpers');
-const { getUserByEmail } = require('../../lib/user-storage');
-const { isBot } = require('../../lib/admin-storage');
-const { autolinkBotPackage } = require('../../../shared/bot-autolink');
+} = require('#api-lib/org-storage');
+const { resolveUser } = require('#api-lib/auth-helpers');
+const { getUserByEmail } = require('#api-lib/user-storage');
+const { isBot } = require('#api-lib/admin-storage');
+const {
+  autolinkBotPackage,
+} = require('@calimero-network/registry-shared/bot-autolink');
 
 // Disable Vercel's default body parser so we can handle multipart ourselves
 module.exports.config = {

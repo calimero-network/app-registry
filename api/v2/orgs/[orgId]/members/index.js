@@ -8,16 +8,13 @@ const {
   getOrgMembers,
   getOrgMemberRole,
   addOrgMember,
-} = require('../../../../lib/org-storage');
+} = require('#api-lib/org-storage');
 const {
   requireOrgAdminOrOwner,
   requireOrgOwner,
-} = require('../../../../lib/auth-helpers');
-const {
-  getUserByEmail,
-  getUserByUsername,
-} = require('../../../../lib/user-storage');
-const { isBot } = require('../../../../lib/admin-storage');
+} = require('#api-lib/auth-helpers');
+const { getUserByEmail, getUserByUsername } = require('#api-lib/user-storage');
+const { isBot } = require('#api-lib/admin-storage');
 
 function cors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');

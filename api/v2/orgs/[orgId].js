@@ -9,11 +9,11 @@ const {
   getOrgIdBySlug,
   setOrg,
   deleteOrg,
-} = require('../../lib/org-storage');
+} = require('#api-lib/org-storage');
 const {
   requireOrgAdminOrOwner,
   requireOrgOwner,
-} = require('../../lib/auth-helpers');
+} = require('#api-lib/auth-helpers');
 
 function cors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');

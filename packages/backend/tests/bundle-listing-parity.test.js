@@ -60,7 +60,7 @@ const mockKv = {
   scanKeys: async () => [],
 };
 
-jest.mock('../../../packages/backend/src/lib/kv-client', () => ({
+jest.mock('../src/lib/kv-client', () => ({
   kv: mockKv,
   isDevelopment: true,
   isProduction: false,

@@ -14,15 +14,13 @@ const mockKv = {
   sMembers: async () => [],
 };
 
-jest.mock('../../../packages/backend/src/lib/kv-client', () => ({
+jest.mock('../src/lib/kv-client', () => ({
   kv: mockKv,
   isDevelopment: true,
   isProduction: false,
 }));
 
-const {
-  buildBundleListing,
-} = require('../../../packages/backend/src/lib/bundle-listing');
+const { buildBundleListing } = require('../src/lib/bundle-listing');
 
 function entry(packageName, version, overrides = {}) {
   const { yanked, ...bundleOverrides } = overrides;

@@ -3,25 +3,18 @@
  */
 
 const jwt = require('jsonwebtoken');
-const { kv } = require('../lib/kv-client');
-const { getUserById, getUserByEmail } = require('../lib/user-storage');
+const { kv } = require('#api-lib/kv-client');
+const { getUserById, getUserByEmail } = require('#api-lib/user-storage');
+const {
+  parseCookies,
+} = require('@calimero-network/registry-shared/session-cookies');
 const {
   isAdmin,
   getAdminVerified,
   isBlacklisted,
-} = require('../lib/admin-storage');
+} = require('#api-lib/admin-storage');
 
 const TOKEN_PREFIX = 'apitoken:';
-
-function parseCookies(req) {
-  const raw = req.headers.cookie || '';
-  return Object.fromEntries(
-    raw.split(';').map(c => {
-      const [k, ...v] = c.trim().split('=');
-      return [k, decodeURIComponent(v.join('='))];
-    })
-  );
-}
 
 function getBearerToken(req) {
   const auth = req.headers.authorization;
@@ -79,7 +72,7 @@ module.exports = async function handler(req, res) {
   }
 
   // 2) Session cookie
-  const cookies = parseCookies(req);
+  const cookies = parseCookies(req.headers?.cookie);
   const token = cookies[cookieName];
 
   if (!token) {

@@ -23,6 +23,17 @@ const {
   getAdminVerified,
 } = require('../lib/admin-storage');
 
+const { refresh } = require('../lib/refresh-storage');
+const {
+  refreshSession,
+} = require('@calimero-network/registry-shared/refresh-flow');
+const {
+  REFRESH_COOKIE_PATH,
+  refreshCookieName,
+  sessionCookieOptions,
+  refreshCookieOptions,
+} = require('@calimero-network/registry-shared/session-cookies');
+
 const STATE_COOKIE_NAME = 'oauth_state';
 const STATE_MAX_AGE = 600; // 10 minutes
 
@@ -135,13 +146,28 @@ async function authRoutes(server, options) {
       authConfig.cookieMaxAge ?? cookieMaxAge
     );
 
-    reply.setCookie(cookieName, token, {
-      path: '/',
-      httpOnly: true,
-      maxAge: authConfig.cookieMaxAge ?? cookieMaxAge,
-      sameSite: 'lax',
-      secure: isSecure,
-    });
+    reply.setCookie(
+      cookieName,
+      token,
+      sessionCookieOptions({
+        maxAge: authConfig.cookieMaxAge ?? cookieMaxAge,
+        secure: isSecure,
+      })
+    );
+
+    // A failed refresh issue must not block the login: the user still gets a
+    // valid session, they just re-authenticate when it lapses.
+    try {
+      reply.setCookie(
+        refreshCookieName(),
+        await refresh.issue(user.email, user.id),
+        refreshCookieOptions({ secure: isSecure })
+      );
+    } catch (err) {
+      // Login still succeeds without it, but systemic failure here looks like
+      // "nobody stays signed in" rather than an outage, so it must be visible.
+      request.log.warn({ err }, 'login: refresh issue failed, session-only');
+    }
 
     return reply.redirect(302, `${frontendUrl}/my-packages`);
   });
@@ -270,9 +296,77 @@ async function authRoutes(server, options) {
     return reply.send(result);
   });
 
-  // POST /api/auth/logout — clear session cookie
+  // POST /api/auth/refresh — trade a refresh cookie for a fresh session cookie
+  server.post('/api/auth/refresh', async (request, reply) => {
+    let result;
+    try {
+      result = await refreshSession(
+        {
+          refresh,
+          isBlacklisted,
+          getUserByEmail,
+          // createSessionToken takes the subject as `id` and derives `sub`.
+          signSession: async ({ sub, ...claims }) =>
+            createSessionToken(
+              { ...claims, id: sub },
+              sessionSecret,
+              authConfig.cookieMaxAge ?? cookieMaxAge
+            ),
+        },
+        request.cookies?.[refreshCookieName()]
+      );
+    } catch (err) {
+      // Matches the serverless route: a Redis fault answers 500 with the
+      // cookies untouched, so a retry can still succeed. The token is not
+      // spent until after every fallible read, so it is still good.
+      request.log.error({ err }, 'refresh failed');
+      return reply.code(500).send({
+        error: 'internal_error',
+        message: 'Could not refresh session',
+      });
+    }
+
+    if (!result.ok) {
+      if (result.clearCookies) {
+        reply.clearCookie(cookieName, { path: '/' });
+        reply.clearCookie(refreshCookieName(), { path: REFRESH_COOKIE_PATH });
+      }
+      return reply
+        .code(result.status)
+        .send({ error: result.error, message: result.message });
+    }
+
+    reply.setCookie(
+      cookieName,
+      result.sessionToken,
+      sessionCookieOptions({
+        maxAge: authConfig.cookieMaxAge ?? cookieMaxAge,
+        secure: isSecure,
+      })
+    );
+    reply.setCookie(
+      refreshCookieName(),
+      result.refreshToken,
+      refreshCookieOptions({ secure: isSecure })
+    );
+    return reply.code(200).send({ email: result.email });
+  });
+
   server.post('/api/auth/logout', async (request, reply) => {
+    const presented = request.cookies?.[refreshCookieName()];
+    if (presented) {
+      // Clearing the cookie alone would leave a token that still works if it
+      // was captured, so retire it server-side too. Logout still succeeds if
+      // that fails, but it is logged: the session survives server-side while
+      // the user believes it ended, and nothing else would surface that.
+      try {
+        await refresh.revoke(presented);
+      } catch (err) {
+        request.log.warn({ err }, 'logout: refresh revoke failed');
+      }
+    }
     reply.clearCookie(cookieName, { path: '/' });
+    reply.clearCookie(refreshCookieName(), { path: REFRESH_COOKIE_PATH });
     return reply.code(204).send();
   });
 

@@ -7,8 +7,8 @@ const {
   getOrg,
   getPackagesByOrg,
   setPkg2Org,
-} = require('../../../../lib/org-storage');
-const { requireOrgAdminOrOwner } = require('../../../../lib/auth-helpers');
+} = require('#api-lib/org-storage');
+const { requireOrgAdminOrOwner } = require('#api-lib/auth-helpers');
 const {
   BundleStorageKV,
 } = require('@calimero-network/registry-backend/src/lib/bundle-storage-kv');

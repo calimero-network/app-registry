@@ -6,7 +6,9 @@
  * must not capture a package that already belongs to someone else.
  */
 
-const { autolinkBotPackage } = require('../../../shared/bot-autolink');
+const {
+  autolinkBotPackage,
+} = require('@calimero-network/registry-shared/bot-autolink');
 
 function makeDeps({ bots = [], users = {}, links = {} } = {}) {
   const botSet = new Set(bots);

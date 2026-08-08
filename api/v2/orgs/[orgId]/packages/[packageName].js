@@ -2,12 +2,8 @@
  * DELETE /api/v2/orgs/:orgId/packages/:packageName — unlink package (admin or owner)
  */
 
-const {
-  getOrg,
-  getPkg2Org,
-  deletePkg2Org,
-} = require('../../../../lib/org-storage');
-const { requireOrgAdminOrOwner } = require('../../../../lib/auth-helpers');
+const { getOrg, getPkg2Org, deletePkg2Org } = require('#api-lib/org-storage');
+const { requireOrgAdminOrOwner } = require('#api-lib/auth-helpers');
 
 function cors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');

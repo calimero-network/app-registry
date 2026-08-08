@@ -22,19 +22,94 @@ export const api = axios.create({
   withCredentials: true, // send cookies (session) with requests
 });
 
+// Its own instance, sharing the configured baseURL so the refresh reaches the
+// same host as everything else (the frontend deploys separately from the API),
+// but carrying no interceptor, so a 401 on refresh cannot recurse.
+const authClient = axios.create({
+  baseURL: api.defaults.baseURL,
+  timeout: 10000,
+  withCredentials: true,
+});
+
+// Shared across concurrent 401s so a page issuing several requests refreshes
+// once rather than spending one single-use refresh token per request.
+// `expired` and `anonymous` are both a refused refresh, told apart by which
+// error the server sent: only the first means there was a session to lose, and
+// only it should send the user to /login.
+type RefreshOutcome = 'renewed' | 'expired' | 'anonymous' | 'unavailable';
+
+let refreshInFlight: Promise<RefreshOutcome> | null = null;
+
+function refreshSession(): Promise<RefreshOutcome> {
+  refreshInFlight ??= authClient
+    .post('/auth/refresh', null)
+    .then<RefreshOutcome>(() => {
+      // This tab is authenticated now even if it never ran a login itself,
+      // which is what a link opened in a new tab looks like.
+      window.sessionStorage.setItem(AUTH_SESSION_FLAG, '1');
+      return 'renewed';
+    })
+    .catch<RefreshOutcome>(err => {
+      // Only the server saying the credential is no good ends the session. A
+      // 5xx or a dropped connection says nothing about it, and signing the
+      // user out over a transient fault loses their work for no reason.
+      const status = err?.response?.status;
+      if (status !== 401 && status !== 403) return 'unavailable';
+      return err?.response?.data?.error === 'no_refresh_token'
+        ? 'anonymous'
+        : 'expired';
+    })
+    .finally(() => {
+      refreshInFlight = null;
+    });
+  return refreshInFlight;
+}
+
 // Error interceptor
 api.interceptors.response.use(
   response => response,
-  error => {
+  async error => {
     const status = error.response?.status;
     const apiError = error.response?.data;
     const requestUrl = String(error.config?.url || '');
     const originalMessage = String(error.cause?.message || error.message || '');
+    let expired = false;
 
+    if (typeof window !== 'undefined' && status === 401) {
+      // Attempted whatever AUTH_SESSION_FLAG says. The flag lives in
+      // sessionStorage, which is per-tab, so a link opened in a new tab has no
+      // flag while still carrying a perfectly good refresh cookie. Gating the
+      // recovery on it would leave that tab unable to help itself. A signed-out
+      // visitor just gets one cheap 401 from the refresh endpoint.
+      // `_retried` bounds this to a single attempt so a persistent 401 cannot loop.
+      const original = error.config;
+      const isRefreshCall = requestUrl.includes('/auth/refresh');
+      if (original && !original._retried && !isRefreshCall) {
+        original._retried = true;
+        const outcome = await refreshSession();
+        // Retried even when the refresh was refused: another tab may have
+        // rotated first, in which case its reply already left fresh cookies in
+        // the shared jar and this request now succeeds. `_retried` means a
+        // second 401 falls straight through to the sign-out below.
+        if (outcome === 'renewed' || outcome === 'expired') {
+          if (outcome === 'renewed') return api(original);
+          // The server refused a credential this tab was holding, so the
+          // session really is over regardless of what sessionStorage knows.
+          expired = true;
+        } else {
+          // Unreachable, or nothing was presented: let the request fail on its
+          // own terms rather than declaring the session over.
+          return Promise.reject(error);
+        }
+      }
+    }
+
+    // A tab that believed it was signed in, or one the server just told its
+    // credential was dead. An anonymous visitor's 401 is neither.
     if (
       typeof window !== 'undefined' &&
       status === 401 &&
-      window.sessionStorage.getItem(AUTH_SESSION_FLAG) === '1'
+      (expired || window.sessionStorage.getItem(AUTH_SESSION_FLAG) === '1')
     ) {
       window.sessionStorage.removeItem(AUTH_SESSION_FLAG);
       if (window.location.pathname !== '/login') {

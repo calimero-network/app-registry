@@ -39,7 +39,7 @@ const mockKv = {
   sMembers: tracked(key => (sets.has(key) ? [...sets.get(key)] : [])),
 };
 
-jest.mock('../../../packages/backend/src/lib/kv-client', () => ({
+jest.mock('../src/lib/kv-client', () => ({
   kv: mockKv,
   isDevelopment: true,
   isProduction: false,

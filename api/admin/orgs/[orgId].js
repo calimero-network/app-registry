@@ -3,9 +3,9 @@
  * DELETE /api/admin/orgs/:orgId      — delete org
  * PATCH  /api/admin/orgs/:orgId      — body: { action: 'verify'|'unverify' }
  */
-const { requireAdmin } = require('../../lib/auth-helpers');
-const { deleteOrg, getOrg, setOrg } = require('../../lib/org-storage');
-const { setAdminVerified } = require('../../lib/admin-storage');
+const { requireAdmin } = require('#api-lib/auth-helpers');
+const { deleteOrg, getOrg, setOrg } = require('#api-lib/org-storage');
+const { setAdminVerified } = require('#api-lib/admin-storage');
 
 module.exports = async function handler(req, res) {
   const admin = await requireAdmin(req, res);

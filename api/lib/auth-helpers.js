@@ -8,25 +8,11 @@ const { kv } = require('./kv-client');
 const { getOrgMemberRole } = require('./org-storage');
 const { isAdmin, isBlacklisted, isBot } = require('./admin-storage');
 const { getUserByEmail } = require('./user-storage');
+const {
+  parseCookies,
+} = require('@calimero-network/registry-shared/session-cookies');
 
 const TOKEN_PREFIX = 'apitoken:';
-
-function parseCookies(req) {
-  const raw = req.headers?.cookie || '';
-  const result = {};
-  for (const part of raw.split(';')) {
-    const idx = part.indexOf('=');
-    if (idx < 0) continue;
-    const k = part.slice(0, idx).trim();
-    const v = part.slice(idx + 1).trim();
-    try {
-      result[k] = decodeURIComponent(v);
-    } catch {
-      result[k] = v;
-    }
-  }
-  return result;
-}
 
 /**
  * Resolve current user from Bearer token or session cookie.
@@ -62,7 +48,7 @@ async function resolveUser(req) {
   const sessionSecret = process.env.SESSION_SECRET;
   if (sessionSecret) {
     const cookieName = process.env.AUTH_COOKIE_NAME || 'app_registry_session';
-    const cookies = parseCookies(req);
+    const cookies = parseCookies(req.headers?.cookie);
     const token = cookies[cookieName];
     if (token) {
       try {

@@ -2,8 +2,8 @@
  * POST /api/auth/username — claim a username (immutable once set)
  */
 
-const { requireAuth } = require('../lib/auth-helpers');
-const { claimUsername } = require('../lib/user-storage');
+const { requireAuth } = require('#api-lib/auth-helpers');
+const { claimUsername } = require('#api-lib/user-storage');
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();

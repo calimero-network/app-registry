@@ -3,15 +3,16 @@
  * DELETE /api/admin/users/:userId      — delete user
  * PATCH  /api/admin/users/:userId      — body: { action: 'verify'|'unverify'|'make_admin'|'remove_admin'|'blacklist'|'unblacklist', reason? }
  */
-const { requireAdmin } = require('../../lib/auth-helpers');
-const { kv } = require('../../lib/kv-client');
+const { requireAdmin } = require('#api-lib/auth-helpers');
+const { kv } = require('#api-lib/kv-client');
+const { refresh } = require('#api-lib/refresh-storage');
 const {
   addAdmin,
   removeAdmin,
   blacklistUser,
   unblacklistUser,
   setAdminVerified,
-} = require('../../lib/admin-storage');
+} = require('#api-lib/admin-storage');
 
 module.exports = async function handler(req, res) {
   const admin = await requireAdmin(req, res);
@@ -40,6 +41,9 @@ module.exports = async function handler(req, res) {
     // Revoke manual admin + verification so re-registration does not inherit them
     if (user.email) await removeAdmin(user.email);
     await setAdminVerified('user', userId, false);
+    // End live sessions too: a refresh cookie outlives the profile otherwise,
+    // and the refresh flow would keep renewing it.
+    if (user.email) await refresh.revokeAllForEmail(user.email);
     // Delete user profile + indexes
     await kv.del(`user:${userId}`);
     if (user.email) await kv.del(`email2user:${user.email.toLowerCase()}`);

@@ -4,9 +4,9 @@
  * PATCH  /api/admin/packages/:packageName      — body: { action: 'verify'|'unverify' }
  */
 const semver = require('semver');
-const { requireAdmin } = require('../../lib/auth-helpers');
-const { kv } = require('../../lib/kv-client');
-const { setAdminVerified } = require('../../lib/admin-storage');
+const { requireAdmin } = require('#api-lib/auth-helpers');
+const { kv } = require('#api-lib/kv-client');
+const { setAdminVerified } = require('#api-lib/admin-storage');
 
 module.exports = async function handler(req, res) {
   const admin = await requireAdmin(req, res);

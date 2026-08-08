@@ -3,26 +3,22 @@
  */
 
 const jwt = require('jsonwebtoken');
-const { getOrCreateUser } = require('../../lib/user-storage');
-const { isBlacklisted } = require('../../lib/admin-storage');
+const { getOrCreateUser } = require('#api-lib/user-storage');
+const { isBlacklisted } = require('#api-lib/admin-storage');
+const { refresh } = require('#api-lib/refresh-storage');
+const {
+  parseCookies,
+  SESSION_MAX_AGE,
+  sessionCookie,
+  refreshCookie,
+} = require('@calimero-network/registry-shared/session-cookies');
 
 const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const GOOGLE_USERINFO_URL = 'https://www.googleapis.com/oauth2/v2/userinfo';
 const STATE_COOKIE = 'oauth_state';
-const COOKIE_MAX_AGE = 60 * 60; // 1 hour
 
 function loginErrorUrl(frontendUrl, error) {
   return `${frontendUrl}/login?error=${encodeURIComponent(error)}`;
-}
-
-function parseCookies(req) {
-  const raw = req.headers.cookie || '';
-  return Object.fromEntries(
-    raw.split(';').map(c => {
-      const [k, ...v] = c.trim().split('=');
-      return [k, decodeURIComponent(v.join('='))];
-    })
-  );
 }
 
 module.exports = async function handler(req, res) {
@@ -33,7 +29,6 @@ module.exports = async function handler(req, res) {
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
   const sessionSecret = process.env.SESSION_SECRET;
-  const cookieName = process.env.AUTH_COOKIE_NAME || 'app_registry_session';
   const redirectUri = `${frontendUrl}/api/auth/google/callback`;
 
   if (!clientId || !clientSecret) {
@@ -41,14 +36,13 @@ module.exports = async function handler(req, res) {
   }
 
   const { code, state: queryState } = req.query || {};
-  const cookies = parseCookies(req);
+  const cookies = parseCookies(req.headers.cookie);
   const cookieState = cookies[STATE_COOKIE];
 
-  // Clear state cookie
-  res.setHeader(
-    'Set-Cookie',
-    `${STATE_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0; Secure`
-  );
+  // Collected rather than written now: setHeader replaces, so a later
+  // Set-Cookie write would drop this one and leave oauth_state in place.
+  const clearedState = `${STATE_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0; Secure`;
+  res.setHeader('Set-Cookie', clearedState);
 
   if (!queryState || queryState !== cookieState) {
     res.setHeader('Location', loginErrorUrl(frontendUrl, 'invalid_state'));
@@ -111,13 +105,21 @@ module.exports = async function handler(req, res) {
   const token = jwt.sign(
     { sub: user.id, email: user.email, name: user.name, picture: user.picture },
     sessionSecret,
-    { algorithm: 'HS256', expiresIn: COOKIE_MAX_AGE }
+    { algorithm: 'HS256', expiresIn: SESSION_MAX_AGE }
   );
 
-  res.setHeader(
-    'Set-Cookie',
-    `${cookieName}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${COOKIE_MAX_AGE}; Secure`
-  );
+  const setCookies = [clearedState, sessionCookie(token)];
+  // A failed refresh issue must not block the login: the user still gets a
+  // valid session, they just re-authenticate when it lapses.
+  try {
+    setCookies.push(refreshCookie(await refresh.issue(user.email, user.id)));
+  } catch (err) {
+    // Login still succeeds without it, but systemic failure here looks like
+    // "nobody stays signed in" rather than an outage, so it must be visible.
+    console.error('GET /api/auth/google/callback: refresh issue failed:', err);
+  }
+
+  res.setHeader('Set-Cookie', setCookies);
   res.setHeader('Location', `${frontendUrl}/my-packages`);
   return res.status(302).end();
 };
