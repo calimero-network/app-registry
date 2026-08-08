@@ -44,7 +44,7 @@
     "@typescript-eslint/eslint-plugin": "^7.0.0",
     "@typescript-eslint/parser": "^8.63.0",
     "conventional-changelog-conventionalcommits": "^8.0.0",
-    "conventional-changelog-writer": "^8.4.0",
+    "conventional-changelog-writer": "^9.2.0",
     "eslint": "^10.0.1",
     "eslint-config-prettier": "^10.1.8",
     "semantic-release": "^25.0.1",
