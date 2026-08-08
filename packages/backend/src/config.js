@@ -51,7 +51,7 @@ module.exports = {
     frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
     cookieName: process.env.AUTH_COOKIE_NAME || 'app_registry_session',
     // Kept in step with shared/session-cookies.js, which the serverless API uses.
-    cookieMaxAge: Number(process.env.SESSION_MAX_AGE_SECONDS) || 60 * 60 * 12,
+    cookieMaxAge: Number(process.env.SESSION_MAX_AGE_SECONDS) || 60 * 60,
     google: {
       clientId: process.env.GOOGLE_CLIENT_ID || '',
       clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',

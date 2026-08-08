@@ -3,11 +3,13 @@
  * Used by both the Vercel serverless API and Fastify backend.
  */
 
-// Raised from one hour: the old value logged people out mid-task. The refresh
-// cookie below is what actually keeps a session alive, so this stays short
-// enough that a stolen session cookie has a bounded life.
-const SESSION_MAX_AGE =
-  Number(process.env.SESSION_MAX_AGE_SECONDS) || 60 * 60 * 12;
+// Deliberately short. The session JWT is stateless, so logout cannot invalidate
+// an outstanding one - only waiting it out does. Every hour added here is an
+// hour a stolen session cookie keeps working after the user signed out.
+// Lengthening it was how staying signed in used to be bought; the refresh
+// cookie below now does that instead, and does it revocably. Tunable via
+// SESSION_MAX_AGE_SECONDS if a deployment wants a different trade.
+const SESSION_MAX_AGE = Number(process.env.SESSION_MAX_AGE_SECONDS) || 60 * 60;
 const REFRESH_MAX_AGE =
   Number(process.env.REFRESH_MAX_AGE_SECONDS) || 60 * 60 * 24 * 30;
 

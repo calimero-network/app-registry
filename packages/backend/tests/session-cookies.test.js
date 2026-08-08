@@ -86,9 +86,11 @@ describe('cookie attributes', () => {
     expect(clearedRefreshCookie()).toContain(`Path=${REFRESH_COOKIE_PATH};`);
   });
 
-  it('keeps the session shorter than the refresh window', () => {
+  it('keeps the session short, since logout cannot revoke a live JWT', () => {
+    // The gap between these two is the window a stolen session cookie keeps
+    // working after logout, so the session side is pinned deliberately low.
     expect(SESSION_MAX_AGE).toBeLessThan(REFRESH_MAX_AGE);
-    expect(SESSION_MAX_AGE).toBe(60 * 60 * 12);
+    expect(SESSION_MAX_AGE).toBe(60 * 60);
     expect(REFRESH_MAX_AGE).toBe(60 * 60 * 24 * 30);
   });
 });

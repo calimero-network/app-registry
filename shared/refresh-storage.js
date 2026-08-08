@@ -110,7 +110,9 @@ function createRefreshStorage(
     if (!norm) return 0;
     const hashes = await kv.sMembers(USER_REFRESH_PREFIX + norm);
     const list = Array.isArray(hashes) ? hashes : [];
-    for (const h of list) await kv.del(REFRESH_PREFIX + h);
+    // Issued in one tick so node-redis pipelines them: a user with sessions on
+    // several devices should not cost one serial round trip each.
+    await Promise.all(list.map(h => kv.del(REFRESH_PREFIX + h)));
     await kv.del(USER_REFRESH_PREFIX + norm);
     return list.length;
   }
