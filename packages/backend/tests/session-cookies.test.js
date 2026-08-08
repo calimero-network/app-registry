@@ -18,7 +18,7 @@ const {
   REFRESH_MAX_AGE,
   sessionCookieOptions,
   refreshCookieOptions,
-} = require('../../../shared/session-cookies');
+} = require('@calimero-network/registry-shared/session-cookies');
 
 /** RFC 6265 section 5.1.4 path-match. */
 function pathMatches(requestPath, cookiePath) {

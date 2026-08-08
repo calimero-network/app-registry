@@ -7,7 +7,9 @@
  */
 
 const crypto = require('crypto');
-const { createRefreshStorage } = require('../../../shared/refresh-storage');
+const {
+  createRefreshStorage,
+} = require('@calimero-network/registry-shared/refresh-storage');
 
 function makeKv() {
   const store = new Map();

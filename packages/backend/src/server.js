@@ -32,7 +32,9 @@ const {
 const { verifySessionToken, verifyApiToken } = require('./lib/auth');
 const { getUserByEmail } = require('./lib/user-storage');
 const { isBot } = require('./lib/admin-storage');
-const { autolinkBotPackage } = require('../../../shared/bot-autolink');
+const {
+  autolinkBotPackage,
+} = require('@calimero-network/registry-shared/bot-autolink');
 
 async function buildServer() {
   const server = fastify({

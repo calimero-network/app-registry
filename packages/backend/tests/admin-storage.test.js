@@ -8,7 +8,9 @@
  * so bots work for any org on any domain.
  */
 
-const { createAdminStorage } = require('../../../shared/admin-storage');
+const {
+  createAdminStorage,
+} = require('@calimero-network/registry-shared/admin-storage');
 
 function makeKv(initial = {}) {
   const sets = new Map();

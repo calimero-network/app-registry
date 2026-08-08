@@ -7,7 +7,7 @@ const {
   refreshCookieName,
   clearedSessionCookie,
   clearedRefreshCookie,
-} = require('../../shared/session-cookies');
+} = require('@calimero-network/registry-shared/session-cookies');
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();

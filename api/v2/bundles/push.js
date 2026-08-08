@@ -17,7 +17,9 @@ const { resolveUser } = require('../../lib/auth-helpers');
 const { getUserByEmail } = require('../../lib/user-storage');
 const { isBot } = require('../../lib/admin-storage');
 const { getPkg2Org, setPkg2Org } = require('../../lib/org-storage');
-const { autolinkBotPackage } = require('../../../shared/bot-autolink');
+const {
+  autolinkBotPackage,
+} = require('@calimero-network/registry-shared/bot-autolink');
 
 // Singleton storage instance
 let storage;

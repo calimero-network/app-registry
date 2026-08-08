@@ -6,7 +6,9 @@
  */
 
 const { createClient } = require('redis');
-const { globToRegex } = require('../../../../shared/glob-to-regex');
+const {
+  globToRegex,
+} = require('@calimero-network/registry-shared/glob-to-regex');
 
 const isProduction = process.env.VERCEL === '1' || process.env.REDIS_URL;
 const isDevelopment = !isProduction;

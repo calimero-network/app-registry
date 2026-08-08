@@ -1,0 +1,7 @@
+{
+  "name": "@calimero-network/registry-shared",
+  "version": "1.0.0",
+  "description": "Logic shared by the Vercel serverless API and the Fastify backend",
+  "private": true,
+  "license": "MIT"
+}

@@ -11,7 +11,9 @@ const jwt = require('jsonwebtoken');
 const { refresh } = require('../lib/refresh-storage');
 const { getUserByEmail } = require('../lib/user-storage');
 const { isBlacklisted } = require('../lib/admin-storage');
-const { refreshSession } = require('../../shared/refresh-flow');
+const {
+  refreshSession,
+} = require('@calimero-network/registry-shared/refresh-flow');
 const {
   SESSION_MAX_AGE,
   refreshCookieName,
@@ -19,7 +21,7 @@ const {
   refreshCookie,
   clearedSessionCookie,
   clearedRefreshCookie,
-} = require('../../shared/session-cookies');
+} = require('@calimero-network/registry-shared/session-cookies');
 
 function parseCookies(req) {
   const raw = req.headers?.cookie || '';

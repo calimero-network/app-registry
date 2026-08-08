@@ -24,13 +24,15 @@ const {
 } = require('../lib/admin-storage');
 
 const { refresh } = require('../lib/refresh-storage');
-const { refreshSession } = require('../../../../shared/refresh-flow');
+const {
+  refreshSession,
+} = require('@calimero-network/registry-shared/refresh-flow');
 const {
   REFRESH_COOKIE_PATH,
   refreshCookieName,
   sessionCookieOptions,
   refreshCookieOptions,
-} = require('../../../../shared/session-cookies');
+} = require('@calimero-network/registry-shared/session-cookies');
 
 const STATE_COOKIE_NAME = 'oauth_state';
 const STATE_MAX_AGE = 600; // 10 minutes

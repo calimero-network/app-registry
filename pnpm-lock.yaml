@@ -15,6 +15,9 @@ importers:
       '@calimero-network/registry-backend':
         specifier: workspace:*
         version: link:packages/backend
+      '@calimero-network/registry-shared':
+        specifier: workspace:*
+        version: link:shared
       '@noble/ed25519':
         specifier: ^3.1.0
         version: 3.1.0
@@ -82,6 +85,9 @@ importers:
 
   packages/backend:
     dependencies:
+      '@calimero-network/registry-shared':
+        specifier: workspace:*
+        version: link:../../shared
       '@fastify/cookie':
         specifier: ^11.0.2
         version: 11.0.2
@@ -425,6 +431,8 @@ importers:
       vitest:
         specifier: ^4.1.10
         version: 4.1.10(@types/node@20.19.27)(@vitest/ui@4.1.10)(jsdom@29.1.1)(vite@8.1.4)
+
+  shared: {}
 
 packages:
 

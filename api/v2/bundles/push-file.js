@@ -27,7 +27,9 @@ const {
 const { resolveUser } = require('../../lib/auth-helpers');
 const { getUserByEmail } = require('../../lib/user-storage');
 const { isBot } = require('../../lib/admin-storage');
-const { autolinkBotPackage } = require('../../../shared/bot-autolink');
+const {
+  autolinkBotPackage,
+} = require('@calimero-network/registry-shared/bot-autolink');
 
 // Disable Vercel's default body parser so we can handle multipart ourselves
 module.exports.config = {

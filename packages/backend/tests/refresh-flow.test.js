@@ -5,7 +5,9 @@
  * status codes for a suspended account, so the statuses are what these pin.
  */
 
-const { refreshSession } = require('../../../shared/refresh-flow');
+const {
+  refreshSession,
+} = require('@calimero-network/registry-shared/refresh-flow');
 
 const EMAIL = 'ronit@calimero.network';
 
