@@ -33,13 +33,21 @@ const authClient = axios.create({
 
 // Shared across concurrent 401s so a page issuing several requests refreshes
 // once rather than spending one single-use refresh token per request.
-let refreshInFlight: Promise<boolean> | null = null;
+type RefreshOutcome = 'renewed' | 'rejected' | 'unavailable';
 
-function refreshSession(): Promise<boolean> {
+let refreshInFlight: Promise<RefreshOutcome> | null = null;
+
+function refreshSession(): Promise<RefreshOutcome> {
   refreshInFlight ??= authClient
     .post('/auth/refresh', null)
-    .then(() => true)
-    .catch(() => false)
+    .then<RefreshOutcome>(() => 'renewed')
+    .catch<RefreshOutcome>(err => {
+      // Only the server saying the credential is no good ends the session. A
+      // 5xx or a dropped connection says nothing about it, and signing the
+      // user out over a transient fault loses their work for no reason.
+      const s = err?.response?.status;
+      return s === 401 || s === 403 ? 'rejected' : 'unavailable';
+    })
     .finally(() => {
       refreshInFlight = null;
     });
@@ -67,7 +75,11 @@ api.interceptors.response.use(
       const isRefreshCall = requestUrl.includes('/auth/refresh');
       if (original && !original._retried && !isRefreshCall) {
         original._retried = true;
-        if (await refreshSession()) return api(original);
+        const outcome = await refreshSession();
+        if (outcome === 'renewed') return api(original);
+        // Refresh unreachable rather than refused: let this request fail on its
+        // own terms and keep the session, so an outage does not log everyone out.
+        if (outcome === 'unavailable') return Promise.reject(error);
       }
 
       window.sessionStorage.removeItem(AUTH_SESSION_FLAG);

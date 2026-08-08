@@ -58,31 +58,42 @@ module.exports = async function handler(req, res) {
       .json({ error: 'not_configured', message: 'SESSION_SECRET is not set' });
   }
 
-  const result = await refreshSession(
-    { refresh, isBlacklisted, getUserByEmail },
-    presented
-  );
+  try {
+    const result = await refreshSession(
+      { refresh, isBlacklisted, getUserByEmail },
+      presented
+    );
 
-  if (!result.ok) {
-    if (result.clearCookies) {
-      res.setHeader('Set-Cookie', [
-        clearedSessionCookie(),
-        clearedRefreshCookie(),
-      ]);
+    if (!result.ok) {
+      if (result.clearCookies) {
+        res.setHeader('Set-Cookie', [
+          clearedSessionCookie(),
+          clearedRefreshCookie(),
+        ]);
+      }
+      return res
+        .status(result.status)
+        .json({ error: result.error, message: result.message });
     }
+
+    const token = jwt.sign(result.claims, sessionSecret, {
+      algorithm: 'HS256',
+      expiresIn: SESSION_MAX_AGE,
+    });
+
+    res.setHeader('Set-Cookie', [
+      sessionCookie(token),
+      refreshCookie(result.refreshToken),
+    ]);
+    return res.status(200).json({ email: result.email });
+  } catch (err) {
+    // Redis going down must not read as a rejected session: cookies are left
+    // alone so a retry can still succeed, rather than signing the user out
+    // over a transient fault. The blacklist re-check lives inside this try, so
+    // a failure there fails closed with no session issued.
+    console.error('POST /api/auth/refresh error:', err);
     return res
-      .status(result.status)
-      .json({ error: result.error, message: result.message });
+      .status(500)
+      .json({ error: 'internal_error', message: 'Could not refresh session' });
   }
-
-  const token = jwt.sign(result.claims, sessionSecret, {
-    algorithm: 'HS256',
-    expiresIn: SESSION_MAX_AGE,
-  });
-
-  res.setHeader('Set-Cookie', [
-    sessionCookie(token),
-    refreshCookie(result.refreshToken),
-  ]);
-  return res.status(200).json({ email: result.email });
 };
