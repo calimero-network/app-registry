@@ -1012,7 +1012,17 @@ jobs:
 
 # Per-asset SHA-256, so a re-uploaded asset under the same tag cannot swap
 # the binary silently. Refresh these together with RELEASE.
-CHECKSUM_x86_64_unknown_linux_gnu=86e32bd1a7fd976dafaa8269dfdfe4e8d89b35f0a62f3a6f6d3c4a6387ec9331`}</CodeBlock>
+CHECKSUM_x86_64_unknown_linux_gnu=86e32bd1a7fd976dafaa8269dfdfe4e8d89b35f0a62f3a6f6d3c4a6387ec9331
+
+url="https://github.com/calimero-network/core/releases/download/$RELEASE/cargo-mero_$TARGET.tar.gz"
+curl -fsSL "$url" -o cargo-mero.tar.gz
+
+# Verified before unpacking: a tarball that fails the check should never reach
+# PATH, let alone run. Without this the checksum above is decoration.
+echo "$EXPECTED  cargo-mero.tar.gz" | shasum -a 256 -c - \\
+  || { echo "checksum mismatch for $url" >&2; exit 1; }
+
+tar -xzf cargo-mero.tar.gz -C "\${CARGO_HOME:-$HOME/.cargo}/bin"`}</CodeBlock>
             <Note>
               <Shield className='inline w-3.5 h-3.5 text-brand-600 mr-1 -mt-0.5' />
               Write the key to <Code>$RUNNER_TEMP</Code> under{' '}

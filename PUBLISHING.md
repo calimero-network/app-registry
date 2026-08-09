@@ -345,12 +345,31 @@ The tool writes what goes inside the bundle, so letting it float means a release
 ```bash
 RELEASE=0.11.0-rc.20
 
-# Per-asset SHA-256, so a re-uploaded asset under the same tag cannot swap
-# the binary silently. Refresh these together with RELEASE.
+# Per-asset SHA-256, so a re-uploaded asset under the same tag cannot swap the
+# binary silently. Refresh these together with RELEASE.
 CHECKSUM_x86_64_unknown_linux_gnu=86e32bd1a7fd976dafaa8269dfdfe4e8d89b35f0a62f3a6f6d3c4a6387ec9331
+CHECKSUM_aarch64_apple_darwin=9c28ec40692669cbf2249c07afa824ab3296c720fb26670c90de2ca515261d86
+
+case "$(uname -s)/$(uname -m)" in
+  Linux/x86_64) TARGET=x86_64-unknown-linux-gnu ;;
+  Darwin/arm64) TARGET=aarch64-apple-darwin ;;
+  *) echo "no released cargo-mero for $(uname -s)/$(uname -m)" >&2; exit 1 ;;
+esac
+eval "EXPECTED=\$CHECKSUM_${TARGET//-/_}"
+
+url="https://github.com/calimero-network/core/releases/download/$RELEASE/cargo-mero_$TARGET.tar.gz"
+curl -fsSL "$url" -o cargo-mero.tar.gz
+
+# Verified before unpacking: a tarball that fails the check should never reach
+# PATH, let alone run. Without this the checksum above is decoration.
+echo "$EXPECTED  cargo-mero.tar.gz" | shasum -a 256 -c - \
+  || { echo "checksum mismatch for $url" >&2; exit 1; }
+
+tar -xzf cargo-mero.tar.gz -C "${CARGO_HOME:-$HOME/.cargo}/bin"
 ```
 
-Put the install in a script and wrap it in a composite action, so CI and a developer's machine run the same one command.
+Put that in a script and wrap it in a composite action, so CI and a developer's machine run the same one command.
+Have the script accept a `--print-release` flag: a CI cache key needs the pinned version, and asking the script beats grepping it out, which reformatting would break.
 
 ---
 
