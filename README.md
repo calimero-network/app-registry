@@ -15,18 +15,16 @@ app-registry/
 ├── packages/
 │   ├── backend/          # Fastify API server (Redis storage)
 │   ├── frontend/         # React + TypeScript web app
-│   ├── client-library/   # TypeScript API client
 │   └── cli/              # calimero-registry CLI
 ├── scripts/              # Dev/test utility scripts
 └── .github/              # GitHub Actions workflows
 ```
 
-| Package                                     | Description                                | Stack                    |
-| ------------------------------------------- | ------------------------------------------ | ------------------------ |
-| [backend](./packages/backend)               | API server, signature validation, Redis KV | Fastify, Node.js         |
-| [frontend](./packages/frontend)             | Web UI — browse, upload, org management    | React, TypeScript, Vite  |
-| [client-library](./packages/client-library) | TypeScript client for the API              | TypeScript, Axios        |
-| [cli](./packages/cli)                       | Org management, metadata edits             | TypeScript, Commander.js |
+| Package                         | Description                                | Stack                    |
+| ------------------------------- | ------------------------------------------ | ------------------------ |
+| [backend](./packages/backend)   | API server, signature validation, Redis KV | Fastify, Node.js         |
+| [frontend](./packages/frontend) | Web UI - browse, upload, org management    | React, TypeScript, Vite  |
+| [cli](./packages/cli)           | Org management, metadata edits             | TypeScript, Commander.js |
 
 Apps are built and published with [`cargo mero`](https://github.com/calimero-network/core/tree/master/tools/cargo-mero), which lives in the `core` repo. Nothing in this monorepo builds bundles.
 
