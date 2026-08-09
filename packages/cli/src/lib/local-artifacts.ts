@@ -3,7 +3,7 @@ import path from 'path';
 import crypto from 'crypto';
 import { Buffer } from 'buffer';
 import { LocalConfig } from './local-config.js';
-import { LocalDataStore, V1Manifest } from './local-storage.js';
+import { LocalDataStore } from './local-storage.js';
 
 export class LocalArtifactServer {
   private config: LocalConfig;
@@ -111,33 +111,6 @@ export class LocalArtifactServer {
   getArtifactUrlByHash(hash: string): string {
     const baseUrl = `http://${this.config.getPublicHost()}:${this.config.getPort()}`;
     return `${baseUrl}/artifacts/${hash}`;
-  }
-
-  // Update manifest artifact to use local URLs (and preserve HTTP access)
-  updateManifestArtifact(manifest: V1Manifest): V1Manifest {
-    const updatedManifest: V1Manifest = { ...manifest };
-
-    if (!manifest.artifact?.uri) {
-      return updatedManifest;
-    }
-
-    const uri = manifest.artifact.uri;
-
-    if (uri.startsWith('/')) {
-      updatedManifest.artifact = {
-        ...manifest.artifact,
-        uri: `${this.getArtifactUrl(manifest.id, manifest.version, path.basename(manifest.artifact.uri))}`,
-      };
-    } else if (uri.startsWith('file://')) {
-      const filePath = uri.replace('file://', '');
-      const filename = path.basename(filePath);
-      updatedManifest.artifact = {
-        ...manifest.artifact,
-        uri: this.getArtifactUrl(manifest.id, manifest.version, filename),
-      };
-    }
-
-    return updatedManifest;
   }
 
   // Clean up old artifacts

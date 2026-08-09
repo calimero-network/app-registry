@@ -21,6 +21,36 @@ export interface LocalConfigData {
   };
 }
 
+/**
+ * One source for the defaults. They were written out twice, in loadConfig and
+ * in reset, and had drifted: reset bound a different host and omitted
+ * publicHost entirely, which artifact URLs are built from.
+ */
+function defaultConfig(): LocalConfigData {
+  return {
+    server: {
+      // Reset used to say localhost here, but never reached the listener:
+      // `local start` sets the host on every run and defaults to 0.0.0.0,
+      // which is also what publicHost assumes, since a container reaching
+      // host.docker.internal cannot be served from loopback.
+      host: '0.0.0.0',
+      port: 8082,
+      publicHost: 'host.docker.internal',
+    },
+    data: {
+      dir: path.join(os.homedir(), '.calimero-registry', 'data'),
+      artifactsDir: path.join(os.homedir(), '.calimero-registry', 'artifacts'),
+    },
+    artifacts: {
+      storageDir: path.join(os.homedir(), '.calimero-registry', 'artifacts'),
+      serveLocal: true,
+      copyArtifacts: true,
+      maxFileSize: '100MB',
+      allowedTypes: ['wasm', 'js', 'html'],
+    },
+  };
+}
+
 export class LocalConfig {
   private configPath: string;
   private dataDir: string;
@@ -37,29 +67,7 @@ export class LocalConfig {
   }
 
   private loadConfig(): LocalConfigData {
-    // Create default config
-    const defaultConfig: LocalConfigData = {
-      server: {
-        port: 8082,
-        host: '0.0.0.0',
-        publicHost: 'host.docker.internal',
-      },
-      data: {
-        dir: path.join(os.homedir(), '.calimero-registry', 'data'),
-        artifactsDir: path.join(
-          os.homedir(),
-          '.calimero-registry',
-          'artifacts'
-        ),
-      },
-      artifacts: {
-        storageDir: path.join(os.homedir(), '.calimero-registry', 'artifacts'),
-        serveLocal: true,
-        copyArtifacts: true,
-        maxFileSize: '100MB',
-        allowedTypes: ['wasm', 'js', 'html'],
-      },
-    };
+    const defaults = defaultConfig();
 
     // Load existing config if it exists
     if (fs.existsSync(this.configPath)) {
@@ -69,15 +77,15 @@ export class LocalConfig {
         );
         return {
           server: {
-            ...defaultConfig.server,
+            ...defaults.server,
             ...(existingConfig.server || {}),
           },
           data: {
-            ...defaultConfig.data,
+            ...defaults.data,
             ...(existingConfig.data || {}),
           },
           artifacts: {
-            ...defaultConfig.artifacts,
+            ...defaults.artifacts,
             ...(existingConfig.artifacts || {}),
           },
         };
@@ -86,7 +94,7 @@ export class LocalConfig {
       }
     }
 
-    return defaultConfig;
+    return defaults;
   }
 
   private saveConfig(): void {
@@ -134,7 +142,10 @@ export class LocalConfig {
   }
 
   setDataDir(dir: string): void {
+    // artifactsDir and storageDir name the same directory; moving the data
+    // dir has to move both, or a later read gets the previous location.
     this.config.data.dir = dir;
+    this.config.data.artifactsDir = path.join(dir, 'artifacts');
     this.config.artifacts.storageDir = path.join(dir, 'artifacts');
     this.saveConfig();
   }
@@ -186,27 +197,7 @@ export class LocalConfig {
 
   // Reset to defaults
   reset(): void {
-    this.config = {
-      server: {
-        port: 8082,
-        host: 'localhost',
-      },
-      data: {
-        dir: path.join(os.homedir(), '.calimero-registry', 'data'),
-        artifactsDir: path.join(
-          os.homedir(),
-          '.calimero-registry',
-          'artifacts'
-        ),
-      },
-      artifacts: {
-        storageDir: path.join(os.homedir(), '.calimero-registry', 'artifacts'),
-        serveLocal: true,
-        copyArtifacts: true,
-        maxFileSize: '100MB',
-        allowedTypes: ['wasm', 'js', 'html'],
-      },
-    };
+    this.config = defaultConfig();
     this.saveConfig();
   }
 }

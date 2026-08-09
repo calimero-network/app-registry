@@ -1,9 +1,6 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import { createRequire } from 'module';
-import { appsCommand } from './commands/apps.js';
-import { developersCommand } from './commands/developers.js';
-import { attestationsCommand } from './commands/attestations.js';
 import { healthCommand } from './commands/health.js';
 import { ipfsCommand } from './commands/ipfs.js';
 import { localCommand } from './commands/local.js';
@@ -28,10 +25,10 @@ program.addHelpText(
   'after',
   `
 Examples:
-  $ calimero-registry apps list
-  $ calimero-registry apps create --file manifest.json
+  $ calimero-registry org list
+  $ calimero-registry bundle get com.example.my-app 1.0.0
   $ calimero-registry local start
-  $ calimero-registry health --local
+  $ calimero-registry health
 
 For more information, visit: https://github.com/calimero-network/app-registry
 `
@@ -47,9 +44,6 @@ program.option(
 program.option('--local', 'Use local registry instead of remote API');
 
 // Add commands
-program.addCommand(appsCommand);
-program.addCommand(developersCommand);
-program.addCommand(attestationsCommand);
 program.addCommand(healthCommand);
 program.addCommand(ipfsCommand);
 program.addCommand(localCommand);

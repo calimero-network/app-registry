@@ -29,6 +29,10 @@ export interface BundleArtifact {
 export interface BundleMetadata {
   name: string;
   description?: string;
+  // Set by the registry from the publishing account and carried forward from
+  // the package's first version, so `bundle edit` sends it back rather than
+  // setting it. Every published manifest has one.
+  author?: string;
   icon?: string;
   tags?: string[];
   license?: string;
@@ -231,6 +235,7 @@ export class LocalDataStore {
   }
 
   // Manifest management (V2 / Bundles)
+
   getBundleManifest(pkg: string, version: string): BundleManifest | undefined {
     const key = `${pkg}/${version}`;
     return this.data.bundleManifests.get(key);

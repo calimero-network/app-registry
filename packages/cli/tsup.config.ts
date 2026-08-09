@@ -1,9 +1,4 @@
 import { defineConfig } from 'tsup';
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
 export default defineConfig({
   entry: ['src/index.ts'],
   format: ['esm'],
@@ -44,13 +39,6 @@ export default defineConfig({
     js: '#!/usr/bin/env node',
   },
   esbuildOptions(options) {
-    // Resolve workspace package to source files for bundling
-    options.alias = {
-      '@calimero-network/registry-client': path.resolve(
-        __dirname,
-        '../client-library/src/index.ts'
-      ),
-    };
     // Ensure proper handling of CommonJS dependencies
     options.platform = 'node';
     options.target = 'node24';
