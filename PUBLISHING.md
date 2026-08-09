@@ -267,8 +267,20 @@ jobs:
       - name: Verify the signer still matches the published package
         run: |
           signer=$(cargo mero key derive-signer-id --key "$RUNNER_TEMP/key.json")
-          published=$(curl -fsS "https://apps.calimero.network/api/v2/bundles?package=$PACKAGE" \
-            | jq -er '.[0].signerId // ""')
+
+          # Separate "could not ask" from "nothing published". Reading the
+          # failure as an empty listing skips the one check this step exists
+          # for, which is the same trap as the version probe above.
+          if ! listing=$(curl -fsS --retry 3 --retry-delay 2 --max-time 30 \
+              "https://apps.calimero.network/api/v2/bundles?package=$PACKAGE"); then
+            echo "::error::could not reach the registry to verify the signer"
+            exit 1
+          fi
+
+          # Any entry answers this: the registry pins one signer per package,
+          # so every version carries the same signerId. An empty list is a
+          # first publish, with nothing to compare against.
+          published=$(jq -er '.[0].signerId // ""' <<<"$listing")
           if [ -n "$published" ] && [ "$signer" != "$published" ]; then
             echo "::error::key does not match the published signer; this would"
             echo "::error::land as a NEW application id instead of an upgrade"

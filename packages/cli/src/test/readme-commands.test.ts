@@ -30,10 +30,15 @@ const pkgRoot = path.resolve(
 /** Group name -> every command name declared in that group's file. */
 function commandNames(): Map<string, Set<string>> {
   const groups = new Map<string, Set<string>>();
-  for (const [, names] of commandFiles()) {
+  for (const { declarations } of commandFiles()) {
     // The group is the command the module exports, which is always declared
     // first; the rest are its subcommands at some depth.
-    if (names.length > 0) groups.set(names[0], new Set(names.slice(1)));
+    if (declarations.length > 0) {
+      groups.set(
+        declarations[0].name,
+        new Set(declarations.slice(1).map(d => d.name))
+      );
+    }
   }
   return groups;
 }
@@ -51,31 +56,38 @@ function commandNames(): Map<string, Set<string>> {
  */
 function containers(): Map<string, Set<string>> {
   const byGroup = new Map<string, Set<string>>();
-  for (const [src, names] of commandFiles()) {
-    if (names.length === 0) continue;
+  for (const { src, declarations } of commandFiles()) {
+    if (declarations.length === 0) continue;
     const held = new Set<string>();
-    for (const name of names.slice(1)) {
-      const at = src.indexOf(`new Command('${name}')`);
-      const next = src.indexOf('new Command(', at + 1);
-      const span = src.slice(at, next === -1 ? undefined : next);
-      if (!span.includes('.action(')) held.add(name);
-    }
-    byGroup.set(names[0], held);
+    // Spans come from each declaration's own offset. Searching by name would
+    // always find the first match, and names do repeat within a file - org.ts
+    // declares `list` and `update` under both the group and members.
+    declarations.slice(1).forEach((decl, i) => {
+      const next = declarations[i + 2];
+      const span = src.slice(decl.index, next ? next.index : undefined);
+      if (!span.includes('.action(')) held.add(decl.name);
+    });
+    byGroup.set(declarations[0].name, held);
   }
   return byGroup;
 }
 
-function commandFiles(): Array<[string, string[]]> {
+interface Declaration {
+  name: string;
+  index: number;
+}
+
+function commandFiles(): Array<{ src: string; declarations: Declaration[] }> {
   const dir = path.join(pkgRoot, 'src', 'commands');
   return fs
     .readdirSync(dir)
     .filter(f => f.endsWith('.ts'))
     .map(f => {
       const src = fs.readFileSync(path.join(dir, f), 'utf8');
-      const names = [...src.matchAll(/new Command\('([a-z:-]+)'\)/g)].map(
-        m => m[1]
-      );
-      return [src, names] as [string, string[]];
+      const declarations = [
+        ...src.matchAll(/new Command\('([a-z:-]+)'\)/g),
+      ].map(m => ({ name: m[1], index: m.index ?? 0 }));
+      return { src, declarations };
     });
 }
 
@@ -109,14 +121,14 @@ describe('README command reference', () => {
       // Walk while each token is a subcommand position. The first token always
       // is; a later one only when its parent holds subcommands, so `config set
       // registry-url` stops at `set` and the rest reads as arguments.
-      let path = group;
+      let matched = group;
       for (const [i, token] of rest.entries()) {
         if (i > 0 && !holds.has(rest[i - 1])) break;
         if (!names.has(token)) {
-          unknown.add(`${path} ${token}`);
+          unknown.add(`${matched} ${token}`);
           break;
         }
-        path += ` ${token}`;
+        matched += ` ${token}`;
       }
     }
 
