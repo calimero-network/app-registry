@@ -871,8 +871,15 @@ jobs:
           package=$(jq -er 'first((.metadata.calimero.package,
             .packages[].metadata.calimero.package) | select(. != null))
             // error("no calimero package id")' <<<"$meta")
-          version=$(jq -er '[.packages[].version] | unique | if length == 1
-            then .[0] else error("members disagree") end' <<<"$meta")
+          # Only the crates the bundle ships: a workspace may also hold an
+          # xtask on its own version, which must not block a release.
+          version=$(jq -er '(.metadata.calimero.services // [] | map(.crate)) as $svc
+            | (if ($svc | length) > 0
+               then [.packages[] | select([.name] | inside($svc)) | .version]
+               else [.packages[] | select(.metadata.calimero != null) | .version]
+               end)
+            | unique | if length == 1 then .[0]
+              else error("bundle crates disagree on version") end' <<<"$meta")
 
           # Validate before either reaches a URL: an empty package would query
           # .../bundles//, and a 404 there reads as "not published".

@@ -205,11 +205,18 @@ jobs:
             .packages[].metadata.calimero.package) | select(. != null))
             // error("no calimero package id")' <<<"$meta")
 
-          # Members inherit [workspace.package] version, so one distinct value
-          # is the expected case; more than one and this job cannot know which
-          # version is about to ship.
-          version=$(jq -er '[.packages[].version] | unique
-            | if length == 1 then .[0] else error("members disagree: \(.)") end' <<<"$meta")
+          # Only the crates the bundle is built from: a workspace may also
+          # hold an xtask or test-utils on its own version, and those must not
+          # decide, or block, a release. More than one version among the crates
+          # that do ship means this job cannot know which is going out.
+          version=$(jq -er '(.metadata.calimero.services // [] | map(.crate)) as $svc
+            | (if ($svc | length) > 0
+               then [.packages[] | select([.name] | inside($svc)) | .version]
+               else [.packages[] | select(.metadata.calimero != null) | .version]
+               end)
+            | unique
+            | if length == 1 then .[0]
+              else error("bundle crates disagree on version: \(.)") end' <<<"$meta")
 
           # Validate before either value reaches a URL. An empty package makes
           # the check below query .../bundles//, and a 404 on a malformed path
