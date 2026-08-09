@@ -99,15 +99,15 @@ function createCreateCommand(): Command {
     .option(
       '--export <interface>',
       'Export interface (can be specified multiple times)',
-      (value, prev) => {
-        return [...(prev || []), value];
+      (value: string, prev: string[] = []) => {
+        return [...prev, value];
       }
     )
     .option(
       '--use <interface>',
       'Use interface (can be specified multiple times)',
-      (value, prev) => {
-        return [...(prev || []), value];
+      (value: string, prev: string[] = []) => {
+        return [...prev, value];
       }
     )
     .option('--abi <path>', 'Path to ABI JSON file to include in bundle')
@@ -1349,7 +1349,6 @@ async function extractManifest(
 ): Promise<BundleManifest | null> {
   let manifestContent: string | null = null;
 
-  // @ts-expect-error tar typing issue
   await tar.t({
     file: bundlePath,
 
@@ -1367,7 +1366,6 @@ async function extractManifest(
   }
 
   try {
-    // @ts-expect-error tar typing issue
     await tar.x({
       file: bundlePath,
       cwd: extractDir,

@@ -2,6 +2,16 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 
+/**
+ * The public registry, named once. It was written out in loadConfig, in reset
+ * and in getRegistryUrl, which is three places for one value to drift.
+ */
+export const DEFAULT_REGISTRY_URL = 'https://apps.calimero.network';
+
+function defaultConfig(): RemoteConfigData {
+  return { registry: { url: DEFAULT_REGISTRY_URL } };
+}
+
 export interface RemoteConfigData {
   registry: {
     url: string;
@@ -23,12 +33,7 @@ export class RemoteConfig {
   }
 
   private loadConfig(): RemoteConfigData {
-    // Create default config
-    const defaultConfig: RemoteConfigData = {
-      registry: {
-        url: 'https://apps.calimero.network',
-      },
-    };
+    const defaults = defaultConfig();
 
     // Load existing config if it exists
     if (fs.existsSync(this.configPath)) {
@@ -38,7 +43,7 @@ export class RemoteConfig {
         );
         return {
           registry: {
-            ...defaultConfig.registry,
+            ...defaults.registry,
             ...(existingConfig.registry || {}),
           },
         };
@@ -47,7 +52,7 @@ export class RemoteConfig {
       }
     }
 
-    return defaultConfig;
+    return defaults;
   }
 
   private saveConfig(): void {
@@ -81,7 +86,7 @@ export class RemoteConfig {
     return (
       process.env.CALIMERO_REGISTRY_URL ||
       this.config.registry.url ||
-      'https://apps.calimero.network'
+      DEFAULT_REGISTRY_URL
     );
   }
 
@@ -143,11 +148,7 @@ export class RemoteConfig {
    * Reset to defaults
    */
   reset(): void {
-    this.config = {
-      registry: {
-        url: 'https://apps.calimero.network',
-      },
-    };
+    this.config = defaultConfig();
     this.saveConfig();
   }
 }

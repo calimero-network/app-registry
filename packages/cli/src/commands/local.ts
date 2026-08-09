@@ -246,7 +246,7 @@ localCommand.addCommand(
         );
         console.log(
           chalk.blue(
-            '💡 Run "calimero-registry apps list --local" to see the sample apps'
+            '💡 Run "calimero-registry bundle get com.calimero.sample-bundle 1.0.0 --local" to see the sample bundle'
           )
         );
       } catch (error) {

@@ -27,20 +27,17 @@ if [ "$COMMIT_RANGE" != "HEAD" ]; then
 else
     # Get the last tag for each package, or use initial commit if no tags exist
     CLI_LAST_TAG=$(git describe --tags --match "cli-v*" --abbrev=0 2>/dev/null || git rev-list --max-parents=0 HEAD)
-    LIB_LAST_TAG=$(git describe --tags --match "lib-v*" --abbrev=0 2>/dev/null || git rev-list --max-parents=0 HEAD)
     BACKEND_LAST_TAG=$(git describe --tags --match "backend-v*" --abbrev=0 2>/dev/null || git rev-list --max-parents=0 HEAD)
     FRONTEND_LAST_TAG=$(git describe --tags --match "frontend-v*" --abbrev=0 2>/dev/null || git rev-list --max-parents=0 HEAD)
 
     echo "📦 Last tags/commits:"
     echo "  CLI: $CLI_LAST_TAG"
-    echo "  LIB: $LIB_LAST_TAG"
     echo "  Backend: $BACKEND_LAST_TAG"
     echo "  Frontend: $FRONTEND_LAST_TAG"
 fi
 
 # Initialize change flags
 CLI_CHANGED=false
-LIB_CHANGED=false
 BACKEND_CHANGED=false
 FRONTEND_CHANGED=false
 MONOREPO_CHANGED=false
@@ -58,18 +55,6 @@ else
     fi
 fi
 
-# Check for changes in packages/client-library
-if [ "$COMMIT_RANGE" != "HEAD" ]; then
-    if git diff --name-only $START_COMMIT..$END_COMMIT | grep -q "^packages/client-library/"; then
-        LIB_CHANGED=true
-        echo "✅ Client Library package has changes"
-    fi
-else
-    if git diff --name-only $LIB_LAST_TAG..HEAD | grep -q "^packages/client-library/"; then
-        LIB_CHANGED=true
-        echo "✅ Client Library package has changes"
-    fi
-fi
 
 # Check for changes in packages/backend
 if [ "$COMMIT_RANGE" != "HEAD" ]; then
@@ -125,7 +110,6 @@ fi
 echo "🎯 Release type: $RELEASE_TYPE"
 echo "📊 Change Summary:"
 echo "  CLI: $CLI_CHANGED"
-echo "  LIB: $LIB_CHANGED"
 echo "  Backend: $BACKEND_CHANGED"
 echo "  Frontend: $FRONTEND_CHANGED"
 echo "  Monorepo: $MONOREPO_CHANGED"
@@ -133,7 +117,6 @@ echo "  Monorepo: $MONOREPO_CHANGED"
 # Output for CI
 if [ "$CI" = "true" ]; then
     echo "cli-changed=$CLI_CHANGED" >> $GITHUB_OUTPUT
-    echo "lib-changed=$LIB_CHANGED" >> $GITHUB_OUTPUT
     echo "backend-changed=$BACKEND_CHANGED" >> $GITHUB_OUTPUT
     echo "frontend-changed=$FRONTEND_CHANGED" >> $GITHUB_OUTPUT
     echo "monorepo-changed=$MONOREPO_CHANGED" >> $GITHUB_OUTPUT
@@ -141,7 +124,7 @@ if [ "$CI" = "true" ]; then
 fi
 
 # Exit with code 1 if no changes detected (useful for CI)
-if [ "$CLI_CHANGED" = "false" ] && [ "$LIB_CHANGED" = "false" ] && [ "$BACKEND_CHANGED" = "false" ] && [ "$FRONTEND_CHANGED" = "false" ] && [ "$MONOREPO_CHANGED" = "false" ]; then
+if [ "$CLI_CHANGED" = "false" ] && [ "$BACKEND_CHANGED" = "false" ] && [ "$FRONTEND_CHANGED" = "false" ] && [ "$MONOREPO_CHANGED" = "false" ]; then
     echo "❌ No changes detected that require releases"
     exit 1
 else

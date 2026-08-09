@@ -10,7 +10,6 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       cli-changed: ${{ steps.detect.outputs.cli-changed }}
-      lib-changed: ${{ steps.detect.outputs.lib-changed }}
       backend-changed: ${{ steps.detect.outputs.backend-changed }}
       frontend-changed: ${{ steps.detect.outputs.frontend-changed }}
       monorepo-changed: ${{ steps.detect.outputs.monorepo-changed }}
@@ -29,7 +28,7 @@ jobs:
   semantic-release:
     needs: detect-changes
     runs-on: ubuntu-latest
-    if: needs.detect-changes.outputs.cli-changed == 'true' || needs.detect-changes.outputs.lib-changed == 'true' || needs.detect-changes.outputs.backend-changed == 'true' || needs.detect-changes.outputs.frontend-changed == 'true' || needs.detect-changes.outputs.monorepo-changed == 'true'
+    if: needs.detect-changes.outputs.cli-changed == 'true' || needs.detect-changes.outputs.backend-changed == 'true' || needs.detect-changes.outputs.frontend-changed == 'true' || needs.detect-changes.outputs.monorepo-changed == 'true'
     permissions:
       id-token: write # Required for OIDC/trusted publishers
       contents: write # Required for creating GitHub releases
@@ -67,19 +66,6 @@ jobs:
           cd packages/cli
           echo "🚀 CLI Release"
           echo "📦 Package: @calimero-network/registry-cli"
-          echo "🎯 Release type: ${{ needs.detect-changes.outputs.release-type }}"
-          npx semantic-release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NODE_ENV: production
-
-      # Client Library Release
-      - name: Release Client Library
-        if: needs.detect-changes.outputs.lib-changed == 'true'
-        run: |
-          cd packages/client-library
-          echo "🚀 Client Library Release"
-          echo "📦 Package: @calimero-network/registry-client"
           echo "🎯 Release type: ${{ needs.detect-changes.outputs.release-type }}"
           npx semantic-release
         env:
@@ -126,12 +112,9 @@ jobs:
           echo "🎯 Release type: ${{ needs.detect-changes.outputs.release-type }}"
           echo "📦 Releasing all packages with coordinated versioning"
           echo "📊 Monorepo-wide changes detected"
-          # Release CLI and Client Library packages
+          # Release the CLI package
           if [ "${{ needs.detect-changes.outputs.cli-changed }}" == "true" ]; then
             cd packages/cli && npx semantic-release
-          fi
-          if [ "${{ needs.detect-changes.outputs.lib-changed }}" == "true" ]; then
-            cd packages/client-library && npx semantic-release
           fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

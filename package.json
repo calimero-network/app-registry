@@ -10,12 +10,10 @@
     "build": "pnpm --recursive build",
     "build:backend": "pnpm --filter registry-backend build",
     "build:frontend": "pnpm --filter registry-frontend build",
-    "build:client": "pnpm --filter registry-client build",
     "build:cli": "pnpm --filter registry-cli build",
     "test": "pnpm --recursive test",
     "test:backend": "pnpm --filter registry-backend test",
     "test:frontend": "pnpm --filter registry-frontend test",
-    "test:client": "pnpm --filter registry-client test",
     "test:cli": "pnpm --filter registry-cli test",
     "lint": "pnpm --recursive lint",
     "lint:fix": "pnpm --recursive lint:fix",
@@ -27,7 +25,7 @@
     "docker:compose": "pnpm --filter registry-backend docker:compose",
     "docker:compose:dev": "pnpm --filter registry-backend docker:compose:dev",
     "start": "pnpm --filter registry-backend start",
-    "quality": "pnpm format:check && pnpm lint && pnpm test",
+    "quality": "pnpm format:check && pnpm lint && pnpm type-check && pnpm test",
     "quality:fix": "pnpm format && pnpm lint:fix",
     "cli:release:patch": "pnpm --filter registry-cli release:patch",
     "cli:release:minor": "pnpm --filter registry-cli release:minor",
@@ -64,10 +62,6 @@
     ],
     "packages/frontend/**/*.{ts,tsx}": [
       "pnpm --filter registry-frontend lint --fix",
-      "prettier --write"
-    ],
-    "packages/client-library/**/*.{ts,tsx}": [
-      "pnpm --filter registry-client lint --fix",
       "prettier --write"
     ],
     "packages/cli/**/*.{ts,tsx}": [
