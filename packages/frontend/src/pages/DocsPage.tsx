@@ -961,6 +961,35 @@ jobs:
         env:
           CALIMERO_API_KEY: \${{ secrets.CALIMERO_REGISTRY_API_KEY }}`}</CodeBlock>
 
+            <SubHeading>The gate answers one question</SubHeading>
+            <P>
+              The probe asks whether <strong>this exact version</strong> exists,
+              which is what makes the job idempotent across re-runs. It does not
+              ask whether the version is newer than what is already out, and
+              neither does the endpoint <Code>cargo mero publish</Code> uses.
+              Only the browser upload enforces that.
+            </P>
+            <P>
+              So a version that slots <em>below</em> the latest still publishes.
+              Reverting <Code>1.2.0</Code> to <Code>1.1.0</Code>, or resolving a
+              merge conflict the wrong way, produces a version the registry has
+              never seen: the probe returns 404 and the release goes out. It
+              sorts below the existing latest rather than replacing it, so
+              nothing breaks, but published versions are immutable and there is
+              no way to take it back.
+            </P>
+            <Note>
+              To close that, either use{' '}
+              <Code>cargo mero bundle --bump patch</Code>, which takes the next
+              version from the registry so an out-of-order one cannot be
+              constructed, or compare against the highest published version in
+              the <Code>check</Code> job - the listing is already sorted
+              newest-first by semver, so <Code>.[0].appVersion</Code> is the
+              value to beat. Not with <Code>sort -V</Code>, though: it orders{' '}
+              <Code>1.0.0-rc.1</Code> after <Code>1.0.0</Code>, the opposite of
+              semver.
+            </Note>
+
             <SubHeading>Why the registry decides, not git</SubHeading>
             <P>
               Asking the registry whether a version exists holds up under

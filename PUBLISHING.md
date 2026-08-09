@@ -309,6 +309,21 @@ jobs:
 A pre-release version publishes like any other: bumping to `1.0.0-rc.1` on the default branch releases it, and the registry orders it below `1.0.0` rather than treating it as latest.
 If you would rather keep pre-releases out of the registry entirely, narrow the version check to `^[0-9]+\.[0-9]+\.[0-9]+$` and they will fail the gate instead.
 
+### The gate answers one question
+
+`GET /api/v2/bundles/<package>/<version>` asks whether **this exact version** exists, which is what makes the job idempotent across re-runs.
+It does not ask whether the version is newer than what is already out.
+`POST /api/v2/bundles/push`, which `cargo mero publish` uses, does not check that either; only the browser upload enforces it.
+
+So a version that slots _below_ the latest still publishes.
+Reverting `1.2.0` to `1.1.0`, or resolving a merge conflict the wrong way, produces a version the registry has never seen, the probe returns 404, and the release goes out.
+It sorts below the existing latest rather than replacing it, so nothing breaks - but published versions are immutable, and there is no way to take it back.
+
+Two ways to close that, depending on how much you want the pipeline to decide:
+
+- `cargo mero bundle --bump patch` takes the next version from the registry instead of `Cargo.toml`, so an out-of-order version cannot be constructed. This gives up single-sourcing the version from `Cargo.toml`, which is the whole shape of the workflow above.
+- Compare against the highest published version in the `check` job. The listing is already sorted newest-first by semver, so `.[0].appVersion` is the value to beat. Note that `sort -V` is not a correct comparator here: it orders `1.0.0-rc.1` _after_ `1.0.0`, the opposite of semver, so a guard built on it misjudges pre-releases.
+
 ### Why the registry decides, not git
 
 Asking the registry whether a version exists holds up under re-runs, reverts, and squashed merges.
