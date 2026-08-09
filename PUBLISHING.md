@@ -394,6 +394,11 @@ The whole `.mpk` rides along under a `_binary` field; `_`-prefixed keys are stri
 
 `metadata.author` is set server-side from the publishing account and carried forward from the package's oldest version, so a manifest cannot set or change it.
 
+`owners[]` is a registry-level permission that predates the identity model and `cargo mero` never writes it; no published manifest carries one.
+It would not help if it did: `ApplicationId` is derived from `package` and `signerId`, so a second owner's key produces a different application rather than a new version of the existing one.
+The registry would accept that publish; every node with the app installed would not see it.
+That is why the CI step above compares the signer directly and refuses a mismatch - deliberately stricter than the endpoint, because the endpoint's answer is not the one that matters on the other end.
+
 The browser upload endpoint, `POST /api/v2/bundles/push-file`, authorizes differently: it accepts **org membership** in place of a key match, and it rejects a version that is not greater than the latest published one.
 `push` leaves version ordering to the caller, which is what `--bump` is for.
 

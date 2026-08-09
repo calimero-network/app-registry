@@ -118,6 +118,9 @@ Both require a valid Ed25519 signature, and both refuse the well-known dev key. 
 
 `metadata.author` is set server-side on first publish and carried forward from the oldest version onto every later one, so a manifest cannot set or change it.
 
+`owners[]` predates the identity model below and `cargo mero` never writes it.
+A key listed there could publish, but `ApplicationId` comes from `package` and `signerId`, so the result is a different application rather than a new version - accepted by the registry, invisible to every node that has the app installed.
+
 ### App identity is package + signer
 
 A node derives an app's `ApplicationId` from `SHA-256(borsh(package, signerId))`, not from the wasm.
