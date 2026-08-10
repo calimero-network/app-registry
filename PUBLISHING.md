@@ -221,7 +221,8 @@ jobs:
                then [.packages[] | select(.name as $n | $svc | index($n)) | .version]
                elif ([.packages[] | select(.metadata.calimero != null)] | length) > 0
                  then [.packages[] | select(.metadata.calimero != null) | .version]
-               else [.packages[].version] end)
+               elif (.packages | length) == 1 then [.packages[0].version]
+               else error("no services[] and no package-level calimero table: declare services[] so this job knows which crates ship") end)
             | unique
             | if length == 1 then .[0]
               else error("bundle crates disagree on version: \(.)") end' <<<"$meta")

@@ -44,6 +44,54 @@ function commandNames(): Map<string, Set<string>> {
 }
 
 /**
+ * Every invocable path, at its real depth: "org", "org members",
+ * "org members add". A container's children are the declarations that fall
+ * inside its span, so a name declared at two depths - `update` is both
+ * `org update` and `org members update` - is two distinct paths. Flattening
+ * them into one set per group lets either one satisfy the check for both.
+ */
+function invocablePaths(): Set<string> {
+  const paths = new Set<string>();
+  for (const { src, declarations } of commandFiles()) {
+    if (declarations.length === 0) continue;
+    const group = declarations[0].name;
+    paths.add(group);
+
+    const spans = declarations.slice(1).map((decl, i) => {
+      const next = declarations[i + 2];
+      const end = next ? next.index : src.length;
+      return {
+        ...decl,
+        end,
+        isContainer: !src.slice(decl.index, end).includes('.action('),
+      };
+    });
+
+    // A container's span stops at its first child, so its reach is everything
+    // up to the next declaration at or above its own nesting.
+    for (const decl of spans) {
+      const parent = spans.find(
+        c =>
+          c.isContainer &&
+          c.index < decl.index &&
+          decl.index < containerEnd(c, spans)
+      );
+      paths.add([group, parent?.name, decl.name].filter(Boolean).join(' '));
+    }
+  }
+  return paths;
+}
+
+/** How far a container reaches: up to the next container, or the file's end. */
+function containerEnd(
+  container: { index: number; end: number },
+  all: Array<{ index: number; isContainer: boolean; end: number }>
+): number {
+  const next = all.find(c => c.isContainer && c.index > container.index);
+  return next ? next.index : Infinity;
+}
+
+/**
  * Group -> the subcommands that hold further subcommands, so `org members add`
  * gets its third token checked while `config set registry-url` stops at `set`
  * and treats the rest as arguments.
@@ -136,21 +184,14 @@ describe('README command reference', () => {
   });
 
   it('documents every command group and subcommand', () => {
-    const documented = documentedPaths();
-    const missing: string[] = [];
-
-    for (const [group, names] of commandNames()) {
-      const forGroup = documented.filter(p => p[0] === group);
-      if (forGroup.length === 0) {
-        missing.push(group);
-        continue;
-      }
-      const mentioned = new Set(forGroup.flatMap(p => p.slice(1)));
-      for (const name of names) {
-        if (!mentioned.has(name)) missing.push(`${group} ${name}`);
-      }
-    }
-
+    // Full paths, so documenting `org members update` does not also satisfy
+    // the check for `org update`.
+    const documented = new Set(
+      documentedPaths().flatMap(tokens =>
+        tokens.map((_, i) => tokens.slice(0, i + 1).join(' '))
+      )
+    );
+    const missing = [...invocablePaths()].filter(p => !documented.has(p));
     expect(missing.sort()).toEqual([]);
   });
 });
