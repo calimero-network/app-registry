@@ -276,6 +276,11 @@ jobs:
           # comparison anyway: a pre-release is always older than its release.
           if [ -z "$latest" ]; then
             :
+          elif [ "$v" = "$l" ]; then
+            # Same version by precedence: the 404 above only compared strings,
+            # and build metadata does not make a version newer.
+            echo "::error::$VERSION differs from the published $latest only in build metadata"
+            exit 1
           elif [ "${v%%-*}" = "${l%%-*}" ] \
                && [ "$v" != "${v%%-*}" ] && [ "$l" = "${l%%-*}" ]; then
             echo "::error::$VERSION is a pre-release of the published $latest"
@@ -423,12 +428,12 @@ Have the script accept a `--print-release` flag: a CI cache key needs the pinned
 `cargo mero publish` sends the manifest to `POST /api/v2/bundles/push` with `Authorization: Bearer $CALIMERO_API_KEY`.
 The whole `.mpk` rides along under a `_binary` field; `_`-prefixed keys are stripped before signature verification, so attaching it does not disturb what was signed.
 
-| Check                                                                   | Failure                 |
-| ----------------------------------------------------------------------- | ----------------------- |
-| Manifest carries a valid Ed25519 signature                              | `400 invalid_signature` |
-| Signature block is present at all                                       | `400 missing_signature` |
-| Signing key matches the package's signer, or is in `owners[]`&nbsp;[^1] | `403 not_owner`         |
-| `package` and `appVersion` are present                                  | `400 invalid_manifest`  |
+| Check                                                                                                          | Failure                 |
+| -------------------------------------------------------------------------------------------------------------- | ----------------------- |
+| Manifest carries a valid Ed25519 signature                                                                     | `400 invalid_signature` |
+| Signature block is present at all                                                                              | `400 missing_signature` |
+| Signing key matches the package's signer. A key in `owners[]` is accepted too, but **do not use it**&nbsp;[^1] | `403 not_owner`         |
+| `package` and `appVersion` are present                                                                         | `400 invalid_manifest`  |
 
 `metadata.author` is set server-side from the publishing account and carried forward from the package's oldest version, so a manifest cannot set or change it.
 

@@ -936,6 +936,9 @@ jobs:
           # older than its release.
           if [ -z "$latest" ]; then
             :
+          elif [ "$v" = "$l" ]; then
+            # Same version by precedence: the 404 above compared strings only.
+            echo "::error::$VERSION differs from $latest only in build metadata"; exit 1
           elif [ "\${v%%-*}" = "\${l%%-*}" ] \\
                && [ "$v" != "\${v%%-*}" ] && [ "$l" = "\${l%%-*}" ]; then
             echo "::error::$VERSION is a pre-release of the published $latest"; exit 1

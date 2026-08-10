@@ -104,10 +104,10 @@ The same process runs on the node side when the Calimero Desktop app installs a 
 
 There are two push endpoints, and they do not authorize the same way:
 
-| Endpoint                         | Used by                                   | Authorization for an existing package                                      |
-| -------------------------------- | ----------------------------------------- | -------------------------------------------------------------------------- |
-| `POST /api/v2/bundles/push`      | `cargo mero publish`, `calimero-registry` | Signing key matches the package's signer, or is in `owners[]`&nbsp;[^1]    |
-| `POST /api/v2/bundles/push-file` | Browser upload                            | The above, **or** the uploader's email is in the org linked to the package |
+| Endpoint                         | Used by                                   | Authorization for an existing package                                                                           |
+| -------------------------------- | ----------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `POST /api/v2/bundles/push`      | `cargo mero publish`, `calimero-registry` | Signing key matches the package's signer. A key in `owners[]` is also accepted, but **do not use it**&nbsp;[^1] |
+| `POST /api/v2/bundles/push-file` | Browser upload                            | The above, **or** the uploader's email is in the org linked to the package                                      |
 
 Both require a valid Ed25519 signature, and both refuse the well-known dev key. `push-file` additionally rejects a version that is not greater than the latest published one; `push` leaves version ordering to the caller, which is why `cargo mero bundle --bump` exists.
 
