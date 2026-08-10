@@ -271,15 +271,18 @@ jobs:
           # the comparison and the test below.
           v=${VERSION%%+*}; l=${latest%%+*}
 
-          # sort -V agrees with semver everywhere except one shape: a
-          # pre-release against its own release, which it orders backwards
-          # (1.0.0-rc.1 after 1.0.0). Across different base versions it is
-          # right, so only that shape sits out.
+          # sort -V ranks a pre-release after its own release, the opposite of
+          # semver, and is right about everything else. That shape needs no
+          # comparison anyway: a pre-release is always older than its release.
           if [ -z "$latest" ]; then
             :
           elif [ "${v%%-*}" = "${l%%-*}" ] \
-               && { [ "$v" = "${v%%-*}" ] || [ "$l" = "${l%%-*}" ]; }; then
-            echo "::notice::$VERSION and $latest cannot be ordered here, not comparing"
+               && [ "$v" != "${v%%-*}" ] && [ "$l" = "${l%%-*}" ]; then
+            echo "::error::$VERSION is a pre-release of the published $latest"
+            exit 1
+          elif [ "${v%%-*}" = "${l%%-*}" ] \
+               && [ "$v" = "${v%%-*}" ] && [ "$l" != "${l%%-*}" ]; then
+            :
           elif [ "$(printf '%s\n%s\n' "$v" "$l" | sort -V | tail -1)" != "$v" ]; then
             echo "::error::$VERSION is not newer than the published $latest"
             exit 1

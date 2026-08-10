@@ -931,14 +931,17 @@ jobs:
           # Build metadata carries no precedence, so drop it first.
           v=\${VERSION%%+*}; l=\${latest%%+*}
 
-          # sort -V agrees with semver except on a pre-release against its own
-          # release, which it orders backwards. Across base versions it is
-          # right, so only that shape sits out.
+          # sort -V ranks a pre-release after its own release, the opposite of
+          # semver. That shape needs no comparison: a pre-release is always
+          # older than its release.
           if [ -z "$latest" ]; then
             :
           elif [ "\${v%%-*}" = "\${l%%-*}" ] \\
-               && { [ "$v" = "\${v%%-*}" ] || [ "$l" = "\${l%%-*}" ]; }; then
-            echo "::notice::$VERSION and $latest cannot be ordered here"
+               && [ "$v" != "\${v%%-*}" ] && [ "$l" = "\${l%%-*}" ]; then
+            echo "::error::$VERSION is a pre-release of the published $latest"; exit 1
+          elif [ "\${v%%-*}" = "\${l%%-*}" ] \\
+               && [ "$v" = "\${v%%-*}" ] && [ "$l" != "\${l%%-*}" ]; then
+            :
           elif [ "$(printf '%s\\n%s\\n' "$v" "$l" | sort -V | tail -1)" != "$v" ]; then
             echo "::error::$VERSION is not newer than the published $latest"; exit 1
           fi
@@ -1110,7 +1113,7 @@ tar -xzf cargo-mero.tar.gz -C "\${CARGO_HOME:-$HOME/.cargo}/bin"`}</CodeBlock>
   └─────────────────────────────────────────────────────────────────┘
 
   alice@example.com uploads a new version of com.my-org.app-1:
-    Bundle carries a valid Ed25519 signature (Alice's own key)
+    Bundle carries the package's signing key, not Alice's own
     Auth: Google session resolves → alice@example.com
     Registry: is alice@example.com in "my-org"?   YES  → 201 Created
 
@@ -1118,12 +1121,15 @@ tar -xzf cargo-mero.tar.gz -C "\${CARGO_HOME:-$HOME/.cargo}/bin"`}</CodeBlock>
     Registry: is alice@example.com in "my-org"?   NO   → 403 Forbidden`}</Diagram>
             <Note>
               <Building2 className='inline w-3.5 h-3.5 text-brand-600 mr-1 -mt-0.5' />
-              Org membership is accepted by the{' '}
-              <strong>browser upload and metadata edits</strong>.{' '}
-              <Code>cargo mero publish</Code> goes through the signature-only
-              path, so a CI release still has to use the key that published the
-              package. That is what the bot account and the org-level{' '}
-              <Code>MERO_SIGN_KEY</Code> are for.
+              Membership decides <strong>who may operate the package</strong>,
+              not what signs the bundle, and the two are not interchangeable:{' '}
+              <Code>ApplicationId</Code> comes from <Code>package</Code> and{' '}
+              <Code>signerId</Code>, so a member uploading under their own key
+              mints a different application rather than a new version - accepted
+              by the registry, invisible to every existing install. A package
+              has one signing key; hold it as an org secret and let a bot
+              account publish with it. Membership stays the thing you revoke,
+              which takes effect immediately and needs no key rotation.
             </Note>
 
             <SubHeading>Setting one up</SubHeading>

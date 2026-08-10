@@ -141,7 +141,7 @@ admin@example.com creates org → adds alice@example.com (member)
                               → links com.my-org.app to org
 
 alice@example.com uploads a new version from the browser:
-  → bundle signed with Alice's own key (any valid Ed25519 key)
+  → bundle signed with the package's signing key
   → session resolves → alice@example.com
   → registry: is alice@example.com in org members? YES → 201 Created
 
@@ -149,7 +149,9 @@ Admin removes alice:
   → registry: is alice@example.com in org members? NO → 403 Forbidden (immediate)
 ```
 
-Org membership substitutes for a key match on the browser upload and on metadata edits. `cargo mero publish` goes through the signature-only endpoint, so a CI release still signs with the key that published the package; a **bot account** holding that key is how an org releases without tying it to a person.
+Org membership decides **who may operate the package's registry entry**. It does not decide what signs the bundle, and the two are not interchangeable: `ApplicationId` is derived from `package` and `signerId`, so a member uploading under their own key mints a different application rather than a new version, which the registry accepts and no existing install ever sees.
+
+So a package has one signing key, and the org governs who may use it. Hold it as an organization secret (`MERO_SIGN_KEY`) and let a **bot account** publish with it, which keeps releases off any individual's credentials. Membership is still what you revoke: removing someone stops them uploading immediately, with no key rotation, which is the property a shared key on its own does not give you.
 
 ### Getting started with orgs
 
