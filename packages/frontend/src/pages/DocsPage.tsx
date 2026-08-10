@@ -920,7 +920,9 @@ jobs:
           esac
 
           # 404 says unpublished, not newer. A revert produces a version below
-          # the latest, and publishing cannot be undone.
+          # the latest, and publishing cannot be undone. Without all_versions
+          # the listing has one entry, the latest, so .[0] is not an ordering
+          # assumption.
           latest=$(curl -fsS --max-time 30 \\
             "$CALIMERO_REGISTRY_URL/api/v2/bundles?package=$PACKAGE" \\
             | jq -er '.[0].appVersion // ""') || {
@@ -928,7 +930,9 @@ jobs:
 
           # sort -V places 1.0.0-rc.1 after 1.0.0, the opposite of semver, so
           # the comparison sits out when either side has a suffix.
-          case "$VERSION$latest" in
+          # Build metadata carries no precedence and may contain a hyphen, so
+          # strip it before asking whether either side is a pre-release.
+          case "\${VERSION%%+*}\${latest%%+*}" in
             *-*) echo "::notice::pre-release, not comparing order" ;;
             *) if [ -n "$latest" ] \\
                  && [ "$(printf '%s\\n%s\\n' "$VERSION" "$latest" | sort -V | tail -1)" != "$VERSION" ]; then

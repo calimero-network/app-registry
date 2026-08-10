@@ -204,6 +204,8 @@ cargo mero sign <manifest.json> --key <file>
 # Bundle commands
 calimero-registry bundle edit   <package> <version> --remote [--manifest signed.json]
 calimero-registry bundle get    <package> <version> --local
+calimero-registry bundle push   <bundle-file> [--local | --remote]
+calimero-registry bundle create <wasm-file> [package] [version] [options]
 
 # Org commands (require CALIMERO_API_KEY or config api-key)
 calimero-registry org list

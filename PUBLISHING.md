@@ -260,7 +260,8 @@ jobs:
 
           # 404 only says this version is unpublished, not that it is newer.
           # A revert or a bad merge produces a version below the latest, and
-          # publishing cannot be undone.
+          # publishing cannot be undone. Without all_versions the listing
+          # carries one entry, the latest, so .[0] does not rest on ordering.
           latest=$(curl -fsS --retry 3 --max-time 30 \
             "$CALIMERO_REGISTRY_URL/api/v2/bundles?package=$PACKAGE" \
             | jq -er '.[0].appVersion // ""') || {
@@ -269,7 +270,9 @@ jobs:
           # sort -V orders X.Y.Z correctly but places 1.0.0-rc.1 after 1.0.0,
           # the opposite of semver, so the comparison only runs when neither
           # side carries a suffix.
-          case "$VERSION$latest" in
+          # Build metadata carries no precedence and may contain a hyphen, so
+          # strip it before asking whether either side is a pre-release.
+          case "${VERSION%%+*}${latest%%+*}" in
             *-*) echo "::notice::pre-release involved, not comparing order" ;;
             *) if [ -n "$latest" ] \
                  && [ "$(printf '%s\n%s\n' "$VERSION" "$latest" | sort -V | tail -1)" != "$VERSION" ]; then

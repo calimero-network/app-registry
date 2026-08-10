@@ -4,108 +4,67 @@
  * and completion modes that were never built - while omitting org, bundle and
  * ipfs entirely. Prose drifts from a command tree silently; this fails instead.
  *
- * Names are read from source rather than by importing the command modules:
- * three of them pull in the client library, which this package does not
- * declare as a dependency, so importing would fail here for a reason that has
- * nothing to do with the README.
- *
- * Every token is checked against the group that owns it, at any depth, so a
- * typo in `org members add` is caught. Exact tree position is not modelled -
- * the two files that build subcommands in factory functions rather than inline
- * put nesting out of reach of a source scan - so a real name in the wrong slot
- * would pass. Renames and removals, which is what actually rots, do not.
+ * The tree comes from the command objects themselves. Reading it out of the
+ * source took a heuristic per question - which declarations exist, which hold
+ * others, which nest under which - and each one was a guess that could be
+ * wrong. Commander already knows. Importing only became possible once the V1
+ * commands went, since they pulled in a package this one never declared.
  */
 
 import { describe, it, expect } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import type { Command } from 'commander';
 
-const pkgRoot = path.resolve(
-  path.dirname(fileURLToPath(import.meta.url)),
-  '..',
-  '..'
+import { bundleCommand } from '../commands/bundle.js';
+import { configCommand } from '../commands/config.js';
+import { healthCommand } from '../commands/health.js';
+import { ipfsCommand } from '../commands/ipfs.js';
+import { localCommand } from '../commands/local.js';
+import { orgCommand } from '../commands/org.js';
+
+// The same set index.ts registers on the program.
+const GROUPS: Command[] = [
+  bundleCommand,
+  configCommand,
+  healthCommand,
+  ipfsCommand,
+  localCommand,
+  orgCommand,
+];
+
+const README = fs.readFileSync(
+  path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '..',
+    '..',
+    'README.md'
+  ),
+  'utf8'
 );
 
-/**
- * Every invocable path, at its real depth: "org", "org members",
- * "org members add". A container's children are the declarations that fall
- * inside its span, so a name declared at two depths - `update` is both
- * `org update` and `org members update` - is two distinct paths. Flattening
- * them into one set per group lets either one satisfy the check for both.
- */
+/** Every invocable path: "org", "org members", "org members add". */
 function invocablePaths(): Set<string> {
   const paths = new Set<string>();
-  for (const { src, declarations } of commandFiles()) {
-    if (declarations.length === 0) continue;
-    const group = declarations[0].name;
-    paths.add(group);
-
-    const spans = declarations.slice(1).map((decl, i) => {
-      const next = declarations[i + 2];
-      const end = next ? next.index : src.length;
-      return {
-        ...decl,
-        end,
-        isContainer: !src.slice(decl.index, end).includes('.action('),
-      };
-    });
-
-    // A container's span stops at its first child, so its reach is everything
-    // up to the next declaration at or above its own nesting.
-    for (const decl of spans) {
-      const parent = spans.find(
-        c =>
-          c.isContainer &&
-          c.index < decl.index &&
-          decl.index < containerEnd(c, spans)
-      );
-      paths.add([group, parent?.name, decl.name].filter(Boolean).join(' '));
-    }
-  }
+  const walk = (cmd: Command, prefix: string[]) => {
+    const here = [...prefix, cmd.name()];
+    paths.add(here.join(' '));
+    for (const child of cmd.commands) walk(child as Command, here);
+  };
+  for (const group of GROUPS) walk(group, []);
   return paths;
 }
 
-/** How far a container reaches: up to the next container, or the file's end. */
-function containerEnd(
-  container: { index: number; end: number },
-  all: Array<{ index: number; isContainer: boolean; end: number }>
-): number {
-  const next = all.find(c => c.isContainer && c.index > container.index);
-  return next ? next.index : Infinity;
-}
-
-interface Declaration {
-  name: string;
-  index: number;
-}
-
-function commandFiles(): Array<{ src: string; declarations: Declaration[] }> {
-  const dir = path.join(pkgRoot, 'src', 'commands');
-  return fs
-    .readdirSync(dir)
-    .filter(f => f.endsWith('.ts'))
-    .map(f => {
-      const src = fs.readFileSync(path.join(dir, f), 'utf8');
-      const declarations = [
-        ...src.matchAll(/new Command\('([a-z:-]+)'\)/g),
-      ].map(m => ({ name: m[1], index: m.index ?? 0 }));
-      return { src, declarations };
-    });
-}
-
 /**
- * Command invocations in the README, as [group, ...subcommands]. Tokens are
- * taken until one stops looking like a subcommand, so `<orgId>`, `--remote`
- * and `[-r admin|member]` end the path rather than being read as one.
+ * Command invocations in the README, as [group, ...subcommands].
  *
  * Fenced blocks only. Naming the tool in a sentence is not an invocation, and
  * scanning prose would read "calimero-registry is a command-line tool" as the
  * path `is a command-line tool` - failing the suite over a wording change.
  */
 function documentedPaths(): string[][] {
-  const readme = fs.readFileSync(path.join(pkgRoot, 'README.md'), 'utf8');
-  const fenced = [...readme.matchAll(/```[a-z]*\n([\s\S]*?)```/g)].map(
+  const fenced = [...README.matchAll(/```[a-z]*\n([\s\S]*?)```/g)].map(
     m => m[1]
   );
   return fenced.flatMap(block =>
@@ -131,8 +90,8 @@ describe('README command reference', () => {
       // Walk while each prefix is a real path. The first token that is not
       // ends the command, and the rest are arguments - unless the prefix so
       // far holds subcommands, in which case the token was meant to be one.
-      // Checking against the whole file's names instead would accept
-      // `org packages add`, since `add` exists under `members`.
+      // Checking names without their position would accept `org packages add`,
+      // since `add` exists under `members`.
       let matched = '';
       for (const token of tokens) {
         const next = matched ? `${matched} ${token}` : token;
