@@ -34,6 +34,8 @@ const GROUPS: Command[] = [
   orgCommand,
 ];
 
+// This package's own README, not the repository root's. The two document
+// different things and only this one claims to be a command reference.
 const README = fs.readFileSync(
   path.resolve(
     path.dirname(fileURLToPath(import.meta.url)),
