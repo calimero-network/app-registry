@@ -111,10 +111,13 @@ There are two push endpoints, and they do not authorize the same way:
 
 Both require a valid Ed25519 signature, and both refuse the well-known dev key. `push-file` additionally rejects a version that is not greater than the latest published one; `push` leaves version ordering to the caller, which is why `cargo mero bundle --bump` exists.
 
-| Scenario       | Authorization                                                                  |
-| -------------- | ------------------------------------------------------------------------------ |
-| First publish  | Any signed request. The account behind the token or session becomes the author |
-| Delete version | Signed in (Google session) as the `metadata.author` email                      |
+The rest is common ground. Both push endpoints gate ownership behind `versions.length > 0`, so neither applies it - nor `push-file`'s increasing-version rule - to a package's first version. Deleting is a third endpoint again:
+
+| Scenario       | Endpoint                                     | Authorization                                                                  |
+| -------------- | -------------------------------------------- | ------------------------------------------------------------------------------ |
+| First publish  | either push endpoint                         | Any signed request. The account behind the token or session becomes the author |
+| Delete version | `DELETE /api/v2/bundles/<package>/<version>` | Signed in as `metadata.author` (or `_ownerEmail`)                              |
+| Delete package | `DELETE /api/v2/bundles/<package>`           | The same, for every version at once                                            |
 
 `metadata.author` is set server-side on first publish and carried forward from the oldest version onto every later one, so a manifest cannot set or change it.
 
