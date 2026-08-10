@@ -52,7 +52,7 @@
     "@semantic-release/exec": "^7.0.0",
     "@semantic-release/github": "^12.0.9",
     "@semantic-release/release-notes-generator": "14.1.1",
-    "@types/node": "^20.0.0",
+    "@types/node": "^26.1.2",
     "@types/tar": "^7.0.87",
     "@typescript-eslint/eslint-plugin": "^7.0.0",
     "@typescript-eslint/parser": "^8.63.0",
