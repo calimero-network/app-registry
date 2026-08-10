@@ -928,17 +928,20 @@ jobs:
             | jq -er '.[0].appVersion // ""') || {
               echo "::error::could not read the published versions"; exit 1; }
 
-          # sort -V places 1.0.0-rc.1 after 1.0.0, the opposite of semver, so
-          # the comparison sits out when either side has a suffix.
-          # Build metadata carries no precedence and may contain a hyphen, so
-          # strip it before asking whether either side is a pre-release.
-          case "\${VERSION%%+*}\${latest%%+*}" in
-            *-*) echo "::notice::pre-release, not comparing order" ;;
-            *) if [ -n "$latest" ] \\
-                 && [ "$(printf '%s\\n%s\\n' "$VERSION" "$latest" | sort -V | tail -1)" != "$VERSION" ]; then
-                 echo "::error::$VERSION is not newer than the published $latest"; exit 1
-               fi ;;
-          esac
+          # Build metadata carries no precedence, so drop it first.
+          v=\${VERSION%%+*}; l=\${latest%%+*}
+
+          # sort -V agrees with semver except on a pre-release against its own
+          # release, which it orders backwards. Across base versions it is
+          # right, so only that shape sits out.
+          if [ -z "$latest" ]; then
+            :
+          elif [ "\${v%%-*}" = "\${l%%-*}" ] \\
+               && { [ "$v" = "\${v%%-*}" ] || [ "$l" = "\${l%%-*}" ]; }; then
+            echo "::notice::$VERSION and $latest cannot be ordered here"
+          elif [ "$(printf '%s\\n%s\\n' "$v" "$l" | sort -V | tail -1)" != "$v" ]; then
+            echo "::error::$VERSION is not newer than the published $latest"; exit 1
+          fi
 
           echo "publish=true" >> "$GITHUB_OUTPUT"
 
