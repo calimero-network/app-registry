@@ -731,7 +731,7 @@ cargo mero publish dist/com.example.my-app-1.2.4.mpk`}</CodeBlock>
                 ],
                 [
                   'owners[]',
-                  'A manifest can also list additional owner keys, which the endpoint honours. cargo mero never writes the field and no published manifest carries one, and it would not help if it did: ApplicationId comes from package + signerId, so a second owner publishes a different application rather than a new version. That is why the CI step above compares the signer directly and refuses a mismatch.',
+                  'A manifest can also list additional owner keys, and the endpoint honours them: a push signed by a listed key is accepted and the version is stored. What it produces is the catch - ApplicationId comes from package + signerId, so that version belongs to a different application, and no node with the original installed will see it. cargo mero never writes the field and no published manifest carries one. The CI step above compares the signer directly for this reason, refusing what the endpoint would take.',
                 ],
                 [
                   'Author',

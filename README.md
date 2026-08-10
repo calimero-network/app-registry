@@ -123,7 +123,7 @@ The rest is common ground. Both push endpoints gate ownership behind `versions.l
 
 [^1]:
     `owners[]` predates the identity model below and `cargo mero` never writes it.
-    A key listed there could publish, but `ApplicationId` comes from `package` and `signerId`, so the result is a different application rather than a new version - accepted by the registry, invisible to every node that has the app installed.
+    A key listed there does publish: the endpoint accepts it and stores the version. `ApplicationId` comes from `package` and `signerId`, so that version belongs to a different application, which no node with the original installed will ever see.
 
 ### App identity is package + signer
 

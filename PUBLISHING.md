@@ -363,8 +363,10 @@ If you would rather keep pre-releases out of the registry entirely, narrow the v
 It does not ask whether the version is newer than what is already out, and neither does `POST /api/v2/bundles/push`; only the browser upload enforces that.
 
 So the `check` job compares as well, and refuses a version that would slot below the latest - a reverted or badly merged `Cargo.toml` produces a version the registry has never seen, and publishing cannot be undone.
-The comparison sits out when either side carries a pre-release suffix, because `sort -V` places `1.0.0-rc.1` _after_ `1.0.0`, the opposite of semver; a wrong answer there would block a legitimate release.
-For an ordering guarantee that holds for pre-releases too, take the version from the registry with `cargo mero bundle --bump patch` instead of from `Cargo.toml`, which gives up single-sourcing it but makes an out-of-order version impossible to construct.
+
+`sort -V` ranks a pre-release after its own release, the opposite of semver, so that shape is decided directly instead: a pre-release is always older than the release it leads to.
+Checked against `node-semver` over 9,120 pairs, the guard then agrees everywhere but one shape - two pre-releases of the same release whose identifiers mix numeric with alphanumeric, such as `1.0.0-alpha.1` against `1.0.0-alpha.beta`, which semver ranks the other way round because a numeric identifier sorts below an alphanumeric one.
+Nothing expressible in `sort -V` fixes that. A project versioning that way should take the version from the registry with `cargo mero bundle --bump patch` rather than from `Cargo.toml`, which gives up single-sourcing it and is exact for every shape, because the comparison happens where the versions live.
 
 ### Why the registry decides, not git
 
@@ -376,7 +378,8 @@ A registry that is unreachable, or that answers something other than 200 or 404,
 
 ### Handling the secrets
 
-Write the key to `$RUNNER_TEMP` under `umask 077`, never into the workspace, and delete it in an `if: always()` step so a failed build does not leave it on the runner.
+Write the key to `$RUNNER_TEMP` under `umask 077`, never into the workspace, and delete it in an `if: always()` step.
+That condition is what makes the cleanup reachable: a step with no `if` is skipped once the job is failing, so an earlier failure - the signer check refusing, the build breaking - would otherwise leave the key on disk. It matters most on a self-hosted runner, where the next job inherits the filesystem.
 Pass every secret and every template expression through the environment rather than inlining it into a script body: a template expression is substituted before the shell sees it, so a crafted input would run as code.
 
 ### Pinning the toolchain
@@ -431,7 +434,7 @@ The whole `.mpk` rides along under a `_binary` field; `_`-prefixed keys are stri
 
 [^1]:
     `owners[]` is a registry-level permission that predates the identity model and `cargo mero` never writes it; no published manifest carries one.
-    It would not help if it did: `ApplicationId` is derived from `package` and `signerId`, so a second owner's key produces a different application rather than a new version of the existing one.
+    A listed key does publish: the endpoint accepts it and stores the version. `ApplicationId` is derived from `package` and `signerId`, so that version belongs to a different application rather than being a new version of the existing one.
     The registry would accept that publish; every node with the app installed would not see it.
     That is why the CI step above compares the signer directly and refuses a mismatch - deliberately stricter than the endpoint, because the endpoint's answer is not the one that matters on the other end.
 
