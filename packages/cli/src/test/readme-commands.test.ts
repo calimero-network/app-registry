@@ -143,11 +143,20 @@ function commandFiles(): Array<{ src: string; declarations: Declaration[] }> {
  * Command invocations in the README, as [group, ...subcommands]. Tokens are
  * taken until one stops looking like a subcommand, so `<orgId>`, `--remote`
  * and `[-r admin|member]` end the path rather than being read as one.
+ *
+ * Fenced blocks only. Naming the tool in a sentence is not an invocation, and
+ * scanning prose would read "calimero-registry is a command-line tool" as the
+ * path `is a command-line tool` - failing the suite over a wording change.
  */
 function documentedPaths(): string[][] {
   const readme = fs.readFileSync(path.join(pkgRoot, 'README.md'), 'utf8');
-  return [...readme.matchAll(/calimero-registry((?: [a-z][a-z-]*)+)/g)].map(m =>
-    m[1].trim().split(/\s+/)
+  const fenced = [...readme.matchAll(/```[a-z]*\n([\s\S]*?)```/g)].map(
+    m => m[1]
+  );
+  return fenced.flatMap(block =>
+    [...block.matchAll(/calimero-registry((?: [a-z][a-z-]*)+)/g)].map(m =>
+      m[1].trim().split(/\s+/)
+    )
   );
 }
 

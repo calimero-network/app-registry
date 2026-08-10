@@ -727,7 +727,11 @@ cargo mero publish dist/com.example.my-app-1.2.4.mpk`}</CodeBlock>
                 ],
                 [
                   'Ownership',
-                  'For an existing package, the signing key must match the one that published it (or appear in the manifest owners list). Otherwise: 403 not_owner.',
+                  'For an existing package, the signing key must match the one that published it. Otherwise: 403 not_owner.',
+                ],
+                [
+                  'owners[]',
+                  'A manifest can also list additional owner keys, which the endpoint honours. cargo mero never writes the field and no published manifest carries one, and it would not help if it did: ApplicationId comes from package + signerId, so a second owner publishes a different application rather than a new version. That is why the CI step above compares the signer directly and refuses a mismatch.',
                 ],
                 [
                   'Author',
