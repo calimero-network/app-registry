@@ -27,22 +27,6 @@ const pkgRoot = path.resolve(
   '..'
 );
 
-/** Group name -> every command name declared in that group's file. */
-function commandNames(): Map<string, Set<string>> {
-  const groups = new Map<string, Set<string>>();
-  for (const { declarations } of commandFiles()) {
-    // The group is the command the module exports, which is always declared
-    // first; the rest are its subcommands at some depth.
-    if (declarations.length > 0) {
-      groups.set(
-        declarations[0].name,
-        new Set(declarations.slice(1).map(d => d.name))
-      );
-    }
-  }
-  return groups;
-}
-
 /**
  * Every invocable path, at its real depth: "org", "org members",
  * "org members add". A container's children are the declarations that fall
@@ -91,35 +75,6 @@ function containerEnd(
   return next ? next.index : Infinity;
 }
 
-/**
- * Group -> the subcommands that hold further subcommands, so `org members add`
- * gets its third token checked while `config set registry-url` stops at `set`
- * and treats the rest as arguments.
- *
- * A container is a command with no `.action()` of its own; it only holds
- * others. Looking for a following `.addCommand(` instead does not work: the
- * one that opens the next sibling sits inside the same span.
- *
- * Keyed by group because names repeat - `get` is a leaf in several files.
- */
-function containers(): Map<string, Set<string>> {
-  const byGroup = new Map<string, Set<string>>();
-  for (const { src, declarations } of commandFiles()) {
-    if (declarations.length === 0) continue;
-    const held = new Set<string>();
-    // Spans come from each declaration's own offset. Searching by name would
-    // always find the first match, and names do repeat within a file - org.ts
-    // declares `list` and `update` under both the group and members.
-    declarations.slice(1).forEach((decl, i) => {
-      const next = declarations[i + 2];
-      const span = src.slice(decl.index, next ? next.index : undefined);
-      if (!span.includes('.action(')) held.add(decl.name);
-    });
-    byGroup.set(declarations[0].name, held);
-  }
-  return byGroup;
-}
-
 interface Declaration {
   name: string;
   index: number;
@@ -160,32 +115,35 @@ function documentedPaths(): string[][] {
   );
 }
 
+/** Whether any real command sits below this path. */
+function holdsChildren(prefix: string, real: Set<string>): boolean {
+  for (const p of real) if (p.startsWith(`${prefix} `)) return true;
+  return false;
+}
+
 describe('README command reference', () => {
   it('only documents commands that exist', () => {
-    const groups = commandNames();
-    expect(groups.size).toBeGreaterThan(0);
+    const real = invocablePaths();
+    expect(real.size).toBeGreaterThan(0);
 
-    const byGroup = containers();
     const unknown = new Set<string>();
-
-    for (const [group, ...rest] of documentedPaths()) {
-      const names = groups.get(group);
-      if (!names) {
-        unknown.add(`${group} (no such command group)`);
-        continue;
-      }
-      const holds = byGroup.get(group) ?? new Set<string>();
-      // Walk while each token is a subcommand position. The first token always
-      // is; a later one only when its parent holds subcommands, so `config set
-      // registry-url` stops at `set` and the rest reads as arguments.
-      let matched = group;
-      for (const [i, token] of rest.entries()) {
-        if (i > 0 && !holds.has(rest[i - 1])) break;
-        if (!names.has(token)) {
-          unknown.add(`${matched} ${token}`);
-          break;
+    for (const tokens of documentedPaths()) {
+      // Walk while each prefix is a real path. The first token that is not
+      // ends the command, and the rest are arguments - unless the prefix so
+      // far holds subcommands, in which case the token was meant to be one.
+      // Checking against the whole file's names instead would accept
+      // `org packages add`, since `add` exists under `members`.
+      let matched = '';
+      for (const token of tokens) {
+        const next = matched ? `${matched} ${token}` : token;
+        if (real.has(next)) {
+          matched = next;
+          continue;
         }
-        matched += ` ${token}`;
+        if (!matched) unknown.add(`${token} (no such command group)`);
+        else if (holdsChildren(matched, real))
+          unknown.add(`${matched} ${token}`);
+        break;
       }
     }
 

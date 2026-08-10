@@ -253,10 +253,32 @@ jobs:
           code=$(curl -s -o /dev/null -w '%{http_code}' --retry 3 --max-time 30 \
             "$CALIMERO_REGISTRY_URL/api/v2/bundles/$PACKAGE/$VERSION" || echo "000")
           case "$code" in
-            404) echo "publish=true"  >> "$GITHUB_OUTPUT" ;;
-            200) echo "publish=false" >> "$GITHUB_OUTPUT" ;;
+            200) echo "publish=false" >> "$GITHUB_OUTPUT"; exit 0 ;;
+            404) : ;;
             *)   echo "::error::registry returned $code"; exit 1 ;;
           esac
+
+          # 404 only says this version is unpublished, not that it is newer.
+          # A revert or a bad merge produces a version below the latest, and
+          # publishing cannot be undone.
+          latest=$(curl -fsS --retry 3 --max-time 30 \
+            "$CALIMERO_REGISTRY_URL/api/v2/bundles?package=$PACKAGE" \
+            | jq -er '.[0].appVersion // ""') || {
+              echo "::error::could not read the published versions"; exit 1; }
+
+          # sort -V orders X.Y.Z correctly but places 1.0.0-rc.1 after 1.0.0,
+          # the opposite of semver, so the comparison only runs when neither
+          # side carries a suffix.
+          case "$VERSION$latest" in
+            *-*) echo "::notice::pre-release involved, not comparing order" ;;
+            *) if [ -n "$latest" ] \
+                 && [ "$(printf '%s\n%s\n' "$VERSION" "$latest" | sort -V | tail -1)" != "$VERSION" ]; then
+                 echo "::error::$VERSION is not newer than the published $latest"
+                 exit 1
+               fi ;;
+          esac
+
+          echo "publish=true" >> "$GITHUB_OUTPUT"
 
   deploy:
     needs: check
@@ -328,17 +350,11 @@ If you would rather keep pre-releases out of the registry entirely, narrow the v
 ### The gate answers one question
 
 `GET /api/v2/bundles/<package>/<version>` asks whether **this exact version** exists, which is what makes the job idempotent across re-runs.
-It does not ask whether the version is newer than what is already out.
-`POST /api/v2/bundles/push`, which `cargo mero publish` uses, does not check that either; only the browser upload enforces it.
+It does not ask whether the version is newer than what is already out, and neither does `POST /api/v2/bundles/push`; only the browser upload enforces that.
 
-So a version that slots _below_ the latest still publishes.
-Reverting `1.2.0` to `1.1.0`, or resolving a merge conflict the wrong way, produces a version the registry has never seen, the probe returns 404, and the release goes out.
-It sorts below the existing latest rather than replacing it, so nothing breaks - but published versions are immutable, and there is no way to take it back.
-
-Two ways to close that, depending on how much you want the pipeline to decide:
-
-- `cargo mero bundle --bump patch` takes the next version from the registry instead of `Cargo.toml`, so an out-of-order version cannot be constructed. This gives up single-sourcing the version from `Cargo.toml`, which is the whole shape of the workflow above.
-- Compare against the highest published version in the `check` job. The listing is already sorted newest-first by semver, so `.[0].appVersion` is the value to beat. Note that `sort -V` is not a correct comparator here: it orders `1.0.0-rc.1` _after_ `1.0.0`, the opposite of semver, so a guard built on it misjudges pre-releases.
+So the `check` job compares as well, and refuses a version that would slot below the latest - a reverted or badly merged `Cargo.toml` produces a version the registry has never seen, and publishing cannot be undone.
+The comparison sits out when either side carries a pre-release suffix, because `sort -V` places `1.0.0-rc.1` _after_ `1.0.0`, the opposite of semver; a wrong answer there would block a legitimate release.
+For an ordering guarantee that holds for pre-releases too, take the version from the registry with `cargo mero bundle --bump patch` instead of from `Cargo.toml`, which gives up single-sourcing it but makes an out-of-order version impossible to construct.
 
 ### Why the registry decides, not git
 
