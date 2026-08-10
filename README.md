@@ -106,7 +106,7 @@ There are two push endpoints, and they do not authorize the same way:
 
 | Endpoint                         | Used by                                   | Authorization for an existing package                                      |
 | -------------------------------- | ----------------------------------------- | -------------------------------------------------------------------------- |
-| `POST /api/v2/bundles/push`      | `cargo mero publish`, `calimero-registry` | Signing key matches the package's signer, or is in `owners[]`              |
+| `POST /api/v2/bundles/push`      | `cargo mero publish`, `calimero-registry` | Signing key matches the package's signer, or is in `owners[]`&nbsp;[^1]    |
 | `POST /api/v2/bundles/push-file` | Browser upload                            | The above, **or** the uploader's email is in the org linked to the package |
 
 Both require a valid Ed25519 signature, and both refuse the well-known dev key. `push-file` additionally rejects a version that is not greater than the latest published one; `push` leaves version ordering to the caller, which is why `cargo mero bundle --bump` exists.
@@ -121,8 +121,9 @@ The rest is common ground. Both push endpoints gate ownership behind `versions.l
 
 `metadata.author` is set server-side on first publish and carried forward from the oldest version onto every later one, so a manifest cannot set or change it.
 
-`owners[]` predates the identity model below and `cargo mero` never writes it.
-A key listed there could publish, but `ApplicationId` comes from `package` and `signerId`, so the result is a different application rather than a new version - accepted by the registry, invisible to every node that has the app installed.
+[^1]:
+    `owners[]` predates the identity model below and `cargo mero` never writes it.
+    A key listed there could publish, but `ApplicationId` comes from `package` and `signerId`, so the result is a different application rather than a new version - accepted by the registry, invisible to every node that has the app installed.
 
 ### App identity is package + signer
 
