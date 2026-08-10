@@ -173,6 +173,11 @@ on:
     paths: ['logic/Cargo.toml'] # the version lives here and nowhere else
   workflow_dispatch:
 
+# One registry for every step, and the same variable cargo mero reads, so a
+# staging run cannot check one registry and publish to another.
+env:
+  CALIMERO_REGISTRY_URL: https://apps.calimero.network
+
 # The registry rejects a duplicate version, so never let two publishes
 # interleave. Never cancel in progress: a half-finished publish is worse
 # than a queued one.
@@ -209,11 +214,14 @@ jobs:
           # hold an xtask or test-utils on its own version, and those must not
           # decide, or block, a release. More than one version among the crates
           # that do ship means this job cannot know which is going out.
+          # index() is exact membership; inside() would match a substring, so an
+          # unrelated crate named `drive` would be read as `mero-drive-service`.
           version=$(jq -er '(.metadata.calimero.services // [] | map(.crate)) as $svc
             | (if ($svc | length) > 0
-               then [.packages[] | select([.name] | inside($svc)) | .version]
-               else [.packages[] | select(.metadata.calimero != null) | .version]
-               end)
+               then [.packages[] | select(.name as $n | $svc | index($n)) | .version]
+               elif ([.packages[] | select(.metadata.calimero != null)] | length) > 0
+                 then [.packages[] | select(.metadata.calimero != null) | .version]
+               else [.packages[].version] end)
             | unique
             | if length == 1 then .[0]
               else error("bundle crates disagree on version: \(.)") end' <<<"$meta")
@@ -242,7 +250,7 @@ jobs:
           # An unreachable registry must not read as "not published": that
           # would republish blind. Only a definite 404 means new.
           code=$(curl -s -o /dev/null -w '%{http_code}' --retry 3 --max-time 30 \
-            "https://apps.calimero.network/api/v2/bundles/$PACKAGE/$VERSION" || echo "000")
+            "$CALIMERO_REGISTRY_URL/api/v2/bundles/$PACKAGE/$VERSION" || echo "000")
           case "$code" in
             404) echo "publish=true"  >> "$GITHUB_OUTPUT" ;;
             200) echo "publish=false" >> "$GITHUB_OUTPUT" ;;
@@ -279,7 +287,7 @@ jobs:
           # failure as an empty listing skips the one check this step exists
           # for, which is the same trap as the version probe above.
           if ! listing=$(curl -fsS --retry 3 --retry-delay 2 --max-time 30 \
-              "https://apps.calimero.network/api/v2/bundles?package=$PACKAGE"); then
+              "$CALIMERO_REGISTRY_URL/api/v2/bundles?package=$PACKAGE"); then
             echo "::error::could not reach the registry to verify the signer"
             exit 1
           fi

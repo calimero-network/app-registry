@@ -844,6 +844,10 @@ on:
     paths: ["logic/Cargo.toml"]     # the version lives here and nowhere else
   workflow_dispatch:
 
+# One registry for every step, and the same variable cargo mero reads.
+env:
+  CALIMERO_REGISTRY_URL: https://apps.calimero.network
+
 # The registry rejects a duplicate version, so never let two publishes
 # interleave. Never cancel in progress: a half-finished publish is worse
 # than a queued one.
@@ -875,9 +879,10 @@ jobs:
           # xtask on its own version, which must not block a release.
           version=$(jq -er '(.metadata.calimero.services // [] | map(.crate)) as $svc
             | (if ($svc | length) > 0
-               then [.packages[] | select([.name] | inside($svc)) | .version]
-               else [.packages[] | select(.metadata.calimero != null) | .version]
-               end)
+               then [.packages[] | select(.name as $n | $svc | index($n)) | .version]
+               elif ([.packages[] | select(.metadata.calimero != null)] | length) > 0
+                 then [.packages[] | select(.metadata.calimero != null) | .version]
+               else [.packages[].version] end)
             | unique | if length == 1 then .[0]
               else error("bundle crates disagree on version") end' <<<"$meta")
 
@@ -902,7 +907,7 @@ jobs:
           # An unreachable registry must not read as "not published": that
           # would republish blind. Only a definite 404 means new.
           code=$(curl -s -o /dev/null -w '%{http_code}' --retry 3 --max-time 30 \\
-            "https://apps.calimero.network/api/v2/bundles/$PACKAGE/$VERSION" || echo "000")
+            "$CALIMERO_REGISTRY_URL/api/v2/bundles/$PACKAGE/$VERSION" || echo "000")
           case "$code" in
             404) echo "publish=true"  >> "$GITHUB_OUTPUT" ;;
             200) echo "publish=false" >> "$GITHUB_OUTPUT" ;;
@@ -937,7 +942,7 @@ jobs:
           # Separate "could not ask" from "nothing published": reading the
           # failure as an empty listing skips this very check.
           if ! listing=$(curl -fsS --retry 3 --max-time 30 \\
-              "https://apps.calimero.network/api/v2/bundles?package=$PACKAGE"); then
+              "$CALIMERO_REGISTRY_URL/api/v2/bundles?package=$PACKAGE"); then
             echo "::error::could not reach the registry to verify the signer"
             exit 1
           fi
@@ -1020,6 +1025,14 @@ jobs:
 # Per-asset SHA-256, so a re-uploaded asset under the same tag cannot swap
 # the binary silently. Refresh these together with RELEASE.
 CHECKSUM_x86_64_unknown_linux_gnu=86e32bd1a7fd976dafaa8269dfdfe4e8d89b35f0a62f3a6f6d3c4a6387ec9331
+CHECKSUM_aarch64_apple_darwin=9c28ec40692669cbf2249c07afa824ab3296c720fb26670c90de2ca515261d86
+
+case "$(uname -s)/$(uname -m)" in
+  Linux/x86_64) TARGET=x86_64-unknown-linux-gnu ;;
+  Darwin/arm64) TARGET=aarch64-apple-darwin ;;
+  *) echo "no released cargo-mero for $(uname -s)/$(uname -m)" >&2; exit 1 ;;
+esac
+eval "EXPECTED=\\$CHECKSUM_\${TARGET//-/_}"
 
 url="https://github.com/calimero-network/core/releases/download/$RELEASE/cargo-mero_$TARGET.tar.gz"
 curl -fsSL "$url" -o cargo-mero.tar.gz
