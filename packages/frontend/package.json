@@ -22,7 +22,7 @@
     "@noble/ed25519": "^3.1.0",
     "@tanstack/react-query": "^5.90.5",
     "axios": "^1.18.0",
-    "canonicalize": "^2.1.0",
+    "canonicalize": "^4.0.0",
     "clsx": "^2.1.1",
     "lucide-react": "^1.29.0",
     "react": "^19.2.7",
