@@ -24,7 +24,7 @@
     "@calimero-network/registry-shared": "workspace:*",
     "@fastify/cookie": "^11.0.2",
     "@fastify/cors": "^11.3.0",
-    "@fastify/multipart": "^10.1.0",
+    "@fastify/multipart": "^10.1.1",
     "@fastify/rate-limit": "^10.3.0",
     "@fastify/swagger": "^9.8.1",
     "@fastify/swagger-ui": "^6.0.0",
