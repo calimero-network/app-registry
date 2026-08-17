@@ -188,8 +188,28 @@ describe('GET /api/v2/bundles caching', () => {
 
     expect(res.statusCode).toBe(200);
     expect(res.headers['cache-control']).toBe(
-      'public, s-maxage=60, stale-while-revalidate=86400'
+      'public, max-age=0, s-maxage=30, stale-while-revalidate=30'
     );
+  });
+
+  // Nothing purges this cache, so its window is the upper bound on how long a
+  // deleted package keeps showing up. It was a day (s-maxage=60 plus a
+  // 24h stale-while-revalidate), and with no max-age the browser held its own
+  // copy for the same day.
+  test('the cache window stays short enough for a delete to surface', async () => {
+    const [req, res] = makeReqRes();
+    await listHandler(req, res);
+
+    const directives = res.headers['cache-control'].split(/,\s*/);
+    const seconds = name => {
+      const hit = directives.find(d => d.startsWith(`${name}=`));
+      return hit === undefined ? null : Number(hit.split('=')[1]);
+    };
+
+    expect(seconds('max-age')).toBe(0);
+    expect(
+      seconds('s-maxage') + seconds('stale-while-revalidate')
+    ).toBeLessThanOrEqual(120);
   });
 
   test('a single bundle lookup is cacheable', async () => {
@@ -200,7 +220,41 @@ describe('GET /api/v2/bundles caching', () => {
     await listHandler(req, res);
 
     expect(res.statusCode).toBe(200);
-    expect(res.headers['cache-control']).toContain('s-maxage=60');
+    expect(res.headers['cache-control']).toContain('s-maxage=30');
+  });
+
+  // How a client that has just mutated the registry reads its own write: the
+  // function runs, and the answer is kept out of the shared cache so the next
+  // visitor doesn't inherit a one-off.
+  test('fresh=1 opts out of caching entirely', async () => {
+    for (const value of ['1', 'true']) {
+      const [req, res] = makeReqRes({ fresh: value });
+      await listHandler(req, res);
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body).toHaveLength(PACKAGE_COUNT);
+      expect(res.headers['cache-control']).toBe('no-store');
+    }
+  });
+
+  test('fresh=1 also bypasses the cache on a single bundle lookup', async () => {
+    const [req, res] = makeReqRes({
+      package: 'com.example.pkg001',
+      version: '1.0.0',
+      fresh: '1',
+    });
+    await listHandler(req, res);
+
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['cache-control']).toBe('no-store');
+  });
+
+  test('an unrelated fresh value still caches', async () => {
+    const [req, res] = makeReqRes({ fresh: '0' });
+    await listHandler(req, res);
+
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['cache-control']).toContain('s-maxage=30');
   });
 
   test('404 is never cached', async () => {
