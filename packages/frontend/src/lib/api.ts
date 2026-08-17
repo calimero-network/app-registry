@@ -22,6 +22,71 @@ export const api = axios.create({
   withCredentials: true, // send cookies (session) with requests
 });
 
+// GET /api/v2/bundles is cached at the edge and nothing can purge it (Vercel
+// offers no purge API outside Next.js), so a listing can lag the registry by
+// the length of that cache window — see api/v2/bundles/index.js. Fine for
+// browsing, wrong for whoever just changed something: delete a package, get
+// dropped on /apps, and seeing it still listed reads as a delete that failed.
+//
+// So a successful mutation opens a short window during which this tab asks for
+// uncached listings instead. The window only has to outlast the edge cache; it
+// lives in sessionStorage rather than a module variable so it survives a full
+// reload, which is exactly what someone double-checks a suspicious delete with.
+const LISTING_FRESH_UNTIL = 'app_registry_listing_fresh_until';
+const LISTING_FRESH_WINDOW_MS = 90_000;
+
+/** The one cached endpoint. Its siblings set no cache headers. */
+function isCachedListingRead(config: {
+  method?: string;
+  url?: string;
+}): boolean {
+  if (String(config.method || 'get').toLowerCase() !== 'get') return false;
+  const path = String(config.url || '')
+    .split('?')[0]
+    .replace(/\/+$/, '');
+  return path === '/v2/bundles' || path === 'v2/bundles';
+}
+
+/** Anything that changes what a listing should say: push, yank, delete, verify. */
+function isListingMutation(config?: {
+  method?: string;
+  url?: string;
+}): boolean {
+  const method = String(config?.method || 'get').toLowerCase();
+  if (method === 'get' || method === 'head' || method === 'options')
+    return false;
+  const path = String(config?.url || '');
+  return (
+    /^\/?v2\/bundles(\/|$)/.test(path) || /^\/?admin\/packages(\/|$)/.test(path)
+  );
+}
+
+function listingFreshnessActive(): boolean {
+  if (typeof window === 'undefined') return false;
+  const until = Number(
+    window.sessionStorage.getItem(LISTING_FRESH_UNTIL) || '0'
+  );
+  if (!until) return false;
+  if (Date.now() < until) return true;
+  window.sessionStorage.removeItem(LISTING_FRESH_UNTIL);
+  return false;
+}
+
+function openListingFreshnessWindow(): void {
+  if (typeof window === 'undefined') return;
+  window.sessionStorage.setItem(
+    LISTING_FRESH_UNTIL,
+    String(Date.now() + LISTING_FRESH_WINDOW_MS)
+  );
+}
+
+api.interceptors.request.use(config => {
+  if (isCachedListingRead(config) && listingFreshnessActive()) {
+    config.params = { ...(config.params || {}), fresh: '1' };
+  }
+  return config;
+});
+
 // Its own instance, sharing the configured baseURL so the refresh reaches the
 // same host as everything else (the frontend deploys separately from the API),
 // but carrying no interceptor, so a 401 on refresh cannot recurse.
@@ -67,7 +132,10 @@ function refreshSession(): Promise<RefreshOutcome> {
 
 // Error interceptor
 api.interceptors.response.use(
-  response => response,
+  response => {
+    if (isListingMutation(response.config)) openListingFreshnessWindow();
+    return response;
+  },
   async error => {
     const status = error.response?.status;
     const apiError = error.response?.data;

@@ -262,8 +262,11 @@ jobs:
           # A revert or a bad merge produces a version below the latest, and
           # publishing cannot be undone. Without all_versions the listing
           # carries one entry, the latest, so .[0] does not rest on ordering.
+          # fresh=1 because the listing is CDN-cached: a run that follows
+          # another one closely would otherwise compare against the version
+          # that was latest a minute ago.
           latest=$(curl -fsS --retry 3 --max-time 30 \
-            "$CALIMERO_REGISTRY_URL/api/v2/bundles?package=$PACKAGE" \
+            "$CALIMERO_REGISTRY_URL/api/v2/bundles?package=$PACKAGE&fresh=1" \
             | jq -er '.[0].appVersion // ""') || {
               echo "::error::could not read the published versions"; exit 1; }
 
