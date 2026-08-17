@@ -95,8 +95,8 @@ importers:
         specifier: ^11.3.0
         version: 11.3.0
       '@fastify/multipart':
-        specifier: ^10.1.0
-        version: 10.1.0
+        specifier: ^10.1.1
+        version: 10.1.1
       '@fastify/rate-limit':
         specifier: ^10.3.0
         version: 10.3.0
@@ -1391,8 +1391,8 @@ packages:
       dequal: 2.0.3
     dev: false
 
-  /@fastify/multipart@10.1.0:
-    resolution: {integrity: sha512-b2r6CovmLQvLFJ5HJDtxVigZjcO9TwkRGslhiNQxsGJwilm5B3eqvXPOVLudC44zXMXJITpQ/iEATIE7zoXqcQ==}
+  /@fastify/multipart@10.1.1:
+    resolution: {integrity: sha512-jyRHgnFVdchZRKjJRf6kGPEiDp3Bg4MLo4d6/krt8Z4RutLrqL5IYWihx8a4tnv7Tu7JfuHcyC+dU9zPzTxiSg==}
     dependencies:
       '@fastify/busboy': 3.2.1
       '@fastify/deepmerge': 3.2.1
