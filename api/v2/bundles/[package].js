@@ -6,22 +6,16 @@
 const {
   BundleStorageKV,
 } = require('@calimero-network/registry-backend/src/lib/bundle-storage-kv');
-const { requireAuth } = require('#api-lib/auth-helpers');
+const {
+  requireAuth,
+  canManagePackage,
+  NOT_OWNER_MESSAGE,
+} = require('#api-lib/auth-helpers');
 
 let storage;
 function getStorage() {
   if (!storage) storage = new BundleStorageKV();
   return storage;
-}
-
-function manifestOwnedByUser(manifest, user) {
-  const author = manifest?.metadata?.author;
-  const ownerEmail = manifest?.metadata?._ownerEmail;
-
-  if (user?.username && author === user.username) return true;
-  if (user?.email && ownerEmail === user.email) return true;
-  if (user?.email && !user?.username && author === user.email) return true;
-  return false;
 }
 
 module.exports = async function handler(req, res) {
@@ -65,7 +59,7 @@ module.exports = async function handler(req, res) {
     });
   }
 
-  // Check ownership from the latest version
+  // Check permission against the latest version's author
   let latest;
   try {
     latest = await store.getBundleManifest(pkg, versions[0]);
@@ -77,10 +71,10 @@ module.exports = async function handler(req, res) {
     });
   }
 
-  if (!manifestOwnedByUser(latest, user)) {
+  if (!(await canManagePackage(pkg, latest, user))) {
     return res.status(403).json({
       error: 'not_owner',
-      message: 'Only the package author can delete this package.',
+      message: NOT_OWNER_MESSAGE,
     });
   }
 

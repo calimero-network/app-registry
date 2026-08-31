@@ -204,12 +204,17 @@ export default function AppDetailPage() {
         !user.username &&
         bundleAuthor === user.email));
   const userEmailLower = user?.email?.toLowerCase() ?? '';
-  const isOrgMember =
-    !!userEmailLower &&
-    !!orgMembersData?.members?.some(
-      m => m.email.toLowerCase() === userEmailLower
-    );
+  const orgRole = userEmailLower
+    ? (orgMembersData?.members?.find(
+        m => m.email.toLowerCase() === userEmailLower
+      )?.role ?? null)
+    : null;
+  const isOrgMember = orgRole !== null;
   const canEdit = isOwner || isOrgMember;
+  // Deleting and yanking are org-administrative, not merely org-membership:
+  // they must line up with canManagePackage() on the API side.
+  const isOrgManager = orgRole === 'owner' || orgRole === 'admin';
+  const canManagePackage = isOwner || isOrgManager || !!user?.isAdmin;
 
   return (
     <div className='space-y-6'>
@@ -441,6 +446,8 @@ export default function AppDetailPage() {
                     !user.username &&
                     vAuthor === user.email));
               const canEditVersion = isVersionOwner || isOrgMember;
+              const canManageVersion =
+                isVersionOwner || isOrgManager || !!user?.isAdmin;
               const isConfirmingThisVersion =
                 confirmDeleteVersion === b.appVersion;
               return (
@@ -475,7 +482,7 @@ export default function AppDetailPage() {
                         Yanked
                       </span>
                     )}
-                    {isVersionOwner &&
+                    {canManageVersion &&
                       (b.yanked ? (
                         confirmUnYankVersion === b.appVersion ? (
                           <span className='flex items-center gap-1.5 text-[11px]'>
@@ -547,7 +554,7 @@ export default function AppDetailPage() {
                           Yank
                         </button>
                       ))}
-                    {isVersionOwner && (
+                    {canManageVersion && (
                       <>
                         {isConfirmingThisVersion ? (
                           <span className='flex items-center gap-1.5 text-[11px]'>
@@ -589,8 +596,8 @@ export default function AppDetailPage() {
         </div>
       )}
 
-      {/* Delete entire package — owner only */}
-      {isOwner && (
+      {/* Delete entire package — author, org admin/owner, or site admin */}
+      {canManagePackage && (
         <div className='card p-4 border-red-900/30'>
           <p className='section-heading mb-3 text-red-400/80'>Danger Zone</p>
           <div className='flex items-center justify-between gap-4'>

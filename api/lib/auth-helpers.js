@@ -5,12 +5,24 @@
 
 const jwt = require('jsonwebtoken');
 const { kv } = require('./kv-client');
-const { getOrgMemberRole } = require('./org-storage');
+const { getOrgMemberRole, getPkg2Org, isOrgAdmin } = require('./org-storage');
 const { isAdmin, isBlacklisted, isBot } = require('./admin-storage');
 const { getUserByEmail } = require('./user-storage');
 const {
   parseCookies,
 } = require('@calimero-network/registry-shared/session-cookies');
+const {
+  manifestOwnedByUser,
+  createPackagePermissions,
+  NOT_OWNER_MESSAGE,
+} = require('@calimero-network/registry-shared/package-permissions');
+
+// isOrgAdmin in this module already covers owners; see package-permissions.
+const { canManagePackage } = createPackagePermissions({
+  getPkg2Org,
+  isOrgManager: isOrgAdmin,
+  isAdmin,
+});
 
 const TOKEN_PREFIX = 'apitoken:';
 
@@ -151,19 +163,6 @@ async function requireAdmin(req, res) {
   return user;
 }
 
-/**
- * Check whether a bundle manifest is owned by the given session user.
- * Ownership is determined by metadata.author (username) or metadata._ownerEmail.
- */
-function manifestOwnedByUser(manifest, user) {
-  const author = manifest?.metadata?.author;
-  const ownerEmail = manifest?.metadata?._ownerEmail;
-  if (user?.username && author === user.username) return true;
-  if (user?.email && ownerEmail === user.email) return true;
-  if (user?.email && !user?.username && author === user.email) return true;
-  return false;
-}
-
 module.exports = {
   resolveUser,
   requireAuth,
@@ -171,4 +170,6 @@ module.exports = {
   requireOrgOwner,
   requireAdmin,
   manifestOwnedByUser,
+  canManagePackage,
+  NOT_OWNER_MESSAGE,
 };
