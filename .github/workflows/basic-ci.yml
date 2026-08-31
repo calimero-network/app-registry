@@ -83,7 +83,9 @@ jobs:
     name: Build & Deploy
     runs-on: ubuntu-latest
     needs: [test, security]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # Runs on PRs as well as pushes to main. On a PR the image is built but not
+    # pushed (see `push:` below) — the Dockerfile used to be exercised only
+    # after merge, so a break in it could only ever be discovered on main.
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
@@ -131,6 +133,7 @@ jobs:
           path: dist/
 
       - name: Log in to GitHub Container Registry
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: docker/login-action@v4
         with:
           registry: ghcr.io
@@ -143,7 +146,7 @@ jobs:
           context: .
           file: ./packages/backend/Dockerfile
           platforms: linux/amd64
-          push: true
+          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
           tags: |
             ghcr.io/${{ github.repository }}/backend:${{ github.sha }}
             ghcr.io/${{ github.repository }}/backend:latest
