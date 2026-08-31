@@ -28,13 +28,19 @@ const {
   getPkg2Org,
   setPkg2Org,
   getOrgMemberRole,
+  isOrgAdminOrOwner,
 } = require('./lib/org-storage');
 const { verifySessionToken, verifyApiToken } = require('./lib/auth');
 const { getUserByEmail } = require('./lib/user-storage');
-const { isBot } = require('./lib/admin-storage');
+const { isBot, isAdmin } = require('./lib/admin-storage');
 const {
   autolinkBotPackage,
 } = require('@calimero-network/registry-shared/bot-autolink');
+const {
+  manifestOwnedByUser,
+  createPackagePermissions,
+  NOT_OWNER_MESSAGE,
+} = require('@calimero-network/registry-shared/package-permissions');
 
 async function buildServer() {
   const server = fastify({
@@ -579,15 +585,13 @@ async function buildServer() {
     return true;
   }
 
-  function manifestOwnedByUser(manifest, user) {
-    const author = manifest?.metadata?.author;
-    const ownerEmail = manifest?.metadata?._ownerEmail;
-
-    if (user?.username && author === user.username) return true;
-    if (user?.email && ownerEmail === user.email) return true;
-    if (user?.email && !user?.username && author === user.email) return true;
-    return false;
-  }
+  // isOrgAdmin here is admin-only; isOrgAdminOrOwner is the one that matches
+  // the hosted API's isOrgAdmin. See shared/package-permissions.js.
+  const { canManagePackage } = createPackagePermissions({
+    getPkg2Org,
+    isOrgManager: isOrgAdminOrOwner,
+    isAdmin,
+  });
 
   // DELETE /api/v2/bundles/:package/:version - Delete a specific version
   server.delete('/api/v2/bundles/:package/:version', async (request, reply) => {
@@ -611,10 +615,10 @@ async function buildServer() {
         });
       }
 
-      if (!manifestOwnedByUser(existing, user)) {
+      if (!(await canManagePackage(pkg, existing, user))) {
         return reply.code(403).send({
           error: 'not_owner',
-          message: 'Only the package author can delete this version.',
+          message: NOT_OWNER_MESSAGE,
         });
       }
 
@@ -651,12 +655,12 @@ async function buildServer() {
         });
       }
 
-      // Check ownership from the latest version
+      // Check permission against the latest version's author
       const latest = await bundleStorage.getBundleManifest(pkg, versions[0]);
-      if (!manifestOwnedByUser(latest, user)) {
+      if (!(await canManagePackage(pkg, latest, user))) {
         return reply.code(403).send({
           error: 'not_owner',
-          message: 'Only the package author can delete this package.',
+          message: NOT_OWNER_MESSAGE,
         });
       }
 

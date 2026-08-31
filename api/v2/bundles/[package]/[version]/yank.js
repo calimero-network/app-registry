@@ -3,7 +3,8 @@
  * POST /api/v2/bundles/:package/:version/yank  { yanked: true }   — mark unsupported
  * POST /api/v2/bundles/:package/:version/yank  { yanked: false }  — restore
  *
- * Only the package owner (session user) can yank/unyank.
+ * The package author, an admin or owner of the organization the package belongs
+ * to, or a site admin can yank/unyank.
  * Yanked versions remain accessible at GET /api/v2/bundles/:package/:version
  * so existing installs are not broken.
  */
@@ -11,7 +12,11 @@
 const {
   BundleStorageKV,
 } = require('@calimero-network/registry-backend/src/lib/bundle-storage-kv');
-const { requireAuth, manifestOwnedByUser } = require('#api-lib/auth-helpers');
+const {
+  requireAuth,
+  canManagePackage,
+  NOT_OWNER_MESSAGE,
+} = require('#api-lib/auth-helpers');
 const { kv } = require('#api-lib/kv-client');
 
 // Scoped packages (@org/name) are allowed; bare path traversal sequences are not.
@@ -64,10 +69,10 @@ module.exports = async function handler(req, res) {
   }
   if (!existing) return res.status(404).json({ error: 'not_found' });
 
-  if (!manifestOwnedByUser(existing, user)) {
+  if (!(await canManagePackage(pkg, existing, user))) {
     return res.status(403).json({
       error: 'not_owner',
-      message: 'Only the package owner can yank this version.',
+      message: NOT_OWNER_MESSAGE,
     });
   }
 

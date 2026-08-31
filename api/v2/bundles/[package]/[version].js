@@ -15,23 +15,17 @@ const {
   getPublicKeyFromManifest,
   isAllowedOwner,
 } = require('#api-lib/verify');
-const { requireAuth } = require('#api-lib/auth-helpers');
+const {
+  requireAuth,
+  canManagePackage,
+  NOT_OWNER_MESSAGE,
+} = require('#api-lib/auth-helpers');
 const { kv } = require('#api-lib/kv-client');
 
 let storage;
 function getStorage() {
   if (!storage) storage = new BundleStorageKV();
   return storage;
-}
-
-function manifestOwnedByUser(manifest, user) {
-  const author = manifest?.metadata?.author;
-  const ownerEmail = manifest?.metadata?._ownerEmail;
-
-  if (user?.username && author === user.username) return true;
-  if (user?.email && ownerEmail === user.email) return true;
-  if (user?.email && !user?.username && author === user.email) return true;
-  return false;
 }
 
 let kvClient;
@@ -221,10 +215,10 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    if (!manifestOwnedByUser(existing, user)) {
+    if (!(await canManagePackage(pkg, existing, user))) {
       return res.status(403).json({
         error: 'not_owner',
-        message: 'Only the package author can delete this version.',
+        message: NOT_OWNER_MESSAGE,
       });
     }
 
@@ -242,9 +236,13 @@ module.exports = async function handler(req, res) {
     }
   }
 
-  let kv;
+  // Named apart from the imported `kv`: this used to be `let kv`, which put the
+  // module-level import in a temporal dead zone for the whole handler, so the
+  // DELETE branch's kv.del() threw and reported 500 on a delete that had
+  // already succeeded.
+  let readKv;
   try {
-    kv = await getKV();
+    readKv = await getKV();
   } catch (e) {
     console.error('KV init failed:', e);
     return res.status(500).json({
@@ -263,10 +261,10 @@ module.exports = async function handler(req, res) {
   };
 
   try {
-    const data = await kv.get(`bundle:${pkg}/${version}`);
+    const data = await readKv.get(`bundle:${pkg}/${version}`);
     if (!data) return res.status(404).json({ error: 'not_found' });
     const raw = JSON.parse(data).json;
-    const downloadCount = await kv.get(
+    const downloadCount = await readKv.get(
       `downloads:${(pkg || '').toLowerCase()}`
     );
     const downloads = downloadCount ? parseInt(downloadCount, 10) : 0;
