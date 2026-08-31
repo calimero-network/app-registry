@@ -1,8 +1,10 @@
 # Multi-stage build for Calimero Registry V1 API
-FROM node:18-alpine AS base
+FROM node:24-alpine AS base
 
-# Install pnpm
-RUN npm install -g pnpm
+# Pinned to match the root package.json "packageManager" and the lockfile that
+# pnpm 8 generated. Unpinned, this tracked pnpm@latest and broke the image the
+# day pnpm started verifying the package-manager identity against the lockfile.
+RUN npm install -g pnpm@8.15.0
 
 # Set working directory
 WORKDIR /app
@@ -25,7 +27,7 @@ WORKDIR /app/packages/backend
 RUN npm run build
 
 # Production stage
-FROM node:18-alpine AS production
+FROM node:24-alpine AS production
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs
@@ -38,8 +40,8 @@ WORKDIR /app
 COPY package.json pnpm-lock.yaml ./
 COPY packages/backend/package.json ./packages/backend/
 
-# Install pnpm and dependencies
-RUN npm install -g pnpm
+# Install pnpm and dependencies (same pin as the base stage)
+RUN npm install -g pnpm@8.15.0
 RUN pnpm install --frozen-lockfile --prod
 
 # Copy source code
