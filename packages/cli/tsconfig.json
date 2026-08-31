@@ -3,7 +3,11 @@
     "target": "ES2022",
     "module": "ESNext",
     "lib": ["ES2022"],
-    "moduleResolution": "node",
+    // chalk 6 (and a growing share of the CLI's deps) are ESM-only with an
+    // "exports" map and no top-level "types". node10 resolution ignores
+    // "exports" and cannot see them. The package already emits ESM via tsup and
+    // requires node >= 24, so "bundler" is the resolution that matches reality.
+    "moduleResolution": "bundler",
     "rootDir": "src",
     "outDir": "dist",
     "strict": true,

@@ -7,9 +7,9 @@
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "build": "echo 'Backend is ready to run'",
-    "test": "jest --testPathIgnorePatterns=v2-e2e-developer-flow.test.js --testPathIgnorePatterns=v2-e2e-api-flow.test.js",
-    "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage",
+    "test": "NODE_OPTIONS=--experimental-vm-modules jest --testPathIgnorePatterns=v2-e2e-developer-flow.test.js --testPathIgnorePatterns=v2-e2e-api-flow.test.js",
+    "test:watch": "NODE_OPTIONS=--experimental-vm-modules jest --watch",
+    "test:coverage": "NODE_OPTIONS=--experimental-vm-modules jest --coverage",
     "lint": "eslint src/ tests/",
     "lint:fix": "eslint src/ tests/ --fix",
     "type-check": "echo 'No TypeScript files to check'",
@@ -22,12 +22,12 @@
   },
   "dependencies": {
     "@calimero-network/registry-shared": "workspace:*",
-    "@fastify/cookie": "^11.0.2",
+    "@fastify/cookie": "^11.1.2",
     "@fastify/cors": "^11.3.0",
     "@fastify/multipart": "^10.1.1",
-    "@fastify/rate-limit": "^10.3.0",
+    "@fastify/rate-limit": "^11.2.0",
     "@fastify/swagger": "^9.8.1",
-    "@fastify/swagger-ui": "^6.0.0",
+    "@fastify/swagger-ui": "^6.1.1",
     "@google-cloud/storage": "^7.21.0",
     "@noble/ed25519": "^3.1.0",
     "ajv": "^8.20.0",
@@ -52,8 +52,8 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.6",
     "jest": "^30.0.5",
-    "nodemon": "^3.0.2",
-    "supertest": "^6.3.3"
+    "nodemon": "^3.1.14",
+    "supertest": "^7.2.2"
   },
   "engines": {
     "node": ">=24.0.0"
