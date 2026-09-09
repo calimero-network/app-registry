@@ -440,7 +440,7 @@ export default function OrgDetailPage() {
                   onChange={e =>
                     setNewMemberRole(e.target.value as 'admin' | 'member')
                   }
-                  className='w-full rounded-md border border-white/[0.06] bg-white/[0.03] px-4 py-2 text-[13px] text-neutral-200 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-600/50 focus-visible:border-brand-600/50 transition-all duration-200 cursor-pointer'
+                  className='w-full rounded-md border border-white/[0.06] bg-white/[0.03] px-4 py-2 text-[13px] text-neutral-200 focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-brand-600/50 focus-visible:border-brand-600/50 transition-all duration-200 cursor-pointer'
                 >
                   <option value='member'>Member</option>
                   <option value='admin'>Admin</option>
@@ -996,7 +996,7 @@ function SettingsField({
   multiline?: boolean;
 }) {
   const cls =
-    'w-full rounded-lg border border-white/[0.08] bg-white/[0.06] px-3 py-2 text-[13px] text-neutral-200 placeholder:text-neutral-500 focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600 transition-colors';
+    'w-full rounded-lg border border-white/[0.08] bg-white/[0.06] px-3 py-2 text-[13px] text-neutral-200 placeholder:text-neutral-500 focus:border-brand-600 focus:outline-hidden focus:ring-1 focus:ring-brand-600 transition-colors';
   return (
     <div>
       <label className='block text-[11px] text-neutral-500 mb-1'>{label}</label>

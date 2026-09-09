@@ -1,8 +1,9 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=DM+Sans:wght@400;500;600&display=swap');
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
+
+/* Tailwind v4 reads the v3-style theme/keyframes config from here. */
+@config '../tailwind.config.js';
 
 @layer base {
   :root {
@@ -35,6 +36,17 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     scroll-behavior: smooth;
+  }
+
+  /* v3's preflight set this; v4 leaves buttons at the browser default. */
+  button,
+  [role='button'] {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  [role='button']:disabled {
+    cursor: default;
   }
 
   body {
@@ -92,7 +104,7 @@
   .input {
     @apply flex h-9 w-full px-3 py-2 text-[13px] font-light
            placeholder:text-neutral-500
-           focus-visible:outline-none
+           focus-visible:outline-hidden
            disabled:cursor-not-allowed disabled:opacity-50;
     background: var(--surface);
     border: 1px solid var(--border);

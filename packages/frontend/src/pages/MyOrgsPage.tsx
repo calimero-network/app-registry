@@ -194,7 +194,7 @@ export default function MyOrgsPage() {
                   }}
                   placeholder='Organization name'
                   maxLength={ORG_NAME_MAX}
-                  className={`w-full rounded-lg border bg-white/[0.06] px-4 py-2.5 text-[13px] text-neutral-200 placeholder:text-neutral-500 focus:outline-none focus:ring-1 transition-colors ${
+                  className={`w-full rounded-lg border bg-white/[0.06] px-4 py-2.5 text-[13px] text-neutral-200 placeholder:text-neutral-500 focus:outline-hidden focus:ring-1 transition-colors ${
                     nameError
                       ? 'border-red-500/70 focus:border-red-500 focus:ring-red-500/30'
                       : 'border-white/[0.08] focus:border-brand-600 focus:ring-brand-600'
@@ -220,7 +220,7 @@ export default function MyOrgsPage() {
                   }}
                   placeholder='Slug (e.g. my-org)'
                   maxLength={ORG_SLUG_MAX}
-                  className={`w-full rounded-lg border bg-white/[0.06] px-4 py-2.5 text-[13px] text-neutral-200 placeholder:text-neutral-500 focus:outline-none focus:ring-1 font-mono transition-colors ${
+                  className={`w-full rounded-lg border bg-white/[0.06] px-4 py-2.5 text-[13px] text-neutral-200 placeholder:text-neutral-500 focus:outline-hidden focus:ring-1 font-mono transition-colors ${
                     slugError
                       ? 'border-red-500/70 focus:border-red-500 focus:ring-red-500/30'
                       : 'border-white/[0.08] focus:border-brand-600 focus:ring-brand-600'
@@ -296,7 +296,7 @@ export default function MyOrgsPage() {
                   value={newTokenLabel}
                   onChange={e => setNewTokenLabel(e.target.value)}
                   placeholder='Token label (e.g. laptop)'
-                  className='flex-1 min-w-[160px] rounded-lg border border-white/[0.08] bg-white/[0.06] px-3 py-2 text-[13px] text-neutral-200 placeholder:text-neutral-500 focus:border-brand-600 focus:outline-none'
+                  className='flex-1 min-w-[160px] rounded-lg border border-white/[0.08] bg-white/[0.06] px-3 py-2 text-[13px] text-neutral-200 placeholder:text-neutral-500 focus:border-brand-600 focus:outline-hidden'
                 />
                 <button
                   type='button'
