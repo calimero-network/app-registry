@@ -23,7 +23,7 @@ export function Button({
   disabled = false,
 }: ButtonProps) {
   const baseClasses =
-    'inline-flex items-center justify-center font-bold rounded-none transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none';
+    'inline-flex items-center justify-center font-bold rounded-none transition-all duration-300 focus:outline-hidden focus:ring-2 focus:ring-brand-600 focus:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none';
 
   const variantClasses = {
     primary:
