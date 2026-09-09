@@ -75,9 +75,9 @@
   "dependencies": {
     "@calimero-network/registry-backend": "workspace:*",
     "@calimero-network/registry-shared": "workspace:*",
-    "@noble/ed25519": "^3.1.0",
+    "@noble/ed25519": "^3.2.0",
     "ajv": "^8.20.0",
-    "ajv-formats": "^2.1.1",
+    "ajv-formats": "^3.0.1",
     "busboy": "^1.6.0",
     "canonicalize": "^2.1.0",
     "jsonwebtoken": "^9.0.3",
