@@ -8,6 +8,9 @@ const {
   BundleStorageKV,
 } = require('@calimero-network/registry-backend/src/lib/bundle-storage-kv');
 const {
+  validateBundleMetadata,
+} = require('@calimero-network/registry-backend/src/lib/metadata-policy');
+const {
   validateBundleManifest,
 } = require('@calimero-network/registry-backend/src/lib/v2-utils');
 const {
@@ -147,12 +150,20 @@ async function handlePatch(req, res, pkg, version) {
     });
   }
 
+  // PATCH edits metadata on an ALREADY PUBLISHED version, so this is by
+  // definition not a new package: warn, never block. Blocking here would stop
+  // someone fixing the description of a bundle that is grandfathered on its
+  // icon. It still matters, because PATCH is a way to *remove* a description
+  // or swap in a placeholder icon after the fact.
+  const policy = validateBundleMetadata(body, { isNewPackage: false });
+
   try {
     await store.storeBundleManifest(body, true);
     return res.status(200).json({
       message: 'Bundle metadata updated',
       package: pkg,
       version,
+      ...(policy.warnings.length ? { warnings: policy.warnings } : {}),
     });
   } catch (error) {
     console.error('PATCH store Error:', error);
