@@ -1,38 +1,44 @@
 /**
- * The home hero: the actual journey, in three beats on a loop.
+ * The home hero: browse → install → use, on a loop, full width.
  *
- *   1. Browse   — a marketplace list, cursor lands on a row
- *   2. Install  — a progress bar fills, the row ticks
- *   3. Use      — the app opens: channels on the left, messages arriving
- *                 left and right
+ *   1. Browse   — the registry: real-looking app rows with icons, categories,
+ *                 sizes and download counts; a cursor picks one
+ *   2. Install  — Calimero Desktop: the app card, a progress bar, a tick,
+ *                 then it appears in the launcher dock
+ *   3. Use      — the app opens: channel rail, message thread filling in from
+ *                 both sides, presence dots, a composer
  *
- * The first attempt was an abstract node-mesh. It said nothing a visitor
- * could act on. This shows what the product does, which is the only thing a
- * front-page graphic is for.
+ * ⚠️ NO JAVASCRIPT. A rAF loop on the front page runs forever in every open
+ * tab, backgrounded ones included. This is SMIL on inline SVG: the browser
+ * owns the timeline, pauses it when the tab is hidden, and it costs nothing
+ * on the main thread. It also inherits `prefers-reduced-motion` from the
+ * global reduce block — a JS loop would have bypassed that.
  *
- * ⚠️ STILL NO JAVASCRIPT. A rAF loop on the busiest page runs forever in
- * every open tab, including backgrounded ones. This is SMIL on an inline SVG:
- * the browser owns the timeline, pauses it when the tab is hidden, and it
- * costs nothing on the main thread. It also inherits `prefers-reduced-motion`
- * from the global reduce block — a JS loop would have bypassed that.
- *
- * The whole loop is 12s, and each scene is shown by animating `opacity` on a
- * group. Only opacity and transform are touched; nothing here triggers
- * layout.
+ * Colour is deliberate rather than decorative: the accent marks what is
+ * happening now (the selected row, the progress fill, your own messages),
+ * and everything else is low-opacity neutral, so the eye follows the action
+ * through the three scenes.
  */
 
-const LOOP = '12s';
+const LOOP = '15s';
 
-/** Shared timing: each scene holds for ~4s, cross-fading at the seams. */
-function sceneOpacity(index: number) {
-  // 0 → visible 0-4s, 1 → 4-8s, 2 → 8-12s, with a short fade either side.
-  const points = [
-    ['1;1;0;0;0;0;1', '0;0.30;0.35;0.62;0.67;0.95;1'],
-    ['0;0;1;1;0;0;0', '0;0.30;0.35;0.62;0.67;0.95;1'],
-    ['0;0;0;0;1;1;0', '0;0.30;0.35;0.62;0.67;0.95;1'],
-  ][index];
-  return { values: points[0], keyTimes: points[1] };
+/** Scene visibility. Three beats of ~5s with a short cross-fade at each seam. */
+function scene(i: number) {
+  const v = ['1;1;0;0;0;0;1', '0;0;1;1;0;0;0', '0;0;0;0;1;1;0'][i];
+  return {
+    values: v,
+    keyTimes: '0;0.30;0.34;0.63;0.67;0.96;1',
+    dur: LOOP,
+    repeatCount: 'indefinite' as const,
+    attributeName: 'opacity',
+  };
 }
+
+const ROWS = [
+  { name: 68, meta: 120, cat: 'games', size: 30 },
+  { name: 92, meta: 150, cat: 'social', size: 34 },
+  { name: 58, meta: 104, cat: 'tools', size: 28 },
+];
 
 export function HeroGraphic() {
   return (
@@ -41,175 +47,293 @@ export function HeroGraphic() {
       aria-hidden='true'
       data-testid='hero-graphic'
     >
-      <svg viewBox='0 0 520 340' className='h-full w-full'>
+      <svg viewBox='0 0 900 420' className='h-full w-full'>
         <defs>
-          <clipPath id='hg-screen'>
-            <rect x='40' y='30' width='440' height='268' rx='14' />
+          <clipPath id='hero-clip'>
+            <rect x='16' y='16' width='868' height='388' rx='16' />
           </clipPath>
+          <linearGradient id='hero-glow' x1='0' y1='0' x2='0' y2='1'>
+            <stop offset='0%' stopColor='var(--accent)' stopOpacity='0.10' />
+            <stop offset='100%' stopColor='var(--accent)' stopOpacity='0' />
+          </linearGradient>
         </defs>
 
-        {/* Device frame — constant across all three scenes, so the app feels
-            like it is running inside one window rather than three pictures. */}
+        {/* Window chrome, shared by all three scenes */}
         <rect
-          x='40'
-          y='30'
-          width='440'
-          height='268'
-          rx='14'
+          x='16'
+          y='16'
+          width='868'
+          height='388'
+          rx='16'
           fill='var(--app-rail)'
           stroke='var(--accent)'
-          strokeOpacity='0.25'
+          strokeOpacity='0.22'
         />
-        <g opacity='0.5'>
-          <circle cx='62' cy='48' r='3.5' fill='var(--accent)' opacity='0.6' />
-          <circle cx='76' cy='48' r='3.5' fill='currentColor' opacity='0.25' />
-          <circle cx='90' cy='48' r='3.5' fill='currentColor' opacity='0.25' />
-        </g>
+        <rect x='16' y='16' width='868' height='120' fill='url(#hero-glow)' />
+        <circle cx='44' cy='42' r='5' fill='var(--accent)' opacity='0.7' />
+        <circle cx='62' cy='42' r='5' fill='currentColor' opacity='0.22' />
+        <circle cx='80' cy='42' r='5' fill='currentColor' opacity='0.22' />
+        <rect
+          x='110'
+          y='34'
+          width='300'
+          height='16'
+          rx='8'
+          fill='currentColor'
+          opacity='0.06'
+        />
         <line
-          x1='40'
-          y1='66'
-          x2='480'
-          y2='66'
+          x1='16'
+          y1='68'
+          x2='884'
+          y2='68'
           stroke='var(--accent)'
-          strokeOpacity='0.15'
+          strokeOpacity='0.14'
         />
 
-        <g clipPath='url(#hg-screen)'>
-          {/* ── 1. Browse ── */}
+        <g clipPath='url(#hero-clip)'>
+          {/* ─────────── 1. Browse the registry ─────────── */}
           <g>
-            <animate
-              attributeName='opacity'
-              dur={LOOP}
-              repeatCount='indefinite'
-              {...sceneOpacity(0)}
-            />
-            {[0, 1, 2].map(i => (
-              <g key={i} transform={`translate(0 ${i * 62})`}>
-                <rect
-                  x='64'
-                  y='86'
-                  width='392'
-                  height='50'
-                  rx='10'
-                  fill='currentColor'
-                  opacity={i === 1 ? '0.09' : '0.04'}
-                />
-                <rect
-                  x='78'
-                  y='98'
-                  width='26'
-                  height='26'
-                  rx='7'
-                  fill='var(--accent)'
-                  opacity={i === 1 ? '0.85' : '0.3'}
-                />
-                <rect
-                  x='116'
-                  y='101'
-                  width={i === 1 ? 96 : 70}
-                  height='7'
-                  rx='3.5'
-                  fill='currentColor'
-                  opacity='0.55'
-                />
-                <rect
-                  x='116'
-                  y='114'
-                  width='150'
-                  height='6'
-                  rx='3'
-                  fill='currentColor'
-                  opacity='0.22'
-                />
-                <rect
-                  x='408'
-                  y='103'
-                  width='34'
-                  height='16'
-                  rx='8'
-                  fill='var(--accent)'
-                  opacity={i === 1 ? '0.9' : '0.25'}
-                />
-              </g>
-            ))}
-            {/* Cursor drifting onto the middle row, then a click pulse. */}
+            <animate {...scene(0)} />
+            <text
+              x='48'
+              y='104'
+              fontSize='15'
+              fill='currentColor'
+              fillOpacity='0.75'
+              fontFamily='sans-serif'
+              fontWeight='600'
+            >
+              Explore
+            </text>
+            {[0, 1, 2].map(i => {
+              const r = ROWS[i];
+              const on = i === 1;
+              const y = 126 + i * 86;
+              return (
+                <g key={i}>
+                  <rect
+                    x='48'
+                    y={y}
+                    width='804'
+                    height='72'
+                    rx='12'
+                    fill={on ? 'var(--accent)' : 'currentColor'}
+                    opacity={on ? '0.10' : '0.035'}
+                  />
+                  {on && (
+                    <rect
+                      x='48'
+                      y={y}
+                      width='804'
+                      height='72'
+                      rx='12'
+                      fill='none'
+                      stroke='var(--accent)'
+                      strokeOpacity='0.45'
+                    />
+                  )}
+                  <rect
+                    x='68'
+                    y={y + 14}
+                    width='44'
+                    height='44'
+                    rx='12'
+                    fill='var(--accent)'
+                    opacity={on ? '0.9' : '0.28'}
+                  />
+                  <rect
+                    x='128'
+                    y={y + 18}
+                    width={r.name}
+                    height='9'
+                    rx='4.5'
+                    fill='currentColor'
+                    opacity={on ? '0.8' : '0.5'}
+                  />
+                  <rect
+                    x='128'
+                    y={y + 34}
+                    width={r.meta}
+                    height='7'
+                    rx='3.5'
+                    fill='currentColor'
+                    opacity='0.24'
+                  />
+                  {/* category chip */}
+                  <rect
+                    x='128'
+                    y={y + 48}
+                    width='58'
+                    height='13'
+                    rx='6.5'
+                    fill='currentColor'
+                    opacity='0.09'
+                  />
+                  <rect
+                    x='136'
+                    y={y + 52}
+                    width='42'
+                    height='5'
+                    rx='2.5'
+                    fill='currentColor'
+                    opacity='0.35'
+                  />
+                  {/* size + downloads */}
+                  <rect
+                    x='640'
+                    y={y + 32}
+                    width={r.size}
+                    height='7'
+                    rx='3.5'
+                    fill='currentColor'
+                    opacity='0.28'
+                  />
+                  <rect
+                    x='690'
+                    y={y + 32}
+                    width='26'
+                    height='7'
+                    rx='3.5'
+                    fill='currentColor'
+                    opacity='0.28'
+                  />
+                  {/* install button */}
+                  <rect
+                    x='752'
+                    y={y + 22}
+                    width='80'
+                    height='28'
+                    rx='14'
+                    fill='var(--accent)'
+                    opacity={on ? '1' : '0.22'}
+                  />
+                </g>
+              );
+            })}
+            {/* Cursor arrives on the middle row and clicks */}
             <g>
               <animateMotion
                 dur={LOOP}
                 repeatCount='indefinite'
-                path='M470,270 L440,190 L430,172'
-                keyPoints='0;0.7;1'
-                keyTimes='0;0.22;0.3'
+                path='M860,380 L820,300 L800,244'
+                keyPoints='0;0.6;1'
+                keyTimes='0;0.18;0.27'
                 calcMode='linear'
               />
+              <circle r='0' fill='var(--accent)' opacity='0.5'>
+                <animate
+                  attributeName='r'
+                  dur={LOOP}
+                  repeatCount='indefinite'
+                  values='0;0;22;0'
+                  keyTimes='0;0.27;0.30;0.31'
+                />
+                <animate
+                  attributeName='opacity'
+                  dur={LOOP}
+                  repeatCount='indefinite'
+                  values='0;0;0.45;0'
+                  keyTimes='0;0.27;0.285;0.31'
+                />
+              </circle>
               <path
-                d='M0 0 L0 13 L3.6 9.6 L6 15 L8.4 13.6 L6 8.6 L11 8.4 Z'
+                d='M0 0 L0 22 L6 16 L10 25 L14 23 L10 14.5 L18.5 14 Z'
                 fill='currentColor'
+                stroke='var(--app-rail)'
+                strokeWidth='1.5'
               />
             </g>
           </g>
 
-          {/* ── 2. Install ── */}
+          {/* ─────────── 2. Install into Calimero Desktop ─────────── */}
           <g>
-            <animate
-              attributeName='opacity'
-              dur={LOOP}
-              repeatCount='indefinite'
-              {...sceneOpacity(1)}
-            />
-            <rect
-              x='150'
-              y='120'
-              width='220'
-              height='88'
-              rx='12'
+            <animate {...scene(1)} />
+            <text
+              x='48'
+              y='104'
+              fontSize='15'
               fill='currentColor'
-              opacity='0.06'
+              fillOpacity='0.75'
+              fontFamily='sans-serif'
+              fontWeight='600'
+            >
+              Calimero Desktop
+            </text>
+
+            <rect
+              x='250'
+              y='124'
+              width='400'
+              height='190'
+              rx='16'
+              fill='currentColor'
+              opacity='0.05'
             />
             <rect
-              x='170'
-              y='140'
-              width='36'
-              height='36'
-              rx='9'
+              x='250'
+              y='124'
+              width='400'
+              height='190'
+              rx='16'
+              fill='none'
+              stroke='var(--accent)'
+              strokeOpacity='0.2'
+            />
+            <rect
+              x='286'
+              y='158'
+              width='64'
+              height='64'
+              rx='18'
               fill='var(--accent)'
-              opacity='0.85'
+              opacity='0.9'
             />
             <rect
-              x='218'
-              y='146'
-              width='96'
+              x='368'
+              y='168'
+              width='150'
+              height='11'
+              rx='5.5'
+              fill='currentColor'
+              opacity='0.7'
+            />
+            <rect
+              x='368'
+              y='188'
+              width='104'
               height='8'
               rx='4'
               fill='currentColor'
-              opacity='0.55'
+              opacity='0.28'
             />
             <rect
-              x='218'
-              y='160'
-              width='60'
-              height='6'
-              rx='3'
-              fill='currentColor'
-              opacity='0.25'
+              x='368'
+              y='204'
+              width='62'
+              height='13'
+              rx='6.5'
+              fill='var(--accent)'
+              opacity='0.2'
             />
-            {/* Track + fill */}
+
+            {/* Progress */}
             <rect
-              x='170'
-              y='188'
-              width='180'
-              height='7'
-              rx='3.5'
+              x='286'
+              y='250'
+              width='328'
+              height='10'
+              rx='5'
               fill='currentColor'
-              opacity='0.12'
+              opacity='0.1'
             />
-            <rect x='170' y='188' height='7' rx='3.5' fill='var(--accent)'>
+            <rect x='286' y='250' height='10' rx='5' fill='var(--accent)'>
               <animate
                 attributeName='width'
                 dur={LOOP}
                 repeatCount='indefinite'
-                values='0;0;180;180;180'
-                keyTimes='0;0.35;0.58;0.62;1'
+                values='0;0;328;328;328'
+                keyTimes='0;0.36;0.56;0.62;1'
               />
             </rect>
             <g opacity='0'>
@@ -218,84 +342,198 @@ export function HeroGraphic() {
                 dur={LOOP}
                 repeatCount='indefinite'
                 values='0;0;1;1;0'
-                keyTimes='0;0.57;0.60;0.63;0.66'
+                keyTimes='0;0.555;0.58;0.64;0.67'
               />
-              <circle cx='360' cy='191' r='9' fill='var(--accent)' />
+              <circle cx='630' cy='255' r='14' fill='var(--accent)' />
               <path
-                d='M356 191l3 3 6-6'
+                d='M623 255l5 5 10-11'
                 stroke='var(--app-rail)'
-                strokeWidth='2'
+                strokeWidth='3'
                 fill='none'
                 strokeLinecap='round'
                 strokeLinejoin='round'
               />
             </g>
+
+            {/* Launcher dock — the installed app lands here */}
+            <rect
+              x='286'
+              y='288'
+              width='328'
+              height='2'
+              rx='1'
+              fill='currentColor'
+              opacity='0.08'
+            />
+            {[0, 1, 2].map(i => (
+              <rect
+                key={i}
+                x={310 + i * 56}
+                y='300'
+                width='36'
+                height='36'
+                rx='11'
+                fill='currentColor'
+                opacity='0.09'
+              />
+            ))}
+            <g opacity='0'>
+              <animate
+                attributeName='opacity'
+                dur={LOOP}
+                repeatCount='indefinite'
+                values='0;0;1;1;0'
+                keyTimes='0;0.585;0.61;0.64;0.67'
+              />
+              <rect
+                x='478'
+                y='300'
+                width='36'
+                height='36'
+                rx='11'
+                fill='var(--accent)'
+              />
+            </g>
           </g>
 
-          {/* ── 3. Use: a chat with channels and messages ── */}
+          {/* ─────────── 3. Use it ─────────── */}
           <g>
-            <animate
-              attributeName='opacity'
-              dur={LOOP}
-              repeatCount='indefinite'
-              {...sceneOpacity(2)}
-            />
+            <animate {...scene(2)} />
             {/* Channel rail */}
             <rect
-              x='40'
-              y='66'
-              width='104'
-              height='232'
+              x='16'
+              y='68'
+              width='200'
+              height='336'
               fill='currentColor'
               opacity='0.05'
             />
-            {[0, 1, 2, 3].map(i => (
+            <rect
+              x='44'
+              y='94'
+              width='96'
+              height='9'
+              rx='4.5'
+              fill='currentColor'
+              opacity='0.55'
+            />
+            {[0, 1, 2, 3, 4].map(i => (
               <g key={i}>
                 <rect
-                  x='56'
-                  y={86 + i * 30}
-                  width='72'
-                  height='16'
+                  x='36'
+                  y={120 + i * 34}
+                  width='160'
+                  height='26'
                   rx='8'
                   fill={i === 1 ? 'var(--accent)' : 'currentColor'}
-                  opacity={i === 1 ? '0.75' : '0.16'}
+                  opacity={i === 1 ? '0.16' : '0.04'}
+                />
+                <rect
+                  x='50'
+                  y={130 + i * 34}
+                  width={[74, 96, 62, 84, 70][i]}
+                  height='7'
+                  rx='3.5'
+                  fill={i === 1 ? 'var(--accent)' : 'currentColor'}
+                  opacity={i === 1 ? '0.85' : '0.28'}
                 />
               </g>
             ))}
-            {/* Messages, alternating sides, arriving one after another */}
+            {/* Presence */}
+            {[0, 1, 2, 3].map(i => (
+              <circle
+                key={`p${i}`}
+                cx={50 + i * 22}
+                cy='376'
+                r='9'
+                fill='var(--accent)'
+                opacity={0.85 - i * 0.18}
+              />
+            ))}
+
+            {/* Thread */}
             {[
-              { x: 164, y: 92, w: 150, mine: false, t: 0.7 },
-              { x: 286, y: 128, w: 170, mine: true, t: 0.76 },
-              { x: 164, y: 164, w: 120, mine: false, t: 0.82 },
-              { x: 252, y: 200, w: 204, mine: true, t: 0.88 },
+              { x: 248, w: 300, h: 54, mine: false, t: 0.685 },
+              { x: 470, w: 366, h: 40, mine: true, t: 0.745 },
+              { x: 248, w: 234, h: 40, mine: false, t: 0.805 },
+              { x: 404, w: 432, h: 54, mine: true, t: 0.865 },
             ].map((m, i) => (
-              <g key={i} opacity='0'>
+              <g key={`m${i}`} opacity='0'>
                 <animate
                   attributeName='opacity'
                   dur={LOOP}
                   repeatCount='indefinite'
-                  values={`0;0;1;1;0`}
-                  keyTimes={`0;${m.t};${m.t + 0.03};0.95;1`}
+                  values='0;0;1;1;0'
+                  keyTimes={`0;${m.t};${m.t + 0.02};0.96;1`}
                 />
                 <animateTransform
                   attributeName='transform'
                   type='translate'
                   dur={LOOP}
                   repeatCount='indefinite'
-                  values={`${m.mine ? 14 : -14},0;${m.mine ? 14 : -14},0;0,0;0,0;0,0`}
-                  keyTimes={`0;${m.t};${m.t + 0.03};0.95;1`}
+                  values={`${m.mine ? 26 : -26},0;${m.mine ? 26 : -26},0;0,0;0,0;0,0`}
+                  keyTimes={`0;${m.t};${m.t + 0.02};0.96;1`}
                 />
                 <rect
                   x={m.x}
-                  y={m.y}
+                  y={110 + i * 62}
                   width={m.w}
-                  height='26'
-                  rx='9'
+                  height={m.h}
+                  rx='14'
                   fill={m.mine ? 'var(--accent)' : 'currentColor'}
-                  opacity={m.mine ? '0.8' : '0.1'}
+                  opacity={m.mine ? '0.82' : '0.08'}
                 />
+                <rect
+                  x={m.x + 18}
+                  y={110 + i * 62 + 15}
+                  width={m.w * 0.55}
+                  height='7'
+                  rx='3.5'
+                  fill={m.mine ? 'var(--app-rail)' : 'currentColor'}
+                  opacity={m.mine ? '0.5' : '0.3'}
+                />
+                {m.h > 44 && (
+                  <rect
+                    x={m.x + 18}
+                    y={110 + i * 62 + 30}
+                    width={m.w * 0.34}
+                    height='7'
+                    rx='3.5'
+                    fill={m.mine ? 'var(--app-rail)' : 'currentColor'}
+                    opacity={m.mine ? '0.35' : '0.18'}
+                  />
+                )}
               </g>
             ))}
+
+            {/* Composer with a blinking caret */}
+            <rect
+              x='248'
+              y='356'
+              width='588'
+              height='34'
+              rx='17'
+              fill='currentColor'
+              opacity='0.06'
+            />
+            <rect
+              x='268'
+              y='370'
+              width='110'
+              height='7'
+              rx='3.5'
+              fill='currentColor'
+              opacity='0.22'
+            />
+            <rect x='384' y='366' width='2' height='15' fill='var(--accent)'>
+              <animate
+                attributeName='opacity'
+                values='1;0;1'
+                dur='1.1s'
+                repeatCount='indefinite'
+              />
+            </rect>
+            <circle cx='814' cy='373' r='13' fill='var(--accent)' />
           </g>
         </g>
       </svg>

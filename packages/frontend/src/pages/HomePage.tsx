@@ -1,6 +1,5 @@
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Boxes, Share2, ShieldCheck } from 'lucide-react';
 import { DesktopArt, DocsArt } from '@/components/PromoArt';
 import { getApps } from '@/lib/api';
 import { AppCard } from '@/components/AppCard';
@@ -28,27 +27,6 @@ const FEATURED = [
   'com.calimero.mero-chat',
   'com.calimero.mero-design',
   'com.calimero.mero-sign',
-];
-
-const POINTS = [
-  {
-    icon: Boxes,
-    term: 'Self-contained',
-    detail:
-      'A signed WebAssembly service holds the data and the logic, paired with its own frontend.',
-  },
-  {
-    icon: Share2,
-    term: 'Peer to peer',
-    detail:
-      'Installed apps sync directly with everyone in the same namespace. No server in the middle.',
-  },
-  {
-    icon: ShieldCheck,
-    term: 'Verifiable',
-    detail:
-      'Every version is signed and immutable, so what you install is what its author published.',
-  },
 ];
 
 const PROMOS = [
@@ -101,33 +79,23 @@ export default function HomePage() {
 
   return (
     <div className='space-y-14'>
-      <section className='grid items-center gap-8 lg:grid-cols-[1.15fr_1fr]'>
-        <div>
+      <section>
+        {/* Title and one line of copy. The three-point list that was here
+            said the same thing at four times the length; the animation below
+            shows it instead. */}
+        <div className='flex flex-wrap items-baseline gap-x-3 gap-y-1'>
           <h1 className='text-2xl font-semibold tracking-tight text-neutral-100 sm:text-3xl'>
             App Registry
           </h1>
-          <p className='mt-2.5 max-w-lg text-[13.5px] font-light leading-relaxed text-neutral-400'>
+          <p className='text-[13.5px] font-light text-neutral-400'>
             Applications for Calimero — signed, versioned, and installed into a
             node you run yourself.
           </p>
-          <dl className='mt-6 grid max-w-lg gap-x-6 gap-y-4 sm:grid-cols-3'>
-            {POINTS.map(pt => (
-              <div key={pt.term}>
-                <dt className='flex items-center gap-1.5 text-[12.5px] font-medium text-neutral-200'>
-                  <pt.icon
-                    className='h-3.5 w-3.5 text-brand-600'
-                    aria-hidden='true'
-                  />
-                  {pt.term}
-                </dt>
-                <dd className='mt-1 text-[12px] font-light leading-relaxed text-neutral-500'>
-                  {pt.detail}
-                </dd>
-              </div>
-            ))}
-          </dl>
         </div>
-        <div className='hidden h-64 lg:block'>
+
+        {/* Full width and tall: this is the explanation, so it has to be big
+            enough to read as a sequence rather than as decoration. */}
+        <div className='mt-6 aspect-[900/420] w-full'>
           <HeroGraphic />
         </div>
       </section>
@@ -187,7 +155,6 @@ export default function HomePage() {
                 to={`/explore?category=${c}`}
                 className='inline-flex items-center gap-1.5 rounded-full border border-ink/[0.08] bg-ink/[0.02] px-3 py-1.5 text-[12.5px] text-neutral-300 transition-colors duration-150 hover:border-ink/[0.16] hover:text-neutral-100'
               >
-                <Boxes className='h-3.5 w-3.5 opacity-60' aria-hidden='true' />
                 {formatCategory(c)}
               </Link>
             ))}

@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { AppIcon } from './AppIcon';
+import { APP_ART } from './AppArt';
 import { getPackageAssets } from '@/lib/api';
 import type { AppSummary } from '@/types/api';
 
@@ -30,6 +31,10 @@ export function ShowcaseCard({ app }: { app: AppSummary }) {
   });
 
   const shot = data?.assets?.find(a => a.kind === 'image');
+  // A hand-drawn miniature of the app's actual interface, for the ones we
+  // build. An uploaded screenshot still wins — the drawing is a stand-in
+  // until there is a real one, not a permanent substitute.
+  const Art = APP_ART[app.package_name];
 
   return (
     <Link
@@ -37,7 +42,7 @@ export function ShowcaseCard({ app }: { app: AppSummary }) {
       data-testid='showcase-card'
       className='group flex flex-col overflow-hidden rounded-2xl border border-ink/[0.06] bg-ink/[0.02] transition-colors duration-150 hover:border-ink/[0.14]'
     >
-      <div className='relative h-40 overflow-hidden bg-ink/[0.03]'>
+      <div className='relative h-44 overflow-hidden bg-ink/[0.03]'>
         {shot ? (
           <img
             src={shot.url}
@@ -46,6 +51,8 @@ export function ShowcaseCard({ app }: { app: AppSummary }) {
             decoding='async'
             className='h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.04]'
           />
+        ) : Art ? (
+          <Art className='h-full w-full transition-transform duration-500 ease-out group-hover:scale-[1.04]' />
         ) : (
           <div className='flex h-full items-center justify-center'>
             <AppIcon
