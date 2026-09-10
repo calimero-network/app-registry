@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { navigation } from '@/constants/navigation';
 import { ProfileDropdown } from './ProfileDropdown';
 import { GlobalSearch } from './GlobalSearch';
+import { RegistryMark } from './RegistryMark';
 import calimeroLogo from '@/assets/calimero-logo.svg';
 
 const FOOTER_LINKS = [
@@ -77,12 +78,7 @@ export function Layout({ children }: LayoutProps) {
         aria-label='Calimero App Registry — home'
         data-testid='rail-brand'
       >
-        <img
-          src={calimeroLogo}
-          alt='Calimero'
-          className='h-6 opacity-90 transition-opacity hover:opacity-100'
-          style={{ filter: 'brightness(0) invert(1)' }}
-        />
+        <RegistryMark />
       </Link>
 
       <GlobalSearch onNavigate={() => setMobileOpen(false)} />
@@ -134,12 +130,7 @@ export function Layout({ children }: LayoutProps) {
       {/* ── Mobile bar + drawer ── */}
       <header className='sticky top-0 z-40 flex h-14 items-center justify-between border-b border-white/[0.06] bg-[#0d1117]/95 px-4 backdrop-blur-xl md:hidden'>
         <Link to='/' aria-label='Calimero App Registry — home'>
-          <img
-            src={calimeroLogo}
-            alt='Calimero'
-            className='h-5 opacity-90'
-            style={{ filter: 'brightness(0) invert(1)' }}
-          />
+          <RegistryMark variant='compact' />
         </Link>
         <button
           onClick={() => setMobileOpen(v => !v)}

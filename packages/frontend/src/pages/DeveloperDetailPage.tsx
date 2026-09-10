@@ -1,13 +1,8 @@
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import {
-  Package,
-  User,
-  ArrowLeft,
-  ArrowUpRight,
-  BadgeCheck,
-} from 'lucide-react';
-import { api } from '@/lib/api';
+import { Package, User, ArrowLeft, BadgeCheck } from 'lucide-react';
+import { api, toAppSummary } from '@/lib/api';
+import { AppCard } from '@/components/AppCard';
 
 interface V2Bundle {
   version: string;
@@ -106,31 +101,13 @@ export default function DeveloperDetailPage() {
       {/* Published apps */}
       <div>
         <p className='section-heading mb-3'>Published Applications</p>
-        <div className='grid grid-cols-1 sm:grid-cols-2 gap-3'>
+        {/* The same card Home and Explore use. This page had its own markup,
+            which is why it showed no icon, no downloads and no size, and why
+            it was the only surface still carrying the lime `glow-border`
+            hover. Reusing the component means it cannot drift again. */}
+        <div className='grid gap-3'>
           {apps.map(bundle => (
-            <Link
-              key={bundle.package}
-              to={`/apps/${bundle.package}`}
-              className='card p-4 group hover:border-brand-600/30 glow-border'
-            >
-              <div className='flex items-start justify-between mb-1.5'>
-                <h3 className='text-[13px] font-medium text-neutral-200 truncate pr-2 group-hover:text-white transition-colors'>
-                  {bundle.metadata?.name || bundle.package}
-                </h3>
-                <ArrowUpRight className='w-3.5 h-3.5 text-neutral-600 group-hover:text-brand-600 transition-all flex-shrink-0 mt-0.5' />
-              </div>
-              <p className='text-[11px] text-neutral-500 font-mono truncate'>
-                {bundle.package}
-              </p>
-              {bundle.metadata?.description && (
-                <p className='text-[11px] text-neutral-500 font-light mt-1.5 line-clamp-2'>
-                  {bundle.metadata.description}
-                </p>
-              )}
-              <p className='text-[11px] text-neutral-600 font-mono mt-2'>
-                v{bundle.appVersion}
-              </p>
-            </Link>
+            <AppCard key={bundle.package} app={toAppSummary(bundle)} />
           ))}
         </div>
       </div>
@@ -143,7 +120,7 @@ export default function DeveloperDetailPage() {
             <Link
               key={`${b.package}-${b.appVersion}`}
               to={`/apps/${b.package}`}
-              className='card px-4 py-2.5 flex items-center justify-between group hover:border-brand-600/30'
+              className='group flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-2.5 transition-colors duration-150 hover:border-white/[0.14] hover:bg-white/[0.04]'
             >
               <div className='flex items-center gap-2 min-w-0'>
                 <Package className='w-3 h-3 text-neutral-600 flex-shrink-0' />

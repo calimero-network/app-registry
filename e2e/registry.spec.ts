@@ -44,10 +44,22 @@ test.describe('global search', () => {
     await expect(page.getByTestId('app-card')).toContainText('Mero Chat');
   });
 
-  test('searches the description, not just the name', async ({ page }) => {
+  test('does NOT search descriptions', async ({ page }) => {
+    // Inverted deliberately. Descriptions run to a couple of hundred words, so
+    // including them makes a short query match nearly everything and the
+    // result count stops meaning anything. "geofencing" appears only in Mero
+    // Tag's description, so a description-searching build returns 1 here.
     await page.goto('/explore?q=geofencing');
+    await expect(page.getByTestId('empty-state')).toBeVisible();
+    await expect(page.getByTestId('app-card')).toHaveCount(0);
+  });
+
+  test('matches on the package id and on the creator', async ({ page }) => {
+    await page.goto('/explore?q=mero-chat');
     await expect(page.getByTestId('app-card')).toHaveCount(1);
-    await expect(page.getByTestId('app-card')).toContainText('Mero Tag');
+
+    await page.goto('/explore?q=calimero-network');
+    await expect(page.getByTestId('app-card')).toHaveCount(4);
   });
 });
 
@@ -175,5 +187,41 @@ test.describe('motion', () => {
       .locator('[class*="stagger-"], [class*="animate-slide-up"]')
       .count();
     expect(staggered).toBe(0);
+  });
+});
+
+test.describe('sign in', () => {
+  test('goes straight to Google, with no interstitial', async ({ page }) => {
+    await page.goto('/');
+    const signIn = page.getByTestId('sign-in');
+    await expect(signIn).toBeVisible();
+    // A real href, not a router push: this leaves the SPA for the provider.
+    await expect(signIn).toHaveAttribute('href', '/api/auth/google');
+  });
+
+  test('the sign-in button is as wide as the nav items', async ({ page }) => {
+    await page.goto('/');
+    const nav = await page.getByTestId('nav-explore').boundingBox();
+    const signIn = await page.getByTestId('sign-in').boundingBox();
+    expect(Math.abs(nav!.width - signIn!.width)).toBeLessThan(2);
+  });
+
+  test('a failed sign-in surfaces as a toast, not a blank page', async ({
+    page,
+  }) => {
+    // /login cannot be deleted — lib/api.ts and ProtectedRoute both navigate
+    // there on their own. It must turn ?error into something visible, or a
+    // failed login fails silently.
+    await page.goto('/login?error=oauth_failed');
+    const toast = page.getByTestId('toast');
+    await expect(toast).toBeVisible();
+    await expect(toast).toContainText('Google sign-in failed');
+  });
+
+  test('an expired session still lands somewhere that explains itself', async ({
+    page,
+  }) => {
+    await page.goto('/login?error=session_expired&from=%2Fupload');
+    await expect(page.getByTestId('toast')).toContainText('session expired');
   });
 });

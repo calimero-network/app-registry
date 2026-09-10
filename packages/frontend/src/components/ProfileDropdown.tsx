@@ -1,6 +1,13 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Box, Building2, LogOut, BadgeCheck, ShieldCheck } from 'lucide-react';
+import {
+  Box,
+  Building2,
+  LogIn,
+  LogOut,
+  BadgeCheck,
+  ShieldCheck,
+} from 'lucide-react';
 import type { AuthUser } from '@/contexts/AuthContext';
 
 interface ProfileDropdownProps {
@@ -58,14 +65,24 @@ export function ProfileDropdown({
   }
 
   if (!user) {
+    // A plain <a>, not a router Link: this leaves the SPA for Google's OAuth
+    // endpoint, so it must be a real navigation. There is no interstitial —
+    // one click goes straight to the provider. Errors come back as
+    // `?error=…` and are turned into a toast by AuthErrorToast.
+    //
+    // Width and shape match the nav items above it (item 2): the signed-out
+    // state used `nav-link ml-2`, which was narrower than everything else in
+    // the rail and hung off to one side.
     return (
-      <Link
-        to='/login'
-        className={`nav-link nav-link-inactive ml-2`}
+      <a
+        href='/api/auth/google'
         onClick={onNavigate}
+        data-testid='sign-in'
+        className='flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] text-neutral-400 transition-colors duration-150 hover:bg-white/[0.04] hover:text-neutral-200'
       >
+        <LogIn className='h-4 w-4 flex-shrink-0' aria-hidden='true' />
         Sign in
-      </Link>
+      </a>
     );
   }
 

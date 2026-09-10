@@ -173,29 +173,6 @@
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
-
-  .glow-border {
-    position: relative;
-  }
-
-  .glow-border::after {
-    content: '';
-    position: absolute;
-    inset: -1px;
-    border-radius: inherit;
-    background: linear-gradient(
-      135deg,
-      rgba(165, 255, 17, 0.2),
-      transparent 50%
-    );
-    z-index: -1;
-    opacity: 0;
-    transition: opacity 0.3s ease;
-  }
-
-  .glow-border:hover::after {
-    opacity: 1;
-  }
 }
 
 @layer utilities {

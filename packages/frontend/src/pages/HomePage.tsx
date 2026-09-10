@@ -97,7 +97,7 @@ export default function HomePage() {
         {isLoading ? (
           <SkeletonGrid />
         ) : (
-          <div className='mt-3 grid gap-3 lg:grid-cols-2'>
+          <div className='mt-3 grid gap-3'>
             {recent.map(app => (
               <AppCard key={app.id} app={app} />
             ))}
@@ -108,7 +108,7 @@ export default function HomePage() {
       {popular.length > 0 && (
         <section>
           <SectionHeading title='Most downloaded' href='/explore' />
-          <div className='mt-3 grid gap-3 lg:grid-cols-2'>
+          <div className='mt-3 grid gap-3'>
             {popular.map(app => (
               <AppCard key={app.id} app={app} size='compact' />
             ))}
@@ -137,7 +137,7 @@ function SectionHeading({ title, href }: { title: string; href?: string }) {
 
 function SkeletonGrid() {
   return (
-    <div className='mt-3 grid gap-3 lg:grid-cols-2'>
+    <div className='mt-3 grid gap-3'>
       {Array.from({ length: 4 }).map((_, i) => (
         <div
           key={i}

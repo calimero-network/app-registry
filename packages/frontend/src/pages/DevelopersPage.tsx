@@ -109,7 +109,7 @@ function DeveloperCard({
   return (
     <Link
       to={`/developers/${encodeURIComponent(developer.pubkey)}`}
-      className='card block px-4 py-3 group hover:border-brand-600/30 glow-border'
+      className='group block rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-3 transition-colors duration-150 hover:border-white/[0.14] hover:bg-white/[0.04]'
     >
       <div className='flex items-center justify-between'>
         <div className='flex items-center gap-3 min-w-0'>
@@ -117,7 +117,7 @@ function DeveloperCard({
             <User className='w-3.5 h-3.5 text-neutral-400' />
           </div>
           <div className='min-w-0'>
-            <h3 className='flex items-center gap-1.5 text-[13px] font-medium text-neutral-200 truncate group-hover:text-white transition-colors'>
+            <h3 className='flex items-center gap-1.5 truncate text-[13px] font-medium text-neutral-100'>
               <span className='font-mono truncate'>{displayName}</span>
               {developer.verified && (
                 <BadgeCheck className='h-3.5 w-3.5 flex-shrink-0 text-emerald-400' />

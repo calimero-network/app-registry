@@ -49,15 +49,16 @@ export default function ExplorePage() {
     return (apps as AppSummary[]).filter(app => {
       if (category && app.category !== category) return false;
       if (!query) return true;
-      // Description and tags are searched too: "spreadsheet" should find
-      // mero-sheets even though the word is in neither its name nor its id.
+      // Identity only: name, package, creator. Descriptions are deliberately
+      // NOT searched — they run to a couple of hundred words, so a short query
+      // like "a" or "app" matches nearly every bundle and the result count
+      // stops meaning anything. Tags are excluded for the same reason the
+      // category chips exist: that is what they are for.
       return [
         app.name,
         app.package_name,
-        app.description,
         app.developer?.display_name,
         app.developer_pubkey,
-        ...(app.tags ?? []),
       ]
         .filter(Boolean)
         .some(field => String(field).toLowerCase().includes(query));
@@ -149,7 +150,7 @@ export default function ExplorePage() {
       </p>
 
       {isLoading ? (
-        <div className='grid gap-3 lg:grid-cols-2'>
+        <div className='grid gap-3'>
           {Array.from({ length: 6 }).map((_, i) => (
             <div
               key={i}
@@ -185,7 +186,7 @@ export default function ExplorePage() {
           )}
         </div>
       ) : (
-        <div className='grid gap-3 lg:grid-cols-2'>
+        <div className='grid gap-3'>
           {filtered.map(app => (
             <AppCard key={app.id} app={app} />
           ))}
