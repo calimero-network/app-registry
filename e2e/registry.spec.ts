@@ -304,3 +304,54 @@ test.describe('light / dark', () => {
     expect(accent).not.toBe('165 255 17');
   });
 });
+
+test.describe('home shelves', () => {
+  test('leads with a title and an explanation', async ({ page }) => {
+    await page.goto('/');
+    await expect(
+      page.getByRole('heading', { name: 'App Registry', level: 1 })
+    ).toBeVisible();
+    await expect(page.locator('main')).toContainText('signed WebAssembly');
+  });
+
+  test('the hero animates without JavaScript', async ({ page }) => {
+    // A rAF loop on the front page runs forever in every open tab. This is a
+    // pure-SVG/CSS graphic, so it also inherits prefers-reduced-motion.
+    await page.goto('/');
+    await expect(page.getByTestId('hero-graphic')).toBeAttached();
+    const animateEls = await page
+      .locator(
+        '[data-testid="hero-graphic"] animate, [data-testid="hero-graphic"] animateMotion'
+      )
+      .count();
+    expect(animateEls).toBeGreaterThan(0);
+  });
+
+  test('promos are links, not app cards', async ({ page }) => {
+    // Rendering an outbound link as an AppCard would imply /apps/:id routing
+    // and make a docs site look installable.
+    await page.goto('/');
+    const promos = page.getByTestId('promo-tile');
+    await expect(promos).toHaveCount(2);
+    await expect(promos.first()).toHaveAttribute('href', /calimero\.network/);
+  });
+
+  test('featured apps render large cards, and unknown ids drop out', async ({
+    page,
+  }) => {
+    // The fixture publishes mero-chat but neither mero-design nor mero-sign,
+    // so exactly one showcase card should survive — an id with no package
+    // must render nothing rather than an empty frame.
+    await page.goto('/');
+    await expect(page.getByTestId('showcase-card')).toHaveCount(1);
+    await expect(page.getByTestId('showcase-card')).toContainText('Mero Chat');
+  });
+
+  test('a featured app is not repeated in Recently updated', async ({
+    page,
+  }) => {
+    await page.goto('/');
+    const recent = page.getByTestId('app-card');
+    await expect(recent).toHaveCount(3); // 4 fixture apps minus the featured one
+  });
+});

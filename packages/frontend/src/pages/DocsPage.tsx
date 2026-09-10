@@ -469,11 +469,35 @@ github = "https://github.com/example/my-app"`}</CodeBlock>
             </P>
 
             <SubHeading>Installation</SubHeading>
-            <CodeBlock>{`# cargo mero is a cargo subcommand: install the binary, cargo finds it
-cargo install --git https://github.com/calimero-network/core cargo-mero
+            <P>
+              cargo mero lives in the{' '}
+              <a
+                href='https://github.com/calimero-network/core/tree/master/tools/cargo-mero'
+                target='_blank'
+                rel='noreferrer'
+                className='text-brand-600 transition-colors hover:text-brand-500'
+              >
+                core repository
+              </a>
+              , alongside merod and meroctl. Install it{' '}
+              <strong className='text-neutral-200'>from a release tag</strong>,
+              not from the default branch:
+            </P>
+            <CodeBlock>{`# cargo mero is a cargo subcommand: install the binary, cargo finds it.
+# --tag, NOT the default branch: pin it to the SAME core release your app's
+# SDK is pinned to, or the bundler and the contract can disagree about the
+# manifest format.
+cargo install --locked --git https://github.com/calimero-network/core.git \\
+  --tag 0.11.0-rc.32 cargo-mero
 
 # the build step targets wasm32 (cargo mero build auto-installs it via rustup)
 rustup target add wasm32-unknown-unknown`}</CodeBlock>
+            <Note>
+              <Code>cargo mero --version</Code> reports <Code>0.1.0</Code>
+              regardless of the tag it was built from, so it cannot tell you
+              which release you have. Check with{' '}
+              <Code>cargo install --list</Code>, which records the tag.
+            </Note>
             <P>
               Prebuilt binaries are attached to each{' '}
               <a
@@ -1425,6 +1449,22 @@ calimero-registry bundle get <package> <version> --local`}</CodeBlock>
               file.
             </P>
             <CodeBlock>{`meroctl app install --path dist/com.example.my-app-1.2.4.mpk`}</CodeBlock>
+            <P>
+              <Code>meroctl</Code> and <Code>merod</Code> ship from the same{' '}
+              <a
+                href='https://github.com/calimero-network/core/releases'
+                target='_blank'
+                rel='noreferrer'
+                className='text-brand-600 transition-colors hover:text-brand-500'
+              >
+                core releases
+              </a>{' '}
+              as cargo mero — prebuilt binaries per platform, or via Homebrew.
+              Keep all three on the same release: they share the manifest
+              format, and a node older than the SDK an app was built against
+              installs the bundle happily and then fails at context creation
+              with <Code>link error: unknown import</Code>.
+            </P>
 
             <SubHeading>Verification process</SubHeading>
             <Diagram>{`  Download .mpk from the registry
