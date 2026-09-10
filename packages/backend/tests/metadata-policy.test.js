@@ -266,3 +266,47 @@ describe('server-stamped fields on the wire', () => {
     expect(out.publishedAt).toBeNull();
   });
 });
+
+describe('every publish path enforces the policy', () => {
+  // WHY THIS EXISTS
+  //
+  // The policy first shipped only in packages/backend/src/server.js. That
+  // Fastify server is the LOCAL dev server — production is Vercel, which
+  // serves the handlers under api/. So the check passed every local test and
+  // ran for no real publish: com.calimero.mdtest-description@0.0.1 published
+  // to production with no description at all.
+  //
+  // Asserting on the two known files would not have caught it either, since
+  // the miss was not knowing they existed. This derives the list instead:
+  // anything that writes a bundle must also validate one.
+  const fs = require('fs');
+  const path = require('path');
+
+  const ROOT = path.resolve(__dirname, '../../..');
+
+  function walk(dir, out = []) {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (e.name === 'node_modules' || e.name.startsWith('.')) continue;
+      const full = path.join(dir, e.name);
+      if (e.isDirectory()) walk(full, out);
+      else if (e.name.endsWith('.js') && !full.includes('/tests/'))
+        out.push(full);
+    }
+    return out;
+  }
+
+  it('validates in every module that stores a bundle manifest', () => {
+    const writers = walk(path.join(ROOT, 'api'))
+      .concat(walk(path.join(ROOT, 'packages/backend/src')))
+      .filter(f => /\.storeBundleManifest\(/.test(fs.readFileSync(f, 'utf8')))
+      // The storage class defines the method; it is not a publish entrypoint.
+      .filter(f => !f.endsWith('bundle-storage-kv.js'));
+
+    expect(writers.length).toBeGreaterThanOrEqual(3); // push.js, push-file.js, server.js
+
+    const unguarded = writers.filter(
+      f => !/validateBundleMetadata/.test(fs.readFileSync(f, 'utf8'))
+    );
+    expect(unguarded.map(f => path.relative(ROOT, f))).toEqual([]);
+  });
+});

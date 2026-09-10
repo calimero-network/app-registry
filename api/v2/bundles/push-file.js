@@ -15,6 +15,10 @@ const {
   BundleStorageKV,
 } = require('@calimero-network/registry-backend/src/lib/bundle-storage-kv');
 const {
+  validateBundleMetadata,
+  CATEGORIES,
+} = require('@calimero-network/registry-backend/src/lib/metadata-policy');
+const {
   verifyManifest,
   getPublicKeyFromManifest,
   normalizeSignature,
@@ -250,6 +254,30 @@ module.exports = async function handler(req, res) {
       bundleManifest.metadata._ownerEmail = ownerEmail;
     }
 
+    // Metadata policy. THIS IS THE PRODUCTION PATH: Vercel serves these
+    // functions, not packages/backend/src/server.js, so a check that exists
+    // only in the Fastify server does not run for any real publish.
+    const policy = validateBundleMetadata(bundleManifest, {
+      isNewPackage: versions.length === 0,
+    });
+    if (policy.errors.length > 0) {
+      return res.status(400).json({
+        error: 'metadata_incomplete',
+        message: `This bundle is missing metadata the registry requires of a new package:\n  - ${policy.errors.join('\n  - ')}`,
+        problems: policy.errors,
+        categories: CATEGORIES,
+      });
+    }
+
+    // Server-stamped, never publisher-supplied. `_`-prefixed so
+    // removeTransientFields drops them before signature verification.
+    if (typeof bundleManifest._binary === 'string') {
+      bundleManifest._installSize = Math.floor(
+        bundleManifest._binary.length / 2
+      );
+    }
+    bundleManifest._publishedAt = new Date().toISOString();
+
     const overwrite =
       process.env.ALLOW_BUNDLE_OVERWRITE === 'true' ||
       process.env.ALLOW_BUNDLE_OVERWRITE === '1';
@@ -267,6 +295,8 @@ module.exports = async function handler(req, res) {
       message: 'Bundle published successfully',
       package: bundleManifest.package,
       version: bundleManifest.appVersion,
+      installSize: bundleManifest._installSize,
+      ...(policy.warnings.length ? { warnings: policy.warnings } : {}),
     });
   } catch (err) {
     console.error('push-file error:', err);
