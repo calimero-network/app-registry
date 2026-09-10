@@ -925,7 +925,7 @@ version=$(jq -r '
     | select(test("^[0-9]+\\.[0-9]+\\.[0-9]+$"))
     | split(".") | map(tonumber) ]
   | sort
-  | if length == 0 then "0.0.1" else (last | "\(.[0]).\(.[1]).\(.[2]+1)") end
+  | if length == 0 then "0.0.1" else (last | "\\(.[0]).\\(.[1]).\\(.[2]+1)") end
 ' <<<"$response")
 
 cargo mero bundle \
