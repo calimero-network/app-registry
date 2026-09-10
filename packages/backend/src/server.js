@@ -17,6 +17,7 @@ const config = require('./config');
 const { BundleStorageKV } = require('./lib/bundle-storage-kv');
 const { createBundleSanitizers } = require('./lib/bundle-sanitize');
 const { buildBundleListing } = require('./lib/bundle-listing');
+const { validateBundleMetadata, CATEGORIES } = require('./lib/metadata-policy');
 const { kv } = require('./lib/kv-client');
 const {
   verifyManifest,
@@ -793,6 +794,43 @@ async function buildServer() {
       bundleManifest.metadata.author = displayAuthor;
       if (userEmail) bundleManifest.metadata._ownerEmail = userEmail;
     }
+    // Metadata policy. Runs here, after ownership is settled, because this is
+    // the one point all three upload paths share — CLI, API key and the web
+    // form all reach it. See lib/metadata-policy.js for why the rules are not
+    // duplicated in the frontend.
+    //
+    // A brand-new package must be complete; an existing one publishes and is
+    // told what it still owes. `versions` was read above for the version check.
+    const policy = validateBundleMetadata(bundleManifest, {
+      isNewPackage: versions.length === 0,
+    });
+    if (policy.errors.length > 0) {
+      throw {
+        statusCode: 400,
+        body: {
+          error: 'metadata_incomplete',
+          message: `This bundle is missing metadata the registry requires of a new package:\n  - ${policy.errors.join('\n  - ')}`,
+          problems: policy.errors,
+          categories: CATEGORIES,
+        },
+      };
+    }
+
+    // Server-stamped, never publisher-supplied: a declared size or release date
+    // is unverifiable and drifts. Both are `_`-prefixed so `removeTransientFields`
+    // drops them before signature verification (the same mechanism that lets
+    // `metadata._ownerEmail` exist on a signed manifest); sanitizeBundle
+    // re-exposes them as `installSize` / `publishedAt`.
+    //
+    // `_binary` is the whole .mpk as hex, sent by both upload paths, and is
+    // deleted by storeBundleManifest — so measure it here or not at all.
+    if (typeof bundleManifest._binary === 'string') {
+      bundleManifest._installSize = Math.floor(
+        bundleManifest._binary.length / 2
+      );
+    }
+    bundleManifest._publishedAt = new Date().toISOString();
+
     const overwrite =
       process.env.ALLOW_BUNDLE_OVERWRITE === 'true' ||
       process.env.ALLOW_BUNDLE_OVERWRITE === '1';
@@ -807,6 +845,10 @@ async function buildServer() {
     return {
       package: bundleManifest.package,
       version: bundleManifest.appVersion,
+      // Non-blocking: what an already-published package still owes. New
+      // packages cannot reach here with any of these outstanding.
+      warnings: policy.warnings,
+      installSize: bundleManifest._installSize,
     };
   }
 
@@ -835,6 +877,10 @@ async function buildServer() {
         message: 'Bundle published successfully',
         package: result.package,
         version: result.version,
+        installSize: result.installSize,
+        // Present only for an already-published package: the metadata policy
+        // it does not yet meet. A new package cannot publish with any.
+        ...(result.warnings?.length ? { warnings: result.warnings } : {}),
       });
     } catch (err) {
       if (err && typeof err.statusCode === 'number' && err.body) {
@@ -907,6 +953,10 @@ async function buildServer() {
         message: 'Bundle published successfully',
         package: result.package,
         version: result.version,
+        installSize: result.installSize,
+        // Present only for an already-published package: the metadata policy
+        // it does not yet meet. A new package cannot publish with any.
+        ...(result.warnings?.length ? { warnings: result.warnings } : {}),
       });
     } catch (err) {
       if (err && typeof err.statusCode === 'number' && err.body) {
