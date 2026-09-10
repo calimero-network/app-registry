@@ -39,7 +39,7 @@ export function OpenAppTile({ url, name }: { url: string; name: string }) {
         target='_blank'
         rel='noreferrer noopener'
         data-testid='open-app-fallback'
-        className='flex h-80 items-center justify-center rounded-xl border border-ink/[0.08] bg-ink/[0.02] text-[13px] text-neutral-300 transition-colors hover:border-ink/[0.16]'
+        className='flex aspect-[16/9] max-h-[30rem] items-center justify-center rounded-2xl border border-ink/[0.08] bg-ink/[0.02] text-[13px] text-neutral-300 transition-colors hover:border-ink/[0.16]'
       >
         <span className='inline-flex items-center gap-2'>
           <ExternalLink className='h-4 w-4' aria-hidden='true' />
@@ -56,14 +56,14 @@ export function OpenAppTile({ url, name }: { url: string; name: string }) {
       rel='noreferrer noopener'
       data-testid='open-app'
       aria-label={`View ${name} on the web`}
-      className='group relative block h-80 overflow-hidden rounded-xl border border-ink/[0.08] bg-ink/[0.02]'
+      className='group preview-stage relative block aspect-[16/9] max-h-[30rem] w-full overflow-hidden rounded-2xl border border-ink/[0.08] bg-ink/[0.02]'
     >
-      {/* A flex box that centres the frame, rather than scaling it from a
-          corner. The first attempt used `origin-top-left`, so the hover zoom
-          grew toward the bottom-right and the whole preview slid off centre.
-          Centring the child and letting `scale` use its default centre origin
-          means the zoom happens about the middle, which is what "zoom in"
-          should look like. */}
+      {/* The frame fills the tile edge to edge. It is rendered at a desktop
+          viewport and scaled to COVER the container — see `.preview-frame` in
+          index.css, which also explains why the scale is written as a real
+          `transform` rather than a Tailwind `scale-*` utility (v4's utility
+          emits the standalone `scale:` property, which a `transform`
+          transition cannot tween, so the zoom snapped). */}
       <div className='absolute inset-0 flex items-center justify-center'>
         <iframe
           src={url}
@@ -75,20 +75,7 @@ export function OpenAppTile({ url, name }: { url: string; name: string }) {
           onLoad={() => setLoaded(true)}
           aria-hidden='true'
           tabIndex={-1}
-          // Rendered at a desktop viewport and scaled down, so the app lays
-          // itself out as it would on a real screen instead of collapsing to
-          // its mobile breakpoint inside a short frame.
-          // `transition-transform` explicitly, plus an explicit
-          // `filter` transition: a bare `transition-[transform,filter]`
-          // arbitrary value did not always survive Tailwind's parser here,
-          // and the zoom snapped instantly. 700ms so the movement reads as
-          // deliberate rather than twitchy.
-          style={{
-            transitionProperty: 'transform, filter',
-            transitionDuration: '700ms',
-            transitionTimingFunction: 'cubic-bezier(0.22, 1, 0.36, 1)',
-          }}
-          className='pointer-events-none h-[900px] w-[1440px] flex-shrink-0 scale-[0.30] border-0 group-hover:scale-[0.34] group-hover:blur-[3px]'
+          className='preview-frame pointer-events-none h-[900px] w-[1440px] flex-shrink-0 border-0'
         />
       </div>
       {!loaded && (

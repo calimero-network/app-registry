@@ -64,13 +64,16 @@ export function AppCard({
           >
             {app.name}
           </h3>
-          {app.verified && (
-            <BadgeCheck
-              className='h-3.5 w-3.5 flex-shrink-0 text-emerald-400'
-              aria-label='Verified publisher'
-            />
-          )}
         </div>
+
+        {/* The package id, with the badge on it. The registry's claim is
+            about the PACKAGE — the name is a display string anyone can pick,
+            while `com.calimero.…` is the thing that gets installed — so the
+            mark belongs here as well as on the author below. */}
+        <p className='mt-0.5 flex items-center gap-1 truncate font-mono text-[11px] text-neutral-500'>
+          <span className='truncate'>{app.package_name}</span>
+          {app.verified && <VerifiedMark label='Verified package' />}
+        </p>
 
         {app.description && (
           <p
@@ -87,8 +90,11 @@ export function AppCard({
         )}
 
         <div className='mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11.5px] text-neutral-500'>
-          <span className='truncate text-neutral-400'>
-            {app.developer?.display_name || app.developer_pubkey}
+          <span className='inline-flex min-w-0 items-center gap-1'>
+            <span className='truncate text-neutral-400'>
+              {app.developer?.display_name || app.developer_pubkey}
+            </span>
+            {app.verified && <VerifiedMark label='Verified author' />}
           </span>
           {when && (
             <>
@@ -116,6 +122,23 @@ export function AppCard({
         )}
       </div>
     </Link>
+  );
+}
+
+/**
+ * One mark, used everywhere a verified claim is made on a card.
+ *
+ * `aria-label` says WHICH claim — "Verified package" next to the id, "Verified
+ * author" next to the publisher. Three identical unlabelled ticks in one card
+ * is three unexplained icons to a screen reader.
+ */
+function VerifiedMark({ label }: { label: string }) {
+  return (
+    <BadgeCheck
+      className='h-3.5 w-3.5 flex-shrink-0 text-emerald-400'
+      aria-label={label}
+      role='img'
+    />
   );
 }
 

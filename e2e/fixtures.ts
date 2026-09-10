@@ -59,6 +59,13 @@ export const BUNDLES = [
     verified: true,
     installSize: 890_112,
     publishedAt: new Date(Date.now() - 30 * 864e5).toISOString(),
+    // The one bundle carrying a deployed frontend, so the app page's live
+    // preview has something to frame. The host is `.invalid`, which can never
+    // resolve — a spec must stub it rather than reach a real deployment.
+    links: {
+      frontend: 'https://mero-chat.invalid/',
+      github: 'https://github.com/calimero-network/mero-chat',
+    },
     metadata: {
       name: 'Mero Chat',
       author: 'calimero-network',

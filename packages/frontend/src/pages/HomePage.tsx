@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { DesktopArt, DocsArt } from '@/components/PromoArt';
+import { PosterCard, type Poster } from '@/components/PosterCard';
 import { getApps } from '@/lib/api';
 import { AppCard } from '@/components/AppCard';
 import { ShowcaseCard } from '@/components/ShowcaseCard';
@@ -29,20 +29,50 @@ const FEATURED = [
   'com.calimero.mero-sign',
 ];
 
-const PROMOS = [
+/**
+ * The "Get started" gallery.
+ *
+ * Posters, not link rows: each is one graphic with the words set over it. The
+ * external ones open a tab; `internal` routes stay in the app. Order matters —
+ * the first two are the outbound product links the shelf exists for.
+ */
+const POSTERS: Poster[] = [
   {
-    art: DesktopArt,
+    art: 'desktop',
     eyebrow: 'Run apps locally',
     title: 'Get Calimero Desktop',
     body: 'A node and an app launcher on your own machine. Install anything here in one click.',
     href: 'https://calimero.network/download',
   },
   {
-    art: DocsArt,
-    eyebrow: 'Build one',
+    art: 'docs',
+    eyebrow: 'Learn',
     title: 'Documentation',
     body: 'From an empty directory to a signed bundle published here.',
     href: 'https://docs.calimero.network',
+  },
+  {
+    art: 'publish',
+    eyebrow: 'Ship yours',
+    title: 'Publish an app',
+    body: 'Build with cargo mero, sign the bundle, push it to the registry.',
+    href: '/docs',
+    internal: true,
+  },
+  {
+    art: 'explore',
+    eyebrow: 'Browse',
+    title: 'Every published app',
+    body: 'The whole registry, filtered by category and searchable by name.',
+    href: '/explore',
+    internal: true,
+  },
+  {
+    art: 'source',
+    eyebrow: 'Peer to peer',
+    title: 'Calimero on GitHub',
+    body: 'The node, the SDKs and this registry — all of it in the open.',
+    href: 'https://github.com/calimero-network',
   },
 ];
 
@@ -95,54 +125,92 @@ export default function HomePage() {
           node you run yourself.
         </p>
 
-        {/* Full width and tall: this is the explanation, so it has to be big
-            enough to read as a sequence rather than as decoration. */}
-        <div className='mt-10 aspect-[960/560] w-full'>
-          <HeroGraphic />
+        {/* The laptop sits inside its own lit panel rather than floating on
+            the page ground, and it is drawn small inside that panel: at full
+            bleed the device was the whole section and the three scenes read
+            as a slideshow instead of as one product being used.
+
+            The wash is periwinkle and the lights are indigo — deliberately
+            NOT the brand lime. The accent already carries meaning inside the
+            animation (selected row, install progress, your own messages), and
+            green light behind green UI flattens every one of those. */}
+        <div
+          data-testid='hero-panel'
+          className='relative mt-10 overflow-hidden rounded-[28px] border border-ink/[0.07]'
+          style={{ background: 'var(--hero-wash)' }}
+        >
+          {/* ⚠️ BEHIND THE DEVICE, NOT OVER IT. These are stacked at z-0 and
+              everything else at z-10: a blurred blob painted over the laptop
+              fogs the screen it is supposed to be lighting. They breathe on a
+              long, offset cycle so the panel looks lit rather than static —
+              opacity only, so it stays on the compositor. */}
+          <div aria-hidden='true' className='pointer-events-none absolute inset-0 z-0'>
+            <div
+              className='hero-lamp absolute -top-32 left-[18%] h-[26rem] w-[26rem] rounded-full blur-3xl'
+              style={{ background: 'var(--hero-glow)' }}
+            />
+            <div
+              className='hero-lamp hero-lamp-b absolute -bottom-40 right-[8%] h-[24rem] w-[30rem] rounded-full blur-3xl'
+              style={{ background: 'var(--hero-glow-2)' }}
+            />
+          </div>
+
+          <div className='relative z-10 px-4 pb-7 pt-9 sm:px-6 sm:pb-9 sm:pt-12'>
+            {/* Smaller than the panel it sits in, and centred: the frame
+                around it is what makes it read as a device on a desk. */}
+            <div className='mx-auto aspect-[960/560] w-full max-w-xl'>
+              <HeroGraphic />
+            </div>
+
+            {/* The caption runs on the same 18s cycle as the graphic: line one
+                covers browse + install, line two covers using the app.
+
+                Set large, bold and in the display face — it is the headline
+                for the animation above it, not a caption under a figure. Two
+                absolutely-positioned lines in a fixed-height box, so the panel
+                does not resize as they swap; the box is tall enough for the
+                longer line to wrap at narrow widths without clipping.
+
+                Reduced motion lands on the base styles — line one visible,
+                line two hidden — rather than on an empty box. */}
+            <div className='relative mt-8 h-32 w-full overflow-hidden sm:h-24'>
+              <p
+                data-testid='hero-caption'
+                className='hero-line hero-line-a absolute inset-x-0 top-0 font-display text-[21px] font-bold leading-snug tracking-tight text-neutral-100 sm:text-[27px]'
+              >
+                Download Calimero Desktop and install applications from the
+                marketplace.
+              </p>
+              <p className='hero-line hero-line-b absolute inset-x-0 top-0 font-display text-[21px] font-bold leading-snug tracking-tight text-neutral-100 sm:text-[27px]'>
+                Open the installed application and use it peer-to-peer.
+              </p>
+            </div>
+          </div>
         </div>
       </section>
 
       {featured.length > 0 && (
         <section>
-          <SectionHeading title='Apps we build' />
-          <div className='mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-3'>
-            {featured.map(app => (
-              <ShowcaseCard key={app.id} app={app} />
-            ))}
+          {/* One panel holding the whole shelf, rather than three cards
+              floating on the page ground. It groups the apps we publish
+              ourselves into a single object, which is what separates them
+              from the derived shelves below. */}
+          <div className='rounded-2xl border border-ink/[0.07] bg-ink/[0.02] p-4 sm:p-5'>
+            <SectionHeading title='Apps we build' />
+            <div className='mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3'>
+              {featured.map(app => (
+                <ShowcaseCard key={app.id} app={app} />
+              ))}
+            </div>
           </div>
         </section>
       )}
 
       <section>
         <SectionHeading title='Get started' />
-        <div className='mt-3 grid gap-3 sm:grid-cols-2'>
-          {PROMOS.map(p => (
-            <a
-              key={p.title}
-              href={p.href}
-              target='_blank'
-              rel='noreferrer'
-              // NOT AppCard: these are outbound links, not installable apps.
-              // Rendering them as app cards would imply /apps/:id routing and
-              // make a docs site look like something you can install.
-              data-testid='promo-tile'
-              className='group flex gap-4 rounded-xl border border-ink/[0.06] bg-ink/[0.02] p-4 transition-colors duration-150 hover:border-ink/[0.14]'
-            >
-              <span className='h-20 w-28 flex-shrink-0 text-neutral-200'>
-                <p.art className='h-full w-full' />
-              </span>
-              <span className='min-w-0'>
-                <span className='block text-[10.5px] font-medium uppercase tracking-wider text-neutral-500'>
-                  {p.eyebrow}
-                </span>
-                <span className='mt-0.5 block text-[14px] font-medium text-neutral-100'>
-                  {p.title}
-                </span>
-                <span className='mt-1 block text-[12.5px] font-light leading-relaxed text-neutral-400'>
-                  {p.body}
-                </span>
-              </span>
-            </a>
+        <div className='mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3'>
+          {POSTERS.map(poster => (
+            <PosterCard key={poster.title} poster={poster} />
           ))}
         </div>
       </section>

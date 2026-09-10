@@ -305,13 +305,17 @@ export function HeroGraphic() {
               );
             })}
 
+            {/* The cursor reaches the Install button in the first ~2s of the
+                18s loop and clicks it there. It used to arrive at 17% and sit
+                idle until a click at 26%; the ripple has to move with the
+                pointer or the scene shows a click that lands on nothing. */}
             <g>
               <animateMotion
                 dur={LOOP}
                 repeatCount='indefinite'
                 path='M840,440 L810,340 L790,272'
                 keyPoints='0;0.6;1'
-                keyTimes='0;0.17;0.26'
+                keyTimes='0;0.06;0.115'
                 calcMode='linear'
               />
               <circle r='0' fill='var(--accent)'>
@@ -320,14 +324,14 @@ export function HeroGraphic() {
                   dur={LOOP}
                   repeatCount='indefinite'
                   values='0;0;26;0'
-                  keyTimes='0;0.26;0.29;0.30'
+                  keyTimes='0;0.115;0.155;0.165'
                 />
                 <animate
                   attributeName='opacity'
                   dur={LOOP}
                   repeatCount='indefinite'
                   values='0;0;0.4;0'
-                  keyTimes='0;0.26;0.275;0.30'
+                  keyTimes='0;0.115;0.13;0.165'
                 />
               </circle>
               <path

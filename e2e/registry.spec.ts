@@ -331,13 +331,33 @@ test.describe('home shelves', () => {
     expect(animateEls).toBeGreaterThan(0);
   });
 
-  test('promos are links, not app cards', async ({ page }) => {
+  test('the get-started gallery is links, not app cards', async ({ page }) => {
     // Rendering an outbound link as an AppCard would imply /apps/:id routing
     // and make a docs site look installable.
     await page.goto('/');
     const promos = page.getByTestId('promo-tile');
-    await expect(promos).toHaveCount(2);
+    await expect(promos).toHaveCount(5);
     await expect(promos.first()).toHaveAttribute('href', /calimero\.network/);
+    // Two of the five are in-app routes; they must render as router links
+    // rather than as tabs opening onto the same origin.
+    await expect(page.getByTestId('promo-tile').nth(3)).toHaveAttribute(
+      'href',
+      '/explore'
+    );
+  });
+
+  test('the hero caption names both halves of the journey', async ({
+    page,
+  }) => {
+    // The two lines swap on the animation's own 18s cycle, so both are in the
+    // DOM the whole time — this asserts the copy, not the timing.
+    await page.goto('/');
+    await expect(page.getByTestId('hero-caption')).toContainText(
+      'Download Calimero Desktop'
+    );
+    await expect(page.locator('[data-testid="hero-panel"]')).toContainText(
+      'peer-to-peer'
+    );
   });
 
   test('featured apps render large cards, and unknown ids drop out', async ({
@@ -357,5 +377,92 @@ test.describe('home shelves', () => {
     await page.goto('/');
     const recent = page.getByTestId('app-card');
     await expect(recent).toHaveCount(3); // 4 fixture apps minus the featured one
+  });
+});
+
+test.describe('explore card width', () => {
+  test('a card is the same width filtered down to one as it is unfiltered', async ({
+    page,
+  }) => {
+    // Two separate causes, both fixed: a two-column grid rendering a lone
+    // result at half width, and the scrollbar disappearing when the page
+    // stops scrolling. Measuring the box is the only way to catch either —
+    // asserting on classes would pass with the layout still moving.
+    await page.goto('/explore');
+    const all = await page.getByTestId('app-card').first().boundingBox();
+
+    await page.goto('/explore?category=communication');
+    await expect(page.getByTestId('app-card')).toHaveCount(1);
+    const one = await page.getByTestId('app-card').first().boundingBox();
+
+    expect(one!.width).toBe(all!.width);
+  });
+});
+
+test.describe('live app preview', () => {
+  test.beforeEach(async ({ page }) => {
+    // The shared stub answers `/v2/bundles` with every bundle whatever the
+    // query, which is fine for the listing but wrong for a detail page: it
+    // would render whichever bundle happens to be first, not mero-chat. This
+    // route honours `?package=`. Registered after the shared one, and
+    // Playwright matches in reverse, so it wins.
+    await page.route('**/api/v2/bundles**', route => {
+      const pkg = new URL(route.request().url()).searchParams.get('package');
+      route.fulfill({
+        json: pkg ? BUNDLES.filter(b => b.package === pkg) : BUNDLES,
+      });
+    });
+    // `.invalid` never resolves; the frame has to be fulfilled locally or the
+    // spec waits on DNS.
+    await page.route('https://mero-chat.invalid/**', route =>
+      route.fulfill({ contentType: 'text/html', body: '<h1>framed</h1>' })
+    );
+  });
+
+  test('the frame fills its tile and zooms smoothly rather than snapping', async ({
+    page,
+  }) => {
+    // ⚠️ THIS IS THE REGRESSION THAT LOOKED LIKE A DESIGN CHOICE. Tailwind v4
+    // emits `scale-*` as the standalone `scale:` property, which a
+    // `transition-property: transform` cannot tween — so the preview jumped
+    // between two sizes instantly. And a fit factor written as
+    // `calc(100cqw / 1440)` is a LENGTH, which `scale()` rejects, leaving the
+    // transform at `none` and the frame at 1440px inside a 900px tile.
+    // Reading the computed matrix catches both; reading the class list
+    // catches neither.
+    await page.goto('/apps/com.calimero.mero-chat');
+    const tile = page.getByTestId('open-app');
+    await expect(tile).toBeVisible();
+
+    const scaleOf = () =>
+      page.evaluate(() => {
+        const m = getComputedStyle(
+          document.querySelector('.preview-frame')!
+        ).transform;
+        return m === 'none' ? null : Number(m.split('(')[1].split(',')[0]);
+      });
+
+    const rest = await scaleOf();
+    expect(rest).not.toBeNull();
+
+    // Covering the tile, not sitting in the middle of it as a small square.
+    // The tolerance is the tile's 1px border on each side: the frame fills
+    // the content box, which is 2px narrower than the measured box.
+    const box = (await tile.boundingBox())!;
+    expect(rest! * 1440).toBeGreaterThanOrEqual(box.width - 3);
+    expect(rest! * 900).toBeGreaterThanOrEqual(box.height - 3);
+
+    await tile.hover();
+    await page.waitForTimeout(120);
+    const midway = await scaleOf();
+    await page.waitForTimeout(900);
+    const settled = await scaleOf();
+
+    // Partway at 120ms and larger still once the 700ms transition is done:
+    // that ordering is what "it animates" means, and it is exactly what the
+    // snapping version failed.
+    expect(midway!).toBeGreaterThan(rest!);
+    expect(settled!).toBeGreaterThan(midway!);
+    expect(settled!).toBeCloseTo(rest! * 1.12, 3);
   });
 });

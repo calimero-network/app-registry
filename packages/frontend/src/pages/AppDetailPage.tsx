@@ -272,8 +272,18 @@ export default function AppDetailPage() {
               </Link>
             )}
           </div>
-          <p className='font-mono text-[12px] text-neutral-500'>
+          {/* The badge belongs on the package id as well as on the author in
+              the grid below: the display name is a string anyone can choose,
+              while this is the identifier that gets installed. */}
+          <p className='flex items-center gap-1.5 font-mono text-[12px] text-neutral-500'>
             {bundle.package}
+            {authorVerified && (
+              <BadgeCheck
+                className='h-3.5 w-3.5 flex-shrink-0 text-emerald-400'
+                aria-label='Verified package'
+                role='img'
+              />
+            )}
           </p>
 
           <div className='mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12.5px] text-neutral-500'>
@@ -347,12 +357,16 @@ export default function AppDetailPage() {
         )}
       </div>
 
-      {/* Preview — the deployed frontend, live. Its own section because it
-          is the app itself rather than a fact about it; GitHub and docs are
-          up in the info grid with version and licence. */}
+      {/* The deployed frontend, live. Its own section because it is the app
+          itself rather than a fact about it; GitHub and docs are up in the
+          info grid with version and licence.
+
+          Headed "Try it out on web" rather than "Preview": the strip above is
+          the preview (screenshots), and this is the running app — two sections
+          both called Preview said nothing about the difference. */}
       {links?.frontend && (
-        <section aria-label='Live preview'>
-          <p className='section-heading mb-3'>Preview</p>
+        <section aria-label='Try it out on web'>
+          <p className='section-heading mb-3'>Try it out on web</p>
           <OpenAppTile
             url={links.frontend}
             name={meta?.name || bundle.package}

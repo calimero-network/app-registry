@@ -8,6 +8,22 @@ import { formatCategory } from '@/lib/utils';
 import { CATEGORIES, type AppSummary } from '@/types/api';
 
 /**
+ * ⚠️ THE CARD COLUMN IS A HARD-CODED WIDTH PER BREAKPOINT, not a percentage.
+ *
+ * Two separate things used to move it. The grid was `lg:grid-cols-2`, so one
+ * result rendered at half width; that is gone. Then the scrollbar: filter
+ * twenty apps down to one, the page stops scrolling, the bar disappears and
+ * everything widens by ~15px (`scrollbar-gutter: stable` in index.css now
+ * reserves it). A fixed px width closes the question for good — the cards are
+ * the same size whether the filter returns one app or all of them.
+ *
+ * Every value clears the content box at its own breakpoint (viewport minus
+ * the layout's 32-64px of padding, capped by `max-w-5xl` on <main>), so it
+ * can never overflow.
+ */
+const COLUMN = 'w-full sm:w-[560px] md:w-[688px] lg:w-[900px]';
+
+/**
  * Explore — every published app, searchable and filtered by category.
  *
  * Both the search term and the category live in the URL, not in component
@@ -150,7 +166,7 @@ export default function ExplorePage() {
       </p>
 
       {isLoading ? (
-        <div className='grid gap-3'>
+        <div className={`grid gap-3 ${COLUMN}`}>
           {Array.from({ length: 6 }).map((_, i) => (
             <div
               key={i}
@@ -166,7 +182,10 @@ export default function ExplorePage() {
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <div className='py-16 text-center' data-testid='empty-state'>
+        <div
+          className={`py-16 text-center ${COLUMN}`}
+          data-testid='empty-state'
+        >
           <Package
             className='mx-auto h-8 w-8 text-neutral-600'
             aria-hidden='true'
@@ -186,7 +205,7 @@ export default function ExplorePage() {
           )}
         </div>
       ) : (
-        <div className='grid gap-3'>
+        <div className={`grid gap-3 ${COLUMN}`}>
           {filtered.map(app => (
             <AppCard key={app.id} app={app} />
           ))}

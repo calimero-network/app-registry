@@ -66,6 +66,11 @@ export default {
       },
       fontFamily: {
         sans: ['Inter', 'DM Sans', 'system-ui', '-apple-system', 'sans-serif'],
+        // DM Sans was already being fetched by the font import and then never
+        // used — it sat behind Inter in the `sans` stack, so it only ever
+        // applied if Inter failed to load. It is a display face here instead:
+        // the one place that wants a different voice from the body copy.
+        display: ['DM Sans', 'Inter', 'system-ui', 'sans-serif'],
         mono: ['JetBrains Mono', 'Fira Code', 'monospace'],
       },
       borderRadius: {
