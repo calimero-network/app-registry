@@ -1,6 +1,6 @@
 # Calimero Registry Backend
 
-A high-performance Fastify-based API server for the Calimero Registry (self-sovereign application registry), featuring JCS canonicalization, Ed25519 signature verification, and IPFS integration.
+A high-performance Fastify-based API server for the Calimero Registry (self-sovereign application registry), featuring JCS canonicalization, Ed25519 signature verification, and Google Cloud Storage for bundle binaries.
 
 ## 🚀 Features
 
@@ -8,8 +8,8 @@ A high-performance Fastify-based API server for the Calimero Registry (self-sove
 - **OpenAPI 3.0**: Automatic API documentation and validation
 - **JCS Canonicalization**: Deterministic JSON serialization
 - **Ed25519 Verification**: Cryptographic signature validation
-- **IPFS Integration**: Decentralized artifact storage
-- **SemVer Immutability**: Same (pubkey, name, semver) = same artifact CIDs
+- **Blob Storage**: Bundle `.mpk` binaries in a GCS bucket; manifests, indexes and counters in Redis
+- **SemVer Immutability**: A published `package@version` is never overwritten (except under `ALLOW_BUNDLE_OVERWRITE`, for migrations)
 - **Security Scanning**: Snyk integration for vulnerability detection
 
 ## 📦 Installation
@@ -37,9 +37,6 @@ pnpm start
 PORT=3000                    # Server port (default: 3000)
 HOST=0.0.0.0                # Server host (default: 0.0.0.0)
 NODE_ENV=development        # Environment (development/production)
-
-# IPFS Configuration
-IPFS_GATEWAY=https://ipfs.io/ipfs/  # IPFS gateway for artifacts
 
 # CORS Configuration
 CORS_ORIGIN=http://localhost:5173   # Allowed CORS origins
@@ -318,7 +315,6 @@ pm2 start dist/server.js --name calimero-registry-backend
 # Production environment variables
 NODE_ENV=production
 PORT=3000
-IPFS_GATEWAY=https://ipfs.io/ipfs/
 CORS_ORIGIN=https://your-frontend-domain.com
 JWT_SECRET=your_secure_jwt_secret
 ```

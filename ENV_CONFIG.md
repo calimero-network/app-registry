@@ -35,9 +35,6 @@ ALLOW_BUNDLE_OVERWRITE=false # If true/1, push can overwrite existing package@ve
 
 # CORS Configuration
 CORS_ORIGIN=http://localhost:1420,https://app.calimero.network
-
-# IPFS Configuration (optional)
-IPFS_GATEWAYS=https://ipfs.io/ipfs/,https://gateway.pinata.cloud/ipfs/
 ```
 
 ### Frontend Configuration

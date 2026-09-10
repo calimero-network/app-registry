@@ -37,7 +37,6 @@ pnpm preview
 ```bash
 # API Configuration
 VITE_API_URL=http://localhost:3000          # Backend API URL
-VITE_IPFS_GATEWAY=https://ipfs.io/ipfs/     # IPFS gateway for artifacts
 
 # Application Configuration
 VITE_APP_NAME=Calimero Registry            # Application name
