@@ -699,7 +699,7 @@ cargo mero key derive-signer-id -k my-key.json`}</CodeBlock>
                 ],
                 [
                   'metadata.category',
-                  'Exactly one of the eight categories below.',
+                  'Exactly one of the ten categories below.',
                 ],
                 [
                   'metadata.license',
@@ -716,8 +716,8 @@ cargo mero key derive-signer-id -k my-key.json`}</CodeBlock>
               so put <Code>multiplayer</Code> or <Code>crdt</Code> there rather
               than inventing a category.
             </P>
-            <CodeBlock>{`games            productivity     communication    art-design
-planning         social           utilities        developer-tools`}</CodeBlock>
+            <CodeBlock>{`games          productivity   communication  social      art-design
+media          planning       security       utilities   developer-tools`}</CodeBlock>
 
             <SubHeading>Two fields the registry sets for you</SubHeading>
             <P>
@@ -742,8 +742,9 @@ planning         social           utilities        developer-tools`}</CodeBlock>
   "error": "metadata_incomplete",
   "message": "This bundle is missing metadata the registry requires of a new package:\n  - \`metadata.icon\` is missing.\n  - \`metadata.category\` is missing. Pick exactly one of: games, productivity, ...",
   "problems": ["..."],
-  "categories": ["games", "productivity", "communication", "art-design",
-                 "planning", "social", "utilities", "developer-tools"]
+  "categories": ["games", "productivity", "communication", "social",
+                 "art-design", "media", "planning", "security",
+                 "utilities", "developer-tools"]
 }`}</CodeBlock>
 
             <SubHeading>Declaring it in Cargo.toml</SubHeading>

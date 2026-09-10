@@ -39,20 +39,22 @@ const crypto = require('crypto');
  * what it can search by. Both exist here — `category` is required and closed,
  * `tags` stay open.
  *
- * These eight cover all twenty bundles published as of 2026-09-10 with none
- * left over. Adding a ninth is a deliberate act: every value here becomes a
- * browse surface in the registry and in the desktop launcher, so an unused
- * category is an empty shelf.
+ * Ten, and every one is populated by at least one app published as of
+ * 2026-09-10 — the comments name them. That is the bar for adding an eleventh:
+ * every value here becomes a browse surface in the registry and in the desktop
+ * launcher, so a category no app is in is an empty shelf.
  */
 const CATEGORIES = Object.freeze([
-  'games',
-  'productivity',
-  'communication',
-  'art-design',
-  'planning',
-  'social',
-  'utilities',
-  'developer-tools',
+  'games', // battleships, merraria, mero-blocks
+  'productivity', // mero-sheets, mero-issue-tracker, mero-drive-docs
+  'communication', // mero-chat, mero-meet
+  'social', // mero-forum
+  'art-design', // mero-design, mero-pixart
+  'media', // mero-stream, mero-ar
+  'planning', // mero-calendar
+  'security', // mero-pass, mero-sign
+  'utilities', // mero-tag
+  'developer-tools', // kv-store, scaffolding-e2e
 ]);
 
 /**

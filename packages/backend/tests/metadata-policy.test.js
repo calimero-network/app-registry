@@ -67,6 +67,42 @@ describe('category vocabulary', () => {
     expect(new Set(CATEGORIES).size).toBe(CATEGORIES.length);
   });
 
+  it('is exactly the ten the bundler knows', () => {
+    // cargo-mero holds the same list in tools/cargo-mero/src/meta.rs with its
+    // own copy of this assertion. The two cannot be checked against each other
+    // across repos, so each side fails loudly when edited alone.
+    expect(CATEGORIES).toEqual([
+      'games',
+      'productivity',
+      'communication',
+      'social',
+      'art-design',
+      'media',
+      'planning',
+      'security',
+      'utilities',
+      'developer-tools',
+    ]);
+  });
+
+  it('accepts every category in the vocabulary', () => {
+    // Guards the validator against the list: a value could be added and still
+    // be rejected if the check stopped consulting CATEGORIES.
+    for (const category of CATEGORIES) {
+      const m = completeManifest();
+      m.metadata.category = category;
+      const { errors } = validateBundleMetadata(m, { isNewPackage: true });
+      expect({ category, errors }).toEqual({ category, errors: [] });
+    }
+  });
+
+  it('rejects a category outside the vocabulary', () => {
+    const m = completeManifest();
+    m.metadata.category = 'gamez';
+    const { errors } = validateBundleMetadata(m, { isNewPackage: true });
+    expect(errors.join(' ')).toMatch(/not a known category/);
+  });
+
   it('reads category from metadata.category', () => {
     expect(resolveCategory({ category: 'Games' })).toEqual({
       value: 'games',
