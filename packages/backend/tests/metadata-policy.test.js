@@ -227,3 +227,42 @@ describe('description', () => {
     expect(errors.join(' ')).toMatch(/at least 20/);
   });
 });
+
+describe('server-stamped fields on the wire', () => {
+  const { createBundleSanitizers } = require('../src/lib/bundle-sanitize');
+  const { sanitizeBundle } = createBundleSanitizers({ get: async () => null });
+
+  it('exposes installSize and publishedAt under public names', async () => {
+    const out = await sanitizeBundle({
+      package: 'com.example.app',
+      metadata: {},
+      _installSize: 188900,
+      _publishedAt: '2026-09-10T13:29:32.112Z',
+    });
+    expect(out.installSize).toBe(188900);
+    expect(out.publishedAt).toBe('2026-09-10T13:29:32.112Z');
+  });
+
+  it('does not put the storage-side `_` spellings on the wire', async () => {
+    // The sanitizers spread `...bundle`, so these ride along unless overridden.
+    // JSON is the actual contract Fastify serialises, so assert on that rather
+    // than on the in-memory object.
+    const out = await sanitizeBundle({
+      package: 'com.example.app',
+      metadata: {},
+      _installSize: 1,
+      _publishedAt: '2026-09-10T00:00:00.000Z',
+    });
+    const wire = JSON.parse(JSON.stringify(out));
+    expect(Object.keys(wire).filter(k => k.startsWith('_'))).toEqual([]);
+  });
+
+  it('reports null, not zero, for bundles published before the policy', async () => {
+    const out = await sanitizeBundle({
+      package: 'com.example.app',
+      metadata: {},
+    });
+    expect(out.installSize).toBeNull();
+    expect(out.publishedAt).toBeNull();
+  });
+});
