@@ -1,19 +1,25 @@
+import calimeroLogo from '@/assets/calimero-logo.svg';
+
 /**
- * The registry's own lockup: a glyph, "App Registry", and "by Calimero".
+ * The Calimero wordmark with "APP REGISTRY" tucked underneath, overlapping
+ * slightly — the same lockup docs.calimero.network uses for "DOCS".
  *
- * The rail used to show the bare Calimero wordmark — the same mark every
- * other Calimero property uses — so nothing on screen said which product you
- * were looking at.
+ * The first attempt drew a bespoke glyph and set the product name beside it.
+ * That invented a second brand: the point of this lockup is that the Calimero
+ * mark stays the Calimero mark and the product name is a subordinate label
+ * hanging off it, not a peer.
  *
- * Drawn inline rather than as an .svg asset for one specific reason: the
- * existing logo is forced white with `filter: brightness(0) invert(1)`, which
- * flattens anything coloured into a silhouette. Inline SVG uses
- * `currentColor` and the brand accent directly, so it needs no filter and
- * keeps the accent.
+ * Mechanics worth knowing:
  *
- * Two sizes because the mark appears at three places and the two-line lockup
- * is illegible small: `full` for the rail and footer, `compact` for the
- * mobile bar.
+ *  - The logo is an <img> forced white with `brightness(0) invert(1)`, which
+ *    flattens any colour to a silhouette. That is fine for the wordmark, but
+ *    it means the green label CANNOT be part of that SVG — it has to be text
+ *    beside it, or the filter eats the colour.
+ *  - In light mode that filter would render the wordmark white on white, so
+ *    it is inverted back under `[data-theme='light']`.
+ *  - The overlap is a negative margin plus letter-spacing, sized per variant:
+ *    the label has to sit under the wordmark's baseline without colliding
+ *    with its descenders.
  */
 export function RegistryMark({
   variant = 'full',
@@ -22,53 +28,29 @@ export function RegistryMark({
   variant?: 'full' | 'compact';
   className?: string;
 }) {
-  const glyph = (
-    <svg
-      viewBox='0 0 24 24'
-      className='h-[22px] w-[22px] flex-shrink-0'
-      aria-hidden='true'
-      fill='none'
-    >
-      {/* A bundle: three stacked services signed as one. */}
-      <rect
-        x='3.2'
-        y='3.2'
-        width='17.6'
-        height='17.6'
-        rx='5'
-        className='stroke-brand-600'
-        strokeWidth='1.5'
-      />
-      <path
-        d='M7.6 9.4h8.8M7.6 12.6h8.8M7.6 15.8h5.2'
-        className='stroke-brand-600'
-        strokeWidth='1.5'
-        strokeLinecap='round'
-      />
-    </svg>
-  );
-
-  if (variant === 'compact') {
-    return (
-      <span className={`inline-flex items-center gap-2 ${className ?? ''}`}>
-        {glyph}
-        <span className='text-[13px] font-semibold tracking-tight text-neutral-100'>
-          App Registry
-        </span>
-      </span>
-    );
-  }
+  const compact = variant === 'compact';
 
   return (
-    <span className={`inline-flex items-center gap-2.5 ${className ?? ''}`}>
-      {glyph}
-      <span className='flex flex-col leading-none'>
-        <span className='text-[13.5px] font-semibold tracking-tight text-neutral-100'>
-          App Registry
-        </span>
-        <span className='mt-[3px] text-[10.5px] font-light tracking-wide text-neutral-500'>
-          by Calimero
-        </span>
+    <span
+      className={`inline-flex flex-col items-start ${className ?? ''}`}
+      data-testid='registry-mark'
+    >
+      <img
+        src={calimeroLogo}
+        alt='Calimero'
+        className={`${compact ? 'h-[18px]' : 'h-[22px]'} block opacity-95 dark:opacity-95`}
+        // brightness(0) invert(1) => white, for the dark ground. Light mode
+        // flips it back to near-black in index.css via [data-theme='light'].
+        style={{ filter: 'var(--logo-filter)' }}
+      />
+      <span
+        className={`font-bold uppercase leading-none text-brand-600 ${
+          compact
+            ? '-mt-[2px] text-[7px] tracking-[0.06em]'
+            : '-mt-[3px] text-[8px] tracking-[0.08em]'
+        }`}
+      >
+        App Registry
       </span>
     </span>
   );

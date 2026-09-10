@@ -9,6 +9,7 @@ import {
   Hash,
   HardDrive,
   Clock,
+  BookOpen,
   Shield,
   Pencil,
   Trash2,
@@ -26,6 +27,7 @@ import {
   getOrgByPackage,
   getOrgMembers,
 } from '@/lib/api';
+import { GithubIcon } from '@/components/BrandIcons';
 import { useAuth } from '@/contexts/AuthContext';
 import { AppIcon } from '@/components/AppIcon';
 import { AppPreview } from '@/components/AppPreview';
@@ -333,52 +335,42 @@ export default function AppDetailPage() {
           label='Manifest'
           value={`v${bundle.version}`}
         />
+        {/* Source and docs sit with the other facts about the package rather
+            than in a links block of their own — they are attributes of the
+            app, the same as its version or licence. The live preview is the
+            one link that is not a fact, so it gets its own section. */}
+        {links?.github && (
+          <LinkCard
+            icon={GithubIcon}
+            label='GitHub code'
+            value={links.github.replace(
+              /^https?:\/\/(www\.)?github\.com\//,
+              ''
+            )}
+            href={links.github}
+          />
+        )}
+        {links?.docs && (
+          <LinkCard
+            icon={BookOpen}
+            label='Documentation'
+            value={links.docs.replace(/^https?:\/\//, '')}
+            href={links.docs}
+          />
+        )}
       </div>
 
-      {/* Links */}
-      {links && (links.frontend || links.github || links.docs) && (
-        <div className='card p-4'>
-          <p className='section-heading mb-3'>Links</p>
-          {/* The deployed frontend gets a live window rather than a pill —
-              seeing the app is more use than reading its URL. Source and docs
-              are plain lines: they are references, not the thing itself. */}
-          {links.frontend && (
-            <div className='mb-3'>
-              <OpenAppTile
-                url={links.frontend}
-                name={meta?.name || bundle.package}
-              />
-            </div>
-          )}
-          <div className='flex flex-col gap-1.5'>
-            {links.github && (
-              <p className='text-[12.5px] text-neutral-500'>
-                GitHub code:{' '}
-                <a
-                  href={links.github}
-                  target='_blank'
-                  rel='noreferrer noopener'
-                  className='text-brand-600 transition-colors hover:text-brand-500'
-                >
-                  {links.github.replace(/^https?:\/\//, '')}
-                </a>
-              </p>
-            )}
-            {links.docs && (
-              <p className='text-[12.5px] text-neutral-500'>
-                Documentation:{' '}
-                <a
-                  href={links.docs}
-                  target='_blank'
-                  rel='noreferrer noopener'
-                  className='text-brand-600 transition-colors hover:text-brand-500'
-                >
-                  {links.docs.replace(/^https?:\/\//, '')}
-                </a>
-              </p>
-            )}
-          </div>
-        </div>
+      {/* Preview — the deployed frontend, live. Its own section because it
+          is the app itself rather than a fact about it; GitHub and docs are
+          up in the info grid with version and licence. */}
+      {links?.frontend && (
+        <section aria-label='Live preview'>
+          <p className='section-heading mb-3'>Preview</p>
+          <OpenAppTile
+            url={links.frontend}
+            name={meta?.name || bundle.package}
+          />
+        </section>
       )}
 
       {/* Organization */}
@@ -735,6 +727,35 @@ function BackLink() {
       <ArrowLeft className='w-3 h-3' />
       Back to Apps
     </Link>
+  );
+}
+
+function LinkCard({
+  icon: Icon,
+  label,
+  value,
+  href,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  value: string;
+  href: string;
+}) {
+  return (
+    <a
+      href={href}
+      target='_blank'
+      rel='noreferrer noopener'
+      className='card flex items-center gap-2.5 px-3.5 py-2.5 transition-colors hover:border-ink/[0.16]'
+    >
+      <Icon className='h-3.5 w-3.5 flex-shrink-0 text-neutral-500' />
+      <div className='min-w-0'>
+        <p className='text-[11px] text-neutral-500'>{label}</p>
+        <p className='truncate text-[13px] font-light text-brand-600'>
+          {value}
+        </p>
+      </div>
+    </a>
   );
 }
 

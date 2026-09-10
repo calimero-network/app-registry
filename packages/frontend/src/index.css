@@ -27,6 +27,8 @@
     --accent-text-hover-rgb: 184 255 74;
     --app-bg: #0d1117;
     --app-rail: #0d1117;
+    /* The Calimero wordmark ships dark; invert it for a dark ground. */
+    --logo-filter: brightness(0) invert(1);
 
     --color-brand-600: #a5ff11;
     --color-brand-100: #ecfc91;
@@ -75,6 +77,8 @@
     --accent-text-hover-rgb: 78 122 6;
     --app-bg: #ffffff;
     --app-rail: #f5f8f1;
+    /* Near-black rather than none: the asset's own ink is too light on paper. */
+    --logo-filter: brightness(0) invert(0.08);
 
     --bg: #ffffff;
     --surface: #f5f8f1;
@@ -257,6 +261,23 @@
  * cover `animation` as well as `transition` — killing transitions alone leaves
  * the keyframe entrances running, which are the larger movement.
  */
+/*
+ * The width jump when a filter narrows the list.
+ *
+ * It was never the cards or the description length: with many results the
+ * page scrolls and the scrollbar takes ~15px off the viewport; filter down to
+ * one result, the page no longer scrolls, the scrollbar disappears and every
+ * bit of content widens by those 15px. Reserving the gutter permanently means
+ * the layout is the same whether the page scrolls or not.
+ *
+ * Invisible in headless Chromium, which uses overlay scrollbars and reports a
+ * scrollbar width of 0 — which is why it has to be reasoned about rather than
+ * caught by a screenshot diff.
+ */
+html {
+  scrollbar-gutter: stable;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

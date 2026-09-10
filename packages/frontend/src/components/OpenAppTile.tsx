@@ -39,7 +39,7 @@ export function OpenAppTile({ url, name }: { url: string; name: string }) {
         target='_blank'
         rel='noreferrer noopener'
         data-testid='open-app-fallback'
-        className='flex h-64 items-center justify-center rounded-xl border border-ink/[0.08] bg-ink/[0.02] text-[13px] text-neutral-300 transition-colors hover:border-ink/[0.16]'
+        className='flex h-80 items-center justify-center rounded-xl border border-ink/[0.08] bg-ink/[0.02] text-[13px] text-neutral-300 transition-colors hover:border-ink/[0.16]'
       >
         <span className='inline-flex items-center gap-2'>
           <ExternalLink className='h-4 w-4' aria-hidden='true' />
@@ -56,25 +56,36 @@ export function OpenAppTile({ url, name }: { url: string; name: string }) {
       rel='noreferrer noopener'
       data-testid='open-app'
       aria-label={`View ${name} on the web`}
-      className='group relative block h-64 overflow-hidden rounded-xl border border-ink/[0.08] bg-ink/[0.02]'
+      className='group relative block h-80 overflow-hidden rounded-xl border border-ink/[0.08] bg-ink/[0.02]'
     >
-      <iframe
-        src={url}
-        title={`${name} preview`}
-        loading='lazy'
-        // No `allow-same-origin`: with `allow-scripts` the pair would let the
-        // framed page reach out of its sandbox.
-        sandbox='allow-scripts allow-popups-to-escape-sandbox'
-        onLoad={() => setLoaded(true)}
-        aria-hidden='true'
-        tabIndex={-1}
-        className='pointer-events-none h-[142%] w-[142%] origin-top-left scale-[0.703] border-0 transition-[filter,transform] duration-300 group-hover:scale-[0.77] group-hover:blur-[2px]'
-      />
+      {/* A flex box that centres the frame, rather than scaling it from a
+          corner. The first attempt used `origin-top-left`, so the hover zoom
+          grew toward the bottom-right and the whole preview slid off centre.
+          Centring the child and letting `scale` use its default centre origin
+          means the zoom happens about the middle, which is what "zoom in"
+          should look like. */}
+      <div className='absolute inset-0 flex items-center justify-center'>
+        <iframe
+          src={url}
+          title={`${name} preview`}
+          loading='lazy'
+          // No `allow-same-origin`: paired with `allow-scripts` it would let
+          // the framed page break out of its sandbox.
+          sandbox='allow-scripts allow-popups-to-escape-sandbox'
+          onLoad={() => setLoaded(true)}
+          aria-hidden='true'
+          tabIndex={-1}
+          // Rendered at a desktop viewport and scaled down, so the app lays
+          // itself out as it would on a real screen instead of collapsing to
+          // its mobile breakpoint inside a short frame.
+          className='pointer-events-none h-[900px] w-[1440px] flex-shrink-0 scale-[0.30] border-0 transition-[transform,filter] duration-500 ease-out group-hover:scale-[0.335] group-hover:blur-[3px]'
+        />
+      </div>
       {!loaded && (
         <div className='absolute inset-0 animate-pulse bg-ink/[0.03]' />
       )}
-      <span className='absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-all duration-300 group-hover:bg-black/45 group-hover:opacity-100'>
-        <span className='inline-flex items-center gap-2 rounded-lg bg-black/70 px-3.5 py-2 text-[13px] font-medium text-neutral-100'>
+      <span className='absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-all duration-500 ease-out group-hover:bg-black/45 group-hover:opacity-100'>
+        <span className='inline-flex items-center gap-2 rounded-lg bg-black/75 px-4 py-2.5 text-[13px] font-medium text-white'>
           <ExternalLink className='h-4 w-4' aria-hidden='true' />
           View application on web
         </span>

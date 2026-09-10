@@ -179,7 +179,7 @@ export function Layout({ children }: LayoutProps) {
                 src={calimeroLogo}
                 alt='Calimero'
                 className='h-5 opacity-70'
-                style={{ filter: 'brightness(0) invert(1)' }}
+                style={{ filter: 'var(--logo-filter)' }}
               />
               <p className='max-w-[220px] text-[12.5px] font-light leading-relaxed text-neutral-500'>
                 A self-sovereign registry for verifiable applications.
