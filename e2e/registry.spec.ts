@@ -311,7 +311,11 @@ test.describe('home shelves', () => {
     await expect(
       page.getByRole('heading', { name: 'App Registry', level: 1 })
     ).toBeVisible();
-    await expect(page.locator('main')).toContainText('signed WebAssembly');
+    // The three-point list this used to assert on is gone — the hero
+    // animation says the same thing. The one-line subtitle is what remains.
+    await expect(page.locator('main')).toContainText(
+      'signed, versioned, and installed into a node you run yourself'
+    );
   });
 
   test('the hero animates without JavaScript', async ({ page }) => {
