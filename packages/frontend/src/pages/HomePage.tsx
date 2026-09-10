@@ -83,19 +83,21 @@ export default function HomePage() {
         {/* Title and one line of copy. The three-point list that was here
             said the same thing at four times the length; the animation below
             shows it instead. */}
-        <div className='flex flex-wrap items-baseline gap-x-3 gap-y-1'>
-          <h1 className='text-2xl font-semibold tracking-tight text-neutral-100 sm:text-3xl'>
-            App Registry
-          </h1>
-          <p className='text-[13.5px] font-light text-neutral-400'>
-            Applications for Calimero — signed, versioned, and installed into a
-            node you run yourself.
-          </p>
-        </div>
+        {/* Title, then description under it, then the animation with room
+            above it. Stacked rather than inline: the subtitle is a sentence,
+            not a tagline, and sitting it beside the title made both harder
+            to read. */}
+        <h1 className='text-2xl font-semibold tracking-tight text-neutral-100 sm:text-3xl'>
+          App Registry
+        </h1>
+        <p className='mt-2 max-w-2xl text-[13.5px] font-light leading-relaxed text-neutral-400'>
+          Applications for Calimero — signed, versioned, and installed into a
+          node you run yourself.
+        </p>
 
         {/* Full width and tall: this is the explanation, so it has to be big
             enough to read as a sequence rather than as decoration. */}
-        <div className='mt-6 aspect-[900/420] w-full'>
+        <div className='mt-10 aspect-[960/560] w-full'>
           <HeroGraphic />
         </div>
       </section>

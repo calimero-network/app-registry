@@ -1,43 +1,57 @@
 /**
- * The home hero: browse → install → use, on a loop, full width.
+ * The home hero: Calimero Desktop on a laptop, running the whole journey.
  *
- *   1. Browse   — the registry: real-looking app rows with icons, categories,
- *                 sizes and download counts; a cursor picks one
- *   2. Install  — Calimero Desktop: the app card, a progress bar, a tick,
- *                 then it appears in the launcher dock
- *   3. Use      — the app opens: channel rail, message thread filling in from
- *                 both sides, presence dots, a composer
+ *   1. Browse   — the registry inside the app: named rows, categories, sizes,
+ *                 download counts, a cursor that picks one and clicks
+ *   2. Install  — the app card, a progress bar, a tick, and the icon landing
+ *                 in the launcher dock
+ *   3. Use      — mero-chat open: channel list with real names, a thread of
+ *                 actual messages arriving one after another, presence, and
+ *                 a composer being typed into
  *
- * ⚠️ NO JAVASCRIPT. A rAF loop on the front page runs forever in every open
+ * The device frame matters. Without it the three scenes read as abstract
+ * rectangles; drawn inside a laptop they read as software someone is using,
+ * which is the whole claim the page is making.
+ *
+ * ⚠️ NO JAVASCRIPT. A rAF loop on the busiest page runs forever in every open
  * tab, backgrounded ones included. This is SMIL on inline SVG: the browser
- * owns the timeline, pauses it when the tab is hidden, and it costs nothing
- * on the main thread. It also inherits `prefers-reduced-motion` from the
- * global reduce block — a JS loop would have bypassed that.
+ * owns the timeline, pauses it on a hidden tab, costs nothing on the main
+ * thread, and inherits `prefers-reduced-motion` from the global reduce block.
+ * A JS loop would have bypassed that.
  *
- * Colour is deliberate rather than decorative: the accent marks what is
- * happening now (the selected row, the progress fill, your own messages),
- * and everything else is low-opacity neutral, so the eye follows the action
- * through the three scenes.
+ * Text is real. Placeholder bars say "a list of things"; "#design-review" and
+ * "shipping the canvas fix today" say what the product is for.
  */
 
-const LOOP = '15s';
+const LOOP = '18s';
 
-/** Scene visibility. Three beats of ~5s with a short cross-fade at each seam. */
+/** Three beats of ~6s, cross-fading at the seams. */
 function scene(i: number) {
-  const v = ['1;1;0;0;0;0;1', '0;0;1;1;0;0;0', '0;0;0;0;1;1;0'][i];
   return {
-    values: v,
-    keyTimes: '0;0.30;0.34;0.63;0.67;0.96;1',
+    attributeName: 'opacity',
     dur: LOOP,
     repeatCount: 'indefinite' as const,
-    attributeName: 'opacity',
+    keyTimes: '0;0.30;0.34;0.63;0.67;0.96;1',
+    values: ['1;1;0;0;0;0;1', '0;0;1;1;0;0;0', '0;0;0;0;1;1;0'][i],
   };
 }
 
-const ROWS = [
-  { name: 68, meta: 120, cat: 'games', size: 30 },
-  { name: 92, meta: 150, cat: 'social', size: 34 },
-  { name: 58, meta: 104, cat: 'tools', size: 28 },
+const MONO = 'ui-monospace, SFMono-Regular, Menlo, monospace';
+const SANS = 'Inter, system-ui, sans-serif';
+
+const APPS = [
+  { name: 'Merraria', cat: 'Games', size: '2.4 MB', dl: '1,204' },
+  { name: 'Mero Chat', cat: 'Communication', size: '890 KB', dl: '981' },
+  { name: 'Mero Sheets', cat: 'Productivity', size: '1.2 MB', dl: '340' },
+];
+
+const CHANNELS = ['#general', '#design-review', '#releases', '#random'];
+
+const THREAD = [
+  { who: 'ana', text: 'anyone got the canvas fix?', mine: false, t: 0.685 },
+  { who: 'you', text: 'pushed it — 0.0.4 is signed', mine: true, t: 0.745 },
+  { who: 'ana', text: 'installing now', mine: false, t: 0.8 },
+  { who: 'you', text: 'syncs straight to your node 🎉', mine: true, t: 0.855 },
 ];
 
 export function HeroGraphic() {
@@ -47,198 +61,277 @@ export function HeroGraphic() {
       aria-hidden='true'
       data-testid='hero-graphic'
     >
-      <svg viewBox='0 0 900 420' className='h-full w-full'>
+      <svg viewBox='0 0 960 560' className='h-full w-full'>
         <defs>
-          <clipPath id='hero-clip'>
-            <rect x='16' y='16' width='868' height='388' rx='16' />
+          <clipPath id='hero-screen'>
+            <rect x='96' y='30' width='768' height='452' rx='10' />
           </clipPath>
-          <linearGradient id='hero-glow' x1='0' y1='0' x2='0' y2='1'>
+          <linearGradient id='hero-lid' x1='0' y1='0' x2='0' y2='1'>
             <stop offset='0%' stopColor='var(--accent)' stopOpacity='0.10' />
-            <stop offset='100%' stopColor='var(--accent)' stopOpacity='0' />
+            <stop offset='60%' stopColor='var(--accent)' stopOpacity='0' />
+          </linearGradient>
+          <linearGradient id='hero-base' x1='0' y1='0' x2='1' y2='0'>
+            <stop offset='0%' stopColor='currentColor' stopOpacity='0.10' />
+            <stop offset='50%' stopColor='currentColor' stopOpacity='0.22' />
+            <stop offset='100%' stopColor='currentColor' stopOpacity='0.10' />
           </linearGradient>
         </defs>
 
-        {/* Window chrome, shared by all three scenes */}
+        {/* ── Laptop ── */}
         <rect
-          x='16'
-          y='16'
-          width='868'
-          height='388'
-          rx='16'
-          fill='var(--app-rail)'
-          stroke='var(--accent)'
-          strokeOpacity='0.22'
-        />
-        <rect x='16' y='16' width='868' height='120' fill='url(#hero-glow)' />
-        <circle cx='44' cy='42' r='5' fill='var(--accent)' opacity='0.7' />
-        <circle cx='62' cy='42' r='5' fill='currentColor' opacity='0.22' />
-        <circle cx='80' cy='42' r='5' fill='currentColor' opacity='0.22' />
-        <rect
-          x='110'
-          y='34'
-          width='300'
-          height='16'
-          rx='8'
+          x='84'
+          y='18'
+          width='792'
+          height='476'
+          rx='18'
           fill='currentColor'
-          opacity='0.06'
+          fillOpacity='0.06'
+          stroke='currentColor'
+          strokeOpacity='0.18'
         />
-        <line
-          x1='16'
-          y1='68'
-          x2='884'
-          y2='68'
-          stroke='var(--accent)'
-          strokeOpacity='0.14'
+        <rect
+          x='96'
+          y='30'
+          width='768'
+          height='452'
+          rx='10'
+          fill='var(--app-rail)'
+        />
+        <rect
+          x='96'
+          y='30'
+          width='768'
+          height='150'
+          rx='10'
+          fill='url(#hero-lid)'
+        />
+        {/* Base + notch */}
+        <path
+          d='M40 500 h880 a10 10 0 0 1 -10 14 H50 a10 10 0 0 1 -10 -14 Z'
+          fill='url(#hero-base)'
+        />
+        <rect
+          x='430'
+          y='500'
+          width='100'
+          height='5'
+          rx='2.5'
+          fill='currentColor'
+          fillOpacity='0.22'
+        />
+        <circle
+          cx='480'
+          cy='24'
+          r='2.5'
+          fill='currentColor'
+          fillOpacity='0.3'
         />
 
-        <g clipPath='url(#hero-clip)'>
-          {/* ─────────── 1. Browse the registry ─────────── */}
+        {/* App chrome inside the screen */}
+        <circle cx='120' cy='52' r='4.5' fill='#ff5f57' opacity='0.85' />
+        <circle cx='136' cy='52' r='4.5' fill='#febc2e' opacity='0.85' />
+        <circle cx='152' cy='52' r='4.5' fill='#28c840' opacity='0.85' />
+        <text
+          x='420'
+          y='56'
+          fontSize='11'
+          fontFamily={SANS}
+          fill='currentColor'
+          fillOpacity='0.45'
+        >
+          Calimero Desktop
+        </text>
+        <line
+          x1='96'
+          y1='74'
+          x2='864'
+          y2='74'
+          stroke='currentColor'
+          strokeOpacity='0.1'
+        />
+
+        <g clipPath='url(#hero-screen)'>
+          {/* ══════ 1. Browse ══════ */}
           <g>
             <animate {...scene(0)} />
             <text
-              x='48'
-              y='104'
-              fontSize='15'
-              fill='currentColor'
-              fillOpacity='0.75'
-              fontFamily='sans-serif'
+              x='128'
+              y='112'
+              fontSize='17'
               fontWeight='600'
+              fontFamily={SANS}
+              fill='currentColor'
+              fillOpacity='0.85'
             >
               Explore
             </text>
-            {[0, 1, 2].map(i => {
-              const r = ROWS[i];
+            <rect
+              x='620'
+              y='94'
+              width='214'
+              height='26'
+              rx='13'
+              fill='currentColor'
+              opacity='0.06'
+            />
+            <text
+              x='638'
+              y='111'
+              fontSize='11'
+              fontFamily={SANS}
+              fill='currentColor'
+              fillOpacity='0.35'
+            >
+              Search apps
+            </text>
+
+            {APPS.map((a, i) => {
               const on = i === 1;
-              const y = 126 + i * 86;
+              const y = 140 + i * 96;
               return (
-                <g key={i}>
+                <g key={a.name}>
                   <rect
-                    x='48'
+                    x='128'
                     y={y}
-                    width='804'
-                    height='72'
-                    rx='12'
+                    width='706'
+                    height='80'
+                    rx='14'
                     fill={on ? 'var(--accent)' : 'currentColor'}
                     opacity={on ? '0.10' : '0.035'}
                   />
                   {on && (
                     <rect
-                      x='48'
+                      x='128'
                       y={y}
-                      width='804'
-                      height='72'
-                      rx='12'
+                      width='706'
+                      height='80'
+                      rx='14'
                       fill='none'
                       stroke='var(--accent)'
-                      strokeOpacity='0.45'
+                      strokeOpacity='0.5'
                     />
                   )}
                   <rect
-                    x='68'
-                    y={y + 14}
-                    width='44'
-                    height='44'
-                    rx='12'
+                    x='148'
+                    y={y + 16}
+                    width='48'
+                    height='48'
+                    rx='13'
                     fill='var(--accent)'
-                    opacity={on ? '0.9' : '0.28'}
+                    opacity={on ? '0.9' : '0.3'}
                   />
-                  <rect
-                    x='128'
-                    y={y + 18}
-                    width={r.name}
-                    height='9'
-                    rx='4.5'
-                    fill='currentColor'
-                    opacity={on ? '0.8' : '0.5'}
-                  />
-                  <rect
-                    x='128'
-                    y={y + 34}
-                    width={r.meta}
-                    height='7'
-                    rx='3.5'
-                    fill='currentColor'
-                    opacity='0.24'
-                  />
-                  {/* category chip */}
-                  <rect
-                    x='128'
-                    y={y + 48}
-                    width='58'
-                    height='13'
-                    rx='6.5'
-                    fill='currentColor'
-                    opacity='0.09'
-                  />
-                  <rect
-                    x='136'
-                    y={y + 52}
-                    width='42'
-                    height='5'
-                    rx='2.5'
-                    fill='currentColor'
-                    opacity='0.35'
-                  />
-                  {/* size + downloads */}
-                  <rect
-                    x='640'
+                  <text
+                    x='212'
                     y={y + 32}
-                    width={r.size}
-                    height='7'
-                    rx='3.5'
+                    fontSize='14'
+                    fontWeight='600'
+                    fontFamily={SANS}
                     fill='currentColor'
-                    opacity='0.28'
-                  />
-                  <rect
-                    x='690'
-                    y={y + 32}
-                    width='26'
-                    height='7'
-                    rx='3.5'
+                    fillOpacity={on ? '0.9' : '0.6'}
+                  >
+                    {a.name}
+                  </text>
+                  <text
+                    x='212'
+                    y={y + 50}
+                    fontSize='11'
+                    fontFamily={SANS}
                     fill='currentColor'
-                    opacity='0.28'
-                  />
-                  {/* install button */}
+                    fillOpacity='0.35'
+                  >
+                    calimero-network
+                  </text>
                   <rect
-                    x='752'
-                    y={y + 22}
-                    width='80'
+                    x='212'
+                    y={y + 58}
+                    width={a.cat.length * 6.4 + 20}
+                    height='16'
+                    rx='8'
+                    fill='currentColor'
+                    opacity='0.08'
+                  />
+                  <text
+                    x={220}
+                    y={y + 70}
+                    fontSize='9.5'
+                    fontFamily={SANS}
+                    fill='currentColor'
+                    fillOpacity='0.45'
+                  >
+                    {a.cat}
+                  </text>
+                  <text
+                    x='612'
+                    y={y + 45}
+                    fontSize='11'
+                    fontFamily={MONO}
+                    fill='currentColor'
+                    fillOpacity='0.35'
+                  >
+                    {a.size}
+                  </text>
+                  <text
+                    x='682'
+                    y={y + 45}
+                    fontSize='11'
+                    fontFamily={MONO}
+                    fill='currentColor'
+                    fillOpacity='0.35'
+                  >
+                    ↓ {a.dl}
+                  </text>
+                  <rect
+                    x='742'
+                    y={y + 26}
+                    width='76'
                     height='28'
                     rx='14'
                     fill='var(--accent)'
-                    opacity={on ? '1' : '0.22'}
+                    opacity={on ? '1' : '0.2'}
                   />
+                  <text
+                    x='780'
+                    y={y + 45}
+                    fontSize='11'
+                    fontWeight='600'
+                    fontFamily={SANS}
+                    textAnchor='middle'
+                    fill='var(--app-rail)'
+                    fillOpacity={on ? '1' : '0.5'}
+                  >
+                    Install
+                  </text>
                 </g>
               );
             })}
-            {/* Cursor arrives on the middle row and clicks */}
+
             <g>
               <animateMotion
                 dur={LOOP}
                 repeatCount='indefinite'
-                path='M860,380 L820,300 L800,244'
+                path='M840,440 L810,340 L790,272'
                 keyPoints='0;0.6;1'
-                keyTimes='0;0.18;0.27'
+                keyTimes='0;0.17;0.26'
                 calcMode='linear'
               />
-              <circle r='0' fill='var(--accent)' opacity='0.5'>
+              <circle r='0' fill='var(--accent)'>
                 <animate
                   attributeName='r'
                   dur={LOOP}
                   repeatCount='indefinite'
-                  values='0;0;22;0'
-                  keyTimes='0;0.27;0.30;0.31'
+                  values='0;0;26;0'
+                  keyTimes='0;0.26;0.29;0.30'
                 />
                 <animate
                   attributeName='opacity'
                   dur={LOOP}
                   repeatCount='indefinite'
-                  values='0;0;0.45;0'
-                  keyTimes='0;0.27;0.285;0.31'
+                  values='0;0;0.4;0'
+                  keyTimes='0;0.26;0.275;0.30'
                 />
               </circle>
               <path
-                d='M0 0 L0 22 L6 16 L10 25 L14 23 L10 14.5 L18.5 14 Z'
+                d='M0 0 L0 21 L5.8 15.5 L9.6 24 L13.4 22.2 L9.6 14 L17.8 13.6 Z'
                 fill='currentColor'
                 stroke='var(--app-rail)'
                 strokeWidth='1.5'
@@ -246,135 +339,158 @@ export function HeroGraphic() {
             </g>
           </g>
 
-          {/* ─────────── 2. Install into Calimero Desktop ─────────── */}
+          {/* ══════ 2. Install ══════ */}
           <g>
             <animate {...scene(1)} />
             <text
-              x='48'
-              y='104'
-              fontSize='15'
-              fill='currentColor'
-              fillOpacity='0.75'
-              fontFamily='sans-serif'
+              x='128'
+              y='112'
+              fontSize='17'
               fontWeight='600'
+              fontFamily={SANS}
+              fill='currentColor'
+              fillOpacity='0.85'
             >
-              Calimero Desktop
+              Installing
             </text>
 
             <rect
-              x='250'
-              y='124'
-              width='400'
-              height='190'
-              rx='16'
+              x='268'
+              y='150'
+              width='424'
+              height='214'
+              rx='18'
               fill='currentColor'
               opacity='0.05'
             />
             <rect
-              x='250'
-              y='124'
-              width='400'
-              height='190'
-              rx='16'
+              x='268'
+              y='150'
+              width='424'
+              height='214'
+              rx='18'
               fill='none'
               stroke='var(--accent)'
-              strokeOpacity='0.2'
+              strokeOpacity='0.22'
             />
             <rect
-              x='286'
-              y='158'
-              width='64'
-              height='64'
-              rx='18'
+              x='304'
+              y='184'
+              width='68'
+              height='68'
+              rx='19'
               fill='var(--accent)'
               opacity='0.9'
             />
-            <rect
-              x='368'
-              y='168'
-              width='150'
-              height='11'
-              rx='5.5'
+            <text
+              x='392'
+              y='206'
+              fontSize='16'
+              fontWeight='600'
+              fontFamily={SANS}
               fill='currentColor'
-              opacity='0.7'
-            />
-            <rect
-              x='368'
-              y='188'
-              width='104'
-              height='8'
-              rx='4'
+              fillOpacity='0.85'
+            >
+              Mero Chat
+            </text>
+            <text
+              x='392'
+              y='226'
+              fontSize='11'
+              fontFamily={MONO}
               fill='currentColor'
-              opacity='0.28'
-            />
-            <rect
-              x='368'
-              y='204'
-              width='62'
-              height='13'
-              rx='6.5'
-              fill='var(--accent)'
-              opacity='0.2'
-            />
+              fillOpacity='0.35'
+            >
+              com.calimero.mero-chat
+            </text>
+            <text
+              x='392'
+              y='246'
+              fontSize='11'
+              fontFamily={SANS}
+              fill='currentColor'
+              fillOpacity='0.35'
+            >
+              v3.1.1 · 890 KB · verified
+            </text>
 
-            {/* Progress */}
             <rect
-              x='286'
-              y='250'
-              width='328'
+              x='304'
+              y='282'
+              width='352'
               height='10'
               rx='5'
               fill='currentColor'
               opacity='0.1'
             />
-            <rect x='286' y='250' height='10' rx='5' fill='var(--accent)'>
+            <rect x='304' y='282' height='10' rx='5' fill='var(--accent)'>
               <animate
                 attributeName='width'
                 dur={LOOP}
                 repeatCount='indefinite'
-                values='0;0;328;328;328'
-                keyTimes='0;0.36;0.56;0.62;1'
+                values='0;0;352;352;352'
+                keyTimes='0;0.355;0.55;0.62;1'
               />
             </rect>
+            <text
+              x='304'
+              y='312'
+              fontSize='10.5'
+              fontFamily={MONO}
+              fill='currentColor'
+              fillOpacity='0.4'
+            >
+              verifying signature…
+            </text>
             <g opacity='0'>
               <animate
                 attributeName='opacity'
                 dur={LOOP}
                 repeatCount='indefinite'
                 values='0;0;1;1;0'
-                keyTimes='0;0.555;0.58;0.64;0.67'
+                keyTimes='0;0.545;0.57;0.635;0.665'
               />
-              <circle cx='630' cy='255' r='14' fill='var(--accent)' />
+              <circle cx='676' cy='287' r='15' fill='var(--accent)' />
               <path
-                d='M623 255l5 5 10-11'
+                d='M669 287l5 5 10-11'
                 stroke='var(--app-rail)'
                 strokeWidth='3'
                 fill='none'
                 strokeLinecap='round'
                 strokeLinejoin='round'
               />
+              <text
+                x='304'
+                y='334'
+                fontSize='10.5'
+                fontFamily={MONO}
+                fill='var(--accent)'
+                fillOpacity='0.85'
+              >
+                installed to your node
+              </text>
             </g>
 
-            {/* Launcher dock — the installed app lands here */}
+            {/* Dock */}
             <rect
-              x='286'
-              y='288'
-              width='328'
-              height='2'
-              rx='1'
+              x='300'
+              y='394'
+              width='360'
+              height='60'
+              rx='16'
               fill='currentColor'
-              opacity='0.08'
+              opacity='0.06'
             />
             {[0, 1, 2].map(i => (
               <rect
                 key={i}
-                x={310 + i * 56}
-                y='300'
-                width='36'
-                height='36'
-                rx='11'
+                x={320 + i * 62}
+                y='408'
+                width='40'
+                height='40'
+                rx='12'
                 fill='currentColor'
-                opacity='0.09'
+                opacity='0.1'
               />
             ))}
             <g opacity='0'>
@@ -383,149 +499,206 @@ export function HeroGraphic() {
                 dur={LOOP}
                 repeatCount='indefinite'
                 values='0;0;1;1;0'
-                keyTimes='0;0.585;0.61;0.64;0.67'
+                keyTimes='0;0.575;0.60;0.635;0.665'
+              />
+              <animateTransform
+                attributeName='transform'
+                type='translate'
+                dur={LOOP}
+                repeatCount='indefinite'
+                values='0,-24;0,-24;0,0;0,0;0,0'
+                keyTimes='0;0.575;0.605;0.635;0.665'
               />
               <rect
-                x='478'
-                y='300'
-                width='36'
-                height='36'
-                rx='11'
+                x='506'
+                y='408'
+                width='40'
+                height='40'
+                rx='12'
                 fill='var(--accent)'
               />
             </g>
           </g>
 
-          {/* ─────────── 3. Use it ─────────── */}
+          {/* ══════ 3. Use ══════ */}
           <g>
             <animate {...scene(2)} />
-            {/* Channel rail */}
+            {/* Channels */}
             <rect
-              x='16'
-              y='68'
-              width='200'
-              height='336'
+              x='96'
+              y='74'
+              width='192'
+              height='408'
               fill='currentColor'
               opacity='0.05'
             />
-            <rect
-              x='44'
-              y='94'
-              width='96'
-              height='9'
-              rx='4.5'
+            <text
+              x='120'
+              y='106'
+              fontSize='12'
+              fontWeight='600'
+              fontFamily={SANS}
               fill='currentColor'
-              opacity='0.55'
-            />
-            {[0, 1, 2, 3, 4].map(i => (
-              <g key={i}>
+              fillOpacity='0.6'
+            >
+              Mero Chat
+            </text>
+            {CHANNELS.map((c, i) => (
+              <g key={c}>
                 <rect
-                  x='36'
-                  y={120 + i * 34}
+                  x='112'
+                  y={124 + i * 34}
                   width='160'
                   height='26'
-                  rx='8'
+                  rx='7'
                   fill={i === 1 ? 'var(--accent)' : 'currentColor'}
-                  opacity={i === 1 ? '0.16' : '0.04'}
+                  opacity={i === 1 ? '0.16' : '0'}
                 />
-                <rect
-                  x='50'
-                  y={130 + i * 34}
-                  width={[74, 96, 62, 84, 70][i]}
-                  height='7'
-                  rx='3.5'
+                <text
+                  x='124'
+                  y={142 + i * 34}
+                  fontSize='12'
+                  fontFamily={SANS}
                   fill={i === 1 ? 'var(--accent)' : 'currentColor'}
-                  opacity={i === 1 ? '0.85' : '0.28'}
-                />
+                  fillOpacity={i === 1 ? '0.95' : '0.4'}
+                >
+                  {c}
+                </text>
               </g>
             ))}
-            {/* Presence */}
-            {[0, 1, 2, 3].map(i => (
+            <text
+              x='120'
+              y='420'
+              fontSize='10'
+              fontFamily={SANS}
+              fill='currentColor'
+              fillOpacity='0.3'
+            >
+              3 online
+            </text>
+            {[0, 1, 2].map(i => (
               <circle
-                key={`p${i}`}
-                cx={50 + i * 22}
-                cy='376'
-                r='9'
+                key={i}
+                cx={124 + i * 18}
+                cy='440'
+                r='7'
                 fill='var(--accent)'
-                opacity={0.85 - i * 0.18}
+                opacity={0.85 - i * 0.2}
               />
             ))}
 
-            {/* Thread */}
-            {[
-              { x: 248, w: 300, h: 54, mine: false, t: 0.685 },
-              { x: 470, w: 366, h: 40, mine: true, t: 0.745 },
-              { x: 248, w: 234, h: 40, mine: false, t: 0.805 },
-              { x: 404, w: 432, h: 54, mine: true, t: 0.865 },
-            ].map((m, i) => (
-              <g key={`m${i}`} opacity='0'>
+            <text
+              x='312'
+              y='106'
+              fontSize='13'
+              fontWeight='600'
+              fontFamily={SANS}
+              fill='currentColor'
+              fillOpacity='0.7'
+            >
+              #design-review
+            </text>
+            <line
+              x1='288'
+              y1='120'
+              x2='864'
+              y2='120'
+              stroke='currentColor'
+              strokeOpacity='0.08'
+            />
+
+            {THREAD.map((m, i) => {
+              const w = m.text.length * 6.6 + 40;
+              const x = m.mine ? 836 - w : 312;
+              const y = 146 + i * 62;
+              return (
+                <g key={i} opacity='0'>
+                  <animate
+                    attributeName='opacity'
+                    dur={LOOP}
+                    repeatCount='indefinite'
+                    values='0;0;1;1;0'
+                    keyTimes={`0;${m.t};${m.t + 0.018};0.955;1`}
+                  />
+                  <animateTransform
+                    attributeName='transform'
+                    type='translate'
+                    dur={LOOP}
+                    repeatCount='indefinite'
+                    values={`${m.mine ? 22 : -22},6;${m.mine ? 22 : -22},6;0,0;0,0;0,0`}
+                    keyTimes={`0;${m.t};${m.t + 0.018};0.955;1`}
+                  />
+                  <text
+                    x={m.mine ? 836 : 312}
+                    y={y - 6}
+                    fontSize='10'
+                    fontFamily={SANS}
+                    textAnchor={m.mine ? 'end' : 'start'}
+                    fill='currentColor'
+                    fillOpacity='0.35'
+                  >
+                    {m.who}
+                  </text>
+                  <rect
+                    x={x}
+                    y={y}
+                    width={w}
+                    height='36'
+                    rx='12'
+                    fill={m.mine ? 'var(--accent)' : 'currentColor'}
+                    opacity={m.mine ? '0.85' : '0.08'}
+                  />
+                  <text
+                    x={x + 20}
+                    y={y + 23}
+                    fontSize='12.5'
+                    fontFamily={SANS}
+                    fill={m.mine ? 'var(--app-rail)' : 'currentColor'}
+                    fillOpacity={m.mine ? '0.95' : '0.75'}
+                  >
+                    {m.text}
+                  </text>
+                </g>
+              );
+            })}
+
+            {/* Composer, typed into */}
+            <rect
+              x='312'
+              y='424'
+              width='524'
+              height='36'
+              rx='18'
+              fill='currentColor'
+              opacity='0.06'
+            />
+            <text
+              x='334'
+              y='447'
+              fontSize='12'
+              fontFamily={SANS}
+              fill='currentColor'
+              fillOpacity='0.55'
+            >
+              <tspan>
+                nice
                 <animate
                   attributeName='opacity'
                   dur={LOOP}
                   repeatCount='indefinite'
                   values='0;0;1;1;0'
-                  keyTimes={`0;${m.t};${m.t + 0.02};0.96;1`}
+                  keyTimes='0;0.90;0.915;0.955;1'
                 />
-                <animateTransform
-                  attributeName='transform'
-                  type='translate'
-                  dur={LOOP}
-                  repeatCount='indefinite'
-                  values={`${m.mine ? 26 : -26},0;${m.mine ? 26 : -26},0;0,0;0,0;0,0`}
-                  keyTimes={`0;${m.t};${m.t + 0.02};0.96;1`}
-                />
-                <rect
-                  x={m.x}
-                  y={110 + i * 62}
-                  width={m.w}
-                  height={m.h}
-                  rx='14'
-                  fill={m.mine ? 'var(--accent)' : 'currentColor'}
-                  opacity={m.mine ? '0.82' : '0.08'}
-                />
-                <rect
-                  x={m.x + 18}
-                  y={110 + i * 62 + 15}
-                  width={m.w * 0.55}
-                  height='7'
-                  rx='3.5'
-                  fill={m.mine ? 'var(--app-rail)' : 'currentColor'}
-                  opacity={m.mine ? '0.5' : '0.3'}
-                />
-                {m.h > 44 && (
-                  <rect
-                    x={m.x + 18}
-                    y={110 + i * 62 + 30}
-                    width={m.w * 0.34}
-                    height='7'
-                    rx='3.5'
-                    fill={m.mine ? 'var(--app-rail)' : 'currentColor'}
-                    opacity={m.mine ? '0.35' : '0.18'}
-                  />
-                )}
-              </g>
-            ))}
-
-            {/* Composer with a blinking caret */}
-            <rect
-              x='248'
-              y='356'
-              width='588'
-              height='34'
-              rx='17'
-              fill='currentColor'
-              opacity='0.06'
-            />
-            <rect
-              x='268'
-              y='370'
-              width='110'
-              height='7'
-              rx='3.5'
-              fill='currentColor'
-              opacity='0.22'
-            />
-            <rect x='384' y='366' width='2' height='15' fill='var(--accent)'>
+              </tspan>
+            </text>
+            <rect y='434' width='2' height='16' fill='var(--accent)'>
+              <animate
+                attributeName='x'
+                dur={LOOP}
+                repeatCount='indefinite'
+                values='334;334;362;362'
+                keyTimes='0;0.90;0.918;1'
+              />
               <animate
                 attributeName='opacity'
                 values='1;0;1'
@@ -533,7 +706,15 @@ export function HeroGraphic() {
                 repeatCount='indefinite'
               />
             </rect>
-            <circle cx='814' cy='373' r='13' fill='var(--accent)' />
+            <circle cx='812' cy='442' r='13' fill='var(--accent)' />
+            <path
+              d='M807 442l4 4 7-8'
+              stroke='var(--app-rail)'
+              strokeWidth='2'
+              fill='none'
+              strokeLinecap='round'
+              strokeLinejoin='round'
+            />
           </g>
         </g>
       </svg>
