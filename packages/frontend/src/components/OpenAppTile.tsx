@@ -78,7 +78,17 @@ export function OpenAppTile({ url, name }: { url: string; name: string }) {
           // Rendered at a desktop viewport and scaled down, so the app lays
           // itself out as it would on a real screen instead of collapsing to
           // its mobile breakpoint inside a short frame.
-          className='pointer-events-none h-[900px] w-[1440px] flex-shrink-0 scale-[0.30] border-0 transition-[transform,filter] duration-500 ease-out group-hover:scale-[0.335] group-hover:blur-[3px]'
+          // `transition-transform` explicitly, plus an explicit
+          // `filter` transition: a bare `transition-[transform,filter]`
+          // arbitrary value did not always survive Tailwind's parser here,
+          // and the zoom snapped instantly. 700ms so the movement reads as
+          // deliberate rather than twitchy.
+          style={{
+            transitionProperty: 'transform, filter',
+            transitionDuration: '700ms',
+            transitionTimingFunction: 'cubic-bezier(0.22, 1, 0.36, 1)',
+          }}
+          className='pointer-events-none h-[900px] w-[1440px] flex-shrink-0 scale-[0.30] border-0 group-hover:scale-[0.34] group-hover:blur-[3px]'
         />
       </div>
       {!loaded && (

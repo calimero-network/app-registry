@@ -44,10 +44,14 @@ export function RegistryMark({
         style={{ filter: 'var(--logo-filter)' }}
       />
       <span
+        // Indented past the glyph so the label sits under the WORDMARK
+        // rather than under the mark — the glyph occupies roughly the first
+        // 52px of the asset, and a label starting at x=0 reads as a caption
+        // for the icon instead of a lockup with the name.
         className={`font-bold uppercase leading-none text-brand-600 ${
           compact
-            ? '-mt-[2px] text-[7px] tracking-[0.06em]'
-            : '-mt-[3px] text-[8px] tracking-[0.08em]'
+            ? '-mt-[2px] ml-[42px] text-[7px] tracking-[0.04em]'
+            : '-mt-[3px] ml-[52px] text-[8px] tracking-[0.06em]'
         }`}
       >
         App Registry

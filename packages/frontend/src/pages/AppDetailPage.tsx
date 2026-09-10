@@ -340,23 +340,10 @@ export default function AppDetailPage() {
             app, the same as its version or licence. The live preview is the
             one link that is not a fact, so it gets its own section. */}
         {links?.github && (
-          <LinkCard
-            icon={GithubIcon}
-            label='GitHub code'
-            value={links.github.replace(
-              /^https?:\/\/(www\.)?github\.com\//,
-              ''
-            )}
-            href={links.github}
-          />
+          <LinkCard icon={GithubIcon} label='Source code' href={links.github} />
         )}
         {links?.docs && (
-          <LinkCard
-            icon={BookOpen}
-            label='Documentation'
-            value={links.docs.replace(/^https?:\/\//, '')}
-            href={links.docs}
-          />
+          <LinkCard icon={BookOpen} label='Documentation' href={links.docs} />
         )}
       </div>
 
@@ -730,15 +717,20 @@ function BackLink() {
   );
 }
 
+/**
+ * A link presented as a fact, in the same grid as author and version.
+ *
+ * The URL itself is not shown: a raw github.com/... string is noise next to
+ * "v0.0.7", it truncates in a narrow card, and it tells you nothing the icon
+ * does not. Label on top, icon underneath, whole card clickable.
+ */
 function LinkCard({
   icon: Icon,
   label,
-  value,
   href,
 }: {
   icon: React.ComponentType<{ className?: string }>;
   label: string;
-  value: string;
   href: string;
 }) {
   return (
@@ -746,15 +738,11 @@ function LinkCard({
       href={href}
       target='_blank'
       rel='noreferrer noopener'
-      className='card flex items-center gap-2.5 px-3.5 py-2.5 transition-colors hover:border-ink/[0.16]'
+      aria-label={label}
+      className='card flex flex-col justify-center gap-1 px-3.5 py-2.5 transition-colors hover:border-ink/[0.16]'
     >
-      <Icon className='h-3.5 w-3.5 flex-shrink-0 text-neutral-500' />
-      <div className='min-w-0'>
-        <p className='text-[11px] text-neutral-500'>{label}</p>
-        <p className='truncate text-[13px] font-light text-brand-600'>
-          {value}
-        </p>
-      </div>
+      <p className='text-[11px] text-neutral-500'>{label}</p>
+      <Icon className='h-4 w-4 text-brand-600' />
     </a>
   );
 }

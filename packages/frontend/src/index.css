@@ -143,18 +143,22 @@
   }
 
   ::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.08);
+    background: rgb(var(--ink-rgb) / 0.08);
     border-radius: 3px;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.14);
+    background: rgb(var(--ink-rgb) / 0.14);
   }
 }
 
 @layer components {
+  /* ⚠️ This was `rgba(22, 27, 34, 0.6)` — a hardcoded dark panel. In light
+     mode that rendered dark ink on a dark card, which is why artifacts, tags,
+     signature and version were unreadable there. Every colour in this layer
+     now goes through a variable. */
   .card {
-    background: rgba(22, 27, 34, 0.6);
+    background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius);
     backdrop-filter: blur(12px);
@@ -162,8 +166,7 @@
   }
 
   .card:hover {
-    border-color: rgba(165, 255, 17, 0.15);
-    box-shadow: 0 0 30px rgba(165, 255, 17, 0.04);
+    border-color: var(--accent-glow);
   }
 
   .input {
@@ -197,7 +200,7 @@
   }
 
   .nav-link-inactive:hover {
-    background: rgba(255, 255, 255, 0.04);
+    background: rgb(var(--ink-rgb) / 0.04);
   }
 
   .pill {
@@ -211,13 +214,13 @@
   .btn-primary {
     @apply inline-flex items-center justify-center gap-2 text-[13px] font-medium px-5 py-2.5 rounded-lg transition-all duration-200;
     background: var(--accent);
+    /* Stays dark in both themes: the lime accent is bright either way, so
+       text on it is always near-black. */
     color: #0a0a0a;
-    box-shadow: 0 0 20px rgba(165, 255, 17, 0.15);
   }
 
   .btn-primary:hover {
-    box-shadow: 0 0 30px rgba(165, 255, 17, 0.25);
-    transform: translateY(-1px);
+    opacity: 0.9;
   }
 
   .btn-secondary {
@@ -228,12 +231,18 @@
   }
 
   .btn-secondary:hover {
-    border-color: rgba(165, 255, 17, 0.2);
-    background: rgba(255, 255, 255, 0.06);
+    border-color: var(--accent-glow);
+    background: rgb(var(--ink-rgb) / 0.06);
   }
 
+  /* The first stop was #ffffff, i.e. invisible on a light page. */
   .gradient-text {
-    background: linear-gradient(135deg, #ffffff 0%, #a5ff11 50%, #c9ff73 100%);
+    background: linear-gradient(
+      135deg,
+      rgb(var(--n-100-rgb)) 0%,
+      rgb(var(--accent-text-rgb)) 55%,
+      rgb(var(--accent-text-hover-rgb)) 100%
+    );
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -242,7 +251,11 @@
 
 @layer utilities {
   .text-gradient-brand {
-    background: linear-gradient(135deg, var(--accent) 0%, #c9ff73 100%);
+    background: linear-gradient(
+      135deg,
+      rgb(var(--accent-text-rgb)) 0%,
+      rgb(var(--accent-text-hover-rgb)) 100%
+    );
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;

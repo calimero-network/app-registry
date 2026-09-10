@@ -1,7 +1,8 @@
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowRight, Monitor, BookOpen, Boxes } from 'lucide-react';
-import { api, getApps } from '@/lib/api';
+import { Boxes, Share2, ShieldCheck } from 'lucide-react';
+import { DesktopArt, DocsArt } from '@/components/PromoArt';
+import { getApps } from '@/lib/api';
 import { AppCard } from '@/components/AppCard';
 import { ShowcaseCard } from '@/components/ShowcaseCard';
 import { HeroGraphic } from '@/components/HeroGraphic';
@@ -29,16 +30,37 @@ const FEATURED = [
   'com.calimero.mero-sign',
 ];
 
+const POINTS = [
+  {
+    icon: Boxes,
+    term: 'Self-contained',
+    detail:
+      'A signed WebAssembly service holds the data and the logic, paired with its own frontend.',
+  },
+  {
+    icon: Share2,
+    term: 'Peer to peer',
+    detail:
+      'Installed apps sync directly with everyone in the same namespace. No server in the middle.',
+  },
+  {
+    icon: ShieldCheck,
+    term: 'Verifiable',
+    detail:
+      'Every version is signed and immutable, so what you install is what its author published.',
+  },
+];
+
 const PROMOS = [
   {
-    icon: Monitor,
+    art: DesktopArt,
     eyebrow: 'Run apps locally',
     title: 'Get Calimero Desktop',
     body: 'A node and an app launcher on your own machine. Install anything here in one click.',
     href: 'https://calimero.network/download',
   },
   {
-    icon: BookOpen,
+    art: DocsArt,
     eyebrow: 'Build one',
     title: 'Documentation',
     body: 'From an empty directory to a signed bundle published here.',
@@ -47,11 +69,6 @@ const PROMOS = [
 ];
 
 export default function HomePage() {
-  const { data: stats } = useQuery({
-    queryKey: ['stats'],
-    queryFn: async () => (await api.get('/stats')).data,
-  });
-
   const { data: apps = [], isLoading } = useQuery({
     queryKey: ['apps'],
     queryFn: () => getApps(),
@@ -89,32 +106,26 @@ export default function HomePage() {
           <h1 className='text-2xl font-semibold tracking-tight text-neutral-100 sm:text-3xl'>
             App Registry
           </h1>
-          <p className='mt-3 max-w-xl text-[13.5px] font-light leading-relaxed text-neutral-400'>
-            Calimero apps are self-contained: a signed WebAssembly service that
-            holds the data and the logic, paired with a frontend that talks to
-            it. You install one into your own node, and it syncs peer to peer
-            with everyone else in the same namespace — no server in the middle,
-            and nobody else holding the data.
+          <p className='mt-2.5 max-w-lg text-[13.5px] font-light leading-relaxed text-neutral-400'>
+            Applications for Calimero — signed, versioned, and installed into a
+            node you run yourself.
           </p>
-          <p className='mt-2 max-w-xl text-[13.5px] font-light leading-relaxed text-neutral-400'>
-            Everything here is cryptographically signed and immutably versioned,
-            so what you install is exactly what its author published.
-          </p>
-          <div className='mt-5 flex flex-wrap items-center gap-3'>
-            <Link
-              to='/explore'
-              className='inline-flex items-center gap-1.5 rounded-lg bg-brand-accent px-3.5 py-2 text-[13px] font-medium text-black transition-opacity duration-150 hover:opacity-90'
-            >
-              Browse apps
-              <ArrowRight className='h-3.5 w-3.5' aria-hidden='true' />
-            </Link>
-            {stats && (
-              <span className='text-[12.5px] text-neutral-500'>
-                {stats.publishedApps ?? 0} apps · {stats.activeDevelopers ?? 0}{' '}
-                developers
-              </span>
-            )}
-          </div>
+          <dl className='mt-6 grid max-w-lg gap-x-6 gap-y-4 sm:grid-cols-3'>
+            {POINTS.map(pt => (
+              <div key={pt.term}>
+                <dt className='flex items-center gap-1.5 text-[12.5px] font-medium text-neutral-200'>
+                  <pt.icon
+                    className='h-3.5 w-3.5 text-brand-600'
+                    aria-hidden='true'
+                  />
+                  {pt.term}
+                </dt>
+                <dd className='mt-1 text-[12px] font-light leading-relaxed text-neutral-500'>
+                  {pt.detail}
+                </dd>
+              </div>
+            ))}
+          </dl>
         </div>
         <div className='hidden h-64 lg:block'>
           <HeroGraphic />
@@ -147,8 +158,8 @@ export default function HomePage() {
               data-testid='promo-tile'
               className='group flex gap-4 rounded-xl border border-ink/[0.06] bg-ink/[0.02] p-4 transition-colors duration-150 hover:border-ink/[0.14]'
             >
-              <span className='grid h-11 w-11 flex-shrink-0 place-items-center rounded-xl border border-ink/[0.08] bg-ink/[0.03]'>
-                <p.icon className='h-5 w-5 text-brand-600' aria-hidden='true' />
+              <span className='h-20 w-28 flex-shrink-0 text-neutral-200'>
+                <p.art className='h-full w-full' />
               </span>
               <span className='min-w-0'>
                 <span className='block text-[10.5px] font-medium uppercase tracking-wider text-neutral-500'>
