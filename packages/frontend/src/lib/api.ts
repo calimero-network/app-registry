@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { CATEGORIES } from '../types/api';
 import type {
   AppSummary,
   VersionInfo,
@@ -210,6 +211,65 @@ api.interceptors.response.use(
   }
 );
 
+/**
+ * One bundle -> one AppSummary. Extracted because getApps and getMyPackages
+ * each carried their own copy, so a field added to one silently missed the
+ * other.
+ *
+ * Every field the cards render is optional in production data: three live
+ * bundles have no icon, and `installSize` / `publishedAt` are null for
+ * everything published before the metadata policy shipped. Pass the absence
+ * through as undefined/null rather than defaulting — a `0` size and a
+ * `new Date(null)` both render as confident nonsense.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const toAppSummary = (bundle: any): AppSummary => {
+  const author = bundle.metadata?.author || 'Unknown';
+  const verified = !!bundle.verified;
+  const tags: string[] = Array.isArray(bundle.metadata?.tags)
+    ? bundle.metadata.tags
+    : [];
+
+  // Resolved category. `metadata.category` only exists once a cargo-mero
+  // release carries the field; until then publishers declare it as a tag, so
+  // reading the explicit field alone finds nothing.
+  const declared =
+    typeof bundle.metadata?.category === 'string'
+      ? bundle.metadata.category.trim().toLowerCase()
+      : '';
+  const fromTag = tags
+    .map(t => (typeof t === 'string' ? t.trim().toLowerCase() : ''))
+    .map(t => (t === 'game' ? 'games' : t))
+    .find(t => (CATEGORIES as readonly string[]).includes(t));
+  const resolved = (CATEGORIES as readonly string[]).includes(declared)
+    ? declared
+    : fromTag;
+
+  return {
+    id: bundle.package,
+    name: bundle.metadata?.name || bundle.package,
+    package_name: bundle.package,
+    developer_pubkey: author,
+    latest_version: bundle.appVersion,
+    alias: bundle.metadata?.name,
+    downloads: bundle.downloads || 0,
+    verified,
+    icon: bundle.metadata?.icon || undefined,
+    description: bundle.metadata?.description || undefined,
+    tags,
+    category: resolved as AppSummary['category'],
+    installSize:
+      typeof bundle.installSize === 'number' ? bundle.installSize : null,
+    publishedAt:
+      typeof bundle.publishedAt === 'string' ? bundle.publishedAt : null,
+    developer: {
+      display_name: author,
+      pubkey: author,
+      verified,
+    },
+  };
+};
+
 export const getApps = async (params?: {
   dev?: string;
   name?: string;
@@ -226,27 +286,7 @@ export const getApps = async (params?: {
   const response = await api.get('/v2/bundles', { params: v2Params });
   const bundles = Array.isArray(response.data) ? response.data : [];
 
-  // Transform V2 BundleManifest to AppSummary format
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return bundles.map((bundle: any) => {
-    const author = bundle.metadata?.author || 'Unknown';
-    const verified = !!bundle.verified;
-    return {
-      id: bundle.package,
-      name: bundle.metadata?.name || bundle.package,
-      package_name: bundle.package,
-      developer_pubkey: author,
-      latest_version: bundle.appVersion,
-      alias: bundle.metadata?.name,
-      downloads: bundle.downloads || 0,
-      verified,
-      developer: {
-        display_name: author,
-        pubkey: author,
-        verified,
-      },
-    };
-  });
+  return bundles.map(toAppSummary);
 };
 
 /** Fetch bundles filtered by metadata.author, preferring username and falling back to email for legacy packages. */
@@ -286,26 +326,7 @@ export const getMyPackages = async (params: {
     ).values()
   );
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return uniqueBundles.map((bundle: any) => {
-    const author = bundle.metadata?.author || 'Unknown';
-    const verified = !!bundle.verified;
-    return {
-      id: bundle.package,
-      name: bundle.metadata?.name || bundle.package,
-      package_name: bundle.package,
-      developer_pubkey: author,
-      latest_version: bundle.appVersion,
-      alias: bundle.metadata?.name,
-      downloads: bundle.downloads || 0,
-      verified,
-      developer: {
-        display_name: author,
-        pubkey: author,
-        verified,
-      },
-    };
-  });
+  return uniqueBundles.map(toAppSummary);
 };
 
 export const getAppVersions = async (appId: string): Promise<VersionInfo[]> => {

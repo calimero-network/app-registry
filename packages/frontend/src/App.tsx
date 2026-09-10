@@ -1,10 +1,10 @@
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { UsernameSetupModal } from './components/UsernameSetupModal';
 import { useAuth } from './contexts/AuthContext';
 import HomePage from './pages/HomePage';
-import AppsPage from './pages/AppsPage';
+import ExplorePage from './pages/ExplorePage';
 import AppDetailPage from './pages/AppDetailPage';
 import DevelopersPage from './pages/DevelopersPage';
 import DeveloperDetailPage from './pages/DeveloperDetailPage';
@@ -28,7 +28,10 @@ function App() {
       <Layout>
         <Routes>
           <Route path='/' element={<HomePage />} />
-          <Route path='/apps' element={<AppsPage />} />
+          <Route path='/explore' element={<ExplorePage />} />
+          {/* /apps predates Explore. Kept as a redirect so older links, the
+              desktop app and anything bookmarked still resolve. */}
+          <Route path='/apps' element={<Navigate to='/explore' replace />} />
           <Route path='/apps/:appId' element={<AppDetailPage />} />
           <Route
             path='/apps/:appId/:version/edit'

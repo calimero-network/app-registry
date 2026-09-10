@@ -63,7 +63,7 @@ export default function DevelopersPage() {
       </div>
 
       {/* Search */}
-      <div className='relative max-w-sm animate-slide-up stagger-1'>
+      <div className='relative max-w-sm'>
         <Search className='absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500 h-3.5 w-3.5' />
         <input
           type='text'
@@ -85,7 +85,7 @@ export default function DevelopersPage() {
           </p>
         </div>
       ) : (
-        <div className='space-y-2 animate-slide-up stagger-2'>
+        <div className='space-y-2'>
           {filteredDevelopers.map(developer => (
             <DeveloperCard key={developer.pubkey} developer={developer} />
           ))}

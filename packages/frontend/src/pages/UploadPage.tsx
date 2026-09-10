@@ -114,7 +114,7 @@ export default function UploadPage() {
       </div>
 
       {/* Upload & Publish */}
-      <section className='card p-5 animate-slide-up stagger-1'>
+      <section className='card p-5'>
         <div className='flex items-center gap-2.5 mb-4'>
           <span className='flex-shrink-0 w-6 h-6 rounded-full bg-brand-600/10 text-brand-600 text-[11px] font-medium flex items-center justify-center'>
             •

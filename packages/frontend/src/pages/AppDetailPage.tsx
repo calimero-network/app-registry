@@ -31,6 +31,9 @@ import {
   getOrgMembers,
 } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
+import { AppIcon } from '@/components/AppIcon';
+import { CATEGORIES } from '@/types/api';
+import { formatBytes, formatCategory, formatRelativeDate } from '@/lib/utils';
 
 interface V2Bundle {
   version: string;
@@ -45,7 +48,13 @@ interface V2Bundle {
     icon?: string;
     tags?: string[];
     license?: string;
+    category?: string;
   };
+  /** Measured by the registry at upload; null for bundles that predate it. */
+  installSize?: number | null;
+  /** Stamped by the registry at upload; null for bundles that predate it. */
+  publishedAt?: string | null;
+  downloads?: number;
   interfaces?: {
     exports?: string[];
     uses?: string[];
@@ -189,6 +198,21 @@ export default function AppDetailPage() {
 
   const meta = bundle.metadata;
   const links = bundle.links;
+
+  // Same resolution the listing uses: `metadata.category` when the bundle
+  // carries one, else a `tags` entry naming a category. Reading the explicit
+  // field alone finds nothing on any bundle published before cargo-mero
+  // learned the field.
+  const resolvedCategory = (() => {
+    const declared = meta?.category?.trim().toLowerCase();
+    if (declared && (CATEGORIES as readonly string[]).includes(declared)) {
+      return declared;
+    }
+    return (meta?.tags ?? [])
+      .map(t => (typeof t === 'string' ? t.trim().toLowerCase() : ''))
+      .map(t => (t === 'game' ? 'games' : t))
+      .find(t => (CATEGORIES as readonly string[]).includes(t));
+  })();
   const wasm = bundle.wasm;
   const abi = bundle.abi;
   const sig = bundle.signature;
@@ -220,34 +244,91 @@ export default function AppDetailPage() {
     <div className='space-y-6'>
       <BackLink />
 
-      {/* Header */}
-      <div className='animate-fade-in'>
-        <div className='flex flex-wrap items-center gap-2.5 mb-1'>
-          <h1 className='text-xl font-semibold text-neutral-100'>
-            {meta?.name || appId}
-          </h1>
-          <span className='pill bg-brand-600/10 text-brand-600 font-mono'>
-            v{bundle.appVersion}
-          </span>
-          {canEdit && (
-            <Link
-              to={`/apps/${appId}/${bundle.appVersion}/edit`}
-              className='inline-flex items-center gap-1.5 text-[12px] text-neutral-400 hover:text-neutral-200 transition-colors'
-            >
-              <Pencil className='w-3.5 h-3.5' />
-              Edit metadata
-            </Link>
+      {/* Hero — store shape: icon, name, creator, then the facts that decide
+          whether to install. Size and date come from the registry itself, so
+          they are trustworthy in a way a self-declared value would not be. */}
+      <div className='flex flex-col gap-4 sm:flex-row sm:items-start'>
+        <AppIcon
+          icon={meta?.icon}
+          name={meta?.name || appId || '?'}
+          seed={bundle.package}
+          size={88}
+        />
+        <div className='min-w-0 flex-1'>
+          <div className='mb-1 flex flex-wrap items-center gap-2.5'>
+            <h1 className='text-2xl font-semibold tracking-tight text-neutral-100'>
+              {meta?.name || appId}
+            </h1>
+            <span className='pill bg-brand-600/10 font-mono text-brand-600'>
+              v{bundle.appVersion}
+            </span>
+            {canEdit && (
+              <Link
+                to={`/apps/${appId}/${bundle.appVersion}/edit`}
+                className='inline-flex items-center gap-1.5 text-[12px] text-neutral-400 transition-colors hover:text-neutral-200'
+              >
+                <Pencil className='h-3.5 w-3.5' />
+                Edit metadata
+              </Link>
+            )}
+          </div>
+          <p className='font-mono text-[12px] text-neutral-500'>
+            {bundle.package}
+          </p>
+
+          <div className='mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12.5px] text-neutral-500'>
+            {meta?.author && (
+              <span className='text-neutral-400'>{meta.author}</span>
+            )}
+            {formatCategory(resolvedCategory) && (
+              <span className='rounded-md border border-white/[0.08] bg-white/[0.03] px-1.5 py-0.5 text-[11px] text-neutral-400'>
+                {formatCategory(resolvedCategory)}
+              </span>
+            )}
+            {formatBytes(bundle.installSize) && (
+              <span>{formatBytes(bundle.installSize)}</span>
+            )}
+            {formatRelativeDate(bundle.publishedAt) && (
+              <span>Updated {formatRelativeDate(bundle.publishedAt)}</span>
+            )}
+            <span>{(bundle.downloads ?? 0).toLocaleString()} downloads</span>
+          </div>
+
+          {meta?.description && (
+            <p className='mt-3 max-w-2xl text-[13px] font-light leading-relaxed text-neutral-400'>
+              {meta.description}
+            </p>
           )}
         </div>
-        <p className='text-[12px] text-neutral-500 font-mono'>
-          {bundle.package}
-        </p>
-        {meta?.description && (
-          <p className='mt-3 text-[13px] text-neutral-400 font-light leading-relaxed max-w-2xl'>
-            {meta.description}
-          </p>
-        )}
       </div>
+
+      {/* Media — deliberately renders nothing today.
+          This is the seam for screenshots and video, which arrive with
+          registry asset upload (plan.MD item 3) and the asset bucket + DNS
+          (item 4). Shaping it now means those land as data rather than as a
+          rewrite of this page. `assets` does not exist on the manifest yet,
+          so the guard is always false and nothing is shown. */}
+      {Array.isArray((bundle as { assets?: unknown[] }).assets) &&
+        ((bundle as { assets?: unknown[] }).assets?.length ?? 0) > 0 && (
+          <section data-testid='app-media' aria-label='Screenshots'>
+            <p className='section-heading mb-3'>Preview</p>
+            <div className='flex gap-3 overflow-x-auto pb-2'>
+              {(
+                (bundle as { assets?: { url: string; alt?: string }[] })
+                  .assets ?? []
+              ).map(asset => (
+                <img
+                  key={asset.url}
+                  src={asset.url}
+                  alt={asset.alt ?? ''}
+                  loading='lazy'
+                  decoding='async'
+                  className='h-56 flex-shrink-0 rounded-xl border border-white/[0.08] object-cover'
+                />
+              ))}
+            </div>
+          </section>
+        )}
 
       {/* Delete error */}
       {deleteError && (
@@ -262,7 +343,7 @@ export default function AppDetailPage() {
       )}
 
       {/* Info grid */}
-      <div className='grid grid-cols-2 md:grid-cols-4 gap-3 animate-slide-up stagger-1'>
+      <div className='grid grid-cols-2 gap-3 md:grid-cols-4'>
         {meta?.author && (
           <InfoCard
             icon={User}
@@ -704,7 +785,7 @@ function ArtifactRow({
         {path}
       </span>
       <span className='text-[11px] text-neutral-500 flex-shrink-0'>
-        {formatBytes(size)}
+        {formatBytes(size) ?? '—'}
       </span>
       {hash && (
         <span className='text-[11px] text-neutral-600 font-mono truncate'>
@@ -764,12 +845,4 @@ function LinkPill({
       <ExternalLink className='w-3 h-3 text-neutral-500' />
     </a>
   );
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes === 0) return '0 B';
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
 }

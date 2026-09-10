@@ -174,7 +174,7 @@ export default function MyOrgsPage() {
 
       {/* Create organization */}
       {email && (
-        <div className='card p-6 animate-slide-up stagger-1'>
+        <div className='card p-6'>
           <div className='flex items-center gap-2 mb-3'>
             <Plus className='w-4 h-4 text-brand-600' />
             <h2 className='text-[14px] font-medium text-neutral-200'>
@@ -257,7 +257,7 @@ export default function MyOrgsPage() {
 
       {/* CLI Access — API Token */}
       {email && (
-        <div className='card overflow-hidden animate-slide-up stagger-2'>
+        <div className='card overflow-hidden'>
           <button
             type='button'
             onClick={() => setShowTokenSection(v => !v)}

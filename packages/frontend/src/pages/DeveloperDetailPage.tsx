@@ -106,7 +106,7 @@ export default function DeveloperDetailPage() {
       {/* Published apps */}
       <div>
         <p className='section-heading mb-3'>Published Applications</p>
-        <div className='grid grid-cols-1 sm:grid-cols-2 gap-3 animate-slide-up stagger-1'>
+        <div className='grid grid-cols-1 sm:grid-cols-2 gap-3'>
           {apps.map(bundle => (
             <Link
               key={bundle.package}

@@ -199,29 +199,33 @@
 }
 
 @layer utilities {
-  .stagger-1 {
-    animation-delay: 0.1s;
-  }
-  .stagger-2 {
-    animation-delay: 0.2s;
-  }
-  .stagger-3 {
-    animation-delay: 0.3s;
-  }
-  .stagger-4 {
-    animation-delay: 0.4s;
-  }
-  .stagger-5 {
-    animation-delay: 0.5s;
-  }
-  .stagger-6 {
-    animation-delay: 0.6s;
-  }
-
   .text-gradient-brand {
     background: linear-gradient(135deg, var(--accent) 0%, #c9ff73 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
+  }
+}
+
+/*
+ * Motion.
+ *
+ * The listing used to cascade: every card carried `animate-slide-up` plus a
+ * `stagger-*` delay, so a twenty-app grid re-ran a staggered entrance on every
+ * filter keystroke. Those classes are gone; what remains is one short fade on
+ * mount and colour transitions on hover.
+ *
+ * A viewer who has asked their OS for less motion gets none of it. This has to
+ * cover `animation` as well as `transition` — killing transitions alone leaves
+ * the keyframe entrances running, which are the larger movement.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

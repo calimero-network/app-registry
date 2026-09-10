@@ -164,7 +164,7 @@ export default function DocsPage() {
   return (
     <div className='flex gap-10'>
       {/* ── Sidebar ── */}
-      <aside className='hidden lg:block w-48 flex-shrink-0 animate-slide-in-left'>
+      <aside className='hidden lg:block w-48 flex-shrink-0'>
         <nav className='sticky top-20'>
           <p className='section-heading mb-3'>On this page</p>
           <ul className='space-y-0.5'>

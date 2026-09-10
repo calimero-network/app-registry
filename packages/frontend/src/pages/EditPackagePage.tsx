@@ -119,10 +119,7 @@ export default function EditPackagePage() {
         </p>
       </div>
 
-      <form
-        onSubmit={handleSubmit}
-        className='card p-5 space-y-4 animate-slide-up stagger-1'
-      >
+      <form onSubmit={handleSubmit} className='card p-5 space-y-4'>
         <p className='text-[13px] text-neutral-400 font-light'>
           Change name, description, author, or links. After saving, you will
           download <code className='text-brand-600'>manifest.json</code>. Sign
@@ -193,7 +190,7 @@ export default function EditPackagePage() {
       </form>
 
       {submitted && (
-        <div className='card p-5 space-y-3 animate-slide-up'>
+        <div className='card p-5 space-y-3'>
           <p className='text-[13px] font-medium text-neutral-200 flex items-center gap-2'>
             <Download className='w-4 h-4 text-green-500' />
             manifest.json downloaded

@@ -1,3 +1,19 @@
+/** The ten browse categories the registry enforces at upload. */
+export const CATEGORIES = [
+  'games',
+  'productivity',
+  'communication',
+  'social',
+  'art-design',
+  'media',
+  'planning',
+  'security',
+  'utilities',
+  'developer-tools',
+] as const;
+
+export type Category = (typeof CATEGORIES)[number];
+
 export interface AppSummary {
   id: string;
   name: string;
@@ -7,6 +23,29 @@ export interface AppSummary {
   alias?: string;
   downloads?: number;
   verified?: boolean;
+  /**
+   * `metadata.icon` — a `data:image/png;base64,...` URI, the same field
+   * tauri-app reads for launcher icons. Absent on bundles published before an
+   * icon was required, so every consumer needs a fallback.
+   */
+  icon?: string;
+  description?: string;
+  tags?: string[];
+  /**
+   * Resolved category: `metadata.category` when the bundle carries one, else a
+   * `tags` entry naming a category. Both spellings exist in production until a
+   * cargo-mero release carries the field, so never read `metadata.category`
+   * directly.
+   */
+  category?: Category;
+  /**
+   * Size of the `.mpk` in bytes, measured by the registry at upload.
+   * `null` for anything published before the metadata policy shipped — render
+   * the empty state, not `0 bytes`.
+   */
+  installSize?: number | null;
+  /** ISO timestamp stamped by the registry at upload; `null` for older bundles. */
+  publishedAt?: string | null;
   developer?: {
     display_name: string;
     website?: string;

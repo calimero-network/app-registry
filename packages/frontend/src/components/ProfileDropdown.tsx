@@ -9,6 +9,12 @@ interface ProfileDropdownProps {
   logout: () => Promise<void>;
   /** When true, render as a compact block for mobile nav (no dropdown, just links). */
   compact?: boolean;
+  /**
+   * Which way the menu opens. `'down'` suited a sticky header; at the foot of
+   * a fixed rail there is nothing below the trigger, so `'up'` is required or
+   * the menu renders off-screen.
+   */
+  side?: 'down' | 'up';
   onNavigate?: () => void;
 }
 
@@ -27,6 +33,7 @@ export function ProfileDropdown({
   loading,
   logout,
   compact = false,
+  side = 'down',
   onNavigate,
 }: ProfileDropdownProps) {
   const [open, setOpen] = useState(false);
@@ -137,11 +144,11 @@ export function ProfileDropdown({
   }
 
   return (
-    <div className='relative ml-2' ref={ref}>
+    <div className='relative' ref={ref}>
       <button
         type='button'
         onClick={() => setOpen(!open)}
-        className='flex items-center gap-1.5 rounded-lg border border-transparent p-1.5 hover:border-white/[0.1] hover:bg-white/[0.06] transition-all'
+        className='flex w-full items-center gap-2 rounded-lg border border-transparent p-1.5 transition-colors duration-150 hover:border-white/[0.1] hover:bg-white/[0.06]'
         aria-expanded={open}
         aria-haspopup='true'
         aria-label={displayName}
@@ -163,7 +170,9 @@ export function ProfileDropdown({
       </button>
       {open && (
         <div
-          className='absolute right-0 top-full z-50 mt-1 min-w-[200px] rounded-lg border border-white/[0.08] bg-[#0d0d0f] py-1 shadow-xl animate-fade-in'
+          className={`absolute left-0 z-50 min-w-[200px] rounded-lg border border-white/[0.08] bg-[#0d0d0f] py-1 shadow-xl ${
+            side === 'up' ? 'bottom-full mb-1' : 'top-full mt-1'
+          }`}
           role='menu'
         >
           <div className='border-b border-white/[0.06] px-3 py-2'>

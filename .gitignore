@@ -110,3 +110,9 @@ logs
 ehthumbs.db
 Thumbs.db 
 .vercel
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/

@@ -80,7 +80,7 @@ export default function AdminPage() {
       </div>
 
       {/* Tabs */}
-      <div className='flex gap-1 border-b border-white/[0.06] animate-slide-up stagger-1'>
+      <div className='flex gap-1 border-b border-white/[0.06]'>
         {(
           [
             { key: 'users', label: 'Users', icon: Users },
