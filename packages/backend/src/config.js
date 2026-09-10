@@ -3,15 +3,6 @@ const {
 } = require('@calimero-network/registry-shared/session-cookies');
 
 module.exports = {
-  ipfs: {
-    gateways: process.env.IPFS_GATEWAYS
-      ? process.env.IPFS_GATEWAYS.split(',')
-      : [
-          'https://ipfs.io/ipfs/',
-          'https://gateway.pinata.cloud/ipfs/',
-          'https://cloudflare-ipfs.com/ipfs/',
-        ],
-  },
   cors: {
     origin: process.env.CORS_ORIGIN
       ? process.env.CORS_ORIGIN.split(',')

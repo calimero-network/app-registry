@@ -1,5 +1,11 @@
 # Calimero Registry v1 API Specification
 
+> **Historical.** The server no longer registers any `/api/v1` routes; the live
+> surface is `/api/v2`. This document is kept as a record of the v1 design and
+> is **not** a description of what runs today. In particular its `ipfs://`
+> artifact URIs and the `ipfs-http-client` dependency were never part of the
+> shipped v2 service, which stores bundle binaries in Google Cloud Storage.
+
 ## Overview
 
 The Calimero Registry v1 is a minimal, production-ready HTTP service that stores, verifies, resolves, and serves self-sovereign application manifests following the v1 specification.

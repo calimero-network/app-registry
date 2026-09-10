@@ -118,6 +118,13 @@ calimero-registry ipfs upload   <file>
 calimero-registry ipfs download <cid> [output]
 ```
 
+> **`ipfs` is a non-functional demo stub.** `upload` does not upload anything —
+> it returns a hardcoded CID. `download` does not fetch anything — it writes
+> generated placeholder text. Nothing in the registry stores or serves content
+> over IPFS: bundle binaries live in a Google Cloud Storage bucket and manifests
+> in Redis. The command is still registered, so it is documented here rather
+> than quietly omitted.
+
 ## Development
 
 ```bash
