@@ -26,7 +26,7 @@ const SECTIONS = [
 
 function Code({ children }: { children: React.ReactNode }) {
   return (
-    <code className='text-[11px] text-brand-600 bg-white/[0.04] border border-white/[0.06] rounded px-1.5 py-0.5 font-mono'>
+    <code className='text-[11px] text-brand-600 bg-ink/[0.04] border border-ink/[0.06] rounded px-1.5 py-0.5 font-mono'>
       {children}
     </code>
   );
@@ -34,7 +34,7 @@ function Code({ children }: { children: React.ReactNode }) {
 
 function CodeBlock({ children }: { children: string }) {
   return (
-    <pre className='text-[11.5px] text-neutral-300 bg-neutral-950 border border-white/[0.06] rounded-lg p-4 overflow-x-auto font-mono leading-relaxed'>
+    <pre className='text-[11.5px] text-neutral-300 bg-neutral-950 border border-ink/[0.06] rounded-lg p-4 overflow-x-auto font-mono leading-relaxed'>
       {children}
     </pre>
   );
@@ -121,7 +121,7 @@ function FieldList({
   width: string;
 }) {
   return (
-    <div className='rounded-lg border border-white/[0.06] bg-white/[0.02] p-4 space-y-3'>
+    <div className='rounded-lg border border-ink/[0.06] bg-ink/[0.02] p-4 space-y-3'>
       {rows.map(([field, desc]) => (
         <div
           key={field}
@@ -174,8 +174,8 @@ export default function DocsPage() {
                   href={`#${id}`}
                   className={`block px-3 py-1.5 rounded-md text-[12px] transition-colors ${
                     activeSection === id
-                      ? 'bg-white/[0.06] text-brand-600 font-medium'
-                      : 'text-neutral-500 hover:text-neutral-300 hover:bg-white/[0.04]'
+                      ? 'bg-ink/[0.06] text-brand-600 font-medium'
+                      : 'text-neutral-500 hover:text-neutral-300 hover:bg-ink/[0.04]'
                   }`}
                 >
                   {label}
@@ -183,7 +183,7 @@ export default function DocsPage() {
               </li>
             ))}
           </ul>
-          <div className='mt-5 pt-4 border-t border-white/[0.06]'>
+          <div className='mt-5 pt-4 border-t border-ink/[0.06]'>
             <a
               href='https://docs.calimero.network'
               target='_blank'

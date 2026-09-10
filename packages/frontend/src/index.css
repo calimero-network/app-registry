@@ -7,6 +7,27 @@
 
 @layer base {
   :root {
+    /* ── Dark (default) ──
+       Channel triplets, not hex: tailwind.config.js resolves the neutral
+       scale and the accent through these, so an opacity modifier
+       (`text-neutral-400/60`) still works — that is impossible against a
+       `#hex` held in a custom property. */
+    --n-950-rgb: 9 9 11;
+    --n-900-rgb: 24 24 27;
+    --n-800-rgb: 39 39 42;
+    --n-700-rgb: 63 63 70;
+    --n-600-rgb: 82 82 91;
+    --n-500-rgb: 113 113 122;
+    --n-400-rgb: 161 161 170;
+    --n-300-rgb: 212 212 216;
+    --n-200-rgb: 228 228 231;
+    --n-100-rgb: 244 244 245;
+    --ink-rgb: 255 255 255;
+    --accent-text-rgb: 165 255 17;
+    --accent-text-hover-rgb: 184 255 74;
+    --app-bg: #0d1117;
+    --app-rail: #0d1117;
+
     --color-brand-600: #a5ff11;
     --color-brand-100: #ecfc91;
     --bg: #0d1117;
@@ -24,6 +45,46 @@
     --radius: 10px;
     --radius-sm: 6px;
     --radius-lg: 14px;
+  }
+
+  /* ── Light ──
+     Mirrors apps/mero-sheets' palette (`--c-paper`, `--c-ink`, `--c-line`,
+     `--c-green-ink`), so the two products read as one system.
+
+     ⚠️ The neutral scale is INVERTED, not merely lightened: `text-neutral-100`
+     means "the most prominent text" everywhere in this app, so in light mode
+     it has to be the darkest ink, not the palest grey. Keeping the scale in
+     dark order here would render every heading in near-white on white.
+
+     ⚠️ The accent flips too. #a5ff11 on white is roughly 1.4:1 — unreadable.
+     Accent TEXT becomes the deep green mero-sheets uses; the raw lime stays
+     available as `brand-accent` for fills, where it is fine in both themes. */
+  :root[data-theme='light'] {
+    --n-950-rgb: 255 255 255;
+    --n-900-rgb: 245 248 241;
+    --n-800-rgb: 231 236 226;
+    --n-700-rgb: 196 204 191;
+    --n-600-rgb: 147 163 148;
+    --n-500-rgb: 93 107 96;
+    --n-400-rgb: 74 86 76;
+    --n-300-rgb: 45 56 47;
+    --n-200-rgb: 28 36 30;
+    --n-100-rgb: 14 20 15;
+    --ink-rgb: 14 20 15;
+    --accent-text-rgb: 55 97 10;
+    --accent-text-hover-rgb: 78 122 6;
+    --app-bg: #ffffff;
+    --app-rail: #f5f8f1;
+
+    --bg: #ffffff;
+    --surface: #f5f8f1;
+    --surface-2: #e7ece2;
+    --border: #e7ece2;
+    --text: #0e140f;
+    --text-muted: #5d6b60;
+    --accent: #a5ff11;
+    --accent-glow: rgba(78, 122, 6, 0.12);
+    --accent-dim: rgba(78, 122, 6, 0.08);
   }
 
   html {

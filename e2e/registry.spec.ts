@@ -225,3 +225,82 @@ test.describe('sign in', () => {
     await expect(page.getByTestId('toast')).toContainText('session expired');
   });
 });
+
+test.describe('light / dark', () => {
+  // With no stored choice the app follows the OS, and Playwright emulates a
+  // LIGHT preference by default — so pin dark here, or "click the toggle and
+  // expect light" is testing the wrong direction.
+  test.use({ colorScheme: 'dark' });
+
+  test('follows the OS when the visitor has expressed no preference', async ({
+    page,
+  }) => {
+    await page.goto('/');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  });
+
+  test('the toggle flips the theme and survives a reload', async ({ page }) => {
+    await page.goto('/');
+    const toggle = page.getByTestId('theme-toggle');
+    await expect(toggle).toBeVisible();
+
+    await toggle.click();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+
+    await page.reload();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+  });
+
+  test('light mode actually inverts the ground and the text', async ({
+    page,
+  }) => {
+    // Asserting the attribute alone would pass even if no colour moved — the
+    // whole risk here is a `data-theme` that flips while ~580 hardcoded
+    // utilities stay dark. So compare rendered pixels.
+    await page.goto('/explore');
+    const card = page.getByTestId('app-card').first();
+    await expect(card).toBeVisible();
+
+    const read = async () =>
+      page.evaluate(() => {
+        const el = document.querySelector(
+          '[data-testid="app-card"] h3'
+        ) as HTMLElement;
+        return {
+          body: getComputedStyle(document.body).backgroundColor,
+          heading: getComputedStyle(el).color,
+        };
+      });
+
+    const dark = await read();
+    await page.getByTestId('theme-toggle').click();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+    const light = await read();
+
+    expect(light.body).not.toBe(dark.body);
+    // `text-neutral-100` means "most prominent text". In light mode it must
+    // become dark ink, not stay near-white on white.
+    expect(light.heading).not.toBe(dark.heading);
+
+    const lum = (rgb: string) => {
+      const [r, g, b] = rgb.match(/\d+/g)!.map(Number);
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    };
+    expect(lum(light.body)).toBeGreaterThan(200); // a light page
+    expect(lum(light.heading)).toBeLessThan(80); // dark text on it
+  });
+
+  test('the lime accent does not stay lime as text in light mode', async ({
+    page,
+  }) => {
+    // #a5ff11 on white is about 1.4:1. It has to become the deep green.
+    await page.goto('/');
+    await page.getByTestId('theme-toggle').click();
+    const accent = await page.evaluate(() =>
+      getComputedStyle(document.documentElement)
+        .getPropertyValue('--accent-text-rgb')
+        .trim()
+    );
+    expect(accent).not.toBe('165 255 17');
+  });
+});

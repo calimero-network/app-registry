@@ -171,10 +171,10 @@ export default function AppDetailPage() {
   if (isLoading) {
     return (
       <div className='space-y-5 animate-pulse'>
-        <div className='h-4 bg-white/[0.06] rounded w-20'></div>
-        <div className='h-6 bg-white/[0.06] rounded w-1/3'></div>
-        <div className='h-3.5 bg-white/[0.06] rounded w-1/2'></div>
-        <div className='h-32 bg-white/[0.04] rounded-lg'></div>
+        <div className='h-4 bg-ink/[0.06] rounded w-20'></div>
+        <div className='h-6 bg-ink/[0.06] rounded w-1/3'></div>
+        <div className='h-3.5 bg-ink/[0.06] rounded w-1/2'></div>
+        <div className='h-32 bg-ink/[0.04] rounded-lg'></div>
       </div>
     );
   }
@@ -279,7 +279,7 @@ export default function AppDetailPage() {
               <span className='text-neutral-400'>{meta.author}</span>
             )}
             {formatCategory(resolvedCategory) && (
-              <span className='rounded-md border border-white/[0.08] bg-white/[0.03] px-1.5 py-0.5 text-[11px] text-neutral-400'>
+              <span className='rounded-md border border-ink/[0.08] bg-ink/[0.03] px-1.5 py-0.5 text-[11px] text-neutral-400'>
                 {formatCategory(resolvedCategory)}
               </span>
             )}
@@ -390,7 +390,7 @@ export default function AppDetailPage() {
             className='card flex items-center justify-between px-4 py-3 hover:border-brand-600/30'
           >
             <div className='flex items-center gap-3'>
-              <div className='flex items-center justify-center w-8 h-8 rounded-full bg-white/[0.06] border border-white/[0.06]'>
+              <div className='flex items-center justify-center w-8 h-8 rounded-full bg-ink/[0.06] border border-ink/[0.06]'>
                 <Building2 className='w-4 h-4 text-neutral-400' />
               </div>
               <div>
@@ -463,7 +463,7 @@ export default function AppDetailPage() {
                     {ifaces.uses.map(u => (
                       <span
                         key={u}
-                        className='pill bg-white/[0.06] text-neutral-300 font-mono'
+                        className='pill bg-ink/[0.06] text-neutral-300 font-mono'
                       >
                         {u}
                       </span>
@@ -481,7 +481,7 @@ export default function AppDetailPage() {
           <p className='section-heading mb-3'>Tags</p>
           <div className='flex flex-wrap gap-1.5'>
             {meta.tags.map(tag => (
-              <span key={tag} className='pill bg-white/[0.06] text-neutral-300'>
+              <span key={tag} className='pill bg-ink/[0.06] text-neutral-300'>
                 {tag}
               </span>
             ))}
@@ -777,7 +777,7 @@ function ArtifactRow({
   hash: string | null;
 }) {
   return (
-    <div className='flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-6 py-2 border-b border-white/[0.06] last:border-0'>
+    <div className='flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-6 py-2 border-b border-ink/[0.06] last:border-0'>
       <span className='text-[11px] font-medium text-neutral-400 w-12 flex-shrink-0'>
         {label}
       </span>

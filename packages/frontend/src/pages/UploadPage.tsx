@@ -373,7 +373,7 @@ calimero-registry config set api-key <your-api-key>`}</Pre>
             </span>
             <div>
               <p className='text-neutral-300 mb-1'>Sign the manifest:</p>
-              <pre className='bg-neutral-950 border border-white/[0.06] rounded-md px-3 py-2 text-[12px] text-neutral-300 font-mono overflow-x-auto leading-relaxed'>
+              <pre className='bg-neutral-950 border border-ink/[0.06] rounded-md px-3 py-2 text-[12px] text-neutral-300 font-mono overflow-x-auto leading-relaxed'>
                 {`mero-sign sign application-1.0.0.mpk/manifest.json \\
   --key key.json`}
               </pre>
@@ -383,7 +383,7 @@ calimero-registry config set api-key <your-api-key>`}</Pre>
             </span>
             <div>
               <p className='text-neutral-300 mb-1'>Push the bundle:</p>
-              <pre className='bg-neutral-950 border border-white/[0.06] rounded-md px-3 py-2 text-[12px] text-neutral-300 font-mono overflow-x-auto leading-relaxed'>
+              <pre className='bg-neutral-950 border border-ink/[0.06] rounded-md px-3 py-2 text-[12px] text-neutral-300 font-mono overflow-x-auto leading-relaxed'>
                 {`calimero-registry bundle push application-1.0.0.mpk --remote`}
               </pre>
             </div>
@@ -476,7 +476,7 @@ function Section({
 
 function Pre({ children }: { children: string }) {
   return (
-    <pre className='bg-neutral-950 border border-white/[0.06] rounded-md p-3.5 text-[12px] text-neutral-300 font-mono overflow-x-auto leading-relaxed'>
+    <pre className='bg-neutral-950 border border-ink/[0.06] rounded-md p-3.5 text-[12px] text-neutral-300 font-mono overflow-x-auto leading-relaxed'>
       {children}
     </pre>
   );
@@ -490,7 +490,7 @@ function ScriptBlock({
   children: React.ReactNode;
 }) {
   return (
-    <div className='bg-white/[0.02] border border-white/[0.06] rounded-md p-3.5'>
+    <div className='bg-ink/[0.02] border border-ink/[0.06] rounded-md p-3.5'>
       <div className='flex items-center gap-2 mb-2'>
         <Terminal className='w-3 h-3 text-brand-600' />
         <span className='text-[12px] font-medium text-neutral-300'>
@@ -510,7 +510,7 @@ function DocLink({ href, label }: { href: string; label: string }) {
       href={href}
       target='_blank'
       rel='noopener noreferrer'
-      className='inline-flex items-center gap-1.5 text-[12px] text-neutral-400 hover:text-neutral-200 bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] px-2.5 py-1.5 rounded-md transition-all'
+      className='inline-flex items-center gap-1.5 text-[12px] text-neutral-400 hover:text-neutral-200 bg-ink/[0.04] hover:bg-ink/[0.08] border border-ink/[0.06] px-2.5 py-1.5 rounded-md transition-all'
     >
       <ExternalLink className='w-3 h-3' />
       {label}

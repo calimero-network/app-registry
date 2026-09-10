@@ -60,7 +60,7 @@ export function ProfileDropdown({
 
   if (loading) {
     return (
-      <div className='ml-2 h-8 w-24 animate-pulse rounded-md bg-white/[0.06]' />
+      <div className='ml-2 h-8 w-24 animate-pulse rounded-md bg-ink/[0.06]' />
     );
   }
 
@@ -78,7 +78,7 @@ export function ProfileDropdown({
         href='/api/auth/google'
         onClick={onNavigate}
         data-testid='sign-in'
-        className='flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] text-neutral-400 transition-colors duration-150 hover:bg-white/[0.04] hover:text-neutral-200'
+        className='flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] text-neutral-400 transition-colors duration-150 hover:bg-ink/[0.04] hover:text-neutral-200'
       >
         <LogIn className='h-4 w-4 flex-shrink-0' aria-hidden='true' />
         Sign in
@@ -102,7 +102,7 @@ export function ProfileDropdown({
       <img
         src={user.picture}
         alt=''
-        className='h-7 w-7 rounded-full object-cover ring-1 ring-white/[0.1]'
+        className='h-7 w-7 rounded-full object-cover ring-1 ring-ink/[0.1]'
         onError={() => setImgError(true)}
       />
     ) : (
@@ -122,7 +122,7 @@ export function ProfileDropdown({
         <Link
           to='/my-packages'
           onClick={onNavigate}
-          className='flex items-center px-3 py-2 rounded-md text-[13px] font-normal text-neutral-400 hover:bg-white/[0.06] hover:text-neutral-200'
+          className='flex items-center px-3 py-2 rounded-md text-[13px] font-normal text-neutral-400 hover:bg-ink/[0.06] hover:text-neutral-200'
         >
           <Box className='h-3.5 w-3.5 mr-2.5' />
           My packages
@@ -130,7 +130,7 @@ export function ProfileDropdown({
         <Link
           to='/orgs'
           onClick={onNavigate}
-          className='flex items-center px-3 py-2 rounded-md text-[13px] font-normal text-neutral-400 hover:bg-white/[0.06] hover:text-neutral-200'
+          className='flex items-center px-3 py-2 rounded-md text-[13px] font-normal text-neutral-400 hover:bg-ink/[0.06] hover:text-neutral-200'
         >
           <Building2 className='h-3.5 w-3.5 mr-2.5' />
           Organizations
@@ -151,7 +151,7 @@ export function ProfileDropdown({
             logout();
             onNavigate?.();
           }}
-          className='flex w-full items-center px-3 py-2 rounded-md text-[13px] font-normal text-neutral-400 hover:bg-white/[0.04] hover:text-neutral-200 text-left'
+          className='flex w-full items-center px-3 py-2 rounded-md text-[13px] font-normal text-neutral-400 hover:bg-ink/[0.04] hover:text-neutral-200 text-left'
         >
           <LogOut className='h-3.5 w-3.5 mr-2.5' />
           Log out
@@ -165,7 +165,7 @@ export function ProfileDropdown({
       <button
         type='button'
         onClick={() => setOpen(!open)}
-        className='flex w-full items-center gap-2 rounded-lg border border-transparent p-1.5 transition-colors duration-150 hover:border-white/[0.1] hover:bg-white/[0.06]'
+        className='flex w-full items-center gap-2 rounded-lg border border-transparent p-1.5 transition-colors duration-150 hover:border-ink/[0.1] hover:bg-ink/[0.06]'
         aria-expanded={open}
         aria-haspopup='true'
         aria-label={displayName}
@@ -187,12 +187,12 @@ export function ProfileDropdown({
       </button>
       {open && (
         <div
-          className={`absolute left-0 z-50 min-w-[200px] rounded-lg border border-white/[0.08] bg-[#0d0d0f] py-1 shadow-xl ${
+          className={`absolute left-0 z-50 min-w-[200px] rounded-lg border border-ink/[0.08] bg-[#0d0d0f] py-1 shadow-xl ${
             side === 'up' ? 'bottom-full mb-1' : 'top-full mt-1'
           }`}
           role='menu'
         >
-          <div className='border-b border-white/[0.06] px-3 py-2'>
+          <div className='border-b border-ink/[0.06] px-3 py-2'>
             <p className='truncate text-[12px] text-neutral-400'>
               Signed in as
             </p>
@@ -206,7 +206,7 @@ export function ProfileDropdown({
           <Link
             to='/my-packages'
             onClick={() => setOpen(false)}
-            className='flex items-center gap-2 px-3 py-2 text-[13px] text-neutral-300 hover:bg-white/[0.06] hover:text-neutral-100'
+            className='flex items-center gap-2 px-3 py-2 text-[13px] text-neutral-300 hover:bg-ink/[0.06] hover:text-neutral-100'
             role='menuitem'
           >
             <Box className='h-3.5 w-3.5' />
@@ -215,7 +215,7 @@ export function ProfileDropdown({
           <Link
             to='/orgs'
             onClick={() => setOpen(false)}
-            className='flex items-center gap-2 px-3 py-2 text-[13px] text-neutral-300 hover:bg-white/[0.06] hover:text-neutral-100'
+            className='flex items-center gap-2 px-3 py-2 text-[13px] text-neutral-300 hover:bg-ink/[0.06] hover:text-neutral-100'
             role='menuitem'
           >
             <Building2 className='h-3.5 w-3.5' />
@@ -238,7 +238,7 @@ export function ProfileDropdown({
               setOpen(false);
               logout();
             }}
-            className='flex w-full items-center gap-2 px-3 py-2 text-[13px] text-neutral-400 hover:bg-white/[0.06] hover:text-neutral-200'
+            className='flex w-full items-center gap-2 px-3 py-2 text-[13px] text-neutral-400 hover:bg-ink/[0.06] hover:text-neutral-200'
             role='menuitem'
           >
             <LogOut className='h-3.5 w-3.5' />

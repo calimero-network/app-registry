@@ -52,10 +52,10 @@ export default function DeveloperDetailPage() {
   if (isLoading) {
     return (
       <div className='space-y-5 animate-pulse'>
-        <div className='h-4 bg-white/[0.06] rounded w-24'></div>
-        <div className='h-6 bg-white/[0.06] rounded w-1/3'></div>
-        <div className='h-3.5 bg-white/[0.06] rounded w-1/4'></div>
-        <div className='h-24 bg-white/[0.04] rounded-lg'></div>
+        <div className='h-4 bg-ink/[0.06] rounded w-24'></div>
+        <div className='h-6 bg-ink/[0.06] rounded w-1/3'></div>
+        <div className='h-3.5 bg-ink/[0.06] rounded w-1/4'></div>
+        <div className='h-24 bg-ink/[0.04] rounded-lg'></div>
       </div>
     );
   }
@@ -80,7 +80,7 @@ export default function DeveloperDetailPage() {
 
       {/* Header */}
       <div className='flex items-center gap-3 animate-fade-in'>
-        <div className='flex items-center justify-center w-10 h-10 rounded-full bg-surface border border-white/[0.06]'>
+        <div className='flex items-center justify-center w-10 h-10 rounded-full bg-surface border border-ink/[0.06]'>
           <User className='w-4 h-4 text-neutral-400' />
         </div>
         <div>
@@ -120,7 +120,7 @@ export default function DeveloperDetailPage() {
             <Link
               key={`${b.package}-${b.appVersion}`}
               to={`/apps/${b.package}`}
-              className='group flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-2.5 transition-colors duration-150 hover:border-white/[0.14] hover:bg-white/[0.04]'
+              className='group flex items-center justify-between rounded-xl border border-ink/[0.06] bg-ink/[0.02] px-4 py-2.5 transition-colors duration-150 hover:border-ink/[0.14] hover:bg-ink/[0.04]'
             >
               <div className='flex items-center gap-2 min-w-0'>
                 <Package className='w-3 h-3 text-neutral-600 flex-shrink-0' />

@@ -40,11 +40,11 @@ export default function DevelopersPage() {
     return (
       <div className='space-y-6'>
         <div className='animate-pulse space-y-4'>
-          <div className='h-5 bg-white/[0.06] rounded w-1/4'></div>
-          <div className='h-3.5 bg-white/[0.06] rounded w-1/3'></div>
+          <div className='h-5 bg-ink/[0.06] rounded w-1/4'></div>
+          <div className='h-3.5 bg-ink/[0.06] rounded w-1/3'></div>
           <div className='space-y-3 mt-6'>
             {[1, 2, 3].map(i => (
-              <div key={i} className='h-16 bg-white/[0.04] rounded-lg'></div>
+              <div key={i} className='h-16 bg-ink/[0.04] rounded-lg'></div>
             ))}
           </div>
         </div>
@@ -109,11 +109,11 @@ function DeveloperCard({
   return (
     <Link
       to={`/developers/${encodeURIComponent(developer.pubkey)}`}
-      className='group block rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-3 transition-colors duration-150 hover:border-white/[0.14] hover:bg-white/[0.04]'
+      className='group block rounded-xl border border-ink/[0.06] bg-ink/[0.02] px-4 py-3 transition-colors duration-150 hover:border-ink/[0.14] hover:bg-ink/[0.04]'
     >
       <div className='flex items-center justify-between'>
         <div className='flex items-center gap-3 min-w-0'>
-          <div className='flex items-center justify-center w-8 h-8 rounded-full bg-white/[0.06] border border-white/[0.06] flex-shrink-0'>
+          <div className='flex items-center justify-center w-8 h-8 rounded-full bg-ink/[0.06] border border-ink/[0.06] flex-shrink-0'>
             <User className='w-3.5 h-3.5 text-neutral-400' />
           </div>
           <div className='min-w-0'>

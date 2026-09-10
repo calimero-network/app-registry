@@ -6,6 +6,7 @@ import { navigation } from '@/constants/navigation';
 import { ProfileDropdown } from './ProfileDropdown';
 import { GlobalSearch } from './GlobalSearch';
 import { RegistryMark } from './RegistryMark';
+import { ThemeToggle } from './ThemeToggle';
 import calimeroLogo from '@/assets/calimero-logo.svg';
 
 const FOOTER_LINKS = [
@@ -94,8 +95,8 @@ export function Layout({ children }: LayoutProps) {
               data-testid={`nav-${item.name.toLowerCase()}`}
               className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] transition-colors duration-150 ${
                 active
-                  ? 'bg-white/[0.07] text-neutral-100'
-                  : 'text-neutral-400 hover:bg-white/[0.04] hover:text-neutral-200'
+                  ? 'bg-ink/[0.07] text-neutral-100'
+                  : 'text-neutral-400 hover:bg-ink/[0.04] hover:text-neutral-200'
               }`}
             >
               <item.icon className='h-4 w-4 flex-shrink-0' aria-hidden='true' />
@@ -105,7 +106,8 @@ export function Layout({ children }: LayoutProps) {
         })}
       </nav>
 
-      <div className='mt-auto'>
+      <div className='mt-auto flex flex-col gap-0.5'>
+        <ThemeToggle />
         <ProfileDropdown
           user={user}
           loading={loading}
@@ -121,14 +123,14 @@ export function Layout({ children }: LayoutProps) {
       {/* ── Rail (md and up) ── */}
       <aside
         data-testid='sidebar'
-        className='fixed inset-y-0 left-0 z-40 hidden border-r border-white/[0.06] bg-[#0d1117] md:block'
+        className='fixed inset-y-0 left-0 z-40 hidden border-r border-ink/[0.06] bg-[var(--app-rail)] md:block'
         style={{ width: RAIL_WIDTH }}
       >
         {rail}
       </aside>
 
       {/* ── Mobile bar + drawer ── */}
-      <header className='sticky top-0 z-40 flex h-14 items-center justify-between border-b border-white/[0.06] bg-[#0d1117]/95 px-4 backdrop-blur-xl md:hidden'>
+      <header className='sticky top-0 z-40 flex h-14 items-center justify-between border-b border-ink/[0.06] bg-[var(--app-rail)]/95 px-4 backdrop-blur-xl md:hidden'>
         <Link to='/' aria-label='Calimero App Registry — home'>
           <RegistryMark variant='compact' />
         </Link>
@@ -136,7 +138,7 @@ export function Layout({ children }: LayoutProps) {
           onClick={() => setMobileOpen(v => !v)}
           aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
           aria-expanded={mobileOpen}
-          className='rounded-md p-1.5 text-neutral-400 transition-colors hover:bg-white/[0.06] hover:text-neutral-200'
+          className='rounded-md p-1.5 text-neutral-400 transition-colors hover:bg-ink/[0.06] hover:text-neutral-200'
         >
           {mobileOpen ? (
             <X className='h-5 w-5' />
@@ -156,7 +158,7 @@ export function Layout({ children }: LayoutProps) {
           />
           <aside
             data-testid='sidebar-drawer'
-            className='fixed inset-y-0 left-0 z-50 border-r border-white/[0.06] bg-[#0d1117] md:hidden'
+            className='fixed inset-y-0 left-0 z-50 border-r border-ink/[0.06] bg-[var(--app-rail)] md:hidden'
             style={{ width: RAIL_WIDTH }}
           >
             {rail}
@@ -170,7 +172,7 @@ export function Layout({ children }: LayoutProps) {
           {children}
         </main>
 
-        <footer className='mt-16 border-t border-white/[0.06]'>
+        <footer className='mt-16 border-t border-ink/[0.06]'>
           <div className='mx-auto grid w-full max-w-5xl gap-8 px-4 py-10 sm:px-6 md:grid-cols-4 lg:px-8'>
             <div className='flex flex-col items-start gap-3'>
               <img

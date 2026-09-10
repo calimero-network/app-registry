@@ -10,7 +10,7 @@ export function StatsCard({ title, value, isLoading = false }: StatsCardProps) {
       <div className='text-3xl font-bold text-brand-600 mb-2'>
         {isLoading ? '...' : value}
       </div>
-      <div className='text-white/80'>{title}</div>
+      <div className='text-ink/80'>{title}</div>
     </div>
   );
 }

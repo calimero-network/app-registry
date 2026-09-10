@@ -4,28 +4,50 @@ export default {
   theme: {
     extend: {
       colors: {
+        // ── Themed palette ──
+        //
+        // These resolve to CSS custom properties defined in index.css under
+        // `:root` and `:root[data-theme='light']`, so ~580 existing utility
+        // classes (`text-neutral-400`, `bg-white/[0.04]`, `text-brand-600`)
+        // flip with the theme WITHOUT touching a single call site. Converting
+        // them by hand would have meant editing every page.
+        //
+        // The channel triplets (`--n-400-rgb`) exist because Tailwind needs a
+        // bare `R G B` to apply an opacity modifier: `text-neutral-400/60`
+        // cannot work against a `#hex` held in a var.
         neutral: {
-          950: '#09090b',
-          900: '#18181b',
-          800: '#27272a',
-          700: '#3f3f46',
-          600: '#52525b',
-          500: '#71717a',
-          400: '#a1a1aa',
-          300: '#d4d4d8',
-          200: '#e4e4e7',
-          100: '#f4f4f5',
+          950: 'rgb(var(--n-950-rgb) / <alpha-value>)',
+          900: 'rgb(var(--n-900-rgb) / <alpha-value>)',
+          800: 'rgb(var(--n-800-rgb) / <alpha-value>)',
+          700: 'rgb(var(--n-700-rgb) / <alpha-value>)',
+          600: 'rgb(var(--n-600-rgb) / <alpha-value>)',
+          500: 'rgb(var(--n-500-rgb) / <alpha-value>)',
+          400: 'rgb(var(--n-400-rgb) / <alpha-value>)',
+          300: 'rgb(var(--n-300-rgb) / <alpha-value>)',
+          200: 'rgb(var(--n-200-rgb) / <alpha-value>)',
+          100: 'rgb(var(--n-100-rgb) / <alpha-value>)',
         },
         brand: {
           900: '#2D381B',
           800: '#8AA200',
           700: '#73B30C',
-          600: '#A5FF11',
-          500: '#b8ff4a',
+          // ⚠️ `brand-600` is used as TEXT in ~60 places. The bright lime is
+          // legible on a dark ground and fails badly on white, so in light
+          // mode it resolves to a deep green instead. The raw lime is still
+          // available as `brand-accent` for backgrounds and fills, which are
+          // fine in both themes.
+          600: 'rgb(var(--accent-text-rgb) / <alpha-value>)',
+          500: 'rgb(var(--accent-text-hover-rgb) / <alpha-value>)',
           400: '#c9ff73',
           300: '#d6ff99',
           100: '#ECFC91',
+          accent: '#A5FF11',
         },
+        // The neutral used with an opacity modifier for hairlines and fills:
+        // `bg-white/[0.04]` is invisible on a white page, so those became
+        // `bg-ink/[0.04]`, which is near-white in dark mode and near-black in
+        // light.
+        ink: 'rgb(var(--ink-rgb) / <alpha-value>)',
         background: {
           primary: '#0a0a0a',
           secondary: '#0a0a0a',

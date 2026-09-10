@@ -41,8 +41,8 @@ export function AppCard({
       data-testid='app-card'
       data-package={app.package_name}
       className={cn(
-        'group flex gap-4 rounded-xl border border-white/[0.06] bg-white/[0.02]',
-        'transition-colors duration-150 hover:border-white/[0.14] hover:bg-white/[0.04]',
+        'group flex gap-4 rounded-xl border border-ink/[0.06] bg-ink/[0.02]',
+        'transition-colors duration-150 hover:border-ink/[0.14] hover:bg-ink/[0.04]',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600/60',
         large ? 'p-4' : 'p-3'
       )}
@@ -110,7 +110,7 @@ export function AppCard({
         </div>
 
         {category && (
-          <span className='mt-2 inline-block rounded-md border border-white/[0.08] bg-white/[0.03] px-1.5 py-0.5 text-[10.5px] text-neutral-400'>
+          <span className='mt-2 inline-block rounded-md border border-ink/[0.08] bg-ink/[0.03] px-1.5 py-0.5 text-[10.5px] text-neutral-400'>
             {category}
           </span>
         )}

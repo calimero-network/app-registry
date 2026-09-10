@@ -39,7 +39,7 @@ export function OpenAppTile({ url, name }: { url: string; name: string }) {
         target='_blank'
         rel='noreferrer noopener'
         data-testid='open-app-fallback'
-        className='flex h-64 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.02] text-[13px] text-neutral-300 transition-colors hover:border-white/[0.16]'
+        className='flex h-64 items-center justify-center rounded-xl border border-ink/[0.08] bg-ink/[0.02] text-[13px] text-neutral-300 transition-colors hover:border-ink/[0.16]'
       >
         <span className='inline-flex items-center gap-2'>
           <ExternalLink className='h-4 w-4' aria-hidden='true' />
@@ -56,7 +56,7 @@ export function OpenAppTile({ url, name }: { url: string; name: string }) {
       rel='noreferrer noopener'
       data-testid='open-app'
       aria-label={`View ${name} on the web`}
-      className='group relative block h-64 overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.02]'
+      className='group relative block h-64 overflow-hidden rounded-xl border border-ink/[0.08] bg-ink/[0.02]'
     >
       <iframe
         src={url}
@@ -71,7 +71,7 @@ export function OpenAppTile({ url, name }: { url: string; name: string }) {
         className='pointer-events-none h-[142%] w-[142%] origin-top-left scale-[0.703] border-0 transition-[filter,transform] duration-300 group-hover:scale-[0.77] group-hover:blur-[2px]'
       />
       {!loaded && (
-        <div className='absolute inset-0 animate-pulse bg-white/[0.03]' />
+        <div className='absolute inset-0 animate-pulse bg-ink/[0.03]' />
       )}
       <span className='absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-all duration-300 group-hover:bg-black/45 group-hover:opacity-100'>
         <span className='inline-flex items-center gap-2 rounded-lg bg-black/70 px-3.5 py-2 text-[13px] font-medium text-neutral-100'>

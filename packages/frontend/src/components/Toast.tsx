@@ -92,7 +92,7 @@ function ToastRow({
       ? 'border-red-800/50 bg-red-950/80 text-red-200'
       : toast.kind === 'success'
         ? 'border-emerald-800/50 bg-emerald-950/80 text-emerald-200'
-        : 'border-white/[0.1] bg-neutral-900/90 text-neutral-200';
+        : 'border-ink/[0.1] bg-neutral-900/90 text-neutral-200';
 
   return (
     <div

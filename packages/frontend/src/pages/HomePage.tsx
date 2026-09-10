@@ -83,7 +83,7 @@ export default function HomePage() {
               <Link
                 key={c}
                 to={`/explore?category=${c}`}
-                className='rounded-full border border-white/[0.08] bg-white/[0.02] px-3 py-1.5 text-[12.5px] text-neutral-300 transition-colors duration-150 hover:border-white/[0.16] hover:text-neutral-100'
+                className='rounded-full border border-ink/[0.08] bg-ink/[0.02] px-3 py-1.5 text-[12.5px] text-neutral-300 transition-colors duration-150 hover:border-ink/[0.16] hover:text-neutral-100'
               >
                 {formatCategory(c)}
               </Link>
@@ -141,12 +141,12 @@ function SkeletonGrid() {
       {Array.from({ length: 4 }).map((_, i) => (
         <div
           key={i}
-          className='flex animate-pulse gap-4 rounded-xl border border-white/[0.06] p-4'
+          className='flex animate-pulse gap-4 rounded-xl border border-ink/[0.06] p-4'
         >
-          <div className='h-14 w-14 flex-shrink-0 rounded-xl bg-white/[0.06]' />
+          <div className='h-14 w-14 flex-shrink-0 rounded-xl bg-ink/[0.06]' />
           <div className='flex-1 space-y-2 pt-1'>
-            <div className='h-3.5 w-1/3 rounded bg-white/[0.06]' />
-            <div className='h-3 w-full rounded bg-white/[0.06]' />
+            <div className='h-3.5 w-1/3 rounded bg-ink/[0.06]' />
+            <div className='h-3 w-full rounded bg-ink/[0.06]' />
           </div>
         </div>
       ))}

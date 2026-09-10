@@ -121,7 +121,7 @@ export default function ExplorePage() {
                 className={`rounded-full border px-2.5 py-1 text-[12px] transition-colors duration-150 ${
                   active
                     ? 'border-brand-600/40 bg-brand-600/15 text-brand-500'
-                    : 'border-white/[0.08] bg-white/[0.02] text-neutral-400 hover:border-white/[0.16] hover:text-neutral-200'
+                    : 'border-ink/[0.08] bg-ink/[0.02] text-neutral-400 hover:border-ink/[0.16] hover:text-neutral-200'
                 }`}
               >
                 {c.label}
@@ -154,13 +154,13 @@ export default function ExplorePage() {
           {Array.from({ length: 6 }).map((_, i) => (
             <div
               key={i}
-              className='flex animate-pulse gap-4 rounded-xl border border-white/[0.06] p-4'
+              className='flex animate-pulse gap-4 rounded-xl border border-ink/[0.06] p-4'
             >
-              <div className='h-14 w-14 flex-shrink-0 rounded-xl bg-white/[0.06]' />
+              <div className='h-14 w-14 flex-shrink-0 rounded-xl bg-ink/[0.06]' />
               <div className='flex-1 space-y-2 pt-1'>
-                <div className='h-3.5 w-1/3 rounded bg-white/[0.06]' />
-                <div className='h-3 w-full rounded bg-white/[0.06]' />
-                <div className='h-3 w-1/2 rounded bg-white/[0.06]' />
+                <div className='h-3.5 w-1/3 rounded bg-ink/[0.06]' />
+                <div className='h-3 w-full rounded bg-ink/[0.06]' />
+                <div className='h-3 w-1/2 rounded bg-ink/[0.06]' />
               </div>
             </div>
           ))}
