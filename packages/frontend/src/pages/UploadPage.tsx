@@ -14,7 +14,15 @@ import {
 import { pushBundleFile } from '@/lib/api';
 
 type UploadErrorLike = {
-  response?: { data?: { error?: string; message?: string } };
+  response?: {
+    data?: {
+      error?: string;
+      message?: string;
+      /** metadata_incomplete lists every gap at once, so show them all. */
+      problems?: string[];
+      categories?: string[];
+    };
+  };
   message?: string;
 };
 
@@ -24,6 +32,7 @@ export default function UploadPage() {
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [problems, setProblems] = useState<string[]>([]);
   const [success, setSuccess] = useState<{
     package: string;
     version: string;
@@ -48,6 +57,7 @@ export default function UploadPage() {
     setError(null);
     setSuccess(null);
     setUploading(true);
+    setProblems([]);
     try {
       const result = await pushBundleFile(file);
       setSuccess(result);
@@ -58,7 +68,17 @@ export default function UploadPage() {
       const responseMessage = uploadErr?.response?.data?.message;
       const fallbackMessage = uploadErr?.message;
 
-      if (code === 'version_not_allowed') {
+      if (code === 'metadata_incomplete') {
+        // Every problem arrives at once; listing them beats a paragraph the
+        // publisher has to parse to find the four fields they must add.
+        const problems = uploadErr?.response?.data?.problems ?? [];
+        setProblems(problems);
+        setError(
+          problems.length
+            ? 'This bundle is missing metadata the registry requires of a new package.'
+            : (responseMessage ?? 'Metadata is incomplete.')
+        );
+      } else if (code === 'version_not_allowed') {
         clearSelectedFile();
         setError(
           `${responseMessage ?? 'Version is not allowed.'} Rebuild the bundle, then re-select the updated .mpk before publishing again.`
@@ -150,6 +170,13 @@ export default function UploadPage() {
               <p className='mt-3 text-[13px] text-red-400 font-light'>
                 {error}
               </p>
+            )}
+            {problems.length > 0 && (
+              <ul className='mt-2 space-y-1 text-[12px] text-red-400/90 font-light list-disc list-inside'>
+                {problems.map(problem => (
+                  <li key={problem}>{problem}</li>
+                ))}
+              </ul>
             )}
             {success && (
               <p className='mt-3 text-[13px] text-green-400 font-light'>

@@ -16,6 +16,7 @@ const SECTIONS = [
   { id: 'bundles', label: 'Bundles & Manifests' },
   { id: 'cargo-mero', label: 'cargo mero' },
   { id: 'signing', label: 'Signing & Identity' },
+  { id: 'metadata', label: 'Required Metadata' },
   { id: 'publishing', label: 'Publishing' },
   { id: 'ci', label: 'Publishing from CI' },
   { id: 'organizations', label: 'Organizations' },
@@ -666,6 +667,111 @@ cargo mero key derive-signer-id -k my-key.json`}</CodeBlock>
         </section>
 
         {/* ══════════════════════════════════════════
+            REQUIRED METADATA
+        ══════════════════════════════════════════ */}
+        <section>
+          <SectionHeading id='metadata'>Required Metadata</SectionHeading>
+          <div className='space-y-4'>
+            <P>
+              The registry checks a bundle's metadata at upload and refuses an
+              incomplete one, the same way it refuses a version that is not
+              greater than the last. The check runs server-side, so it applies
+              identically whether you publish with{' '}
+              <Code>cargo mero publish</Code>, an API token, or the upload form
+              on this site.
+            </P>
+
+            <SubHeading>What a new package must carry</SubHeading>
+            <FieldList
+              width='w-44'
+              rows={[
+                [
+                  'metadata.name',
+                  'The title shown in the registry and the desktop launcher. Up to 64 characters.',
+                ],
+                [
+                  'metadata.description',
+                  'At least 20 characters. Say what the app does — a description that just restates the name is rejected.',
+                ],
+                [
+                  'metadata.icon',
+                  'A square PNG, at least 512×512, inlined as a data URI. cargo mero produces this from the icon path in [package.metadata.calimero].',
+                ],
+                [
+                  'metadata.category',
+                  'Exactly one of the ten categories below.',
+                ],
+                [
+                  'metadata.license',
+                  'Recommended, not required. An SPDX identifier such as MIT.',
+                ],
+              ]}
+            />
+
+            <SubHeading>Categories</SubHeading>
+            <P>
+              One per app, from a closed list — the category is what the
+              registry and the desktop launcher browse by. Free-form{' '}
+              <Code>tags</Code> stay open alongside it and are what search uses,
+              so put <Code>multiplayer</Code> or <Code>crdt</Code> there rather
+              than inventing a category.
+            </P>
+            <CodeBlock>{`games          productivity   communication  social      art-design
+media          planning       security       utilities   developer-tools`}</CodeBlock>
+
+            <SubHeading>Two fields the registry sets for you</SubHeading>
+            <P>
+              <Code>publishedAt</Code> and <Code>installSize</Code> are stamped
+              by the server at upload — the release timestamp, and the measured
+              size of the <Code>.mpk</Code> as received. They are not read from
+              the manifest: a self-declared size or date cannot be verified and
+              drifts from reality. Both appear on the listing API and the app
+              page.
+            </P>
+
+            <SubHeading>Existing packages are not broken by this</SubHeading>
+            <P>
+              A package that already has a published version keeps publishing
+              even if it is missing something. The response carries a{' '}
+              <Code>warnings</Code> array naming each gap, so a release pipeline
+              can surface it without failing. Only a brand-new package is
+              rejected outright, with every problem listed at once rather than
+              one per attempt:
+            </P>
+            <CodeBlock>{`{
+  "error": "metadata_incomplete",
+  "message": "This bundle is missing metadata the registry requires of a new package:\n  - \`metadata.icon\` is missing.\n  - \`metadata.category\` is missing. Pick exactly one of: games, productivity, ...",
+  "problems": ["..."],
+  "categories": ["games", "productivity", "communication", "social",
+                 "art-design", "media", "planning", "security",
+                 "utilities", "developer-tools"]
+}`}</CodeBlock>
+
+            <SubHeading>Declaring it in Cargo.toml</SubHeading>
+            <P>
+              All of it lives in <Code>[package.metadata.calimero]</Code> and
+              travels inside the signed bundle, so what the registry shows is
+              what the publisher signed:
+            </P>
+            <CodeBlock>{`[package.metadata.calimero]
+package = "com.example.my-app"
+name = "My App"
+description = "A short sentence that says what the app actually does."
+icon = "app/public/icon-512.png"   # square PNG, >= 512x512
+category = "productivity"
+tags = ["crdt", "offline"]
+license = "MIT"
+frontend = "https://my-app.vercel.app"`}</CodeBlock>
+            <P>
+              <Code>icon = "default"</Code> is a placeholder, not an icon. It
+              resolves to a generic Calimero mark that is byte-identical for
+              every app that sets it, and the registry rejects it by content
+              hash — "the field is set" is not the check.
+            </P>
+          </div>
+        </section>
+
+        {/* ══════════════════════════════════════════
             PUBLISHING
         ══════════════════════════════════════════ */}
         <section>
@@ -790,13 +896,62 @@ calimero-registry bundle edit com.example.my-app 1.2.4 --remote \\
           <div className='space-y-4'>
             <P>
               Releasing by hand means someone has to remember to do it, with the
-              production key on their laptop. The pattern below, used by the
-              Calimero apps today, makes{' '}
+              production key on their laptop. There are two ways to automate it,
+              and they differ only in{' '}
+              <strong className='text-neutral-200'>who owns the version</strong>
+              .
+            </P>
+
+            <SubHeading>
+              Let the registry own the version (recommended)
+            </SubHeading>
+            <P>
+              The release pipeline asks the registry for the highest published{' '}
+              <Code>appVersion</Code>, increments the patch, and builds that. No
+              number is ever bumped by hand and two releases can never collide.
+              This is what the Calimero apps monorepo does today. The trade is
+              that there is no idempotency: re-running the job mints another
+              version of the same content.
+            </P>
+            <CodeBlock>{`# Resolve the next version from the registry, not from Cargo.toml.
+# An unreachable registry must NOT read as "nothing published" — that would
+# reset the lineage and sign BELOW what is already out there.
+response=$(curl -fsS --retry 3 --max-time 30 \
+  "$CALIMERO_REGISTRY_URL/api/v2/bundles?package=$PACKAGE") || exit 1
+jq -e 'type == "array"' >/dev/null <<<"$response" || exit 1
+
+version=$(jq -r '
+  [ .[].appVersion // empty
+    | select(test("^[0-9]+\\.[0-9]+\\.[0-9]+$"))
+    | split(".") | map(tonumber) ]
+  | sort
+  | if length == 0 then "0.0.1" else (last | "\\(.[0]).\\(.[1]).\\(.[2]+1)") end
+' <<<"$response")
+
+cargo mero bundle \
+  --manifest-path "logic/Cargo.toml" \
+  --key "$RUNNER_TEMP/mero-sign-key.json" \
+  --app-version "$version" \
+  --output "dist/$PACKAGE.mpk"
+
+cargo mero publish "dist/$PACKAGE.mpk"`}</CodeBlock>
+            <Note>
+              Do not combine this with <Code>cargo mero publish --bump</Code>.
+              They are mutually exclusive, and <Code>--bump</Code> floors an
+              empty registry at <Code>0.1.0</Code> rather than{' '}
+              <Code>0.0.1</Code>.
+            </Note>
+
+            <SubHeading>Or own the version in Cargo.toml</SubHeading>
+            <P>
+              The alternative makes{' '}
               <strong className='text-neutral-200'>
                 bumping the version in <Code>Cargo.toml</Code> the release
               </strong>
               : merge that to your default branch and CI builds, signs, and
-              publishes.
+              publishes. It is idempotent — a re-run republishes the same number
+              and the registry rejects it — but someone has to pick the number.
+              The full workflow below shows this variant.
             </P>
 
             <SubHeading>Secrets</SubHeading>

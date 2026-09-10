@@ -6,6 +6,35 @@
  *
  * @param {object} kv - KV client with async get(key)
  */
+/**
+ * Re-expose the server-stamped fields under public names.
+ *
+ * `_installSize` and `_publishedAt` are written at push time and MUST keep the
+ * underscore in storage: `removeTransientFields` in lib/verify.js drops
+ * top-level `_`-prefixed keys before checking the signature, which is the only
+ * reason the server may add fields to a signed manifest at all. Renaming them
+ * here keeps that constraint out of the public API shape.
+ *
+ * Both are null for anything published before the policy shipped; the listing
+ * must render that, not a zero.
+ */
+function exposeServerStamped(bundle) {
+  return {
+    installSize:
+      typeof bundle._installSize === 'number' ? bundle._installSize : null,
+    publishedAt:
+      typeof bundle._publishedAt === 'string' ? bundle._publishedAt : null,
+    // The callers spread `...bundle` first, so the storage-side spellings ride
+    // along unless overridden here. Shipping both `_x` and `x` puts the
+    // internal name in the public API and invites a consumer to read the one
+    // that is not contractual. Setting them undefined leaves the keys present
+    // on the object but drops them from JSON.stringify, which is the wire
+    // contract Fastify serialises — asserted in bundle-sanitize.test.js.
+    _installSize: undefined,
+    _publishedAt: undefined,
+  };
+}
+
 function createBundleSanitizers(kv) {
   /**
    * @param {object} bundle
@@ -59,6 +88,7 @@ function createBundleSanitizers(kv) {
       min_runtime_version: minRuntimeVersion,
       minRuntimeVersion,
       verified,
+      ...exposeServerStamped(bundle),
     };
   }
 
@@ -160,6 +190,7 @@ function createBundleSanitizers(kv) {
           min_runtime_version: minRuntimeVersion,
           minRuntimeVersion,
           verified,
+          ...exposeServerStamped(bundle),
         };
       }
     );
