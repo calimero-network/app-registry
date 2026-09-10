@@ -651,3 +651,76 @@ export const resolveUsers = async (
   });
   return response.data ?? {};
 };
+
+// ——— Package assets (screenshots / video) ———
+//
+// Assets are registry-side state, not part of the signed bundle, so they are
+// fetched per package rather than read off the manifest. The listing is
+// moderation-gated server-side: an unapproved package returns an empty list
+// to everyone except its owner and site admins, so `assets: []` is a normal
+// answer and not an error.
+
+export interface PackageAsset {
+  id: string;
+  kind: 'image' | 'video';
+  contentType: string;
+  bytes: number;
+  alt: string;
+  order: number;
+  /** Always an API path, never a bucket URL — reads are gated on each request. */
+  url: string;
+}
+
+export interface PackageAssets {
+  assets: PackageAsset[];
+  state: 'approved' | 'pending';
+  /** True when the caller can see assets that the public cannot yet. */
+  pendingApproval?: boolean;
+}
+
+export const getPackageAssets = async (pkg: string): Promise<PackageAssets> => {
+  const { data } = await api.get(
+    `/v2/packages/${encodeURIComponent(pkg)}/assets`
+  );
+  return {
+    assets: Array.isArray(data?.assets) ? data.assets : [],
+    state: data?.state === 'approved' ? 'approved' : 'pending',
+    pendingApproval: !!data?.pendingApproval,
+  };
+};
+
+/** Upload one file. Base64 because the serverless routes take JSON, not multipart. */
+export const uploadPackageAsset = async (
+  pkg: string,
+  file: File,
+  alt = ''
+): Promise<PackageAsset> => {
+  const data = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Could not read the file.'));
+    // readAsDataURL gives "data:<type>;base64,<payload>" — the server sniffs
+    // the bytes itself, so only the payload is sent.
+    reader.onload = () => resolve(String(reader.result).split(',')[1] ?? '');
+    reader.readAsDataURL(file);
+  });
+  const res = await api.post(`/v2/packages/${encodeURIComponent(pkg)}/assets`, {
+    data,
+    alt,
+  });
+  return res.data.asset;
+};
+
+export const deletePackageAsset = async (pkg: string, id: string) => {
+  await api.delete(`/v2/packages/${encodeURIComponent(pkg)}/assets/${id}`);
+};
+
+export const reorderPackageAssets = async (
+  pkg: string,
+  assets: { id: string; alt?: string }[]
+): Promise<PackageAsset[]> => {
+  const res = await api.patch(
+    `/v2/packages/${encodeURIComponent(pkg)}/assets`,
+    { assets }
+  );
+  return res.data.assets;
+};

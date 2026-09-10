@@ -4,14 +4,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Package,
   ArrowLeft,
-  ExternalLink,
   User,
   FileCode,
   Hash,
   HardDrive,
   Clock,
-  BookOpen,
-  Globe,
   Shield,
   Pencil,
   Trash2,
@@ -21,7 +18,6 @@ import {
   Ban,
   RotateCcw,
 } from 'lucide-react';
-import { GithubIcon } from '@/components/BrandIcons';
 import {
   api,
   deleteBundleVersion,
@@ -32,6 +28,8 @@ import {
 } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { AppIcon } from '@/components/AppIcon';
+import { AppPreview } from '@/components/AppPreview';
+import { OpenAppTile } from '@/components/OpenAppTile';
 import { CATEGORIES } from '@/types/api';
 import { formatBytes, formatCategory, formatRelativeDate } from '@/lib/utils';
 
@@ -302,33 +300,7 @@ export default function AppDetailPage() {
         </div>
       </div>
 
-      {/* Media — deliberately renders nothing today.
-          This is the seam for screenshots and video, which arrive with
-          registry asset upload (plan.MD item 3) and the asset bucket + DNS
-          (item 4). Shaping it now means those land as data rather than as a
-          rewrite of this page. `assets` does not exist on the manifest yet,
-          so the guard is always false and nothing is shown. */}
-      {Array.isArray((bundle as { assets?: unknown[] }).assets) &&
-        ((bundle as { assets?: unknown[] }).assets?.length ?? 0) > 0 && (
-          <section data-testid='app-media' aria-label='Screenshots'>
-            <p className='section-heading mb-3'>Preview</p>
-            <div className='flex gap-3 overflow-x-auto pb-2'>
-              {(
-                (bundle as { assets?: { url: string; alt?: string }[] })
-                  .assets ?? []
-              ).map(asset => (
-                <img
-                  key={asset.url}
-                  src={asset.url}
-                  alt={asset.alt ?? ''}
-                  loading='lazy'
-                  decoding='async'
-                  className='h-56 flex-shrink-0 rounded-xl border border-white/[0.08] object-cover'
-                />
-              ))}
-            </div>
-          </section>
-        )}
+      <AppPreview pkg={bundle.package} canEdit={canEdit} />
 
       {/* Delete error */}
       {deleteError && (
@@ -367,15 +339,43 @@ export default function AppDetailPage() {
       {links && (links.frontend || links.github || links.docs) && (
         <div className='card p-4'>
           <p className='section-heading mb-3'>Links</p>
-          <div className='flex flex-wrap gap-2'>
-            {links.frontend && (
-              <LinkPill href={links.frontend} icon={Globe} label='Open App' />
-            )}
+          {/* The deployed frontend gets a live window rather than a pill —
+              seeing the app is more use than reading its URL. Source and docs
+              are plain lines: they are references, not the thing itself. */}
+          {links.frontend && (
+            <div className='mb-3'>
+              <OpenAppTile
+                url={links.frontend}
+                name={meta?.name || bundle.package}
+              />
+            </div>
+          )}
+          <div className='flex flex-col gap-1.5'>
             {links.github && (
-              <LinkPill href={links.github} icon={GithubIcon} label='GitHub' />
+              <p className='text-[12.5px] text-neutral-500'>
+                GitHub code:{' '}
+                <a
+                  href={links.github}
+                  target='_blank'
+                  rel='noreferrer noopener'
+                  className='text-brand-600 transition-colors hover:text-brand-500'
+                >
+                  {links.github.replace(/^https?:\/\//, '')}
+                </a>
+              </p>
             )}
             {links.docs && (
-              <LinkPill href={links.docs} icon={BookOpen} label='Docs' />
+              <p className='text-[12.5px] text-neutral-500'>
+                Documentation:{' '}
+                <a
+                  href={links.docs}
+                  target='_blank'
+                  rel='noreferrer noopener'
+                  className='text-brand-600 transition-colors hover:text-brand-500'
+                >
+                  {links.docs.replace(/^https?:\/\//, '')}
+                </a>
+              </p>
             )}
           </div>
         </div>
@@ -821,28 +821,5 @@ function SigRow({
         </p>
       </div>
     </div>
-  );
-}
-
-function LinkPill({
-  href,
-  icon: Icon,
-  label,
-}: {
-  href: string;
-  icon: React.ComponentType<{ className?: string }>;
-  label: string;
-}) {
-  return (
-    <a
-      href={href}
-      target='_blank'
-      rel='noopener noreferrer'
-      className='inline-flex items-center gap-1.5 text-[12px] text-neutral-300 hover:text-white bg-white/[0.06] hover:bg-white/[0.1] px-2.5 py-1.5 rounded-md transition-all border border-white/[0.06]'
-    >
-      <Icon className='w-3.5 h-3.5' />
-      {label}
-      <ExternalLink className='w-3 h-3 text-neutral-500' />
-    </a>
   );
 }
