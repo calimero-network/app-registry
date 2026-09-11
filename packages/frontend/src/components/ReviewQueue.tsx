@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Check, X, ImageOff } from 'lucide-react';
+import { Check, X, ImageOff, Maximize2 } from 'lucide-react';
 import { getReviewQueue, decidePackage, type ReviewItem } from '@/lib/api';
 import { useToast } from './Toast';
+import { Lightbox, type LightboxItem } from './Lightbox';
 
 /**
  * The moderation queue: packages whose pictures nobody has looked at.
@@ -25,6 +26,11 @@ export function ReviewQueue() {
   const qc = useQueryClient();
   const { notify } = useToast();
   const [reasons, setReasons] = useState<Record<string, string>>({});
+  // Which package's gallery is open, and at which picture. Held here rather
+  // than per card so only one lightbox can ever be mounted.
+  const [viewing, setViewing] = useState<{ pkg: string; index: number } | null>(
+    null
+  );
 
   const { data: queue = [], isLoading } = useQuery({
     queryKey: ['review-queue'],
@@ -98,9 +104,55 @@ export function ReviewQueue() {
               reason: reasons[item.package] ?? '',
             })
           }
+          onOpen={index => setViewing({ pkg: item.package, index })}
         />
       ))}
+      {viewing && (
+        <QueueLightbox
+          items={
+            queue.find(q => q.package === viewing.pkg)?.assets.map(a => ({
+              id: a.id,
+              url: a.url,
+              alt: a.alt,
+              kind: a.kind,
+              width: a.width,
+              height: a.height,
+            })) ?? []
+          }
+          index={viewing.index}
+          onIndex={index => setViewing(v => (v ? { ...v, index } : v))}
+          onClose={() => setViewing(null)}
+        />
+      )}
     </div>
+  );
+}
+
+/**
+ * Guards against the queue refetching while a gallery is open: a decision on
+ * another card removes it from the list, and the package being VIEWED can
+ * disappear from under the lightbox. An empty list closes rather than
+ * rendering a dialog with nothing in it.
+ */
+function QueueLightbox({
+  items,
+  index,
+  onIndex,
+  onClose,
+}: {
+  items: LightboxItem[];
+  index: number;
+  onIndex: (next: number) => void;
+  onClose: () => void;
+}) {
+  if (!items.length) return null;
+  return (
+    <Lightbox
+      items={items}
+      index={Math.min(index, items.length - 1)}
+      onIndex={onIndex}
+      onClose={onClose}
+    />
   );
 }
 
@@ -111,6 +163,7 @@ function ReviewCard({
   busy,
   onApprove,
   onDecline,
+  onOpen,
 }: {
   item: ReviewItem;
   reason: string;
@@ -118,6 +171,7 @@ function ReviewCard({
   busy: boolean;
   onApprove: () => void;
   onDecline: () => void;
+  onOpen: (index: number) => void;
 }) {
   return (
     <div className='card p-4' data-testid='review-card'>
@@ -153,10 +207,17 @@ function ReviewCard({
       )}
 
       {/* Big enough to judge. A row of thumbnails is how unreviewed content
-          gets approved without being looked at. */}
+          gets approved without being looked at — so these stay large, and
+          clicking one opens the publisher's FULL-resolution file, which is
+          more than the old fixed `object-cover` crop ever showed.
+
+          ⚠️ The tiles themselves load the downscaled copy. A queue of ten
+          packages with eight pictures each was tens of megabytes of originals
+          to paint one screen of decisions, every one of them proxied through
+          a function that buffers the whole object before sending it. */}
       <div className='mb-3 flex gap-3 overflow-x-auto pb-1'>
-        {item.assets.map(a => (
-          <div key={a.id} className='flex-shrink-0'>
+        {item.assets.map((a, i) => (
+          <div key={a.id} className='group relative flex-shrink-0'>
             {a.kind === 'video' ? (
               <video
                 src={a.url}
@@ -166,13 +227,29 @@ function ReviewCard({
                 data-testid='review-asset'
               />
             ) : (
-              <img
-                src={a.url}
-                alt={a.alt || `${item.package} preview`}
-                loading='lazy'
-                className='h-56 rounded-lg border border-line object-cover'
-                data-testid='review-asset'
-              />
+              <button
+                type='button'
+                onClick={() => onOpen(i)}
+                aria-label={`Open ${a.alt || item.package} full screen`}
+                className='block cursor-zoom-in overflow-hidden rounded-lg border border-line focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus-ring)]'
+              >
+                <img
+                  src={a.thumbUrl ?? a.url}
+                  alt={a.alt || `${item.package} preview`}
+                  width={a.width ?? undefined}
+                  height={a.height ?? undefined}
+                  loading='lazy'
+                  decoding='async'
+                  className='h-56 w-auto max-w-none object-cover'
+                  data-testid='review-asset'
+                />
+                <span
+                  aria-hidden='true'
+                  className='pointer-events-none absolute right-2 top-2 rounded-md bg-black/60 p-1.5 text-white opacity-0 transition-opacity group-hover:opacity-100'
+                >
+                  <Maximize2 className='h-3.5 w-3.5' />
+                </span>
+              </button>
             )}
             {a.alt && (
               <p className='mt-1 max-w-[20rem] truncate text-[11px] text-neutral-500'>

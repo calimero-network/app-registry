@@ -42,15 +42,29 @@ async function latestManifest(pkg) {
 }
 
 /** Assets are never handed out as bucket URLs — always proxied. See asset-visibility.js. */
-const publicShape = (pkg, a) => ({
-  id: a.id,
-  kind: a.kind,
-  contentType: a.contentType,
-  bytes: a.bytes,
-  alt: a.alt,
-  order: a.order,
-  url: `/api/v2/packages/${encodeURIComponent(pkg)}/assets/${a.id}/raw`,
-});
+const publicShape = (pkg, a) => {
+  const base = `/api/v2/packages/${encodeURIComponent(pkg)}/assets/${a.id}/raw`;
+  return {
+    id: a.id,
+    kind: a.kind,
+    contentType: a.contentType,
+    bytes: a.bytes,
+    alt: a.alt,
+    order: a.order,
+    url: base,
+    // What the strip loads. Falls back to the full object for the assets
+    // uploaded before thumbnails existed, so a caller can always just use
+    // `thumbUrl` for a tile and `url` when it opens full screen.
+    thumbUrl: a.thumbKey ? `${base}?variant=thumb` : base,
+    hasThumb: !!a.thumbKey,
+    thumbBytes: a.thumbBytes ?? null,
+    // For the tile's `width`/`height` attributes: it can then reserve the
+    // right box before any bytes arrive instead of collapsing and shoving the
+    // page around when they land.
+    width: a.width ?? null,
+    height: a.height ?? null,
+  };
+};
 
 module.exports = async function handler(req, res) {
   const pkg = req.query?.package;
@@ -71,14 +85,30 @@ module.exports = async function handler(req, res) {
 
   // ── GET: moderation-gated read ──
   if (req.method === 'GET') {
-    // An anonymous read is the common case, so this must not require auth —
-    // it resolves the user only to decide whether a PENDING package's assets
-    // are visible to them.
-    const user = await resolveUser(req).catch(() => null);
-    const admin = user?.email ? await isAdmin(user.email) : false;
-    const owner = user ? await canManagePackage(pkg, manifest, user) : false;
-
-    const vis = await assetVisibility({ pkg, isOwner: owner, isAdmin: admin });
+    // ⚠️ THE APPROVAL CHECK COMES FIRST, AND THAT IS A PERFORMANCE FIX.
+    //
+    // assetVisibility() returns on `approved` without ever reading isOwner or
+    // isAdmin — an approved package's assets are public, so who is asking
+    // cannot change the answer. This used to resolve the user, look up site
+    // admin and evaluate canManagePackage (itself a package→org lookup plus a
+    // member-role read) BEFORE asking, so the overwhelmingly common request —
+    // an anonymous visitor loading an approved app page — paid for four or
+    // five Redis round-trips whose results were then discarded.
+    //
+    // Identity is now resolved only when the cheap answer is "not public",
+    // which is the only branch that needs it.
+    const publicVis = await assetVisibility({ pkg });
+    let vis = publicVis;
+    if (!publicVis.visible) {
+      const user = await resolveUser(req).catch(() => null);
+      if (user) {
+        const [admin, owner] = await Promise.all([
+          user.email ? isAdmin(user.email) : Promise.resolve(false),
+          canManagePackage(pkg, manifest, user),
+        ]);
+        vis = await assetVisibility({ pkg, isOwner: owner, isAdmin: admin });
+      }
+    }
     if (!vis.visible) {
       // Not 403: to an anonymous visitor a pending package simply has no
       // preview yet. A 403 would advertise that hidden assets exist.
@@ -116,8 +146,19 @@ module.exports = async function handler(req, res) {
       });
     }
     let buffer;
+    let thumb = null;
     try {
       buffer = Buffer.from(b64, 'base64');
+      // Optional: a downscaled copy the browser made. Bad base64 here is not
+      // worth failing the upload over — the original is what matters, and a
+      // missing thumbnail degrades to serving the full image.
+      if (typeof req.body?.thumb === 'string' && req.body.thumb) {
+        try {
+          thumb = Buffer.from(req.body.thumb, 'base64');
+        } catch {
+          thumb = null;
+        }
+      }
     } catch {
       return res.status(400).json({
         error: 'invalid_request',
@@ -125,7 +166,12 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    const result = await addAsset(pkg, buffer, { alt: req.body?.alt });
+    const result = await addAsset(pkg, buffer, {
+      alt: req.body?.alt,
+      thumb,
+      width: Number(req.body?.width) || null,
+      height: Number(req.body?.height) || null,
+    });
     if (!result.ok) {
       return res
         .status(400)

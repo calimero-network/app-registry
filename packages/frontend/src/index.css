@@ -126,9 +126,16 @@
     --line: #e4e4e6;
     --line-strong: #c8c8c8;
     /* ── ACCENT TEXT: AS CLOSE TO THE LIME AS TYPE CAN GET ──
-       #4a7c00, up from #3f6a00. This is the brightest, greenest value that
-       still clears AA for small text, and it is deliberately sitting on that
-       line: 4.50:1 against the rail, 5.03:1 on a card.
+       #487800, up from #3f6a00: brighter and greener, and still clearing AA
+       for small text with room to spare — 4.74:1 against the rail, 5.29:1 on
+       a card.
+
+       ⚠️ DO NOT SHAVE THIS ANY CLOSER TO THE LIME. #4a7c00 is one step
+       further and measures 4.4968:1, which LOOKS like 4.5 rounded and is not:
+       the lockup spec in e2e/registry.spec.ts asserts a computed ratio and
+       fails on it. That spec is the reason this token is a measurement rather
+       than a preference — it has moved three times now and the markup never
+       changed once.
 
        ⚠️ IT CANNOT BE THE LIME ITSELF, AND NO AMOUNT OF TASTE CHANGES THAT.
        Measured, #a5ff11 as text is 1.11:1 on the rail, 1.21:1 on the page and
@@ -142,8 +149,8 @@
        This token carries the rail's "APP REGISTRY" label, inline code, active
        nav and ~60 links: all small, most bold, so AA here is 4.5:1, not the
        3:1 that large text would allow. */
-    --accent-text-rgb: 74 124 0;
-    --accent-text-hover-rgb: 57 97 0;
+    --accent-text-rgb: 72 120 0;
+    --accent-text-hover-rgb: 56 94 0;
     /* Three steps, so the shell reads as a shell: chrome #f2f2f3, page
        #fcfcfc, cards #ffffff. A white rail against a white page separated
        only by a hairline is what made the old light mode look unfinished. */

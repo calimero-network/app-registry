@@ -92,16 +92,26 @@ module.exports = async function handler(req, res) {
         decidedBy: rec.decidedBy,
         reason: rec.reason,
         newestAssetAt: newestAsset || null,
-        assets: assets.map(a => ({
-          id: a.id,
-          kind: a.kind,
-          contentType: a.contentType,
-          bytes: a.bytes,
-          alt: a.alt,
-          order: a.order,
-          uploadedAt: a.uploadedAt || null,
-          url: `/api/v2/packages/${encodeURIComponent(pkg)}/assets/${a.id}/raw`,
-        })),
+        assets: assets.map(a => {
+          const base = `/api/v2/packages/${encodeURIComponent(pkg)}/assets/${a.id}/raw`;
+          return {
+            id: a.id,
+            kind: a.kind,
+            contentType: a.contentType,
+            bytes: a.bytes,
+            alt: a.alt,
+            order: a.order,
+            uploadedAt: a.uploadedAt || null,
+            url: base,
+            // The queue shows a row of tiles per package and there can be
+            // eight per package: at the original size that is tens of
+            // megabytes to render one screen of moderation decisions. The
+            // moderator gets the full-resolution file on click instead.
+            thumbUrl: a.thumbKey ? `${base}?variant=thumb` : base,
+            width: a.width ?? null,
+            height: a.height ?? null,
+          };
+        }),
       });
     }
 
