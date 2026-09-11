@@ -1,239 +1,305 @@
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import {
-  Package,
-  ArrowRight,
-  Shield,
-  Zap,
-  Users,
-  Layers,
-  Lock,
-  Globe,
-} from 'lucide-react';
-import { api } from '@/lib/api';
+import { PosterGallery } from '@/components/PosterGallery';
+import { type Poster } from '@/components/PosterCard';
+import { getApps } from '@/lib/api';
+import { AppCard } from '@/components/AppCard';
+import { ShowcaseCard } from '@/components/ShowcaseCard';
+import { HeroGraphic } from '@/components/HeroGraphic';
+import { formatCategory } from '@/lib/utils';
+import { CATEGORIES, type AppSummary } from '@/types/api';
+
+/**
+ * The storefront front page.
+ *
+ * Shaped like Apple's Discover: a short statement of what this is, then
+ * shelves you can click. It replaced a centred marketing hero that filled the
+ * first screen with a claim and pushed the actual apps below the fold.
+ *
+ * The featured list is the one hard-coded thing here, kept in a single
+ * constant so it stays trivially editable. An id that no longer matches a
+ * published package drops out — an entry must never render an empty card.
+ *
+ * Everything else is derived. "Recently updated" sorts on the registry's own
+ * `publishedAt`, so a shelf cannot go stale or point at a yanked package the
+ * way a curated list would.
+ */
+const FEATURED = [
+  'com.calimero.mero-chat',
+  'com.calimero.mero-design',
+  'com.calimero.mero-sign',
+];
+
+/**
+ * The "Get started" gallery.
+ *
+ * Posters, not link rows: each is one graphic with the words set over it. The
+ * external ones open a tab; `internal` routes stay in the app. Order matters —
+ * the first two are the outbound product links the shelf exists for.
+ */
+const POSTERS: Poster[] = [
+  {
+    art: 'desktop',
+    eyebrow: 'Run apps locally',
+    title: 'Get Calimero Desktop',
+    body: 'A node and an app launcher on your own machine. Install anything here in one click.',
+    chips: ['macOS', 'Windows', 'Linux'],
+    cta: 'Download',
+    href: 'https://calimero.network/download',
+  },
+  {
+    art: 'docs',
+    eyebrow: 'Learn',
+    title: 'Documentation',
+    body: 'From an empty directory to a signed bundle published here.',
+    chips: ['Quickstart', 'SDKs', 'CLI reference'],
+    cta: 'Read the docs',
+    href: 'https://docs.calimero.network',
+  },
+  {
+    art: 'publish',
+    eyebrow: 'Ship yours',
+    title: 'Publish an app',
+    body: 'Build with cargo mero, sign the bundle, push it to the registry.',
+    chips: ['Build', 'Sign', 'Push'],
+    cta: 'How publishing works',
+    href: '/docs',
+    internal: true,
+  },
+  {
+    art: 'explore',
+    eyebrow: 'Browse',
+    title: 'Every published app',
+    body: 'The whole registry, filtered by category and searchable by name.',
+    chips: ['Games', 'Productivity', 'Social'],
+    cta: 'Browse the registry',
+    href: '/explore',
+    internal: true,
+  },
+  {
+    art: 'source',
+    eyebrow: 'Peer to peer',
+    title: 'Calimero on GitHub',
+    body: 'The node, the SDKs and this registry — all of it in the open.',
+    chips: ['core', 'SDKs', 'app-registry'],
+    cta: 'Open GitHub',
+    href: 'https://github.com/calimero-network',
+  },
+];
 
 export default function HomePage() {
-  const { data: stats, isLoading: statsLoading } = useQuery({
-    queryKey: ['stats'],
-    queryFn: async () => {
-      const response = await api.get('/stats');
-      return response.data;
-    },
+  const { data: apps = [], isLoading } = useQuery({
+    queryKey: ['apps'],
+    queryFn: () => getApps(),
   });
 
-  const publishedApps = stats?.publishedApps || 0;
-  const activeDevelopers = stats?.activeDevelopers || 0;
+  const all = apps as AppSummary[];
+  const byId = new Map(all.map(a => [a.id, a]));
+  // `.filter` matters: a featured id that is no longer published must vanish,
+  // not render a card with no data in it.
+  const featured = FEATURED.map(id => byId.get(id)).filter(
+    (a): a is AppSummary => !!a
+  );
+  const featuredIds = new Set(featured.map(a => a.id));
+
+  // Bundles published before the metadata policy have no `publishedAt`. They
+  // sort last rather than being dropped — an app with no timestamp is still
+  // an app, and excluding them would hide a third of the registry.
+  const recent = all
+    .filter(a => !featuredIds.has(a.id))
+    .sort((a, b) => {
+      const ta = a.publishedAt ? Date.parse(a.publishedAt) : -Infinity;
+      const tb = b.publishedAt ? Date.parse(b.publishedAt) : -Infinity;
+      return tb - ta;
+    })
+    .slice(0, 6);
+
+  const categoriesInUse = CATEGORIES.filter(c =>
+    all.some(a => a.category === c)
+  );
 
   return (
-    <div className='space-y-24 py-8'>
-      {/* Hero */}
-      <section className='relative text-center max-w-3xl mx-auto pt-12 pb-4'>
-        <div className='absolute inset-0 -z-10'>
-          <div className='absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] rounded-full bg-brand-600/[0.04] blur-[120px]' />
-          <div className='absolute top-1/3 left-1/4 w-[200px] h-[200px] rounded-full bg-brand-600/[0.03] blur-[80px] animate-float' />
-        </div>
-
-        <div className='animate-fade-in'>
-          <span className='inline-flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-widest text-brand-600 mb-6'>
-            <Package className='w-3.5 h-3.5' />
-            Self-Sovereign App Registry
-          </span>
-        </div>
-
-        <h1 className='animate-slide-up stagger-1 text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight leading-[1.1]'>
-          <span className='text-neutral-100'>Discover & Deploy</span>
-          <br />
-          <span className='gradient-text'>Verifiable Apps</span>
+    <div className='space-y-14'>
+      <section>
+        {/* Title and one line of copy. The three-point list that was here
+            said the same thing at four times the length; the animation below
+            shows it instead. */}
+        {/* Title, then description under it, then the animation with room
+            above it. Stacked rather than inline: the subtitle is a sentence,
+            not a tagline, and sitting it beside the title made both harder
+            to read. */}
+        <h1 className='text-2xl font-semibold tracking-tight text-neutral-100 sm:text-3xl'>
+          App Registry
         </h1>
-
-        <p className='animate-slide-up stagger-2 mt-6 text-base sm:text-lg text-neutral-400 font-light leading-relaxed max-w-xl mx-auto'>
-          Cryptographically signed, immutably versioned, decentrally stored. The
-          registry for self-sovereign applications.
+        <p className='mt-2 max-w-2xl text-[13.5px] font-light leading-relaxed text-neutral-400'>
+          Applications for Calimero — signed, versioned, and installed into a
+          node you run yourself.
         </p>
 
-        <div className='animate-slide-up stagger-3 mt-10 flex flex-col sm:flex-row gap-3 justify-center'>
-          <Link to='/apps' className='btn-primary group'>
-            <Package className='w-4 h-4' />
-            Browse Apps
-            <ArrowRight className='w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5' />
-          </Link>
-          <Link to='/upload' className='btn-secondary'>
-            Publish Your App
-          </Link>
-        </div>
-      </section>
+        {/* The laptop sits inside its own lit panel rather than floating on
+            the page ground, and it is drawn small inside that panel: at full
+            bleed the device was the whole section and the three scenes read
+            as a slideshow instead of as one product being used.
 
-      {/* Stats */}
-      <section className='animate-scale-in'>
-        <div className='grid grid-cols-2 gap-4 max-w-md mx-auto'>
-          <StatCard
-            label='Published Apps'
-            value={publishedApps}
-            loading={statsLoading}
-          />
-          <StatCard
-            label='Developers'
-            value={activeDevelopers}
-            loading={statsLoading}
-          />
-        </div>
-      </section>
-
-      {/* Features */}
-      <section>
-        <div className='text-center mb-12 animate-fade-in'>
-          <h2 className='section-heading mb-3'>Why Calimero Registry</h2>
-          <p className='text-xl sm:text-2xl font-semibold text-neutral-100'>
-            Built for{' '}
-            <span className='text-gradient-brand'>trust & transparency</span>
-          </p>
-        </div>
-
-        <div className='grid md:grid-cols-3 gap-5'>
-          <FeatureCard
-            icon={Shield}
-            title='Cryptographic Security'
-            description='Ed25519 signatures with JCS canonicalization verify every published bundle.'
-            index={0}
-          />
-          <FeatureCard
-            icon={Layers}
-            title='Immutable Versions'
-            description='Semantic versioning with immutable artifacts ensures reproducible deployments.'
-            index={1}
-          />
-          <FeatureCard
-            icon={Zap}
-            title='Decentralized Storage'
-            description='WASM artifacts stored with content-addressed hashing for integrity verification.'
-            index={2}
-          />
-        </div>
-      </section>
-
-      {/* How it works */}
-      <section>
-        <div className='text-center mb-12 animate-fade-in'>
-          <h2 className='section-heading mb-3'>How It Works</h2>
-          <p className='text-xl sm:text-2xl font-semibold text-neutral-100'>
-            From code to <span className='text-gradient-brand'>deployment</span>
-          </p>
-        </div>
-
-        <div className='grid sm:grid-cols-3 gap-6 max-w-3xl mx-auto'>
-          {[
-            {
-              step: '01',
-              icon: Lock,
-              title: 'Sign & Publish',
-              desc: 'Cryptographically sign your WASM bundle and push it to the registry.',
-            },
-            {
-              step: '02',
-              icon: Globe,
-              title: 'Verify & Store',
-              desc: 'Signatures are validated and artifacts are stored with content-addressed hashing.',
-            },
-            {
-              step: '03',
-              icon: Package,
-              title: 'Discover & Deploy',
-              desc: 'Users browse, verify integrity, and deploy apps to their sovereign nodes.',
-            },
-          ].map((item, i) => (
+            The wash is periwinkle and the lights are indigo — deliberately
+            NOT the brand lime. The accent already carries meaning inside the
+            animation (selected row, install progress, your own messages), and
+            green light behind green UI flattens every one of those. */}
+        <div
+          data-testid='hero-panel'
+          className='relative mt-10 overflow-hidden rounded-[28px] border border-ink/[0.07]'
+          style={{ background: 'var(--hero-wash)' }}
+        >
+          {/* ⚠️ BEHIND THE DEVICE, NOT OVER IT. These are stacked at z-0 and
+              everything else at z-10: a blurred blob painted over the laptop
+              fogs the screen it is supposed to be lighting. They breathe on a
+              long, offset cycle so the panel looks lit rather than static —
+              opacity only, so it stays on the compositor. */}
+          <div
+            aria-hidden='true'
+            className='pointer-events-none absolute inset-0 z-0'
+          >
             <div
-              key={item.step}
-              className={`animate-slide-up stagger-${i + 1} text-center group`}
-            >
-              <div className='relative inline-flex items-center justify-center w-14 h-14 rounded-xl bg-surface border border-white/[0.06] mb-4 transition-all duration-300 group-hover:border-brand-600/30 group-hover:shadow-[0_0_20px_rgba(165,255,17,0.08)]'>
-                <item.icon className='w-5 h-5 text-brand-600' />
-                <span className='absolute -top-2 -right-2 text-2xs font-mono font-medium text-neutral-500 bg-surface-2 border border-white/[0.06] rounded-full w-6 h-6 flex items-center justify-center'>
-                  {item.step}
-                </span>
-              </div>
-              <h3 className='text-sm font-medium text-neutral-200 mb-1.5'>
-                {item.title}
-              </h3>
-              <p className='text-[12px] text-neutral-500 font-light leading-relaxed'>
-                {item.desc}
+              className='hero-lamp absolute -top-32 left-[18%] h-[26rem] w-[26rem] rounded-full blur-3xl'
+              style={{ background: 'var(--hero-glow)' }}
+            />
+            <div
+              className='hero-lamp hero-lamp-b absolute -bottom-40 right-[8%] h-[24rem] w-[30rem] rounded-full blur-3xl'
+              style={{ background: 'var(--hero-glow-2)' }}
+            />
+          </div>
+
+          <div className='relative z-10 px-5 pb-8 pt-8 sm:px-8 sm:pb-9 sm:pt-9'>
+            {/* Wide enough to carry the panel. The first pass drew it at
+                `max-w-xl`, which left a third of the box empty on either side
+                and made the whole section read as padding with a picture in
+                it. */}
+            <div className='hero-device mx-auto aspect-[960/560] w-full max-w-3xl'>
+              <HeroGraphic />
+            </div>
+
+            {/* The caption runs on the same 18s cycle as the graphic: line one
+                covers browse + install, line two covers using the app.
+
+                Set large, bold and in the display face — it is the headline
+                for the animation above it, not a caption under a figure. Two
+                absolutely-positioned lines in a fixed-height box, so the panel
+                does not resize as they swap.
+
+                ⚠️ THE HEIGHT IS PER-BREAKPOINT BECAUSE THE WRAP IS. Two lines
+                is what these sentences take from `sm` up; at 360px they take
+                four, and a box sized for the desktop wrap clipped the last
+                line through the middle of its glyphs — the overflow is
+                hidden, so it looked like a rendering fault rather than a
+                height that was too small.
+
+                Reduced motion lands on the base styles — line one visible,
+                line two hidden — rather than on an empty box. */}
+            <div className='relative mx-auto mt-6 h-[6.2rem] w-full max-w-3xl overflow-hidden sm:h-[4.9rem]'>
+              <p
+                data-testid='hero-caption'
+                className='hero-line hero-line-a absolute inset-x-0 top-0 font-display text-[18px] font-bold leading-snug tracking-tight text-neutral-100 sm:text-[27px]'
+              >
+                Download Calimero Desktop and install applications from the
+                marketplace.
+              </p>
+              <p className='hero-line hero-line-b absolute inset-x-0 top-0 font-display text-[18px] font-bold leading-snug tracking-tight text-neutral-100 sm:text-[27px]'>
+                Open the installed application and use it peer-to-peer, fully
+                encrypted.
               </p>
             </div>
-          ))}
-        </div>
-      </section>
-
-      {/* CTA */}
-      <section className='text-center animate-fade-in'>
-        <div className='card max-w-xl mx-auto p-8 text-center glow-border'>
-          <h2 className='text-lg font-semibold text-neutral-100 mb-2'>
-            Ready to explore?
-          </h2>
-          <p className='text-[13px] text-neutral-400 font-light mb-6'>
-            Browse self-sovereign apps or publish your own to the registry.
-          </p>
-          <div className='flex flex-col sm:flex-row gap-3 justify-center'>
-            <Link to='/apps' className='btn-primary'>
-              <Package className='w-4 h-4' />
-              Explore Apps
-            </Link>
-            <Link to='/developers' className='btn-secondary'>
-              <Users className='w-4 h-4' />
-              View Developers
-            </Link>
           </div>
         </div>
       </section>
-    </div>
-  );
-}
 
-function StatCard({
-  label,
-  value,
-  loading,
-}: {
-  label: string;
-  value: number | string;
-  loading: boolean;
-}) {
-  return (
-    <div className='card px-5 py-5 text-center group animate-glow-pulse'>
-      {loading ? (
-        <div className='h-8 w-14 mx-auto bg-white/[0.06] rounded animate-pulse' />
-      ) : (
-        <p className='text-2xl font-bold text-brand-600 tabular-nums transition-transform duration-300 group-hover:scale-110'>
-          {value}
-        </p>
+      {featured.length > 0 && (
+        <section>
+          {/* One panel holding the whole shelf, rather than three cards
+              floating on the page ground. It groups the apps we publish
+              ourselves into a single object, which is what separates them
+              from the derived shelves below. */}
+          <div className='rounded-2xl border border-ink/[0.07] bg-ink/[0.02] p-4 sm:p-5'>
+            <SectionHeading title='Apps we build' />
+            <div className='mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3'>
+              {featured.map(app => (
+                <ShowcaseCard key={app.id} app={app} />
+              ))}
+            </div>
+          </div>
+        </section>
       )}
-      <p className='mt-1.5 text-[11px] text-neutral-500 font-light uppercase tracking-wider'>
-        {label}
-      </p>
+
+      <section>
+        <SectionHeading title='Get started' />
+        <div className='mt-3'>
+          <PosterGallery posters={POSTERS} />
+        </div>
+      </section>
+
+      {categoriesInUse.length > 0 && (
+        <section>
+          <SectionHeading title='Browse by category' />
+          <div className='mt-3 flex flex-wrap gap-1.5'>
+            {categoriesInUse.map(c => (
+              <Link
+                key={c}
+                to={`/explore?category=${c}`}
+                className='inline-flex items-center gap-1.5 rounded-full border border-ink/[0.08] bg-ink/[0.02] px-3 py-1.5 text-[12.5px] text-neutral-300 transition-colors duration-150 hover:border-ink/[0.16] hover:text-neutral-100'
+              >
+                {formatCategory(c)}
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <section>
+        <SectionHeading title='Recently updated' href='/explore' />
+        {isLoading ? (
+          <SkeletonList />
+        ) : (
+          <div className='mt-3 grid gap-3'>
+            {recent.map(app => (
+              <AppCard key={app.id} app={app} />
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   );
 }
 
-function FeatureCard({
-  icon: Icon,
-  title,
-  description,
-  index,
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  title: string;
-  description: string;
-  index: number;
-}) {
+function SectionHeading({ title, href }: { title: string; href?: string }) {
   return (
-    <div
-      className={`card p-6 group glow-border animate-slide-up stagger-${index + 1}`}
-    >
-      <div className='inline-flex items-center justify-center w-10 h-10 rounded-lg bg-brand-600/[0.08] border border-brand-600/[0.12] mb-4 transition-all duration-300 group-hover:bg-brand-600/[0.14] group-hover:border-brand-600/25'>
-        <Icon className='w-4.5 h-4.5 text-brand-600 transition-transform duration-300 group-hover:scale-110' />
-      </div>
-      <h3 className='text-sm font-medium text-neutral-200 mb-2'>{title}</h3>
-      <p className='text-[12px] text-neutral-500 font-light leading-relaxed'>
-        {description}
-      </p>
+    <div className='flex items-baseline justify-between'>
+      <h2 className='text-[15px] font-medium text-neutral-200'>{title}</h2>
+      {href && (
+        <Link
+          to={href}
+          className='text-[12.5px] text-neutral-500 transition-colors hover:text-neutral-300'
+        >
+          See all
+        </Link>
+      )}
+    </div>
+  );
+}
+
+function SkeletonList() {
+  return (
+    <div className='mt-3 grid gap-3'>
+      {Array.from({ length: 4 }).map((_, i) => (
+        <div
+          key={i}
+          className='flex animate-pulse gap-4 rounded-xl border border-ink/[0.06] p-4'
+        >
+          <div className='h-14 w-14 flex-shrink-0 rounded-xl bg-ink/[0.06]' />
+          <div className='flex-1 space-y-2 pt-1'>
+            <div className='h-3.5 w-1/3 rounded bg-ink/[0.06]' />
+            <div className='h-3 w-full rounded bg-ink/[0.06]' />
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

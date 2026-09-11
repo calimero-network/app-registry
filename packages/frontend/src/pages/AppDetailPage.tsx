@@ -4,14 +4,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Package,
   ArrowLeft,
-  ExternalLink,
   User,
   FileCode,
   Hash,
   HardDrive,
   Clock,
   BookOpen,
-  Globe,
   Shield,
   Pencil,
   Trash2,
@@ -21,7 +19,6 @@ import {
   Ban,
   RotateCcw,
 } from 'lucide-react';
-import { GithubIcon } from '@/components/BrandIcons';
 import {
   api,
   deleteBundleVersion,
@@ -30,7 +27,13 @@ import {
   getOrgByPackage,
   getOrgMembers,
 } from '@/lib/api';
+import { GithubIcon } from '@/components/BrandIcons';
 import { useAuth } from '@/contexts/AuthContext';
+import { AppIcon } from '@/components/AppIcon';
+import { AppPreview } from '@/components/AppPreview';
+import { OpenAppTile } from '@/components/OpenAppTile';
+import { CATEGORIES } from '@/types/api';
+import { formatBytes, formatCategory, formatRelativeDate } from '@/lib/utils';
 
 interface V2Bundle {
   version: string;
@@ -45,7 +48,13 @@ interface V2Bundle {
     icon?: string;
     tags?: string[];
     license?: string;
+    category?: string;
   };
+  /** Measured by the registry at upload; null for bundles that predate it. */
+  installSize?: number | null;
+  /** Stamped by the registry at upload; null for bundles that predate it. */
+  publishedAt?: string | null;
+  downloads?: number;
   interfaces?: {
     exports?: string[];
     uses?: string[];
@@ -164,10 +173,10 @@ export default function AppDetailPage() {
   if (isLoading) {
     return (
       <div className='space-y-5 animate-pulse'>
-        <div className='h-4 bg-white/[0.06] rounded w-20'></div>
-        <div className='h-6 bg-white/[0.06] rounded w-1/3'></div>
-        <div className='h-3.5 bg-white/[0.06] rounded w-1/2'></div>
-        <div className='h-32 bg-white/[0.04] rounded-lg'></div>
+        <div className='h-4 bg-ink/[0.06] rounded w-20'></div>
+        <div className='h-6 bg-ink/[0.06] rounded w-1/3'></div>
+        <div className='h-3.5 bg-ink/[0.06] rounded w-1/2'></div>
+        <div className='h-32 bg-ink/[0.04] rounded-lg'></div>
       </div>
     );
   }
@@ -189,6 +198,21 @@ export default function AppDetailPage() {
 
   const meta = bundle.metadata;
   const links = bundle.links;
+
+  // Same resolution the listing uses: `metadata.category` when the bundle
+  // carries one, else a `tags` entry naming a category. Reading the explicit
+  // field alone finds nothing on any bundle published before cargo-mero
+  // learned the field.
+  const resolvedCategory = (() => {
+    const declared = meta?.category?.trim().toLowerCase();
+    if (declared && (CATEGORIES as readonly string[]).includes(declared)) {
+      return declared;
+    }
+    return (meta?.tags ?? [])
+      .map(t => (typeof t === 'string' ? t.trim().toLowerCase() : ''))
+      .map(t => (t === 'game' ? 'games' : t))
+      .find(t => (CATEGORIES as readonly string[]).includes(t));
+  })();
   const wasm = bundle.wasm;
   const abi = bundle.abi;
   const sig = bundle.signature;
@@ -220,34 +244,75 @@ export default function AppDetailPage() {
     <div className='space-y-6'>
       <BackLink />
 
-      {/* Header */}
-      <div className='animate-fade-in'>
-        <div className='flex flex-wrap items-center gap-2.5 mb-1'>
-          <h1 className='text-xl font-semibold text-neutral-100'>
-            {meta?.name || appId}
-          </h1>
-          <span className='pill bg-brand-600/10 text-brand-600 font-mono'>
-            v{bundle.appVersion}
-          </span>
-          {canEdit && (
-            <Link
-              to={`/apps/${appId}/${bundle.appVersion}/edit`}
-              className='inline-flex items-center gap-1.5 text-[12px] text-neutral-400 hover:text-neutral-200 transition-colors'
-            >
-              <Pencil className='w-3.5 h-3.5' />
-              Edit metadata
-            </Link>
+      {/* Hero — store shape: icon, name, creator, then the facts that decide
+          whether to install. Size and date come from the registry itself, so
+          they are trustworthy in a way a self-declared value would not be. */}
+      <div className='flex flex-col gap-4 sm:flex-row sm:items-start'>
+        <AppIcon
+          icon={meta?.icon}
+          name={meta?.name || appId || '?'}
+          seed={bundle.package}
+          size={88}
+        />
+        <div className='min-w-0 flex-1'>
+          <div className='mb-1 flex flex-wrap items-center gap-2.5'>
+            <h1 className='text-2xl font-semibold tracking-tight text-neutral-100'>
+              {meta?.name || appId}
+            </h1>
+            <span className='pill bg-brand-600/10 font-mono text-brand-600'>
+              v{bundle.appVersion}
+            </span>
+            {canEdit && (
+              <Link
+                to={`/apps/${appId}/${bundle.appVersion}/edit`}
+                className='inline-flex items-center gap-1.5 text-[12px] text-neutral-400 transition-colors hover:text-neutral-200'
+              >
+                <Pencil className='h-3.5 w-3.5' />
+                Edit metadata
+              </Link>
+            )}
+          </div>
+          {/* The badge belongs on the package id as well as on the author in
+              the grid below: the display name is a string anyone can choose,
+              while this is the identifier that gets installed. */}
+          <p className='flex items-center gap-1.5 font-mono text-[12px] text-neutral-500'>
+            {bundle.package}
+            {authorVerified && (
+              <BadgeCheck
+                className='h-3.5 w-3.5 flex-shrink-0 text-emerald-400'
+                aria-label='Verified package'
+                role='img'
+              />
+            )}
+          </p>
+
+          <div className='mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12.5px] text-neutral-500'>
+            {meta?.author && (
+              <span className='text-neutral-400'>{meta.author}</span>
+            )}
+            {formatCategory(resolvedCategory) && (
+              <span className='rounded-md border border-ink/[0.08] bg-ink/[0.03] px-1.5 py-0.5 text-[11px] text-neutral-400'>
+                {formatCategory(resolvedCategory)}
+              </span>
+            )}
+            {formatBytes(bundle.installSize) && (
+              <span>{formatBytes(bundle.installSize)}</span>
+            )}
+            {formatRelativeDate(bundle.publishedAt) && (
+              <span>Updated {formatRelativeDate(bundle.publishedAt)}</span>
+            )}
+            <span>{(bundle.downloads ?? 0).toLocaleString()} downloads</span>
+          </div>
+
+          {meta?.description && (
+            <p className='mt-3 max-w-2xl text-[13px] font-light leading-relaxed text-neutral-400'>
+              {meta.description}
+            </p>
           )}
         </div>
-        <p className='text-[12px] text-neutral-500 font-mono'>
-          {bundle.package}
-        </p>
-        {meta?.description && (
-          <p className='mt-3 text-[13px] text-neutral-400 font-light leading-relaxed max-w-2xl'>
-            {meta.description}
-          </p>
-        )}
       </div>
+
+      <AppPreview pkg={bundle.package} canEdit={canEdit} />
 
       {/* Delete error */}
       {deleteError && (
@@ -261,8 +326,16 @@ export default function AppDetailPage() {
         </p>
       )}
 
-      {/* Info grid */}
-      <div className='grid grid-cols-2 md:grid-cols-4 gap-3 animate-slide-up stagger-1'>
+      {/* Info grid.
+          ⚠️ ONE COLUMN ON A PHONE. Two 168px cards at 360px left about 120px
+          for the value, and `calimero-network` — the author, which is the
+          whole point of the card — was cut through a glyph. These are short
+          facts; stacking them costs a little height and keeps every one of
+          them readable. */}
+      <div
+        data-testid='info-grid'
+        className='grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4'
+      >
         {meta?.author && (
           <InfoCard
             icon={User}
@@ -275,33 +348,50 @@ export default function AppDetailPage() {
         {meta?.license && (
           <InfoCard icon={Shield} label='License' value={meta.license} />
         )}
-        <InfoCard
-          icon={FileCode}
-          label='Manifest'
-          value={`v${bundle.version}`}
-        />
+        {/* Guarded: a bundle published before the manifest carried a version
+            has none, and the unguarded template rendered the string
+            "vundefined" on the page. */}
+        {bundle.version && (
+          <InfoCard
+            icon={FileCode}
+            label='Manifest'
+            value={`v${bundle.version}`}
+          />
+        )}
+        {/* Source and docs sit with the other facts about the package rather
+            than in a links block of their own — they are attributes of the
+            app, the same as its version or licence. The live preview is the
+            one link that is not a fact, so it gets its own section. */}
+        {links?.github && (
+          <LinkCard icon={GithubIcon} label='Source code' href={links.github} />
+        )}
+        {links?.docs && (
+          <LinkCard icon={BookOpen} label='Documentation' href={links.docs} />
+        )}
       </div>
 
-      {/* Links */}
-      {links && (links.frontend || links.github || links.docs) && (
-        <div className='card p-4'>
-          <p className='section-heading mb-3'>Links</p>
-          <div className='flex flex-wrap gap-2'>
-            {links.frontend && (
-              <LinkPill href={links.frontend} icon={Globe} label='Open App' />
-            )}
-            {links.github && (
-              <LinkPill href={links.github} icon={GithubIcon} label='GitHub' />
-            )}
-            {links.docs && (
-              <LinkPill href={links.docs} icon={BookOpen} label='Docs' />
-            )}
-          </div>
-        </div>
+      {/* The deployed frontend, live. Its own section because it is the app
+          itself rather than a fact about it; GitHub and docs are up in the
+          info grid with version and licence.
+
+          Headed "Try it out on web" rather than "Preview": the strip above is
+          the preview (screenshots), and this is the running app — two sections
+          both called Preview said nothing about the difference. */}
+      {links?.frontend && (
+        <section aria-label='Try it out on web'>
+          <p className='section-heading mb-3'>Try it out on web</p>
+          <OpenAppTile
+            url={links.frontend}
+            name={meta?.name || bundle.package}
+          />
+        </section>
       )}
 
-      {/* Organization */}
-      {linkedOrg && (
+      {/* Organization.
+          On `name`, not on the object: the lookup answers with a body either
+          way, and an org without one rendered as a heading over an empty row
+          with an arrow at the end of it. */}
+      {linkedOrg?.name && (
         <div className='card p-4'>
           <p className='section-heading mb-3'>Organization</p>
           <Link
@@ -309,7 +399,7 @@ export default function AppDetailPage() {
             className='card flex items-center justify-between px-4 py-3 hover:border-brand-600/30'
           >
             <div className='flex items-center gap-3'>
-              <div className='flex items-center justify-center w-8 h-8 rounded-full bg-white/[0.06] border border-white/[0.06]'>
+              <div className='flex items-center justify-center w-8 h-8 rounded-full bg-ink/[0.06] border border-ink/[0.06]'>
                 <Building2 className='w-4 h-4 text-neutral-400' />
               </div>
               <div>
@@ -382,7 +472,7 @@ export default function AppDetailPage() {
                     {ifaces.uses.map(u => (
                       <span
                         key={u}
-                        className='pill bg-white/[0.06] text-neutral-300 font-mono'
+                        className='pill bg-ink/[0.06] text-neutral-300 font-mono'
                       >
                         {u}
                       </span>
@@ -400,7 +490,7 @@ export default function AppDetailPage() {
           <p className='section-heading mb-3'>Tags</p>
           <div className='flex flex-wrap gap-1.5'>
             {meta.tags.map(tag => (
-              <span key={tag} className='pill bg-white/[0.06] text-neutral-300'>
+              <span key={tag} className='pill bg-ink/[0.06] text-neutral-300'>
                 {tag}
               </span>
             ))}
@@ -657,6 +747,36 @@ function BackLink() {
   );
 }
 
+/**
+ * A link presented as a fact, in the same grid as author and version.
+ *
+ * The URL itself is not shown: a raw github.com/... string is noise next to
+ * "v0.0.7", it truncates in a narrow card, and it tells you nothing the icon
+ * does not. Label on top, icon underneath, whole card clickable.
+ */
+function LinkCard({
+  icon: Icon,
+  label,
+  href,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  href: string;
+}) {
+  return (
+    <a
+      href={href}
+      target='_blank'
+      rel='noreferrer noopener'
+      aria-label={label}
+      className='card flex flex-col justify-center gap-1 px-3.5 py-2.5 transition-colors hover:border-ink/[0.16]'
+    >
+      <p className='text-[11px] text-neutral-500'>{label}</p>
+      <Icon className='h-4 w-4 text-brand-600' />
+    </a>
+  );
+}
+
 function InfoCard({
   icon: Icon,
   label,
@@ -673,8 +793,12 @@ function InfoCard({
       <Icon className='w-3.5 h-3.5 text-neutral-500 flex-shrink-0' />
       <div className='min-w-0'>
         <p className='text-[11px] text-neutral-500'>{label}</p>
-        <p className='text-[13px] text-neutral-200 font-light truncate flex items-center gap-1'>
-          {value}
+        {/* ⚠️ `truncate` GOES ON THE TEXT, NOT ON THE ROW. The row is a flex
+            container, and `text-overflow` does nothing on one — the value was
+            clipped mid-glyph with no ellipsis, so it read as a rendering
+            fault rather than as truncation. */}
+        <p className='flex items-center gap-1 text-[13px] font-light text-neutral-200'>
+          <span className='truncate'>{value}</span>
           {verified && (
             <BadgeCheck className='h-3.5 w-3.5 flex-shrink-0 text-emerald-400' />
           )}
@@ -696,7 +820,7 @@ function ArtifactRow({
   hash: string | null;
 }) {
   return (
-    <div className='flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-6 py-2 border-b border-white/[0.06] last:border-0'>
+    <div className='flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-6 py-2 border-b border-ink/[0.06] last:border-0'>
       <span className='text-[11px] font-medium text-neutral-400 w-12 flex-shrink-0'>
         {label}
       </span>
@@ -704,7 +828,7 @@ function ArtifactRow({
         {path}
       </span>
       <span className='text-[11px] text-neutral-500 flex-shrink-0'>
-        {formatBytes(size)}
+        {formatBytes(size) ?? '—'}
       </span>
       {hash && (
         <span className='text-[11px] text-neutral-600 font-mono truncate'>
@@ -741,35 +865,4 @@ function SigRow({
       </div>
     </div>
   );
-}
-
-function LinkPill({
-  href,
-  icon: Icon,
-  label,
-}: {
-  href: string;
-  icon: React.ComponentType<{ className?: string }>;
-  label: string;
-}) {
-  return (
-    <a
-      href={href}
-      target='_blank'
-      rel='noopener noreferrer'
-      className='inline-flex items-center gap-1.5 text-[12px] text-neutral-300 hover:text-white bg-white/[0.06] hover:bg-white/[0.1] px-2.5 py-1.5 rounded-md transition-all border border-white/[0.06]'
-    >
-      <Icon className='w-3.5 h-3.5' />
-      {label}
-      <ExternalLink className='w-3 h-3 text-neutral-500' />
-    </a>
-  );
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes === 0) return '0 B';
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
 }

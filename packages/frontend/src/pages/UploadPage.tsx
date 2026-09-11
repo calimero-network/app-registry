@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   BookOpen,
+  ChevronDown,
   ExternalLink,
   Terminal,
   FileCode,
@@ -114,7 +115,7 @@ export default function UploadPage() {
       </div>
 
       {/* Upload & Publish */}
-      <section className='card p-5 animate-slide-up stagger-1'>
+      <section className='card p-5'>
         <div className='flex items-center gap-2.5 mb-4'>
           <span className='flex-shrink-0 w-6 h-6 rounded-full bg-brand-600/10 text-brand-600 text-[11px] font-medium flex items-center justify-center'>
             •
@@ -373,7 +374,7 @@ calimero-registry config set api-key <your-api-key>`}</Pre>
             </span>
             <div>
               <p className='text-neutral-300 mb-1'>Sign the manifest:</p>
-              <pre className='bg-neutral-950 border border-white/[0.06] rounded-md px-3 py-2 text-[12px] text-neutral-300 font-mono overflow-x-auto leading-relaxed'>
+              <pre className='bg-neutral-950 border border-ink/[0.06] rounded-md px-3 py-2 text-[12px] text-neutral-300 font-mono overflow-x-auto leading-relaxed'>
                 {`mero-sign sign application-1.0.0.mpk/manifest.json \\
   --key key.json`}
               </pre>
@@ -383,7 +384,7 @@ calimero-registry config set api-key <your-api-key>`}</Pre>
             </span>
             <div>
               <p className='text-neutral-300 mb-1'>Push the bundle:</p>
-              <pre className='bg-neutral-950 border border-white/[0.06] rounded-md px-3 py-2 text-[12px] text-neutral-300 font-mono overflow-x-auto leading-relaxed'>
+              <pre className='bg-neutral-950 border border-ink/[0.06] rounded-md px-3 py-2 text-[12px] text-neutral-300 font-mono overflow-x-auto leading-relaxed'>
                 {`calimero-registry bundle push application-1.0.0.mpk --remote`}
               </pre>
             </div>
@@ -397,35 +398,46 @@ calimero-registry config set api-key <your-api-key>`}</Pre>
       </Section>
 
       {/* Quick reference */}
-      <div className='card p-5'>
-        <p className='section-heading mb-4'>Quick Reference</p>
-        <div className='space-y-2.5'>
-          {[
-            ['Write your app', 'Rust or TypeScript, compile to WASM'],
-            ['Build & generate ABI', './build.sh or pnpm build'],
-            [
-              'Bundle into .mpk',
-              './build-bundle.sh or calimero-registry bundle create',
-            ],
-            ['Sign the bundle', 'mero-sign sign manifest.json --key key.json'],
-            ['Publish', 'calimero-registry bundle push app.mpk --remote'],
-          ].map(([title, desc], i) => (
-            <div key={i} className='flex items-start gap-3'>
-              <span className='flex-shrink-0 w-5 h-5 rounded-full bg-brand-600/10 text-brand-600 text-[11px] font-medium flex items-center justify-center mt-0.5'>
-                {i + 1}
-              </span>
-              <div>
-                <p className='text-[13px] text-neutral-200 font-normal'>
-                  {title}
-                </p>
-                <p className='text-[11px] text-neutral-500 font-light'>
-                  {desc}
-                </p>
+      <details className='card group p-5'>
+        <summary className='flex cursor-pointer list-none items-center gap-2'>
+          <p className='section-heading flex-1'>Quick Reference</p>
+          <ChevronDown
+            className='h-4 w-4 text-neutral-500 transition-transform duration-200 group-open:rotate-180'
+            aria-hidden='true'
+          />
+        </summary>
+        <div className='mt-4'>
+          <div className='space-y-2.5'>
+            {[
+              ['Write your app', 'Rust or TypeScript, compile to WASM'],
+              ['Build & generate ABI', './build.sh or pnpm build'],
+              [
+                'Bundle into .mpk',
+                './build-bundle.sh or calimero-registry bundle create',
+              ],
+              [
+                'Sign the bundle',
+                'mero-sign sign manifest.json --key key.json',
+              ],
+              ['Publish', 'calimero-registry bundle push app.mpk --remote'],
+            ].map(([title, desc], i) => (
+              <div key={i} className='flex items-start gap-3'>
+                <span className='flex-shrink-0 w-5 h-5 rounded-full bg-brand-600/10 text-brand-600 text-[11px] font-medium flex items-center justify-center mt-0.5'>
+                  {i + 1}
+                </span>
+                <div>
+                  <p className='text-[13px] text-neutral-200 font-normal'>
+                    {title}
+                  </p>
+                  <p className='text-[11px] text-neutral-500 font-light'>
+                    {desc}
+                  </p>
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
+      </details>
 
       {/* Links */}
       <div className='flex flex-wrap gap-2 pb-2'>
@@ -460,23 +472,34 @@ function Section({
   title: string;
   children: React.ReactNode;
 }) {
+  // Collapsed by default. This page is the upload form; the build-and-sign
+  // walkthrough is reference material, and eight expanded steps buried the
+  // one control anybody came here to use. <details> rather than useState so
+  // it needs no JS, keyboard and screen-reader behaviour come for free, and
+  // in-page find still reaches the closed content in modern browsers.
   return (
-    <section className='card p-5'>
-      <div className='flex items-center gap-2.5 mb-4'>
-        <span className='flex-shrink-0 w-6 h-6 rounded-full bg-brand-600/10 text-brand-600 text-[11px] font-medium flex items-center justify-center'>
+    <details className='card group p-5' data-testid='upload-step'>
+      <summary className='flex cursor-pointer list-none items-center gap-2.5'>
+        <span className='flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-brand-600/10 text-[11px] font-medium text-brand-600'>
           {step}
         </span>
-        <Icon className='w-4 h-4 text-neutral-500' />
-        <h2 className='text-[14px] font-medium text-neutral-200'>{title}</h2>
-      </div>
-      {children}
-    </section>
+        <Icon className='h-4 w-4 text-neutral-500' />
+        <h2 className='flex-1 text-[14px] font-medium text-neutral-200'>
+          {title}
+        </h2>
+        <ChevronDown
+          className='h-4 w-4 text-neutral-500 transition-transform duration-200 group-open:rotate-180'
+          aria-hidden='true'
+        />
+      </summary>
+      <div className='mt-4'>{children}</div>
+    </details>
   );
 }
 
 function Pre({ children }: { children: string }) {
   return (
-    <pre className='bg-neutral-950 border border-white/[0.06] rounded-md p-3.5 text-[12px] text-neutral-300 font-mono overflow-x-auto leading-relaxed'>
+    <pre className='bg-neutral-950 border border-ink/[0.06] rounded-md p-3.5 text-[12px] text-neutral-300 font-mono overflow-x-auto leading-relaxed'>
       {children}
     </pre>
   );
@@ -490,7 +513,7 @@ function ScriptBlock({
   children: React.ReactNode;
 }) {
   return (
-    <div className='bg-white/[0.02] border border-white/[0.06] rounded-md p-3.5'>
+    <div className='bg-ink/[0.02] border border-ink/[0.06] rounded-md p-3.5'>
       <div className='flex items-center gap-2 mb-2'>
         <Terminal className='w-3 h-3 text-brand-600' />
         <span className='text-[12px] font-medium text-neutral-300'>
@@ -510,7 +533,7 @@ function DocLink({ href, label }: { href: string; label: string }) {
       href={href}
       target='_blank'
       rel='noopener noreferrer'
-      className='inline-flex items-center gap-1.5 text-[12px] text-neutral-400 hover:text-neutral-200 bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] px-2.5 py-1.5 rounded-md transition-all'
+      className='inline-flex items-center gap-1.5 text-[12px] text-neutral-400 hover:text-neutral-200 bg-ink/[0.04] hover:bg-ink/[0.08] border border-ink/[0.06] px-2.5 py-1.5 rounded-md transition-all'
     >
       <ExternalLink className='w-3 h-3' />
       {label}

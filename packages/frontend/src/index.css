@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=DM+Sans:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&display=swap');
 
 @import 'tailwindcss';
 
@@ -7,6 +7,41 @@
 
 @layer base {
   :root {
+    /* ── Dark (default) ──
+       Channel triplets, not hex: tailwind.config.js resolves the neutral
+       scale and the accent through these, so an opacity modifier
+       (`text-neutral-400/60`) still works — that is impossible against a
+       `#hex` held in a custom property. */
+    --n-950-rgb: 9 9 11;
+    --n-900-rgb: 24 24 27;
+    --n-800-rgb: 39 39 42;
+    --n-700-rgb: 63 63 70;
+    --n-600-rgb: 82 82 91;
+    --n-500-rgb: 113 113 122;
+    --n-400-rgb: 161 161 170;
+    --n-300-rgb: 212 212 216;
+    --n-200-rgb: 228 228 231;
+    --n-100-rgb: 244 244 245;
+    --ink-rgb: 255 255 255;
+    --accent-text-rgb: 165 255 17;
+    --accent-text-hover-rgb: 184 255 74;
+    --app-bg: #0d1117;
+    --app-rail: #0d1117;
+    /* The Calimero wordmark ships dark; invert it for a dark ground. */
+    --logo-filter: brightness(0) invert(1);
+    /* Periwinkle, not the brand lime — see HomePage. */
+    --hero-wash: linear-gradient(160deg, #1b1f3a 0%, #141726 55%, #101321 100%);
+    --hero-glow: radial-gradient(
+      closest-side,
+      rgba(129, 140, 248, 0.28),
+      transparent
+    );
+    --hero-glow-2: radial-gradient(
+      closest-side,
+      rgba(167, 139, 250, 0.22),
+      transparent
+    );
+
     --color-brand-600: #a5ff11;
     --color-brand-100: #ecfc91;
     --bg: #0d1117;
@@ -24,6 +59,59 @@
     --radius: 10px;
     --radius-sm: 6px;
     --radius-lg: 14px;
+  }
+
+  /* ── Light ──
+     Mirrors apps/mero-sheets' palette (`--c-paper`, `--c-ink`, `--c-line`,
+     `--c-green-ink`), so the two products read as one system.
+
+     ⚠️ The neutral scale is INVERTED, not merely lightened: `text-neutral-100`
+     means "the most prominent text" everywhere in this app, so in light mode
+     it has to be the darkest ink, not the palest grey. Keeping the scale in
+     dark order here would render every heading in near-white on white.
+
+     ⚠️ The accent flips too. #a5ff11 on white is roughly 1.4:1 — unreadable.
+     Accent TEXT becomes the deep green mero-sheets uses; the raw lime stays
+     available as `brand-accent` for fills, where it is fine in both themes. */
+  :root[data-theme='light'] {
+    --n-950-rgb: 255 255 255;
+    --n-900-rgb: 245 248 241;
+    --n-800-rgb: 231 236 226;
+    --n-700-rgb: 196 204 191;
+    --n-600-rgb: 147 163 148;
+    --n-500-rgb: 93 107 96;
+    --n-400-rgb: 74 86 76;
+    --n-300-rgb: 45 56 47;
+    --n-200-rgb: 28 36 30;
+    --n-100-rgb: 14 20 15;
+    --ink-rgb: 14 20 15;
+    --accent-text-rgb: 55 97 10;
+    --accent-text-hover-rgb: 78 122 6;
+    --app-bg: #ffffff;
+    --app-rail: #f5f8f1;
+    /* Near-black rather than none: the asset's own ink is too light on paper. */
+    --logo-filter: brightness(0) invert(0.08);
+    --hero-wash: linear-gradient(160deg, #eef0fb 0%, #f4f2fb 55%, #f7f6fc 100%);
+    --hero-glow: radial-gradient(
+      closest-side,
+      rgba(129, 140, 248, 0.22),
+      transparent
+    );
+    --hero-glow-2: radial-gradient(
+      closest-side,
+      rgba(167, 139, 250, 0.18),
+      transparent
+    );
+
+    --bg: #ffffff;
+    --surface: #f5f8f1;
+    --surface-2: #e7ece2;
+    --border: #e7ece2;
+    --text: #0e140f;
+    --text-muted: #5d6b60;
+    --accent: #a5ff11;
+    --accent-glow: rgba(78, 122, 6, 0.12);
+    --accent-dim: rgba(78, 122, 6, 0.08);
   }
 
   html {
@@ -78,18 +166,22 @@
   }
 
   ::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.08);
+    background: rgb(var(--ink-rgb) / 0.08);
     border-radius: 3px;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.14);
+    background: rgb(var(--ink-rgb) / 0.14);
   }
 }
 
 @layer components {
+  /* ⚠️ This was `rgba(22, 27, 34, 0.6)` — a hardcoded dark panel. In light
+     mode that rendered dark ink on a dark card, which is why artifacts, tags,
+     signature and version were unreadable there. Every colour in this layer
+     now goes through a variable. */
   .card {
-    background: rgba(22, 27, 34, 0.6);
+    background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius);
     backdrop-filter: blur(12px);
@@ -97,8 +189,7 @@
   }
 
   .card:hover {
-    border-color: rgba(165, 255, 17, 0.15);
-    box-shadow: 0 0 30px rgba(165, 255, 17, 0.04);
+    border-color: var(--accent-glow);
   }
 
   .input {
@@ -132,7 +223,7 @@
   }
 
   .nav-link-inactive:hover {
-    background: rgba(255, 255, 255, 0.04);
+    background: rgb(var(--ink-rgb) / 0.04);
   }
 
   .pill {
@@ -146,13 +237,13 @@
   .btn-primary {
     @apply inline-flex items-center justify-center gap-2 text-[13px] font-medium px-5 py-2.5 rounded-lg transition-all duration-200;
     background: var(--accent);
+    /* Stays dark in both themes: the lime accent is bright either way, so
+       text on it is always near-black. */
     color: #0a0a0a;
-    box-shadow: 0 0 20px rgba(165, 255, 17, 0.15);
   }
 
   .btn-primary:hover {
-    box-shadow: 0 0 30px rgba(165, 255, 17, 0.25);
-    transform: translateY(-1px);
+    opacity: 0.9;
   }
 
   .btn-secondary {
@@ -163,65 +254,272 @@
   }
 
   .btn-secondary:hover {
-    border-color: rgba(165, 255, 17, 0.2);
-    background: rgba(255, 255, 255, 0.06);
+    border-color: var(--accent-glow);
+    background: rgb(var(--ink-rgb) / 0.06);
   }
 
+  /* The first stop was #ffffff, i.e. invisible on a light page. */
   .gradient-text {
-    background: linear-gradient(135deg, #ffffff 0%, #a5ff11 50%, #c9ff73 100%);
+    background: linear-gradient(
+      135deg,
+      rgb(var(--n-100-rgb)) 0%,
+      rgb(var(--accent-text-rgb)) 55%,
+      rgb(var(--accent-text-hover-rgb)) 100%
+    );
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
-  }
-
-  .glow-border {
-    position: relative;
-  }
-
-  .glow-border::after {
-    content: '';
-    position: absolute;
-    inset: -1px;
-    border-radius: inherit;
-    background: linear-gradient(
-      135deg,
-      rgba(165, 255, 17, 0.2),
-      transparent 50%
-    );
-    z-index: -1;
-    opacity: 0;
-    transition: opacity 0.3s ease;
-  }
-
-  .glow-border:hover::after {
-    opacity: 1;
   }
 }
 
 @layer utilities {
-  .stagger-1 {
-    animation-delay: 0.1s;
-  }
-  .stagger-2 {
-    animation-delay: 0.2s;
-  }
-  .stagger-3 {
-    animation-delay: 0.3s;
-  }
-  .stagger-4 {
-    animation-delay: 0.4s;
-  }
-  .stagger-5 {
-    animation-delay: 0.5s;
-  }
-  .stagger-6 {
-    animation-delay: 0.6s;
-  }
-
   .text-gradient-brand {
-    background: linear-gradient(135deg, var(--accent) 0%, #c9ff73 100%);
+    background: linear-gradient(
+      135deg,
+      rgb(var(--accent-text-rgb)) 0%,
+      rgb(var(--accent-text-hover-rgb)) 100%
+    );
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
+  }
+}
+
+/*
+ * Motion.
+ *
+ * The listing used to cascade: every card carried `animate-slide-up` plus a
+ * `stagger-*` delay, so a twenty-app grid re-ran a staggered entrance on every
+ * filter keystroke. Those classes are gone; what remains is one short fade on
+ * mount and colour transitions on hover.
+ *
+ * A viewer who has asked their OS for less motion gets none of it. This has to
+ * cover `animation` as well as `transition` — killing transitions alone leaves
+ * the keyframe entrances running, which are the larger movement.
+ */
+/*
+ * The width jump when a filter narrows the list.
+ *
+ * It was never the cards or the description length: with many results the
+ * page scrolls and the scrollbar takes ~15px off the viewport; filter down to
+ * one result, the page no longer scrolls, the scrollbar disappears and every
+ * bit of content widens by those 15px. Reserving the gutter permanently means
+ * the layout is the same whether the page scrolls or not.
+ *
+ * Invisible in headless Chromium, which uses overlay scrollbars and reports a
+ * scrollbar width of 0 — which is why it has to be reasoned about rather than
+ * caught by a screenshot diff.
+ */
+html {
+  scrollbar-gutter: stable;
+}
+
+/*
+ * The hero panel's lighting.
+ *
+ * Opacity and scale only, on two elements that are already isolated behind
+ * the device — both are compositor properties, so this never touches layout
+ * or paint. The second lamp runs on a different period so the two never come
+ * back into phase and the panel does not visibly pulse.
+ */
+@keyframes hero-lamp {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.12);
+  }
+}
+
+.hero-lamp {
+  animation: hero-lamp 14s ease-in-out infinite;
+  will-change: opacity, transform;
+}
+
+.hero-lamp-b {
+  animation-duration: 19s;
+  animation-delay: -6s;
+}
+
+/*
+ * The laptop's entrance.
+ *
+ * It fades up from transparent and lands with a small overshoot — the
+ * `cubic-bezier(0.34, 1.56, 0.64, 1)` is what makes it a jump rather than a
+ * slide. Once only, on mount; the loop inside the SVG carries it from there.
+ *
+ * `both` matters: without a fill mode the device would sit at opacity 0 until
+ * the animation started and snap back to its declared styles afterwards. It
+ * is also what makes the reduced-motion case correct — the animation is cut
+ * to nothing, and `both` leaves the element at the final keyframe, which is
+ * the fully visible one.
+ */
+@keyframes hero-enter {
+  from {
+    opacity: 0;
+    transform: translateY(22px) scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.hero-device {
+  animation: hero-enter 900ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/*
+ * The two hero captions.
+ *
+ * 18s to the cycle, matching LOOP in HeroGraphic: the first line covers the
+ * browse and install scenes, the second covers using the app. They slide in
+ * from the left and leave the same way.
+ *
+ * ⚠️ The base styles are the reduced-motion state. Killing the animation
+ * leaves the element at its declared styles, NOT at a keyframe — so line one
+ * has to be visible and line two hidden without the animation running, or a
+ * viewer who asked for less motion gets an empty strip.
+ */
+@keyframes hero-line-a {
+  0% {
+    opacity: 0;
+    transform: translateX(-140px);
+    animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  2.5%,
+  54% {
+    opacity: 1;
+    transform: translateX(0);
+    animation-timing-function: cubic-bezier(0.6, 0, 0.8, 0.2);
+  }
+  58%,
+  100% {
+    opacity: 0;
+    transform: translateX(-140px);
+  }
+}
+
+@keyframes hero-line-b {
+  0%,
+  60% {
+    opacity: 0;
+    transform: translateX(-140px);
+    animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  62.5%,
+  95% {
+    opacity: 1;
+    transform: translateX(0);
+    animation-timing-function: cubic-bezier(0.6, 0, 0.8, 0.2);
+  }
+  99%,
+  100% {
+    opacity: 0;
+    transform: translateX(-140px);
+  }
+}
+
+.hero-line-a {
+  opacity: 1;
+  animation: hero-line-a 18s linear infinite;
+}
+
+.hero-line-b {
+  opacity: 0;
+  animation: hero-line-b 18s linear infinite;
+}
+
+/*
+ * The live app preview on a package page.
+ *
+ * ⚠️ TAILWIND v4 `scale-*` DOES NOT ANIMATE WITH `transition-property:
+ * transform`. v4 emits the standalone `scale:` property rather than a
+ * `transform: scale()`, so the old `scale-[0.30] group-hover:scale-[0.34]`
+ * pair snapped between the two sizes instantly however long the transition
+ * was — which is exactly the "the size jumps" complaint. Writing the
+ * transform by hand here is what makes it actually tween.
+ *
+ * The frame is rendered at a desktop viewport (1440x900) and scaled to COVER
+ * its tile, so the app lays itself out as it would on a real screen instead
+ * of collapsing into its mobile breakpoint. `--fit` is that cover factor in
+ * container units — no JS measurement, and it re-solves on resize for free.
+ * Hover multiplies it, so the zoom is always relative to the current fit.
+ *
+ * ⚠️ THE DIVISORS MUST CARRY A UNIT. `calc(100cqw / 1440)` is a LENGTH, and
+ * `scale()` takes a number, so that declaration is invalid at computed-value
+ * time and the whole transform silently resolves to `none` — the frame then
+ * renders at 1440x900 inside a 900px tile. Dividing by `1440px` is what
+ * yields a number. It is also the newer syntax, hence the `@supports`: an
+ * engine without length-over-length division gets the fixed scale below,
+ * which is a smaller preview but never a broken one.
+ */
+.preview-stage {
+  container-type: size;
+}
+
+.preview-frame {
+  transform: scale(0.62);
+  transform-origin: center center;
+  transition:
+    transform 700ms cubic-bezier(0.22, 1, 0.36, 1),
+    filter 700ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform, filter;
+}
+
+.group:hover .preview-frame {
+  transform: scale(0.694);
+  filter: blur(3px);
+}
+
+@supports (transform: scale(calc(1cqw / 1px))) {
+  .preview-frame {
+    --fit: max(calc(100cqw / 1440px), calc(100cqh / 900px));
+    transform: scale(var(--fit));
+  }
+
+  .group:hover .preview-frame {
+    transform: scale(calc(var(--fit) * 1.12));
+  }
+}
+
+/*
+ * The preview tile's call to action, on a device that cannot hover.
+ *
+ * ⚠️ A HOVER-ONLY LABEL IS INVISIBLE ON A PHONE. The tile is a live frame of
+ * someone else's app with `pointer-events: none` over it, so without the
+ * label it is a picture with nothing to say it opens anything — and there is
+ * no hover to reveal it with. On a touch device the label sits on the tile
+ * permanently, as a band along the bottom rather than a scrim over the whole
+ * thing: the point of the tile is still to show the app.
+ *
+ * Keyed on the INPUT, not on the width. A narrow window on a laptop can still
+ * hover; a wide tablet cannot.
+ */
+@media (hover: none) {
+  .preview-cta {
+    opacity: 1;
+    background: linear-gradient(
+      to top,
+      rgb(0 0 0 / 0.58) 0%,
+      rgb(0 0 0 / 0.16) 30%,
+      transparent 56%
+    );
+    align-items: flex-end;
+    padding-bottom: 0.75rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

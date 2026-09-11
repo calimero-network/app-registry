@@ -1,10 +1,13 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { ScrollToTop } from './ScrollToTop';
 import { Menu, X } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { navigation } from '@/constants/navigation';
 import { ProfileDropdown } from './ProfileDropdown';
-import { AnimatedBackground } from './AnimatedBackground';
+import { GlobalSearch } from './GlobalSearch';
+import { RegistryMark } from './RegistryMark';
+import { ThemeToggle } from './ThemeToggle';
 import calimeroLogo from '@/assets/calimero-logo.svg';
 
 const FOOTER_LINKS = [
@@ -19,10 +22,7 @@ const FOOTER_LINKS = [
     heading: 'Developers',
     items: [
       { label: 'Documentation', href: 'https://docs.calimero.network' },
-      {
-        label: 'GitHub',
-        href: 'https://github.com/calimero-network',
-      },
+      { label: 'GitHub', href: 'https://github.com/calimero-network' },
     ],
   },
   {
@@ -40,308 +40,178 @@ const FOOTER_LINKS = [
   },
 ];
 
+const RAIL_WIDTH = 232;
+
 interface LayoutProps {
   children: React.ReactNode;
 }
 
+/**
+ * Vertical rail + content column.
+ *
+ * The rail is fixed rather than sticky. `ProfileDropdown` used to sit inside a
+ * sticky header and open downward into the page; at the foot of a fixed rail
+ * it has nothing below it, so it opens upward (`side="up"`).
+ *
+ * The footer moved into the content column. Its three link groups are wider
+ * than the rail, and a rail that scrolls to reach a footer defeats the point
+ * of pinning the navigation.
+ */
 export function Layout({ children }: LayoutProps) {
   const location = useLocation();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const { user, loading, logout } = useAuth();
 
-  return (
-    <div className='min-h-screen flex flex-col relative'>
-      <AnimatedBackground />
+  // A route change must close the drawer, or navigating from inside it leaves
+  // the overlay covering the page you just asked for.
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [location.pathname]);
 
-      {/* ── Header ── */}
-      <header
-        className='sticky top-0 z-50 backdrop-blur-xl'
-        style={{
-          background: 'rgba(13, 17, 23, 0.8)',
-          height: 60,
-          display: 'flex',
-          alignItems: 'center',
-          padding: '0 2rem',
-          position: 'sticky',
-        }}
+  const isActive = (href: string) =>
+    location.pathname === href ||
+    (href !== '/' && location.pathname.startsWith(href));
+
+  const rail = (
+    <div className='flex h-full flex-col gap-5 px-3 py-5'>
+      <Link
+        to='/'
+        className='px-2'
+        aria-label='Calimero App Registry — home'
+        data-testid='rail-brand'
       >
-        {/* gradient bottom border */}
-        <div
-          style={{
-            position: 'absolute',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            height: 1,
-            background:
-              'linear-gradient(90deg, transparent, rgba(165, 255, 17, 0.3), transparent)',
-          }}
+        <RegistryMark />
+      </Link>
+
+      <GlobalSearch onNavigate={() => setMobileOpen(false)} />
+
+      <nav className='flex flex-col gap-0.5' aria-label='Primary'>
+        {navigation.map(item => {
+          const active = isActive(item.href);
+          return (
+            <Link
+              key={item.name}
+              to={item.href}
+              aria-current={active ? 'page' : undefined}
+              data-testid={`nav-${item.name.toLowerCase()}`}
+              className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] transition-colors duration-150 ${
+                active
+                  ? 'bg-ink/[0.07] text-neutral-100'
+                  : 'text-neutral-400 hover:bg-ink/[0.04] hover:text-neutral-200'
+              }`}
+            >
+              <item.icon className='h-4 w-4 flex-shrink-0' aria-hidden='true' />
+              {item.name}
+            </Link>
+          );
+        })}
+      </nav>
+
+      <div className='mt-auto flex flex-col gap-0.5'>
+        <ThemeToggle />
+        <ProfileDropdown
+          user={user}
+          loading={loading}
+          logout={logout}
+          side='up'
         />
+      </div>
+    </div>
+  );
 
-        <div
-          style={{
-            width: '100%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-          }}
+  return (
+    <div className='min-h-screen'>
+      <ScrollToTop />
+
+      {/* ── Rail (md and up) ── */}
+      <aside
+        data-testid='sidebar'
+        className='fixed inset-y-0 left-0 z-40 hidden border-r border-ink/[0.06] bg-[var(--app-rail)] md:block'
+        style={{ width: RAIL_WIDTH }}
+      >
+        {rail}
+      </aside>
+
+      {/* ── Mobile bar + drawer ── */}
+      <header className='sticky top-0 z-40 flex h-14 items-center justify-between border-b border-ink/[0.06] bg-[var(--app-rail)]/95 px-4 backdrop-blur-xl md:hidden'>
+        <Link to='/' aria-label='Calimero App Registry — home'>
+          <RegistryMark variant='compact' />
+        </Link>
+        <button
+          onClick={() => setMobileOpen(v => !v)}
+          aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
+          aria-expanded={mobileOpen}
+          className='rounded-md p-1.5 text-neutral-400 transition-colors hover:bg-ink/[0.06] hover:text-neutral-200'
         >
-          <Link
-            to='/'
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              textDecoration: 'none',
-            }}
-          >
-            <img
-              src={calimeroLogo}
-              alt='Calimero'
-              style={{
-                height: 26,
-                display: 'block',
-                filter: 'brightness(0) invert(1)',
-                opacity: 0.9,
-                transition: 'opacity 0.15s',
-              }}
-              onMouseEnter={e =>
-                ((e.target as HTMLImageElement).style.opacity = '1')
-              }
-              onMouseLeave={e =>
-                ((e.target as HTMLImageElement).style.opacity = '0.9')
-              }
-            />
-          </Link>
-
-          <nav className='hidden md:flex items-center gap-1'>
-            {navigation.map(item => {
-              const isActive =
-                location.pathname === item.href ||
-                (item.href !== '/' && location.pathname.startsWith(item.href));
-              return (
-                <Link
-                  key={item.name}
-                  to={item.href}
-                  className={`nav-link ${
-                    isActive ? 'nav-link-active' : 'nav-link-inactive'
-                  }`}
-                >
-                  <item.icon className='h-3.5 w-3.5 mr-1.5' />
-                  {item.name}
-                </Link>
-              );
-            })}
-            <ProfileDropdown user={user} loading={loading} logout={logout} />
-          </nav>
-
-          <button
-            className='md:hidden p-1.5 rounded-md text-neutral-400 hover:text-neutral-200 hover:bg-white/[0.06] transition-all'
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            aria-label='Toggle menu'
-          >
-            {mobileMenuOpen ? (
-              <X className='h-5 w-5' />
-            ) : (
-              <Menu className='h-5 w-5' />
-            )}
-          </button>
-        </div>
-
-        {mobileMenuOpen && (
-          <nav
-            className='md:hidden animate-fade-in'
-            style={{
-              position: 'absolute',
-              top: 60,
-              left: 0,
-              right: 0,
-              background: 'rgba(13, 17, 23, 0.95)',
-              borderTop: '1px solid var(--border)',
-            }}
-          >
-            <div className='px-4 py-2 space-y-0.5'>
-              {navigation.map(item => {
-                const isActive =
-                  location.pathname === item.href ||
-                  (item.href !== '/' &&
-                    location.pathname.startsWith(item.href));
-                return (
-                  <Link
-                    key={item.name}
-                    to={item.href}
-                    onClick={() => setMobileMenuOpen(false)}
-                    className={`flex items-center px-3 py-2 rounded-md text-[13px] font-normal transition-all ${
-                      isActive
-                        ? 'bg-white/[0.06] text-brand-600'
-                        : 'text-neutral-400 hover:bg-white/[0.04] hover:text-neutral-200'
-                    }`}
-                  >
-                    <item.icon className='h-3.5 w-3.5 mr-2.5' />
-                    {item.name}
-                  </Link>
-                );
-              })}
-              <ProfileDropdown
-                user={user}
-                loading={loading}
-                logout={logout}
-                compact
-                onNavigate={() => setMobileMenuOpen(false)}
-              />
-            </div>
-          </nav>
-        )}
+          {mobileOpen ? (
+            <X className='h-5 w-5' />
+          ) : (
+            <Menu className='h-5 w-5' />
+          )}
+        </button>
       </header>
 
-      {/* ── Main ── */}
-      <main className='flex-1 relative z-10 max-w-6xl w-full mx-auto py-8 sm:px-6 lg:px-8'>
-        <div className='px-4 sm:px-0 animate-fade-in'>{children}</div>
-      </main>
-
-      {/* ── Footer ── */}
-      <footer
-        className='relative z-10'
-        style={{
-          background:
-            'linear-gradient(180deg, transparent 0%, rgba(13,17,23,0.95) 100%)',
-          marginTop: '4rem',
-        }}
-      >
-        {/* gradient top border */}
-        <div
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            height: 1,
-            background:
-              'linear-gradient(90deg, transparent, rgba(165, 255, 17, 0.3), transparent)',
-          }}
-        />
-
-        <div
-          style={{
-            maxWidth: 860,
-            margin: '0 auto',
-            padding: '3rem 1.5rem 2rem',
-            display: 'grid',
-            gridTemplateColumns: '1fr 2fr',
-            gap: '3rem',
-          }}
-        >
-          {/* Brand column */}
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'flex-start',
-              gap: '0.75rem',
-            }}
+      {mobileOpen && (
+        <>
+          <button
+            aria-label='Close menu'
+            tabIndex={-1}
+            onClick={() => setMobileOpen(false)}
+            className='fixed inset-0 z-40 bg-black/60 md:hidden'
+          />
+          <aside
+            data-testid='sidebar-drawer'
+            className='fixed inset-y-0 left-0 z-50 border-r border-ink/[0.06] bg-[var(--app-rail)] md:hidden'
+            style={{ width: RAIL_WIDTH }}
           >
-            <img
-              src={calimeroLogo}
-              alt='Calimero'
-              style={{
-                height: 22,
-                filter: 'brightness(0) invert(1)',
-                opacity: 0.7,
-                display: 'block',
-              }}
-            />
-            <p
-              style={{
-                fontSize: '0.82rem',
-                color: 'var(--text-muted)',
-                lineHeight: 1.55,
-                margin: 0,
-                maxWidth: 200,
-                textAlign: 'left',
-              }}
-            >
-              Privacy-preserving infrastructure for decentralised applications.
-            </p>
-          </div>
+            {rail}
+          </aside>
+        </>
+      )}
 
-          {/* Links columns */}
-          <nav
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(3, 1fr)',
-              gap: '1.5rem',
-            }}
-          >
-            {FOOTER_LINKS.map(({ heading, items }) => (
-              <div key={heading}>
-                <h4
-                  style={{
-                    fontSize: '0.72rem',
-                    fontWeight: 600,
-                    letterSpacing: '0.1em',
-                    textTransform: 'uppercase',
-                    color: 'var(--text-muted)',
-                    margin: '0 0 0.75rem',
-                  }}
-                >
-                  {heading}
-                </h4>
-                <ul
-                  style={{
-                    listStyle: 'none',
-                    margin: 0,
-                    padding: 0,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '0.45rem',
-                  }}
-                >
-                  {items.map(({ label, href }) => (
-                    <li key={label}>
+      {/* ── Content ── */}
+      <div className='md:pl-[232px]'>
+        <main className='mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 lg:px-8'>
+          {children}
+        </main>
+
+        <footer className='mt-16 border-t border-ink/[0.06]'>
+          <div className='mx-auto grid w-full max-w-5xl gap-8 px-4 py-10 sm:px-6 md:grid-cols-4 lg:px-8'>
+            <div className='flex flex-col items-start gap-3'>
+              <img
+                src={calimeroLogo}
+                alt='Calimero'
+                className='h-5 opacity-70'
+                style={{ filter: 'var(--logo-filter)' }}
+              />
+              <p className='max-w-[220px] text-[12.5px] font-light leading-relaxed text-neutral-500'>
+                A self-sovereign registry for verifiable applications.
+              </p>
+            </div>
+            {FOOTER_LINKS.map(group => (
+              <div key={group.heading}>
+                <h2 className='mb-2.5 text-[11px] font-medium uppercase tracking-wider text-neutral-500'>
+                  {group.heading}
+                </h2>
+                <ul className='space-y-1.5'>
+                  {group.items.map(item => (
+                    <li key={item.label}>
                       <a
-                        href={href}
+                        href={item.href}
                         target='_blank'
-                        rel='noopener noreferrer'
-                        style={{
-                          fontSize: '0.83rem',
-                          color: 'var(--text-muted)',
-                          textDecoration: 'none',
-                          transition: 'color 0.15s',
-                        }}
-                        onMouseEnter={e =>
-                          ((e.target as HTMLAnchorElement).style.color =
-                            'var(--accent)')
-                        }
-                        onMouseLeave={e =>
-                          ((e.target as HTMLAnchorElement).style.color =
-                            'var(--text-muted)')
-                        }
+                        rel='noreferrer'
+                        className='text-[12.5px] font-light text-neutral-400 transition-colors hover:text-neutral-200'
                       >
-                        {label}
+                        {item.label}
                       </a>
                     </li>
                   ))}
                 </ul>
               </div>
             ))}
-          </nav>
-        </div>
-
-        {/* Bottom bar */}
-        <div
-          style={{
-            maxWidth: 860,
-            margin: '0 auto',
-            padding: '1rem 1.5rem 2rem',
-            borderTop: '1px solid rgba(48, 54, 61, 0.5)',
-            fontSize: '0.78rem',
-            color: 'var(--text-muted)',
-            opacity: 0.6,
-          }}
-        >
-          &copy; {new Date().getFullYear()} Calimero Network. All rights
-          reserved.
-        </div>
-      </footer>
+          </div>
+        </footer>
+      </div>
     </div>
   );
 }

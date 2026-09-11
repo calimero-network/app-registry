@@ -32,7 +32,7 @@ export default function MyPackagesPage() {
       </div>
 
       {/* Upload a new package */}
-      <div className='card p-6 animate-slide-up stagger-1'>
+      <div className='card p-6'>
         <div className='flex items-center gap-2 mb-3'>
           <Upload className='w-4 h-4 text-brand-600' />
           <h2 className='text-[14px] font-medium text-neutral-200'>

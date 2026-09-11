@@ -9,6 +9,7 @@ import {
   Shield,
   Upload,
   GitBranch,
+  ChevronDown,
 } from 'lucide-react';
 
 const SECTIONS = [
@@ -26,7 +27,7 @@ const SECTIONS = [
 
 function Code({ children }: { children: React.ReactNode }) {
   return (
-    <code className='text-[11px] text-brand-600 bg-white/[0.04] border border-white/[0.06] rounded px-1.5 py-0.5 font-mono'>
+    <code className='text-[11px] text-brand-600 bg-ink/[0.04] border border-ink/[0.06] rounded px-1.5 py-0.5 font-mono'>
       {children}
     </code>
   );
@@ -34,7 +35,7 @@ function Code({ children }: { children: React.ReactNode }) {
 
 function CodeBlock({ children }: { children: string }) {
   return (
-    <pre className='text-[11.5px] text-neutral-300 bg-neutral-950 border border-white/[0.06] rounded-lg p-4 overflow-x-auto font-mono leading-relaxed'>
+    <pre className='text-[11.5px] text-neutral-300 bg-neutral-950 border border-ink/[0.06] rounded-lg p-4 overflow-x-auto font-mono leading-relaxed'>
       {children}
     </pre>
   );
@@ -121,7 +122,7 @@ function FieldList({
   width: string;
 }) {
   return (
-    <div className='rounded-lg border border-white/[0.06] bg-white/[0.02] p-4 space-y-3'>
+    <div className='rounded-lg border border-ink/[0.06] bg-ink/[0.02] p-4 space-y-3'>
       {rows.map(([field, desc]) => (
         <div
           key={field}
@@ -141,6 +142,9 @@ function FieldList({
 
 export default function DocsPage() {
   const [activeSection, setActiveSection] = useState('introduction');
+  // The mobile table of contents. Closed by default: it is a jump list, not
+  // part of the page.
+  const [tocOpen, setTocOpen] = useState(false);
   const observerRef = useRef<IntersectionObserver | null>(null);
 
   useEffect(() => {
@@ -164,7 +168,7 @@ export default function DocsPage() {
   return (
     <div className='flex gap-10'>
       {/* ── Sidebar ── */}
-      <aside className='hidden lg:block w-48 flex-shrink-0 animate-slide-in-left'>
+      <aside className='hidden lg:block w-48 flex-shrink-0'>
         <nav className='sticky top-20'>
           <p className='section-heading mb-3'>On this page</p>
           <ul className='space-y-0.5'>
@@ -174,8 +178,8 @@ export default function DocsPage() {
                   href={`#${id}`}
                   className={`block px-3 py-1.5 rounded-md text-[12px] transition-colors ${
                     activeSection === id
-                      ? 'bg-white/[0.06] text-brand-600 font-medium'
-                      : 'text-neutral-500 hover:text-neutral-300 hover:bg-white/[0.04]'
+                      ? 'bg-ink/[0.06] text-brand-600 font-medium'
+                      : 'text-neutral-500 hover:text-neutral-300 hover:bg-ink/[0.04]'
                   }`}
                 >
                   {label}
@@ -183,7 +187,7 @@ export default function DocsPage() {
               </li>
             ))}
           </ul>
-          <div className='mt-5 pt-4 border-t border-white/[0.06]'>
+          <div className='mt-5 pt-4 border-t border-ink/[0.06]'>
             <a
               href='https://docs.calimero.network'
               target='_blank'
@@ -199,6 +203,49 @@ export default function DocsPage() {
 
       {/* ── Content ── */}
       <div className='flex-1 min-w-0 space-y-16 pb-16 animate-fade-in'>
+        {/* ⚠️ THE TABLE OF CONTENTS IS `hidden lg:block` ABOVE, AND THIS PAGE
+            IS 25,000px TALL. Below `lg` that left a phone with one continuous
+            scroll and no way to reach a section — the rail's own menu does
+            not list them. Same list, as a disclosure, so it costs one row
+            when it is not wanted. */}
+        <nav className='lg:hidden' aria-label='On this page'>
+          <button
+            type='button'
+            onClick={() => setTocOpen(v => !v)}
+            aria-expanded={tocOpen}
+            data-testid='docs-toc-toggle'
+            className='flex w-full items-center justify-between rounded-lg border border-ink/[0.08] bg-ink/[0.02] px-3.5 py-2.5 text-[13px] text-neutral-300'
+          >
+            On this page
+            <ChevronDown
+              className={`h-4 w-4 text-neutral-500 transition-transform duration-200 ${
+                tocOpen ? 'rotate-180' : ''
+              }`}
+              aria-hidden='true'
+            />
+          </button>
+          {tocOpen && (
+            <ul
+              data-testid='docs-toc'
+              className='mt-1.5 space-y-0.5 rounded-lg border border-ink/[0.08] bg-ink/[0.02] p-1.5'
+            >
+              {SECTIONS.map(({ id, label }) => (
+                <li key={id}>
+                  <a
+                    href={`#${id}`}
+                    // Closing on the way out: the list covers the top of the
+                    // page it just scrolled you to otherwise.
+                    onClick={() => setTocOpen(false)}
+                    className='block rounded-md px-3 py-2 text-[13px] text-neutral-400 transition-colors hover:bg-ink/[0.04] hover:text-neutral-200'
+                  >
+                    {label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
+        </nav>
+
         {/* ══════════════════════════════════════════
             INTRODUCTION
         ══════════════════════════════════════════ */}
@@ -469,11 +516,35 @@ github = "https://github.com/example/my-app"`}</CodeBlock>
             </P>
 
             <SubHeading>Installation</SubHeading>
-            <CodeBlock>{`# cargo mero is a cargo subcommand: install the binary, cargo finds it
-cargo install --git https://github.com/calimero-network/core cargo-mero
+            <P>
+              cargo mero lives in the{' '}
+              <a
+                href='https://github.com/calimero-network/core/tree/master/tools/cargo-mero'
+                target='_blank'
+                rel='noreferrer'
+                className='text-brand-600 transition-colors hover:text-brand-500'
+              >
+                core repository
+              </a>
+              , alongside merod and meroctl. Install it{' '}
+              <strong className='text-neutral-200'>from a release tag</strong>,
+              not from the default branch:
+            </P>
+            <CodeBlock>{`# cargo mero is a cargo subcommand: install the binary, cargo finds it.
+# --tag, NOT the default branch: pin it to the SAME core release your app's
+# SDK is pinned to, or the bundler and the contract can disagree about the
+# manifest format.
+cargo install --locked --git https://github.com/calimero-network/core.git \\
+  --tag 0.11.0-rc.32 cargo-mero
 
 # the build step targets wasm32 (cargo mero build auto-installs it via rustup)
 rustup target add wasm32-unknown-unknown`}</CodeBlock>
+            <Note>
+              <Code>cargo mero --version</Code> reports <Code>0.1.0</Code>
+              regardless of the tag it was built from, so it cannot tell you
+              which release you have. Check with{' '}
+              <Code>cargo install --list</Code>, which records the tag.
+            </Note>
             <P>
               Prebuilt binaries are attached to each{' '}
               <a
@@ -1425,6 +1496,22 @@ calimero-registry bundle get <package> <version> --local`}</CodeBlock>
               file.
             </P>
             <CodeBlock>{`meroctl app install --path dist/com.example.my-app-1.2.4.mpk`}</CodeBlock>
+            <P>
+              <Code>meroctl</Code> and <Code>merod</Code> ship from the same{' '}
+              <a
+                href='https://github.com/calimero-network/core/releases'
+                target='_blank'
+                rel='noreferrer'
+                className='text-brand-600 transition-colors hover:text-brand-500'
+              >
+                core releases
+              </a>{' '}
+              as cargo mero — prebuilt binaries per platform, or via Homebrew.
+              Keep all three on the same release: they share the manifest
+              format, and a node older than the SDK an app was built against
+              installs the bundle happily and then fails at context creation
+              with <Code>link error: unknown import</Code>.
+            </P>
 
             <SubHeading>Verification process</SubHeading>
             <Diagram>{`  Download .mpk from the registry

@@ -81,9 +81,9 @@ export default function EditPackagePage() {
   if (isLoading) {
     return (
       <div className='space-y-5 animate-pulse'>
-        <div className='h-4 bg-white/[0.06] rounded w-20' />
-        <div className='h-6 bg-white/[0.06] rounded w-1/3' />
-        <div className='h-32 bg-white/[0.04] rounded-lg' />
+        <div className='h-4 bg-ink/[0.06] rounded w-20' />
+        <div className='h-6 bg-ink/[0.06] rounded w-1/3' />
+        <div className='h-32 bg-ink/[0.04] rounded-lg' />
       </div>
     );
   }
@@ -119,10 +119,7 @@ export default function EditPackagePage() {
         </p>
       </div>
 
-      <form
-        onSubmit={handleSubmit}
-        className='card p-5 space-y-4 animate-slide-up stagger-1'
-      >
+      <form onSubmit={handleSubmit} className='card p-5 space-y-4'>
         <p className='text-[13px] text-neutral-400 font-light'>
           Change name, description, author, or links. After saving, you will
           download <code className='text-brand-600'>manifest.json</code>. Sign
@@ -193,16 +190,16 @@ export default function EditPackagePage() {
       </form>
 
       {submitted && (
-        <div className='card p-5 space-y-3 animate-slide-up'>
+        <div className='card p-5 space-y-3'>
           <p className='text-[13px] font-medium text-neutral-200 flex items-center gap-2'>
             <Download className='w-4 h-4 text-green-500' />
             manifest.json downloaded
           </p>
           <p className='text-[12px] text-neutral-400 font-light'>Next steps:</p>
-          <ol className='list-decimal list-inside space-y-2 text-[12px] text-neutral-300 font-mono bg-white/[0.03] rounded-lg p-4'>
+          <ol className='list-decimal list-inside space-y-2 text-[12px] text-neutral-300 font-mono bg-ink/[0.03] rounded-lg p-4'>
             <li>Sign the file with mero-sign:</li>
           </ol>
-          <pre className='text-[11px] text-neutral-400 bg-neutral-950 rounded-md p-3 overflow-x-auto border border-white/[0.06]'>
+          <pre className='text-[11px] text-neutral-400 bg-neutral-950 rounded-md p-3 overflow-x-auto border border-ink/[0.06]'>
             {`mero-sign sign manifest.json --key your-key.json`}
           </pre>
           <ol
@@ -211,7 +208,7 @@ export default function EditPackagePage() {
           >
             <li>Publish the signed manifest with the CLI:</li>
           </ol>
-          <pre className='text-[11px] text-neutral-400 bg-neutral-950 rounded-md p-3 overflow-x-auto flex items-center gap-2 border border-white/[0.06]'>
+          <pre className='text-[11px] text-neutral-400 bg-neutral-950 rounded-md p-3 overflow-x-auto flex items-center gap-2 border border-ink/[0.06]'>
             <Terminal className='w-3.5 h-3.5 flex-shrink-0 text-neutral-500' />
             {`calimero-registry bundle edit ${appId} ${version} --remote --manifest signed-manifest.json`}
           </pre>
