@@ -816,3 +816,89 @@ test.describe('the docs menu', () => {
     expect(border).not.toBe('rgba(0, 0, 0, 0)');
   });
 });
+
+test.describe('one green in both themes', () => {
+  /**
+   * The complaint this encodes: a solid button was a different, muddier green
+   * in light mode than in dark, and the upload page showed two different
+   * greens touching each other.
+   *
+   * ⚠️ THE CAUSE WAS A TOKEN USED FOR THE WRONG JOB. `brand-600` is accent
+   * TEXT and it flips with the theme by design (lime on a dark ground, a deep
+   * green on paper); using it as a BACKGROUND therefore produced a lime
+   * button with black text in dark mode and a #3f6a00 button with black text
+   * in light mode, which measures about 1.3:1. Fills go through
+   * `brand-accent`, a literal hex with no custom property behind it.
+   *
+   * A computed colour, not a class name: the class could be renamed and the
+   * bug reintroduced under a different spelling, and the thing that actually
+   * matters is that the two themes paint the same pixels.
+   */
+  const readButton = async (page: import('@playwright/test').Page) =>
+    page.evaluate(() => {
+      const btn = document.querySelector('.btn-primary') as HTMLElement;
+      const s = getComputedStyle(btn);
+      return { background: s.backgroundColor, color: s.color };
+    });
+
+  test('a primary button is the same colour in light as in dark', async ({
+    page,
+  }) => {
+    const seen: Record<string, { background: string; color: string }> = {};
+
+    for (const theme of ['light', 'dark'] as const) {
+      await page.addInitScript(t => {
+        localStorage.setItem('registry:theme:choice', t as string);
+      }, theme);
+      // The 404 page carries a primary and a secondary button and needs no
+      // session, which the upload page's own pair does.
+      await page.goto('/no-such-page');
+      await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
+      await expect(page.locator('.btn-primary')).toBeVisible();
+      seen[theme] = await readButton(page);
+    }
+
+    expect(seen.light).toEqual(seen.dark);
+    // And specifically the lime, rather than the two themes having merely
+    // agreed on some other colour.
+    expect(seen.light.background).toBe('rgb(165, 255, 17)');
+  });
+
+  test('the accent fill keeps black ink on it, which is what makes it legible', async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem('registry:theme:choice', 'light');
+    });
+    await page.goto('/no-such-page');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+
+    const ratio = await page.evaluate(() => {
+      const btn = document.querySelector('.btn-primary') as HTMLElement;
+      const lin = (c: string) =>
+        c
+          .match(/[\d.]+/g)!
+          .slice(0, 3)
+          .map(Number)
+          .map(v => {
+            const x = v / 255;
+            return x <= 0.03928
+              ? x / 12.92
+              : Math.pow((x + 0.055) / 1.055, 2.4);
+          });
+      const L = (c: string) => {
+        const [r, g, b] = lin(c);
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+      };
+      const s = getComputedStyle(btn);
+      const a = L(s.color);
+      const b = L(s.backgroundColor);
+      const [hi, lo] = a > b ? [a, b] : [b, a];
+      return (hi + 0.05) / (lo + 0.05);
+    });
+
+    // ~15.9:1. This is the reason the lime can be shared across both themes
+    // as a fill when it cannot be shared as text.
+    expect(ratio).toBeGreaterThan(10);
+  });
+});
