@@ -40,6 +40,17 @@ export default function ExplorePage() {
   const [params, setParams] = useSearchParams();
   const query = (params.get('q') ?? '').trim().toLowerCase();
   const category = params.get('category') ?? '';
+  /**
+   * ⚠️ VERIFIED-ONLY IS THE DEFAULT, AND THE URL CARRIES THE OPT-OUT rather
+   * than the opt-in. `?unverified=1` is the unusual state, so it is the one
+   * that gets written down; a bare `/explore` always means the reviewed
+   * listing, whoever shares the link.
+   *
+   * The flag this reads is the admin's decision about the package — plus the
+   * trusted-publisher shortcut, which is what stops this hiding everything
+   * Calimero has ever published.
+   */
+  const includeUnverified = params.get('unverified') === '1';
 
   const {
     data: apps = [],
@@ -64,6 +75,7 @@ export default function ExplorePage() {
 
   const filtered = useMemo(() => {
     return (apps as AppSummary[]).filter(app => {
+      if (!includeUnverified && !app.verified) return false;
       if (category && app.category !== category) return false;
       if (!query) return true;
       // Identity only: name, package, creator. Descriptions are deliberately
@@ -80,7 +92,7 @@ export default function ExplorePage() {
         .filter(Boolean)
         .some(field => String(field).toLowerCase().includes(query));
     });
-  }, [apps, query, category]);
+  }, [apps, query, category, includeUnverified]);
 
   const setCategory = (next: string) => {
     const p = new URLSearchParams(params);
@@ -88,6 +100,10 @@ export default function ExplorePage() {
     else p.delete('category');
     setParams(p, { replace: true });
   };
+
+  // Named so the count line can explain itself: a listing that silently drops
+  // rows leaves the reader to wonder whether something is broken.
+  const hiddenCount = (apps as AppSummary[]).filter(a => !a.verified).length;
 
   const clearAll = () => {
     const p = new URLSearchParams(params);
@@ -155,6 +171,27 @@ export default function ExplorePage() {
               </button>
             );
           })}
+          {/* The opt-out. Worded as what it shows rather than as a setting:
+              "Include unverified" says what pressing it does, where a
+              "Verified only" switch makes you work out which way is on. */}
+          <button
+            onClick={() => {
+              const p = new URLSearchParams(params);
+              if (includeUnverified) p.delete('unverified');
+              else p.set('unverified', '1');
+              setParams(p, { replace: true });
+            }}
+            aria-pressed={includeUnverified}
+            data-testid='toggle-unverified'
+            className={`rounded-full border px-2.5 py-1 text-[12px] transition-colors duration-150 ${
+              includeUnverified
+                ? 'border-brand-600/40 bg-brand-600/15 text-brand-500'
+                : 'border-line bg-ink/[0.02] text-neutral-400 hover:border-line-strong hover:text-neutral-200'
+            }`}
+          >
+            Include unverified
+          </button>
+
           {(category || query) && (
             <button
               onClick={clearAll}
@@ -173,6 +210,14 @@ export default function ExplorePage() {
           ? 'Loading…'
           : `${filtered.length} application${filtered.length === 1 ? '' : 's'}`}
         {!isLoading && (query || category) && ` of ${apps.length}`}
+        {!isLoading && !includeUnverified && hiddenCount > 0 && (
+          <>
+            {' · '}
+            <span className='text-neutral-600'>
+              {hiddenCount} awaiting review
+            </span>
+          </>
+        )}
       </p>
 
       {isLoading ? (

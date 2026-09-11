@@ -27,12 +27,56 @@
 
 const STATES = ['pending', 'approved', 'declined'];
 
+/**
+ * Publishers whose packages are approved on arrival.
+ *
+ * The review queue exists to stop a stranger publishing rubbish, not to make
+ * the people who build this thing queue behind their own gate. A package from
+ * the Calimero organisation — or signed in with a `@calimero.network` account
+ * — is public the moment it is pushed.
+ *
+ * ⚠️ THIS IS A DEFAULT, NOT AN OVERRIDE. An explicit decision always wins, in
+ * both directions: an admin who declines a calimero-network package must be
+ * able to take it down, and that is exactly what a takedown request looks
+ * like. Only the ABSENCE of a decision falls through to this.
+ *
+ * ⚠️ IT IS NOT RECORDED AS A DECISION EITHER. Auto-approval is computed on
+ * read and marked `auto: true`; writing it as a `pkg-review` record would put
+ * an approval in the audit trail that no admin made, and would freeze the
+ * answer if the package later moved out of the organisation.
+ */
+const TRUSTED_EMAIL_DOMAIN = '@calimero.network';
+const TRUSTED_ORG_SLUGS = ['calimero-network', 'calimero'];
+
 const reviewKey = pkg => `pkg-review:${pkg}`;
 const legacyKey = pkg => `admin_verified:package:${pkg}`;
 /** Packages that have ever been decided, so the queue does not scan every key. */
 const DECIDED_SET = 'pkg-review:decided';
 
-function createPackageReview(kv) {
+/**
+ * @param {object} kv
+ * @param {object} [deps]
+ * @param {(pkg: string) => Promise<{email?: string, orgSlug?: string}>} [deps.publisherOf]
+ *   Resolves who published a package. Optional: without it nothing is
+ *   auto-approved, which is the safe direction — a missing resolver must not
+ *   publish anything, only stop the shortcut from applying.
+ */
+function createPackageReview(kv, { publisherOf } = {}) {
+  async function isTrustedPublisher(pkg) {
+    if (!publisherOf) return false;
+    let who;
+    try {
+      who = await publisherOf(pkg);
+    } catch {
+      // A lookup that fails is not a grant.
+      return false;
+    }
+    const email = String(who?.email || '').toLowerCase();
+    const slug = String(who?.orgSlug || '').toLowerCase();
+    if (email.endsWith(TRUSTED_EMAIL_DOMAIN)) return true;
+    return TRUSTED_ORG_SLUGS.includes(slug);
+  }
+
   /**
    * @returns {Promise<{state: 'pending'|'approved'|'declined', decidedBy: string|null,
    *                    decidedAt: string|null, reason: string, legacy: boolean}>}
@@ -49,6 +93,9 @@ function createPackageReview(kv) {
             decidedAt: rec.decidedAt ?? null,
             reason: rec.reason ?? '',
             legacy: false,
+            // An explicit decision is never automatic — including a decline
+            // of a calimero-network package, which must stay declined.
+            auto: false,
           };
         }
       } catch {
@@ -64,6 +111,19 @@ function createPackageReview(kv) {
         decidedAt: null,
         reason: '',
         legacy: true,
+        auto: false,
+      };
+    }
+
+    // No decision on record. Only now does the publisher matter.
+    if (await isTrustedPublisher(pkg)) {
+      return {
+        state: 'approved',
+        decidedBy: null,
+        decidedAt: null,
+        reason: '',
+        legacy: false,
+        auto: true,
       };
     }
 
@@ -73,6 +133,7 @@ function createPackageReview(kv) {
       decidedAt: null,
       reason: '',
       legacy: false,
+      auto: false,
     };
   }
 
@@ -115,7 +176,14 @@ function createPackageReview(kv) {
     return Array.isArray(members) ? members : [];
   }
 
-  return { getReview, setReview, isApproved, decidedPackages, STATES };
+  return {
+    getReview,
+    setReview,
+    isApproved,
+    decidedPackages,
+    isTrustedPublisher,
+    STATES,
+  };
 }
 
 module.exports = {

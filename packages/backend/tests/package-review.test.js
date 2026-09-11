@@ -137,6 +137,78 @@ describe('package review state', () => {
     expect((await review.getReview(pkg)).reason.length).toBe(500);
   });
 
+  describe('the trusted-publisher shortcut', () => {
+    // The queue exists to stop a stranger publishing rubbish, not to make the
+    // people who build this thing queue behind their own gate.
+    const trusted = who =>
+      createPackageReview(kv, { publisherOf: async () => who });
+
+    it('approves a @calimero.network publisher on arrival', async () => {
+      const r = trusted({ email: 'someone@calimero.network' });
+      const rec = await r.getReview(pkg);
+      expect(rec.state).toBe('approved');
+      // ⚠️ Marked automatic, and NOT written as a record: an approval in the
+      // audit trail that no admin made is a lie, and storing it would freeze
+      // the answer if the package later left the organisation.
+      expect(rec.auto).toBe(true);
+      expect(rec.decidedBy).toBeNull();
+      expect(await kv.get(reviewKey(pkg))).toBeNull();
+    });
+
+    it('approves the calimero-network organisation', async () => {
+      const r = trusted({
+        email: 'someone@example.com',
+        orgSlug: 'calimero-network',
+      });
+      expect((await r.getReview(pkg)).state).toBe('approved');
+    });
+
+    it('leaves everyone else pending', async () => {
+      const r = trusted({ email: 'carol@example.com', orgSlug: 'carols-apps' });
+      expect((await r.getReview(pkg)).state).toBe('pending');
+    });
+
+    it('⚠️ an explicit DECLINE beats the shortcut', async () => {
+      // This is what a takedown of a first-party package looks like. If the
+      // shortcut won, an admin could not remove it.
+      const r = trusted({ email: 'someone@calimero.network' });
+      await r.setReview(pkg, {
+        state: 'declined',
+        by: 'admin@calimero.network',
+      });
+      const rec = await r.getReview(pkg);
+      expect(rec.state).toBe('declined');
+      expect(rec.auto).toBe(false);
+      expect(await r.isApproved(pkg)).toBe(false);
+    });
+
+    it('is not applied at all without a resolver', async () => {
+      // A missing dependency must stop the shortcut, never publish something.
+      const r = createPackageReview(kv);
+      expect((await r.getReview(pkg)).state).toBe('pending');
+    });
+
+    it('a resolver that throws is not a grant', async () => {
+      const r = createPackageReview(kv, {
+        publisherOf: async () => {
+          throw new Error('redis is down');
+        },
+      });
+      expect((await r.getReview(pkg)).state).toBe('pending');
+    });
+
+    it('is case-insensitive about the domain', async () => {
+      const r = trusted({ email: 'Someone@Calimero.Network' });
+      expect((await r.getReview(pkg)).state).toBe('approved');
+    });
+
+    it('does not match a lookalike domain', async () => {
+      // ⚠️ `endsWith` on the bare word would match `evil-calimero.network`.
+      const r = trusted({ email: 'attacker@notcalimero.network' });
+      expect((await r.getReview(pkg)).state).toBe('pending');
+    });
+  });
+
   it('tracks decided packages for the queue', async () => {
     await review.setReview('a', { state: 'approved' });
     await review.setReview('b', { state: 'declined' });

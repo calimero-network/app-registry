@@ -52,7 +52,12 @@ function exposeServerStamped(bundle) {
   };
 }
 
-function createBundleSanitizers(kv) {
+function createBundleSanitizers(kv, review) {
+  // The sanitiser is constructed with a bare `kv` in four places, so the
+  // review module is resolved here when it is not injected. Tests pass their
+  // own; production gets the real one, bound to the same store.
+  review = review || require('./package-review-for')(kv); // eslint-disable-line global-require
+
   /**
    * @param {object} bundle
    * @param {string} [packageName] - optional override for package id (admin_verified key)
@@ -72,13 +77,17 @@ function createBundleSanitizers(kv) {
 
     const pkg = packageName || bundle.package;
 
-    // The package. An explicit decision and nothing else — `_adminVerified` is
-    // the stamp the admin route writes onto the manifest, and the key is the
-    // same decision in KV.
+    // The package: an explicit decision, or the trusted-publisher default.
+    // `_adminVerified` is the stamp the admin route writes onto the manifest
+    // and the key is the same decision in KV.
+    //
+    // ⚠️ A DECLINE MUST WIN OVER THE SHORTCUT. `getReview` is the one place
+    // that knows the order — explicit record, then legacy key, then trusted
+    // publisher — so this asks it rather than re-deriving "is it approved"
+    // from the parts and getting the precedence wrong.
     let verified = hadAdminVerified;
     if (!verified && pkg) {
-      const pkgKey = await kv.get(`admin_verified:package:${pkg}`);
-      if (pkgKey === '1') verified = true;
+      verified = await review.isApproved(pkg);
     }
 
     // The publisher. Independent: a package by an unverified publisher can be
@@ -147,14 +156,16 @@ function createBundleSanitizers(kv) {
           .filter(e => e && !e.endsWith('@calimero.network'))
       ),
     ];
-    const [pkgVerifiedVals, userIdVals] = await Promise.all([
-      Promise.all(
-        uniquePackages.map(p => kv.get(`admin_verified:package:${p}`))
-      ),
+    // ⚠️ `isApproved`, NOT the raw key. The batch path used to read
+    // `admin_verified:package:*` directly, which skips both the newer
+    // `pkg-review` record AND the trusted-publisher default — so the listing
+    // would disagree with the app page about the very same package.
+    const [pkgApprovedVals, userIdVals] = await Promise.all([
+      Promise.all(uniquePackages.map(p => review.isApproved(p))),
       Promise.all(uniqueEmails.map(e => kv.get(`email2user:${e}`))),
     ]);
-    const pkgVerifiedMap = Object.fromEntries(
-      uniquePackages.map((p, i) => [p, pkgVerifiedVals[i] === '1'])
+    const pkgApprovedMap = Object.fromEntries(
+      uniquePackages.map((p, i) => [p, pkgApprovedVals[i]])
     );
     const emailToUserId = Object.fromEntries(
       uniqueEmails.map((e, i) => [e, userIdVals[i]])
@@ -198,7 +209,7 @@ function createBundleSanitizers(kv) {
         // same two: bundle-listing-parity.test.js exists because these
         // diverged once already.
         let verified = hadAdminVerified;
-        if (!verified && pkgVerifiedMap[pkg]) verified = true;
+        if (!verified && pkgApprovedMap[pkg]) verified = true;
 
         let publisherVerified = ownerEmail.endsWith('@calimero.network');
         if (!publisherVerified && ownerEmail) {

@@ -55,7 +55,11 @@ test.describe('the two badges', () => {
         })),
       })
     );
-    await page.goto('/explore');
+    // ⚠️ `?unverified=1` IS LOAD-BEARING HERE. The listing defaults to
+    // verified packages only, and the whole point of this fixture is a
+    // package that is NOT verified — without the opt-out there is no card to
+    // inspect and the spec fails on a listing that is behaving correctly.
+    await page.goto('/explore?unverified=1');
     const card = page.getByTestId('app-card').first();
     await expect(card).toBeVisible();
 
@@ -274,5 +278,60 @@ test.describe('the preview editor', () => {
     await page.goto(`/apps/${PKG}`);
     await expect(page.getByLabel('Move earlier').first()).toBeDisabled();
     await expect(page.getByLabel('Move later').last()).toBeDisabled();
+  });
+});
+
+test.describe('the verified-only listing', () => {
+  // ⚠️ THE SHORTCUT IS WHAT MAKES THIS SWITCH THROWABLE. Defaulting to
+  // verified-only was blocked for as long as nothing was verified: no live
+  // bundle had been through a review, so turning it on hid all 21. Packages
+  // from a `@calimero.network` publisher or the calimero-network org are
+  // approved on arrival, so the default now hides exactly what it should —
+  // unreviewed work by outside publishers.
+  const MIXED = [
+    { ...BUNDLES[0], verified: true, publisherVerified: true },
+    {
+      ...BUNDLES[1],
+      package: 'com.outsider.thing',
+      verified: false,
+      publisherVerified: false,
+      metadata: { ...BUNDLES[1].metadata, name: 'Outsider Thing' },
+    },
+  ];
+
+  test.beforeEach(async ({ page }) => {
+    await page.route('**/api/v2/bundles**', route =>
+      route.fulfill({ json: MIXED })
+    );
+  });
+
+  test('hides an unreviewed package by default', async ({ page }) => {
+    await page.goto('/explore');
+    await expect(page.getByTestId('app-card')).toHaveCount(1);
+    await expect(page.getByTestId('app-card')).toContainText('Mero Sheets');
+  });
+
+  test('says how many it is holding back rather than silently dropping them', async ({
+    page,
+  }) => {
+    // A listing that quietly drops rows leaves the reader wondering whether
+    // something is broken.
+    await page.goto('/explore');
+    await expect(page.getByTestId('result-count')).toContainText(
+      '1 awaiting review'
+    );
+  });
+
+  test('the opt-out shows them, and lives in the URL', async ({ page }) => {
+    await page.goto('/explore');
+    await page.getByTestId('toggle-unverified').click();
+
+    await expect(page).toHaveURL(/unverified=1/);
+    await expect(page.getByTestId('app-card')).toHaveCount(2);
+
+    // ⚠️ The URL carries the OPT-OUT, not the opt-in: a bare /explore always
+    // means the reviewed listing, whoever shares the link.
+    await page.goto('/explore');
+    await expect(page.getByTestId('app-card')).toHaveCount(1);
   });
 });
