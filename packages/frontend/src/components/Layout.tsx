@@ -126,14 +126,14 @@ export function Layout({ children }: LayoutProps) {
       {/* ── Rail (md and up) ── */}
       <aside
         data-testid='sidebar'
-        className='fixed inset-y-0 left-0 z-40 hidden border-r border-ink/[0.06] bg-[var(--app-rail)] md:block'
+        className='fixed inset-y-0 left-0 z-40 hidden border-r border-line bg-[var(--app-rail)] md:block'
         style={{ width: RAIL_WIDTH }}
       >
         {rail}
       </aside>
 
       {/* ── Mobile bar + drawer ── */}
-      <header className='sticky top-0 z-40 flex h-14 items-center justify-between border-b border-ink/[0.06] bg-[var(--app-rail)]/95 px-4 backdrop-blur-xl md:hidden'>
+      <header className='sticky top-0 z-40 flex h-14 items-center justify-between border-b border-line bg-[var(--app-rail)]/95 px-4 backdrop-blur-xl md:hidden'>
         <Link to='/' aria-label='Calimero App Registry — home'>
           <RegistryMark variant='compact' />
         </Link>
@@ -161,7 +161,7 @@ export function Layout({ children }: LayoutProps) {
           />
           <aside
             data-testid='sidebar-drawer'
-            className='fixed inset-y-0 left-0 z-50 border-r border-ink/[0.06] bg-[var(--app-rail)] md:hidden'
+            className='fixed inset-y-0 left-0 z-50 border-r border-line bg-[var(--app-rail)] md:hidden'
             style={{ width: RAIL_WIDTH }}
           >
             {rail}
@@ -175,7 +175,7 @@ export function Layout({ children }: LayoutProps) {
           {children}
         </main>
 
-        <footer className='mt-16 border-t border-ink/[0.06]'>
+        <footer className='mt-16 border-t border-line'>
           <div className='mx-auto grid w-full max-w-5xl gap-8 px-4 py-10 sm:px-6 md:grid-cols-4 lg:px-8'>
             <div className='flex flex-col items-start gap-3'>
               <img

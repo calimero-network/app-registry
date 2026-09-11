@@ -350,6 +350,117 @@ test.describe('light / dark', () => {
   });
 });
 
+test.describe('separators', () => {
+  // ⚠️ MEASURED, NOT ASSERTED ON A CLASS NAME. The bug this pins was 77 call
+  // sites reading `border-ink/[0.06]` — perfectly correct-looking markup that
+  // rendered a #f1f1f1 line on a white page. Every class-based assertion in
+  // the world passes against that. So: composite the border over its own
+  // background and demand a real difference.
+  // ⚠️ COMPOSITE FIRST. `getComputedStyle` hands back a border's OWN colour,
+  // so `rgba(19, 18, 21, 0.06)` — a line nobody can see — reads as 233 away
+  // from a white page if you simply subtract the channels. The first version
+  // of this spec did exactly that and passed against the bug it was written
+  // for. Alpha has to be flattened onto the ground before anything is
+  // compared.
+  const over = (c: string, ground: number[]) => {
+    const [r, g, b, a = 1] = c.match(/[\d.]+/g)!.map(Number);
+    return [r, g, b].map((ch, i) => ch * a + ground[i] * (1 - a));
+  };
+  const delta = (a: string, b: string) => {
+    const ground = b.match(/[\d.]+/g)!.map(Number);
+    const fa = over(a, ground);
+    const fb = over(b, ground);
+    return Math.max(...fa.map((ch, i) => Math.abs(ch - fb[i])));
+  };
+
+  for (const theme of ['light', 'dark'] as const) {
+    test(`a card's edge is visible against the page in ${theme} mode`, async ({
+      page,
+    }) => {
+      // Through storage, not by setting the attribute: this is the path a
+      // visitor takes, and it also proves the choice still drives the theme.
+      await page.addInitScript(t => {
+        localStorage.setItem('registry:theme:choice', t as string);
+      }, theme);
+      await page.goto('/explore');
+      await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
+      await expect(page.getByTestId('app-card').first()).toBeVisible();
+
+      const read = await page.evaluate(() => {
+        const card = document.querySelector(
+          '[data-testid="app-card"]'
+        ) as HTMLElement;
+        // ⚠️ TWO ELEMENTS, DELIBERATELY. The card's border comes from the
+        // component layer and the rail's from a swept utility class. They
+        // were two different tokens, so a spec that read only the card
+        // passed while every separator on the page was still invisible.
+        // They are one token now, and this is what holds them to it.
+        const rail = document.querySelector(
+          '[data-testid="sidebar"]'
+        ) as HTMLElement;
+        return {
+          card: getComputedStyle(card).borderTopColor,
+          rail: getComputedStyle(rail).borderRightColor,
+          page: getComputedStyle(document.body).backgroundColor,
+        };
+      });
+
+      // Measured: the old 6%-ink hairline composites to 14 away from the
+      // page, the #e4e4e6 line to 24, and dark mode's to 22. 18 is the gap
+      // between them, so this fails on the hairline and passes on a line.
+      expect(delta(read.card, read.page)).toBeGreaterThan(18);
+      expect(delta(read.rail, read.page)).toBeGreaterThan(18);
+      // The same declared value, not merely two visible ones.
+      expect(read.card).toBe(read.rail);
+    });
+  }
+});
+
+test.describe('the accent as text', () => {
+  test('the registry lockup clears AA against the rail in light mode', async ({
+    page,
+  }) => {
+    // The label is 8px, bold, uppercase and tracked — the least forgiving
+    // text in the app — and it is painted in the same token as every link
+    // and every inline code span. A ratio, not a class: the token moved
+    // twice already and the markup never changed either time.
+    await page.goto('/');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+
+    const ratio = await page.evaluate(() => {
+      const label = document
+        .querySelector(
+          '[data-testid="rail-brand"] [data-testid="registry-mark"]'
+        )!
+        .querySelector('span:last-child') as HTMLElement;
+      const rail = document.querySelector(
+        '[data-testid="sidebar"]'
+      ) as HTMLElement;
+      const lin = (c: string) =>
+        c
+          .match(/[\d.]+/g)!
+          .slice(0, 3)
+          .map(Number)
+          .map(v => {
+            const x = v / 255;
+            return x <= 0.03928
+              ? x / 12.92
+              : Math.pow((x + 0.055) / 1.055, 2.4);
+          });
+      const L = (c: string) => {
+        const [r, g, b] = lin(c);
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+      };
+      const a = L(getComputedStyle(label).color);
+      const b = L(getComputedStyle(rail).backgroundColor);
+      const [hi, lo] = a > b ? [a, b] : [b, a];
+      return (hi + 0.05) / (lo + 0.05);
+    });
+
+    expect(ratio).toBeGreaterThan(4.5);
+  });
+});
+
 test.describe('home shelves', () => {
   test('leads with a title and an explanation', async ({ page }) => {
     await page.goto('/');

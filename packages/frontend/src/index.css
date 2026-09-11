@@ -23,6 +23,12 @@
     --n-200-rgb: 228 228 231;
     --n-100-rgb: 244 244 245;
     --ink-rgb: 255 255 255;
+    /* Separators. Translucent here on purpose: a hairline over a dark ground
+       should pick up whatever is behind it, and 7% white on #0d1117 is what
+       the `border-ink/[0.06]` these replaced already rendered as — dark mode
+       is unchanged by the swap. */
+    --line: #232a33;
+    --line-strong: #39424e;
     --accent-text-rgb: 165 255 17;
     --accent-text-hover-rgb: 184 255 74;
     --app-bg: #0d1117;
@@ -47,7 +53,12 @@
     --bg: #0d1117;
     --surface: #161b22;
     --surface-2: #1c2128;
-    --border: #30363d;
+    /* ⚠️ ONE TOKEN FOR ONE CONCEPT. `--border` fed the component layer
+       (`.card`, `.input`) while `--line` fed the utilities, so a separator
+       could be fixed in one and left broken in the other — and a spec aimed
+       at a card passed while every swept border on the page was still
+       invisible. They are the same thing and now they are the same value. */
+    --border: var(--line);
     --text: #e6edf3;
     --text-muted: #8b949e;
     --accent: #a5ff11;
@@ -56,14 +67,30 @@
     --success: #3fb950;
     --warning: #d29922;
     --error: #f85149;
+    --shadow-card: none;
+    /* The focus ring. In dark mode the raw lime IS the ring; on a white page
+       it is ~1.4:1 against the ground and the box reads as unfocused, so
+       light mode rings in the accent ink instead. */
+    --focus-ring: rgba(165, 255, 17, 0.45);
+    --focus-halo: rgba(165, 255, 17, 0.1);
     --radius: 10px;
     --radius-sm: 6px;
     --radius-lg: 14px;
   }
 
   /* ── Light ──
-     Mirrors apps/mero-sheets' palette (`--c-paper`, `--c-ink`, `--c-line`,
-     `--c-green-ink`), so the two products read as one system.
+     The palette every app in the `apps` monorepo already ships, from
+     `scripts/landing/template/landing.css`: ink #131215, dim #404040, faint
+     #8e8e8e, lines #e4e4e6 / #c8c8c8, grounds #fcfcfc / #ffffff / #f2f2f3,
+     accent ink #5f9400. Fourteen landing pages and this registry now describe
+     light mode with the same numbers.
+
+     ⚠️ WHAT CHANGED AND WHY IT LOOKED WASHED OUT: the scale used to be
+     GREEN-TINTED (`--n-600: 147 163 148`, a rail of #f5f8f1), copied from
+     mero-sheets. Every grey on the page carried a cast, the rail barely
+     separated from the content, and nothing read as clean white. These are
+     true neutrals; the green is now only the accent, which is where it means
+     something.
 
      ⚠️ The neutral scale is INVERTED, not merely lightened: `text-neutral-100`
      means "the most prominent text" everywhere in this app, so in light mode
@@ -71,24 +98,47 @@
      dark order here would render every heading in near-white on white.
 
      ⚠️ The accent flips too. #a5ff11 on white is roughly 1.4:1 — unreadable.
-     Accent TEXT becomes the deep green mero-sheets uses; the raw lime stays
+     Accent TEXT becomes the landing pages' #5f9400; the raw lime stays
      available as `brand-accent` for fills, where it is fine in both themes. */
   :root[data-theme='light'] {
+    /* ⚠️ THIS SCALE IS A TEXT LADDER, NOT A SET OF SURFACES. 100-600 carry
+       365 of the 366 uses and every one of them is `text-*`; only 900/950 are
+       ever a background. So the steps are graded by READABILITY on paper, not
+       by even spacing: 500 alone is used 109 times, which makes it the
+       secondary body colour of the entire app, and the landing palette's
+       #8e8e8e sits at 2.9:1 there — fine for a marketing caption, not for a
+       hundred lines of running text. It takes #6b6b70 (5.1:1, the same weight
+       dark mode gives its own 500) and #8e8e8e moves down to 600, where the
+       uses actually are decorative. */
     --n-950-rgb: 255 255 255;
-    --n-900-rgb: 245 248 241;
-    --n-800-rgb: 231 236 226;
-    --n-700-rgb: 196 204 191;
-    --n-600-rgb: 147 163 148;
-    --n-500-rgb: 93 107 96;
-    --n-400-rgb: 74 86 76;
-    --n-300-rgb: 45 56 47;
-    --n-200-rgb: 28 36 30;
-    --n-100-rgb: 14 20 15;
-    --ink-rgb: 14 20 15;
-    --accent-text-rgb: 55 97 10;
-    --accent-text-hover-rgb: 78 122 6;
-    --app-bg: #ffffff;
-    --app-rail: #f5f8f1;
+    --n-900-rgb: 252 252 252;
+    --n-800-rgb: 242 242 243;
+    --n-700-rgb: 200 200 200;
+    --n-600-rgb: 142 142 142;
+    --n-500-rgb: 107 107 112;
+    --n-400-rgb: 64 64 64;
+    --n-300-rgb: 45 44 48;
+    --n-200-rgb: 30 29 33;
+    --n-100-rgb: 19 18 21;
+    --ink-rgb: 19 18 21;
+    /* Opaque, and the exact value the landing pages draw with. A translucent
+       line here is the bug this token exists to end. */
+    --line: #e4e4e6;
+    --line-strong: #c8c8c8;
+    /* ⚠️ DEEPER THAN THE LANDING PAGES' #5f9400, ON PURPOSE. That value is
+       3.3:1 on paper — it works there because it is set large. Here the same
+       token is the rail's "APP REGISTRY" label at 8px, inline code, active
+       nav and ~60 links, all of them small and most of them bold, and at
+       3.3:1 the lockup read as a grey-green smudge. #3f6a00 is 5.7:1 against
+       the rail and clears AA for small text; it is the same hue, taken down
+       until it is legible. */
+    --accent-text-rgb: 63 106 0;
+    --accent-text-hover-rgb: 47 84 0;
+    /* Three steps, so the shell reads as a shell: chrome #f2f2f3, page
+       #fcfcfc, cards #ffffff. A white rail against a white page separated
+       only by a hairline is what made the old light mode look unfinished. */
+    --app-bg: #fcfcfc;
+    --app-rail: #f2f2f3;
     /* Near-black rather than none: the asset's own ink is too light on paper. */
     --logo-filter: brightness(0) invert(0.08);
     --hero-wash: linear-gradient(160deg, #eef0fb 0%, #f4f2fb 55%, #f7f6fc 100%);
@@ -103,15 +153,18 @@
       transparent
     );
 
-    --bg: #ffffff;
-    --surface: #f5f8f1;
-    --surface-2: #e7ece2;
-    --border: #e7ece2;
-    --text: #0e140f;
-    --text-muted: #5d6b60;
+    --bg: #fcfcfc;
+    --surface: #ffffff;
+    --surface-2: #f2f2f3;
+    --border: var(--line);
+    --text: #131215;
+    --text-muted: #404040;
     --accent: #a5ff11;
-    --accent-glow: rgba(78, 122, 6, 0.12);
-    --accent-dim: rgba(78, 122, 6, 0.08);
+    --accent-glow: rgba(95, 148, 0, 0.35);
+    --accent-dim: rgba(95, 148, 0, 0.09);
+    --shadow-card: 0 1px 2px rgba(19, 18, 21, 0.04);
+    --focus-ring: rgba(95, 148, 0, 0.65);
+    --focus-halo: rgba(95, 148, 0, 0.14);
   }
 
   html {
@@ -184,6 +237,10 @@
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius);
+    /* A shadow only in light mode (`none` in dark, where it would be mud).
+       A white card on an off-white ground needs a second cue besides its
+       border, or a page of cards reads as one flat sheet. */
+    box-shadow: var(--shadow-card);
     backdrop-filter: blur(12px);
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
@@ -205,8 +262,8 @@
   }
 
   .input:focus-visible {
-    border-color: rgba(165, 255, 17, 0.4);
-    box-shadow: 0 0 0 2px rgba(165, 255, 17, 0.08);
+    border-color: var(--focus-ring);
+    box-shadow: 0 0 0 2px var(--focus-halo);
   }
 
   .nav-link {

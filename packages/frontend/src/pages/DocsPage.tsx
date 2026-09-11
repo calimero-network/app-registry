@@ -27,7 +27,7 @@ const SECTIONS = [
 
 function Code({ children }: { children: React.ReactNode }) {
   return (
-    <code className='text-[11px] text-brand-600 bg-ink/[0.04] border border-ink/[0.06] rounded px-1.5 py-0.5 font-mono'>
+    <code className='text-[11px] text-brand-600 bg-ink/[0.04] border border-line rounded px-1.5 py-0.5 font-mono'>
       {children}
     </code>
   );
@@ -35,7 +35,7 @@ function Code({ children }: { children: React.ReactNode }) {
 
 function CodeBlock({ children }: { children: string }) {
   return (
-    <pre className='text-[11.5px] text-neutral-300 bg-neutral-950 border border-ink/[0.06] rounded-lg p-4 overflow-x-auto font-mono leading-relaxed'>
+    <pre className='text-[11.5px] text-neutral-300 bg-neutral-950 border border-line rounded-lg p-4 overflow-x-auto font-mono leading-relaxed'>
       {children}
     </pre>
   );
@@ -122,7 +122,7 @@ function FieldList({
   width: string;
 }) {
   return (
-    <div className='rounded-lg border border-ink/[0.06] bg-ink/[0.02] p-4 space-y-3'>
+    <div className='rounded-lg border border-line bg-ink/[0.02] p-4 space-y-3'>
       {rows.map(([field, desc]) => (
         <div
           key={field}
@@ -187,7 +187,7 @@ export default function DocsPage() {
               </li>
             ))}
           </ul>
-          <div className='mt-5 pt-4 border-t border-ink/[0.06]'>
+          <div className='mt-5 pt-4 border-t border-line'>
             <a
               href='https://docs.calimero.network'
               target='_blank'
@@ -214,7 +214,7 @@ export default function DocsPage() {
             onClick={() => setTocOpen(v => !v)}
             aria-expanded={tocOpen}
             data-testid='docs-toc-toggle'
-            className='flex w-full items-center justify-between rounded-lg border border-ink/[0.08] bg-ink/[0.02] px-3.5 py-2.5 text-[13px] text-neutral-300'
+            className='flex w-full items-center justify-between rounded-lg border border-line bg-ink/[0.02] px-3.5 py-2.5 text-[13px] text-neutral-300'
           >
             On this page
             <ChevronDown
@@ -227,7 +227,7 @@ export default function DocsPage() {
           {tocOpen && (
             <ul
               data-testid='docs-toc'
-              className='mt-1.5 space-y-0.5 rounded-lg border border-ink/[0.08] bg-ink/[0.02] p-1.5'
+              className='mt-1.5 space-y-0.5 rounded-lg border border-line bg-ink/[0.02] p-1.5'
             >
               {SECTIONS.map(({ id, label }) => (
                 <li key={id}>

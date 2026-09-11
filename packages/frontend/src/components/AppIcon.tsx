@@ -46,7 +46,7 @@ export function AppIcon({
         onError={() => setFailed(true)}
         className={cn(
           rounded,
-          'flex-shrink-0 object-cover bg-ink/[0.04] border border-ink/[0.08]',
+          'flex-shrink-0 object-cover bg-ink/[0.04] border border-line',
           className
         )}
         style={{ width: size, height: size }}
@@ -63,7 +63,7 @@ export function AppIcon({
       data-testid='app-icon-fallback'
       className={cn(
         rounded,
-        'flex-shrink-0 grid place-items-center border border-ink/[0.08] font-semibold text-ink/80 select-none',
+        'flex-shrink-0 grid place-items-center border border-line font-semibold text-ink/80 select-none',
         className
       )}
       style={{

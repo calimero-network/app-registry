@@ -40,7 +40,7 @@ export function ShowcaseCard({ app }: { app: AppSummary }) {
     <Link
       to={`/apps/${encodeURIComponent(app.id)}`}
       data-testid='showcase-card'
-      className='group flex flex-col overflow-hidden rounded-2xl border border-ink/[0.06] bg-ink/[0.02] transition-colors duration-150 hover:border-ink/[0.14]'
+      className='group flex flex-col overflow-hidden rounded-2xl border border-line bg-ink/[0.02] transition-colors duration-150 hover:border-line-strong'
     >
       <div className='relative h-44 overflow-hidden bg-ink/[0.03]'>
         {shot ? (

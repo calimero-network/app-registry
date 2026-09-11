@@ -39,7 +39,7 @@ export function OpenAppTile({ url, name }: { url: string; name: string }) {
         target='_blank'
         rel='noreferrer noopener'
         data-testid='open-app-fallback'
-        className='flex aspect-[16/9] max-h-[30rem] items-center justify-center rounded-2xl border border-ink/[0.08] bg-ink/[0.02] text-[13px] text-neutral-300 transition-colors hover:border-ink/[0.16]'
+        className='flex aspect-[16/9] max-h-[30rem] items-center justify-center rounded-2xl border border-line bg-ink/[0.02] text-[13px] text-neutral-300 transition-colors hover:border-line-strong'
       >
         <span className='inline-flex items-center gap-2'>
           <ExternalLink className='h-4 w-4' aria-hidden='true' />
@@ -56,7 +56,7 @@ export function OpenAppTile({ url, name }: { url: string; name: string }) {
       rel='noreferrer noopener'
       data-testid='open-app'
       aria-label={`View ${name} on the web`}
-      className='group preview-stage relative block aspect-[16/9] max-h-[30rem] w-full overflow-hidden rounded-2xl border border-ink/[0.08] bg-ink/[0.02]'
+      className='group preview-stage relative block aspect-[16/9] max-h-[30rem] w-full overflow-hidden rounded-2xl border border-line bg-ink/[0.02]'
     >
       {/* The frame fills the tile edge to edge. It is rendered at a desktop
           viewport and scaled to COVER the container — see `.preview-frame` in

@@ -147,7 +147,7 @@ export default function HomePage() {
             green light behind green UI flattens every one of those. */}
         <div
           data-testid='hero-panel'
-          className='relative mt-10 overflow-hidden rounded-[28px] border border-ink/[0.07]'
+          className='relative mt-10 overflow-hidden rounded-[28px] border border-line'
           style={{ background: 'var(--hero-wash)' }}
         >
           {/* ⚠️ BEHIND THE DEVICE, NOT OVER IT. These are stacked at z-0 and
@@ -218,7 +218,7 @@ export default function HomePage() {
               floating on the page ground. It groups the apps we publish
               ourselves into a single object, which is what separates them
               from the derived shelves below. */}
-          <div className='rounded-2xl border border-ink/[0.07] bg-ink/[0.02] p-4 sm:p-5'>
+          <div className='rounded-2xl border border-line bg-ink/[0.02] p-4 sm:p-5'>
             <SectionHeading title='Apps we build' />
             <div className='mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3'>
               {featured.map(app => (
@@ -244,7 +244,7 @@ export default function HomePage() {
               <Link
                 key={c}
                 to={`/explore?category=${c}`}
-                className='inline-flex items-center gap-1.5 rounded-full border border-ink/[0.08] bg-ink/[0.02] px-3 py-1.5 text-[12.5px] text-neutral-300 transition-colors duration-150 hover:border-ink/[0.16] hover:text-neutral-100'
+                className='inline-flex items-center gap-1.5 rounded-full border border-line bg-ink/[0.02] px-3 py-1.5 text-[12.5px] text-neutral-300 transition-colors duration-150 hover:border-line-strong hover:text-neutral-100'
               >
                 {formatCategory(c)}
               </Link>
@@ -291,7 +291,7 @@ function SkeletonList() {
       {Array.from({ length: 4 }).map((_, i) => (
         <div
           key={i}
-          className='flex animate-pulse gap-4 rounded-xl border border-ink/[0.06] p-4'
+          className='flex animate-pulse gap-4 rounded-xl border border-line p-4'
         >
           <div className='h-14 w-14 flex-shrink-0 rounded-xl bg-ink/[0.06]' />
           <div className='flex-1 space-y-2 pt-1'>

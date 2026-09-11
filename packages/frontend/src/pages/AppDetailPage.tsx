@@ -291,7 +291,7 @@ export default function AppDetailPage() {
               <span className='text-neutral-400'>{meta.author}</span>
             )}
             {formatCategory(resolvedCategory) && (
-              <span className='rounded-md border border-ink/[0.08] bg-ink/[0.03] px-1.5 py-0.5 text-[11px] text-neutral-400'>
+              <span className='rounded-md border border-line bg-ink/[0.03] px-1.5 py-0.5 text-[11px] text-neutral-400'>
                 {formatCategory(resolvedCategory)}
               </span>
             )}
@@ -399,7 +399,7 @@ export default function AppDetailPage() {
             className='card flex items-center justify-between px-4 py-3 hover:border-brand-600/30'
           >
             <div className='flex items-center gap-3'>
-              <div className='flex items-center justify-center w-8 h-8 rounded-full bg-ink/[0.06] border border-ink/[0.06]'>
+              <div className='flex items-center justify-center w-8 h-8 rounded-full bg-ink/[0.06] border border-line'>
                 <Building2 className='w-4 h-4 text-neutral-400' />
               </div>
               <div>
@@ -769,7 +769,7 @@ function LinkCard({
       target='_blank'
       rel='noreferrer noopener'
       aria-label={label}
-      className='card flex flex-col justify-center gap-1 px-3.5 py-2.5 transition-colors hover:border-ink/[0.16]'
+      className='card flex flex-col justify-center gap-1 px-3.5 py-2.5 transition-colors hover:border-line-strong'
     >
       <p className='text-[11px] text-neutral-500'>{label}</p>
       <Icon className='h-4 w-4 text-brand-600' />
@@ -820,7 +820,7 @@ function ArtifactRow({
   hash: string | null;
 }) {
   return (
-    <div className='flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-6 py-2 border-b border-ink/[0.06] last:border-0'>
+    <div className='flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-6 py-2 border-b border-line last:border-0'>
       <span className='text-[11px] font-medium text-neutral-400 w-12 flex-shrink-0'>
         {label}
       </span>

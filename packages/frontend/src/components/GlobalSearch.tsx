@@ -65,7 +65,7 @@ export function GlobalSearch({
         placeholder='Search apps'
         aria-label='Search apps'
         data-testid={testId}
-        className='w-full rounded-lg border border-ink/[0.08] bg-ink/[0.03] py-1.5 pl-8 pr-2.5 text-[12.5px] text-neutral-200 placeholder:text-neutral-600 focus:border-brand-600/40 focus:outline-none focus:ring-1 focus:ring-brand-600/30'
+        className='w-full rounded-lg border border-line bg-ink/[0.03] py-1.5 pl-8 pr-2.5 text-[12.5px] text-neutral-200 placeholder:text-neutral-600 focus:border-brand-600/40 focus:outline-none focus:ring-1 focus:ring-brand-600/30'
       />
     </div>
   );

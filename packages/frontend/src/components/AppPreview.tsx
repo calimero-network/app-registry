@@ -106,7 +106,7 @@ export function AppPreview({
       {assets.length === 0 ? (
         <div
           data-testid='no-preview'
-          className='flex h-44 items-center justify-center rounded-xl border border-dashed border-ink/[0.1] bg-ink/[0.02]'
+          className='flex h-44 items-center justify-center rounded-xl border border-dashed border-line-strong bg-ink/[0.02]'
         >
           <span className='inline-flex items-center gap-2 text-[12.5px] text-neutral-500'>
             <ImageOff className='h-4 w-4' aria-hidden='true' />
@@ -145,7 +145,7 @@ function AssetTile({
           src={asset.url}
           controls
           preload='metadata'
-          className='h-44 rounded-xl border border-ink/[0.08]'
+          className='h-44 rounded-xl border border-line'
         />
       ) : (
         <img
@@ -153,7 +153,7 @@ function AssetTile({
           alt={asset.alt}
           loading='lazy'
           decoding='async'
-          className='h-44 rounded-xl border border-ink/[0.08] object-cover'
+          className='h-44 rounded-xl border border-line object-cover'
         />
       )}
       {canEdit && (

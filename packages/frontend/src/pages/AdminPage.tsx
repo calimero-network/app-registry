@@ -80,7 +80,7 @@ export default function AdminPage() {
       </div>
 
       {/* Tabs */}
-      <div className='flex gap-1 border-b border-ink/[0.06]'>
+      <div className='flex gap-1 border-b border-line'>
         {(
           [
             { key: 'users', label: 'Users', icon: Users },
@@ -596,7 +596,7 @@ function ActionBtn({
       'text-emerald-500 hover:text-emerald-400 border-emerald-900/40 hover:border-emerald-700/50',
     blue: 'text-brand-500 hover:text-brand-400 border-brand-900/40 hover:border-brand-700/50',
     neutral:
-      'text-neutral-400 hover:text-ink/80 border-ink/[0.06] hover:border-ink/[0.1]',
+      'text-neutral-400 hover:text-ink/80 border-line hover:border-line-strong',
   };
   return (
     <button
