@@ -248,6 +248,36 @@ test.describe('light / dark', () => {
     expect(await res.text()).toContain('<html lang="en" data-theme="light">');
   });
 
+  test('an old auto-written preference does not count as a choice', async ({
+    page,
+  }) => {
+    // ⚠️ THE DEFAULT REACHED NOBODY WITHOUT THIS. The previous build wrote
+    // the theme on every mount rather than on every press, so the value it
+    // resolved from the OS was persisted as though it had been chosen —
+    // meaning every existing visitor carried `dark` as a "choice" they never
+    // made, and a stored choice beats the default. The old key is abandoned.
+    await page.goto('/');
+    await page.evaluate(() => localStorage.setItem('registry:theme', 'dark'));
+    await page.reload();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+    expect(
+      await page.evaluate(() => localStorage.getItem('registry:theme'))
+    ).toBeNull();
+  });
+
+  test('loading the page records no choice at all', async ({ page }) => {
+    // The other half of the same bug: nothing may be written until the
+    // toggle is actually pressed, or the next default change is invisible in
+    // exactly the same way.
+    await page.goto('/');
+    await page.getByTestId('theme-toggle').waitFor();
+    expect(
+      await page.evaluate(() =>
+        Object.keys(localStorage).filter(k => k.startsWith('registry:theme'))
+      )
+    ).toEqual([]);
+  });
+
   test('the toggle flips the theme and survives a reload', async ({ page }) => {
     await page.goto('/');
     const toggle = page.getByTestId('theme-toggle');

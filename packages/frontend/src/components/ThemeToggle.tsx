@@ -24,12 +24,30 @@ import { useCallback, useEffect, useState } from 'react';
 
 export type ThemeMode = 'light' | 'dark';
 
-const STORAGE_KEY = 'registry:theme';
+/**
+ * ⚠️ A NEW KEY, AND THE OLD ONE IS DISCARDED ON SIGHT.
+ *
+ * `registry:theme` was written on every mount, not on every press — so the
+ * theme the old build resolved from the OS was persisted as though the
+ * visitor had chosen it. Anyone who has ever opened the registry on a dark
+ * desktop has `dark` sitting in that key, a stored choice beats the default,
+ * and the light default would therefore have reached nobody but a brand-new
+ * browser. The two cases are indistinguishable inside that key — a real
+ * press and an automatic write look identical — so the key is abandoned
+ * rather than migrated. Someone who genuinely wanted dark presses the toggle
+ * once more.
+ */
+const STORAGE_KEY = 'registry:theme:choice';
+const LEGACY_KEY = 'registry:theme';
 
 export const DEFAULT_THEME: ThemeMode = 'light';
 
 export function getStoredTheme(): ThemeMode {
   try {
+    // Best-effort, and deliberately unconditional: leaving it behind means
+    // every debugging session from here on has two theme keys to reason
+    // about, one of which means nothing.
+    localStorage.removeItem(LEGACY_KEY);
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored === 'light' || stored === 'dark') return stored;
     return DEFAULT_THEME;
@@ -56,19 +74,23 @@ export function applyTheme(mode: ThemeMode): void {
 export function ThemeToggle() {
   const [theme, setTheme] = useState<ThemeMode>(getStoredTheme);
 
+  // Applying only. ⚠️ PERSISTING HERE IS WHAT BROKE THE DEFAULT: this effect
+  // runs on mount as well as on a change, so merely loading the page recorded
+  // a choice the visitor never made. Storage is written by the press below,
+  // and nowhere else.
   useEffect(() => {
     applyTheme(theme);
+  }, [theme]);
+
+  const toggle = useCallback(() => {
+    const next: ThemeMode = theme === 'dark' ? 'light' : 'dark';
+    setTheme(next);
     try {
-      localStorage.setItem(STORAGE_KEY, theme);
+      localStorage.setItem(STORAGE_KEY, next);
     } catch {
       /* private browsing — the toggle still works for this session */
     }
   }, [theme]);
-
-  const toggle = useCallback(
-    () => setTheme(t => (t === 'dark' ? 'light' : 'dark')),
-    []
-  );
 
   const dark = theme === 'dark';
 
