@@ -110,14 +110,16 @@ export function ReviewQueue() {
       {viewing && (
         <QueueLightbox
           items={
-            queue.find(q => q.package === viewing.pkg)?.assets.map(a => ({
-              id: a.id,
-              url: a.url,
-              alt: a.alt,
-              kind: a.kind,
-              width: a.width,
-              height: a.height,
-            })) ?? []
+            queue
+              .find(q => q.package === viewing.pkg)
+              ?.assets.map(a => ({
+                id: a.id,
+                url: a.url,
+                alt: a.alt,
+                kind: a.kind,
+                width: a.width,
+                height: a.height,
+              })) ?? []
           }
           index={viewing.index}
           onIndex={index => setViewing(v => (v ? { ...v, index } : v))}

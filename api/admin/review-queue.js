@@ -33,47 +33,91 @@ module.exports = async function handler(req, res) {
 
   try {
     const all = await kv.sMembers('bundles:all');
-    const queue = [];
 
-    for (const pkg of all) {
-      const assets = await listAssets(pkg);
-      if (!assets.length) continue;
+    // ⚠️ PHASES, NOT A LOOP WITH FOUR AWAITS IN IT.
+    //
+    // This read the asset index, the review record, the version set and a
+    // manifest one package at a time, each `await`ed inside a `for` — so a
+    // registry of N packages cost up to 4N SERIALISED Redis round trips, and
+    // the queue is the first screen an admin opens. Same property the bundle
+    // listing already holds (tests/bundle-listing-batching.test.js): the
+    // number of sequential round trips must not grow with the number of
+    // packages. Commands issued in one tick are pipelined by node-redis, so
+    // each `Promise.all` below is one wave.
+    //
+    // The phases narrow as they go — assets, then decision, then metadata —
+    // so the expensive manifest reads only happen for packages that are
+    // actually in the queue, which is normally a handful of the whole
+    // registry.
+    const assetsByPkg = await Promise.all(all.map(pkg => listAssets(pkg)));
+    const withAssets = all
+      .map((pkg, i) => ({ pkg, assets: assetsByPkg[i] }))
+      .filter(entry => entry.assets.length > 0);
 
-      const rec = await review.getReview(pkg);
-      // `uploadedAt`, the field `addAsset` actually writes. Assets stored
-      // before it existed have none; they are treated as "uploaded at the
-      // dawn of time", which puts them at the front of the queue rather than
-      // hiding them from it.
-      const newestAsset = assets.reduce(
-        (max, a) => (a.uploadedAt && a.uploadedAt > max ? a.uploadedAt : max),
-        ''
-      );
-      // Undecided, or decided before the newest upload.
-      const waiting =
-        rec.state === 'pending' ||
-        // Decided, then uploaded again — including a package that was
-        // approved or declined months ago.
-        (!!rec.decidedAt && newestAsset > rec.decidedAt) ||
-        // Approved under the OLD boolean key, which recorded no date at all.
-        // Those carry assets nobody reviewed under this system, so they go in
-        // the queue once; declining is a decision and records a date, which
-        // takes them out of it.
-        (rec.legacy && rec.state === 'approved');
-      if (!waiting) continue;
+    const reviews = await Promise.all(
+      withAssets.map(entry => review.getReview(entry.pkg))
+    );
 
-      const versions = await kv.sMembers(`bundle-versions:${pkg}`);
-      const latest = versions.length
+    const waitingEntries = withAssets
+      .map((entry, i) => {
+        const rec = reviews[i];
+        // `uploadedAt`, the field `addAsset` actually writes. Assets stored
+        // before it existed have none; they are treated as "uploaded at the
+        // dawn of time", which puts them at the front of the queue rather
+        // than hiding them from it.
+        const newestAsset = entry.assets.reduce(
+          (max, a) => (a.uploadedAt && a.uploadedAt > max ? a.uploadedAt : max),
+          ''
+        );
+        // Undecided, or decided before the newest upload.
+        const waiting =
+          rec.state === 'pending' ||
+          // Decided, then uploaded again — including a package that was
+          // approved or declined months ago.
+          (!!rec.decidedAt && newestAsset > rec.decidedAt) ||
+          // Approved under the OLD boolean key, which recorded no date at
+          // all. Those carry assets nobody reviewed under this system, so
+          // they go in the queue once; declining is a decision and records a
+          // date, which takes them out of it.
+          (rec.legacy && rec.state === 'approved');
+        return waiting ? { ...entry, rec, newestAsset } : null;
+      })
+      .filter(Boolean);
+
+    // Versions for the queue members only, then their newest manifest.
+    const versionSets = await Promise.all(
+      waitingEntries.map(entry => kv.sMembers(`bundle-versions:${entry.pkg}`))
+    );
+    const latests = versionSets.map(versions =>
+      versions.length
         ? versions.sort((a, b) =>
             semver.rcompare(
               semver.valid(a) || '0.0.0',
               semver.valid(b) || '0.0.0'
             )
           )[0]
-        : null;
+        : null
+    );
+    const manifestRaws = await Promise.all(
+      waitingEntries.map((entry, i) =>
+        latests[i] ? kv.get(`bundle:${entry.pkg}/${latests[i]}`) : null
+      )
+    );
+
+    const queue = [];
+    waitingEntries.forEach((entry, i) => {
+      const { pkg, assets, rec, newestAsset } = entry;
+      const latest = latests[i];
       let metadata = {};
-      if (latest) {
-        const raw = await kv.get(`bundle:${pkg}/${latest}`);
-        if (raw) metadata = JSON.parse(raw).json?.metadata || {};
+      const raw = manifestRaws[i];
+      if (raw) {
+        try {
+          metadata = JSON.parse(raw).json?.metadata || {};
+        } catch {
+          // A corrupt manifest must not take the whole queue down with it —
+          // the package still has pictures waiting on a decision.
+          metadata = {};
+        }
       }
 
       queue.push({
@@ -113,7 +157,7 @@ module.exports = async function handler(req, res) {
           };
         }),
       });
-    }
+    });
 
     // Longest wait first: the oldest unreviewed upload is the one someone is
     // sitting waiting on.

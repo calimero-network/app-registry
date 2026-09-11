@@ -7,6 +7,7 @@ const {
   getOrg,
   getOrgMembers,
   getOrgMemberRole,
+  getOrgMemberRoles,
   addOrgMember,
 } = require('#api-lib/org-storage');
 const {
@@ -50,18 +51,28 @@ module.exports = async function handler(req, res) {
   if (req.method === 'GET') {
     try {
       const emails = await getOrgMembers(orgId);
-      const members = [];
-      for (const email of emails) {
-        const role = await getOrgMemberRole(orgId, email);
-        const profile = await getUserByEmail(email);
-        members.push({
-          email,
-          username: profile?.username ?? null,
-          verified: profile?.verified ?? email.endsWith('@calimero.network'),
-          role: role || 'member',
-          isBot: await isBot(email),
-        });
-      }
+
+      // ⚠️ THREE WAVES, NOT FOUR ROUND TRIPS PER MEMBER.
+      //
+      // This asked for the role (itself TWO sequential `hGet`s, normalised
+      // then raw), the profile and the bot flag one member at a time, all
+      // `await`ed inside a `for` — so an org of N members cost ~4N serialised
+      // Redis round trips to draw its member table. The roles now come from
+      // one `hGetAll` of the org's role hash, and the per-member profile and
+      // bot reads go out together.
+      const [roleOf, profiles, botFlags] = await Promise.all([
+        getOrgMemberRoles(orgId),
+        Promise.all(emails.map(email => getUserByEmail(email))),
+        Promise.all(emails.map(email => isBot(email))),
+      ]);
+
+      const members = emails.map((email, i) => ({
+        email,
+        username: profiles[i]?.username ?? null,
+        verified: profiles[i]?.verified ?? email.endsWith('@calimero.network'),
+        role: roleOf(email) || 'member',
+        isBot: botFlags[i],
+      }));
       return res.status(200).json({ members });
     } catch (e) {
       return res

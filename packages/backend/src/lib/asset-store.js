@@ -282,7 +282,12 @@ async function readAsset(pkg, id, { variant = 'full' } = {}) {
 
   try {
     const [contents] = await getBucket().file(key).download();
-    return { asset, buffer: contents, contentType, variant: useThumb ? 'thumb' : 'full' };
+    return {
+      asset,
+      buffer: contents,
+      contentType,
+      variant: useThumb ? 'thumb' : 'full',
+    };
   } catch (err) {
     if (isNotFound(err)) {
       // A thumbnail recorded in the index but missing from the bucket must not

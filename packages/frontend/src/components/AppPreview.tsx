@@ -85,9 +85,7 @@ export function AppPreview({
   const applyLocally = (next: PackageAsset[]) => {
     const previous = qc.getQueryData<PackageAssets>(key);
     qc.setQueryData<PackageAssets>(key, old =>
-      old
-        ? { ...old, assets: next.map((a, i) => ({ ...a, order: i })) }
-        : old
+      old ? { ...old, assets: next.map((a, i) => ({ ...a, order: i })) } : old
     );
     return previous;
   };
