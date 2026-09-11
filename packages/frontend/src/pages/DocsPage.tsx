@@ -27,7 +27,7 @@ const SECTIONS = [
 
 function Code({ children }: { children: React.ReactNode }) {
   return (
-    <code className='text-[11px] text-brand-600 bg-ink/[0.04] border border-line rounded px-1.5 py-0.5 font-mono'>
+    <code className='rounded border border-brand-600/20 bg-brand-600/[0.08] px-1.5 py-0.5 font-mono text-[11px] text-brand-600'>
       {children}
     </code>
   );
@@ -35,7 +35,7 @@ function Code({ children }: { children: React.ReactNode }) {
 
 function CodeBlock({ children }: { children: string }) {
   return (
-    <pre className='text-[11.5px] text-neutral-300 bg-neutral-950 border border-line rounded-lg p-4 overflow-x-auto font-mono leading-relaxed'>
+    <pre className='overflow-x-auto rounded-lg border border-line bg-[var(--surface-2)] p-4 font-mono text-[11.5px] leading-relaxed text-neutral-300'>
       {children}
     </pre>
   );
@@ -43,7 +43,7 @@ function CodeBlock({ children }: { children: string }) {
 
 function Diagram({ children }: { children: string }) {
   return (
-    <pre className='text-[10.5px] text-brand-600/70 bg-neutral-950 border border-brand-900/30 rounded-lg p-5 overflow-x-auto font-mono leading-loose'>
+    <pre className='overflow-x-auto rounded-lg border border-brand-600/25 bg-[var(--surface-2)] p-5 font-mono text-[10.5px] leading-loose text-brand-600'>
       {children}
     </pre>
   );
@@ -57,18 +57,27 @@ function SectionHeading({
   children: React.ReactNode;
 }) {
   return (
-    <h2
-      id={id}
-      className='text-xl font-semibold text-neutral-100 mb-5 scroll-mt-24'
-    >
-      {children}
-    </h2>
+    <div className='mb-5 scroll-mt-24' id={id}>
+      {/* A rule in the accent above each heading. Ten sections ran together
+          as one column of grey text with nothing between them; a chapter mark
+          is cheaper than a full divider and does not cut the page into
+          boxes. */}
+      <span
+        aria-hidden='true'
+        className='mb-3 block h-[3px] w-10 rounded-full bg-brand-600'
+      />
+      <h2 className='text-xl font-semibold text-neutral-100'>{children}</h2>
+    </div>
   );
 }
 
 function SubHeading({ children }: { children: React.ReactNode }) {
   return (
-    <h3 className='text-[14px] font-semibold text-neutral-200 mt-8 mb-3'>
+    <h3 className='mb-3 mt-8 flex items-center gap-2 text-[14px] font-semibold text-neutral-200'>
+      <span
+        aria-hidden='true'
+        className='h-3.5 w-[2px] flex-shrink-0 rounded-full bg-brand-600/60'
+      />
       {children}
     </h3>
   );
@@ -84,7 +93,7 @@ function P({ children }: { children: React.ReactNode }) {
 
 function Note({ children }: { children: React.ReactNode }) {
   return (
-    <div className='rounded-lg border border-brand-600/20 bg-brand-950/20 px-4 py-3 text-[12px] text-neutral-300 font-light leading-relaxed'>
+    <div className='rounded-lg border-l-[3px] border-brand-600/70 bg-brand-600/[0.07] px-4 py-3 text-[12px] font-light leading-relaxed text-neutral-300'>
       {children}
     </div>
   );
@@ -219,7 +228,11 @@ export default function DocsPage() {
       </aside>
 
       {/* ── Content ── */}
-      <div className='flex-1 min-w-0 space-y-16 pb-16 animate-fade-in'>
+      {/* ⚠️ `divide-y` RATHER THAN A BORDER ON EACH SECTION: the last section
+          would otherwise carry a rule with nothing under it, and the first
+          would need a special case. The rule sits in the line token, so it is
+          visible on paper — the hairline it replaces was 6% ink on white. */}
+      <div className='min-w-0 flex-1 animate-fade-in divide-y divide-line pb-16 [&>section]:py-12 [&>section:first-of-type]:pt-0'>
         {/* ⚠️ THE TABLE OF CONTENTS IS `hidden lg:block` ABOVE, AND THIS PAGE
             IS 25,000px TALL. Below `lg` that left a phone with one continuous
             scroll and no way to reach a section — the rail's own menu does
@@ -325,8 +338,16 @@ export default function DocsPage() {
                 },
               ].map(({ icon: Icon, title, desc }) => (
                 <div key={title} className='card p-4'>
-                  <div className='flex items-center gap-2 mb-2'>
-                    <Icon className='w-3.5 h-3.5 text-brand-600' />
+                  <div className='mb-2 flex items-center gap-2.5'>
+                    {/* The icon in a tinted chip rather than loose on the
+                        card. ⚠️ Still the accent, not four invented hues:
+                        green already means something specific in this product
+                        (verified, installed, selected), and a palette of
+                        decorative colours beside it makes every one of those
+                        meanings weaker. */}
+                    <span className='flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg bg-brand-600/[0.12]'>
+                      <Icon className='h-3.5 w-3.5 text-brand-600' />
+                    </span>
                     <span className='text-[13px] font-medium text-neutral-200'>
                       {title}
                     </span>

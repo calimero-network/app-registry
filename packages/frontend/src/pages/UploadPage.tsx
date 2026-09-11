@@ -111,11 +111,11 @@ export default function UploadPage() {
 
       {/* Upload & Publish */}
       <section className='card p-5'>
-        <div className='flex items-center gap-2.5 mb-4'>
-          <span className='flex-shrink-0 w-6 h-6 rounded-full bg-brand-600/10 text-brand-600 text-[11px] font-medium flex items-center justify-center'>
-            •
-          </span>
-          <Upload className='w-4 h-4 text-neutral-500' />
+        <div className='mb-4 flex items-center gap-2.5'>
+          {/* The bullet in a circle that used to sit here was the step number
+              from the walkthrough, left behind when the steps were removed —
+              a numbered marker for a sequence that no longer exists. */}
+          <Upload className='h-4 w-4 text-neutral-500' />
           <h2 className='text-[14px] font-medium text-neutral-200'>
             Publish new package
           </h2>
