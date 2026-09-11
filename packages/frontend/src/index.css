@@ -486,6 +486,33 @@ html {
   }
 }
 
+/*
+ * The preview tile's call to action, on a device that cannot hover.
+ *
+ * ⚠️ A HOVER-ONLY LABEL IS INVISIBLE ON A PHONE. The tile is a live frame of
+ * someone else's app with `pointer-events: none` over it, so without the
+ * label it is a picture with nothing to say it opens anything — and there is
+ * no hover to reveal it with. On a touch device the label sits on the tile
+ * permanently, as a band along the bottom rather than a scrim over the whole
+ * thing: the point of the tile is still to show the app.
+ *
+ * Keyed on the INPUT, not on the width. A narrow window on a laptop can still
+ * hover; a wide tablet cannot.
+ */
+@media (hover: none) {
+  .preview-cta {
+    opacity: 1;
+    background: linear-gradient(
+      to top,
+      rgb(0 0 0 / 0.58) 0%,
+      rgb(0 0 0 / 0.16) 30%,
+      transparent 56%
+    );
+    align-items: flex-end;
+    padding-bottom: 0.75rem;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

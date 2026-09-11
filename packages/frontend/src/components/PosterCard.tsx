@@ -76,12 +76,28 @@ export function PosterCard({
     <>
       <PosterArt variant={poster.art} palette={p} />
 
-      {/* The type sits on the artwork. A scrim from the left rather than a
-          solid band: the poster has to stay one image, and the words run
-          along the bottom-left where the compositions leave room. */}
+      {/* The type sits on the artwork. A scrim rather than a solid band: the
+          poster has to stay one image, and the words run along the
+          bottom-left where the compositions leave room.
+
+          ⚠️ TWO SCRIMS, BECAUSE THE SLIDE CHANGES SHAPE. A gradient running
+          left-to-right clears the artwork on a 21:9 desktop slide, where the
+          motif is a third of the way off to the right. On a phone the slide
+          is 4:3 and the same motif sits directly behind the body copy — the
+          laptop's dark keys read straight through the sentence. Below `sm`
+          the wash comes up from the bottom instead, which is where the type
+          actually is at that width. A CSS gradient cannot be varied by media
+          query from an inline style, hence two elements. */}
       <span
         aria-hidden='true'
-        className='absolute inset-0'
+        className='absolute inset-0 sm:hidden'
+        style={{
+          background: `linear-gradient(to top, ${p.from}fa 0%, ${p.from}f2 46%, ${p.from}a6 72%, ${p.from}1a 100%)`,
+        }}
+      />
+      <span
+        aria-hidden='true'
+        className='absolute inset-0 hidden sm:block'
         style={{
           background: `linear-gradient(100deg, ${p.from}f7 0%, ${p.from}d9 38%, ${p.from}40 68%, transparent 100%)`,
         }}

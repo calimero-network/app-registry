@@ -14,8 +14,20 @@ import { Search } from 'lucide-react';
  * at the edge and nothing can purge it, so Explore fetches the list once and
  * filters it in memory; a request per keystroke would buy nothing and hammer
  * a cache that cannot answer differently.
+ *
+ * ⚠️ `testId` EXISTS BECAUSE THIS RENDERS MORE THAN ONCE. Explore puts a copy
+ * in the page below `md`, where the rail is a drawer and the rail's box is
+ * behind a menu press. Two elements carrying `global-search` make every
+ * unscoped locator in the suite ambiguous, so the second instance is named
+ * for where it is.
  */
-export function GlobalSearch({ onNavigate }: { onNavigate?: () => void }) {
+export function GlobalSearch({
+  onNavigate,
+  testId = 'global-search',
+}: {
+  onNavigate?: () => void;
+  testId?: string;
+}) {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const [term, setTerm] = useState(params.get('q') ?? '');
@@ -52,7 +64,7 @@ export function GlobalSearch({ onNavigate }: { onNavigate?: () => void }) {
         onChange={e => setTerm(e.target.value)}
         placeholder='Search apps'
         aria-label='Search apps'
-        data-testid='global-search'
+        data-testid={testId}
         className='w-full rounded-lg border border-ink/[0.08] bg-ink/[0.03] py-1.5 pl-8 pr-2.5 text-[12.5px] text-neutral-200 placeholder:text-neutral-600 focus:border-brand-600/40 focus:outline-none focus:ring-1 focus:ring-brand-600/30'
       />
     </div>

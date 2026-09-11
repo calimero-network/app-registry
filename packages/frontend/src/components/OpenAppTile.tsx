@@ -81,7 +81,9 @@ export function OpenAppTile({ url, name }: { url: string; name: string }) {
       {!loaded && (
         <div className='absolute inset-0 animate-pulse bg-ink/[0.03]' />
       )}
-      <span className='absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-all duration-500 ease-out group-hover:bg-black/45 group-hover:opacity-100'>
+      {/* `preview-cta` is what makes this visible on a touch device, where
+          there is no hover to reveal it — see `index.css`. */}
+      <span className='preview-cta absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-all duration-500 ease-out group-hover:bg-black/45 group-hover:opacity-100'>
         <span className='inline-flex items-center gap-2 rounded-lg bg-black/75 px-4 py-2.5 text-[13px] font-medium text-white'>
           <ExternalLink className='h-4 w-4' aria-hidden='true' />
           View application on web

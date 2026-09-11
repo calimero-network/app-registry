@@ -9,6 +9,7 @@ import {
   Shield,
   Upload,
   GitBranch,
+  ChevronDown,
 } from 'lucide-react';
 
 const SECTIONS = [
@@ -141,6 +142,9 @@ function FieldList({
 
 export default function DocsPage() {
   const [activeSection, setActiveSection] = useState('introduction');
+  // The mobile table of contents. Closed by default: it is a jump list, not
+  // part of the page.
+  const [tocOpen, setTocOpen] = useState(false);
   const observerRef = useRef<IntersectionObserver | null>(null);
 
   useEffect(() => {
@@ -199,6 +203,49 @@ export default function DocsPage() {
 
       {/* ── Content ── */}
       <div className='flex-1 min-w-0 space-y-16 pb-16 animate-fade-in'>
+        {/* ⚠️ THE TABLE OF CONTENTS IS `hidden lg:block` ABOVE, AND THIS PAGE
+            IS 25,000px TALL. Below `lg` that left a phone with one continuous
+            scroll and no way to reach a section — the rail's own menu does
+            not list them. Same list, as a disclosure, so it costs one row
+            when it is not wanted. */}
+        <nav className='lg:hidden' aria-label='On this page'>
+          <button
+            type='button'
+            onClick={() => setTocOpen(v => !v)}
+            aria-expanded={tocOpen}
+            data-testid='docs-toc-toggle'
+            className='flex w-full items-center justify-between rounded-lg border border-ink/[0.08] bg-ink/[0.02] px-3.5 py-2.5 text-[13px] text-neutral-300'
+          >
+            On this page
+            <ChevronDown
+              className={`h-4 w-4 text-neutral-500 transition-transform duration-200 ${
+                tocOpen ? 'rotate-180' : ''
+              }`}
+              aria-hidden='true'
+            />
+          </button>
+          {tocOpen && (
+            <ul
+              data-testid='docs-toc'
+              className='mt-1.5 space-y-0.5 rounded-lg border border-ink/[0.08] bg-ink/[0.02] p-1.5'
+            >
+              {SECTIONS.map(({ id, label }) => (
+                <li key={id}>
+                  <a
+                    href={`#${id}`}
+                    // Closing on the way out: the list covers the top of the
+                    // page it just scrolled you to otherwise.
+                    onClick={() => setTocOpen(false)}
+                    className='block rounded-md px-3 py-2 text-[13px] text-neutral-400 transition-colors hover:bg-ink/[0.04] hover:text-neutral-200'
+                  >
+                    {label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
+        </nav>
+
         {/* ══════════════════════════════════════════
             INTRODUCTION
         ══════════════════════════════════════════ */}

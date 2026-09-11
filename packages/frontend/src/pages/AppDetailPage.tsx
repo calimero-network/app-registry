@@ -326,8 +326,16 @@ export default function AppDetailPage() {
         </p>
       )}
 
-      {/* Info grid */}
-      <div className='grid grid-cols-2 gap-3 md:grid-cols-4'>
+      {/* Info grid.
+          ⚠️ ONE COLUMN ON A PHONE. Two 168px cards at 360px left about 120px
+          for the value, and `calimero-network` — the author, which is the
+          whole point of the card — was cut through a glyph. These are short
+          facts; stacking them costs a little height and keeps every one of
+          them readable. */}
+      <div
+        data-testid='info-grid'
+        className='grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4'
+      >
         {meta?.author && (
           <InfoCard
             icon={User}
@@ -340,11 +348,16 @@ export default function AppDetailPage() {
         {meta?.license && (
           <InfoCard icon={Shield} label='License' value={meta.license} />
         )}
-        <InfoCard
-          icon={FileCode}
-          label='Manifest'
-          value={`v${bundle.version}`}
-        />
+        {/* Guarded: a bundle published before the manifest carried a version
+            has none, and the unguarded template rendered the string
+            "vundefined" on the page. */}
+        {bundle.version && (
+          <InfoCard
+            icon={FileCode}
+            label='Manifest'
+            value={`v${bundle.version}`}
+          />
+        )}
         {/* Source and docs sit with the other facts about the package rather
             than in a links block of their own — they are attributes of the
             app, the same as its version or licence. The live preview is the
@@ -374,8 +387,11 @@ export default function AppDetailPage() {
         </section>
       )}
 
-      {/* Organization */}
-      {linkedOrg && (
+      {/* Organization.
+          On `name`, not on the object: the lookup answers with a body either
+          way, and an org without one rendered as a heading over an empty row
+          with an arrow at the end of it. */}
+      {linkedOrg?.name && (
         <div className='card p-4'>
           <p className='section-heading mb-3'>Organization</p>
           <Link
@@ -777,8 +793,12 @@ function InfoCard({
       <Icon className='w-3.5 h-3.5 text-neutral-500 flex-shrink-0' />
       <div className='min-w-0'>
         <p className='text-[11px] text-neutral-500'>{label}</p>
-        <p className='text-[13px] text-neutral-200 font-light truncate flex items-center gap-1'>
-          {value}
+        {/* ⚠️ `truncate` GOES ON THE TEXT, NOT ON THE ROW. The row is a flex
+            container, and `text-overflow` does nothing on one — the value was
+            clipped mid-glyph with no ellipsis, so it read as a rendering
+            fault rather than as truncation. */}
+        <p className='flex items-center gap-1 text-[13px] font-light text-neutral-200'>
+          <span className='truncate'>{value}</span>
           {verified && (
             <BadgeCheck className='h-3.5 w-3.5 flex-shrink-0 text-emerald-400' />
           )}

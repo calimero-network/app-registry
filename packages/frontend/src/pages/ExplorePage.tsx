@@ -4,6 +4,7 @@ import { useSearchParams } from 'react-router-dom';
 import { Package, X } from 'lucide-react';
 import { getApps } from '@/lib/api';
 import { AppCard } from '@/components/AppCard';
+import { GlobalSearch } from '@/components/GlobalSearch';
 import { formatCategory } from '@/lib/utils';
 import { CATEGORIES, type AppSummary } from '@/types/api';
 
@@ -119,6 +120,15 @@ export default function ExplorePage() {
           Every application published to the registry.
         </p>
       </header>
+
+      {/* Search, on the page, below `md` only.
+          Above it the same box is in the rail, two inches away and always
+          visible. Below it the rail is a drawer, so searching the registry
+          from the page whose entire job is searching the registry took a
+          menu press first — nothing on screen said search existed. */}
+      <div className='md:hidden'>
+        <GlobalSearch testId='explore-search' />
+      </div>
 
       {available.length > 0 && (
         <div

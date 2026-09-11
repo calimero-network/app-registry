@@ -184,20 +184,26 @@ export default function HomePage() {
                 Set large, bold and in the display face — it is the headline
                 for the animation above it, not a caption under a figure. Two
                 absolutely-positioned lines in a fixed-height box, so the panel
-                does not resize as they swap; the box is two lines tall, which
-                is what the longer line wraps to at every width the panel has.
+                does not resize as they swap.
+
+                ⚠️ THE HEIGHT IS PER-BREAKPOINT BECAUSE THE WRAP IS. Two lines
+                is what these sentences take from `sm` up; at 360px they take
+                four, and a box sized for the desktop wrap clipped the last
+                line through the middle of its glyphs — the overflow is
+                hidden, so it looked like a rendering fault rather than a
+                height that was too small.
 
                 Reduced motion lands on the base styles — line one visible,
                 line two hidden — rather than on an empty box. */}
-            <div className='relative mx-auto mt-6 h-[4.6rem] w-full max-w-3xl overflow-hidden sm:h-[4.9rem]'>
+            <div className='relative mx-auto mt-6 h-[6.2rem] w-full max-w-3xl overflow-hidden sm:h-[4.9rem]'>
               <p
                 data-testid='hero-caption'
-                className='hero-line hero-line-a absolute inset-x-0 top-0 font-display text-[21px] font-bold leading-snug tracking-tight text-neutral-100 sm:text-[27px]'
+                className='hero-line hero-line-a absolute inset-x-0 top-0 font-display text-[18px] font-bold leading-snug tracking-tight text-neutral-100 sm:text-[27px]'
               >
                 Download Calimero Desktop and install applications from the
                 marketplace.
               </p>
-              <p className='hero-line hero-line-b absolute inset-x-0 top-0 font-display text-[21px] font-bold leading-snug tracking-tight text-neutral-100 sm:text-[27px]'>
+              <p className='hero-line hero-line-b absolute inset-x-0 top-0 font-display text-[18px] font-bold leading-snug tracking-tight text-neutral-100 sm:text-[27px]'>
                 Open the installed application and use it peer-to-peer, fully
                 encrypted.
               </p>
