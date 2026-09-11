@@ -94,7 +94,11 @@ export function AppCard({
             <span className='truncate text-neutral-400'>
               {app.developer?.display_name || app.developer_pubkey}
             </span>
-            {app.verified && <VerifiedMark label='Verified author' />}
+            {/* ⚠️ The AUTHOR's badge reads the publisher's field. Both marks
+                used to read `app.verified`, so a single value was making two
+                different claims — and after the split it would have put a
+                package's approval next to a person's name. */}
+            {app.publisherVerified && <VerifiedMark label='Verified author' />}
           </span>
           {when && (
             <>

@@ -2,7 +2,24 @@
  * Shared bundle sanitization for the Fastify server and the Vercel bundle APIs.
  * Single source of truth: api/lib/bundle-sanitize.js used to be a hand-synced
  * copy of this file, and both are now served from here.
- * Strips internal metadata, normalizes min version fields, computes `verified`.
+ * Strips internal metadata, normalizes min version fields, and computes the
+ * TWO verification signals.
+ *
+ * ⚠️ `verified` AND `publisherVerified` ARE DIFFERENT CLAIMS, and they used to
+ * be one field. The old `verified` was true when ANY of these held: an admin
+ * had approved the package, the owner's email ended in `@calimero.network`,
+ * or the owner's account was verified. Because every live publisher is on
+ * `@calimero.network`, that made all 21 bundles verified — so the badge said
+ * nothing and "show verified apps only" would have hidden nothing.
+ *
+ *   `verified`          — an admin approved THIS PACKAGE. Nothing else sets
+ *                         it. A package can be verified whether or not its
+ *                         publisher is, which is the whole point: the review
+ *                         is of the package, its metadata and its pictures.
+ *   `publisherVerified` — the person. Still the domain test for now, plus an
+ *                         explicitly verified account. It decides the badge
+ *                         next to the AUTHOR, and never the one on the
+ *                         package.
  *
  * @param {object} kv - KV client with async get(key)
  */
@@ -53,31 +70,34 @@ function createBundleSanitizers(kv) {
     delete meta._ownerEmail;
     delete meta._adminVerified;
 
-    let verified = hadAdminVerified;
     const pkg = packageName || bundle.package;
 
+    // The package. An explicit decision and nothing else — `_adminVerified` is
+    // the stamp the admin route writes onto the manifest, and the key is the
+    // same decision in KV.
+    let verified = hadAdminVerified;
     if (!verified && pkg) {
       const pkgKey = await kv.get(`admin_verified:package:${pkg}`);
       if (pkgKey === '1') verified = true;
     }
-    if (!verified && ownerEmail.endsWith('@calimero.network')) {
-      verified = true;
-    }
-    if (!verified && ownerEmail) {
+
+    // The publisher. Independent: a package by an unverified publisher can be
+    // verified, and a verified publisher's new package is not.
+    let publisherVerified = ownerEmail.endsWith('@calimero.network');
+    if (!publisherVerified && ownerEmail) {
       const userId = await kv.get(`email2user:${ownerEmail}`);
       if (userId) {
         const userRaw = await kv.get(`user:${userId}`);
         if (userRaw) {
           try {
-            const user = JSON.parse(userRaw);
-            if (user.verified) verified = true;
+            if (JSON.parse(userRaw).verified) publisherVerified = true;
           } catch {
             /* skip */
           }
         }
-        if (!verified) {
+        if (!publisherVerified) {
           const adminVerified = await kv.get(`admin_verified:user:${userId}`);
-          if (adminVerified === '1') verified = true;
+          if (adminVerified === '1') publisherVerified = true;
         }
       }
     }
@@ -88,6 +108,7 @@ function createBundleSanitizers(kv) {
       min_runtime_version: minRuntimeVersion,
       minRuntimeVersion,
       verified,
+      publisherVerified,
       ...exposeServerStamped(bundle),
     };
   }
@@ -172,16 +193,20 @@ function createBundleSanitizers(kv) {
         hadAdminVerified,
         minRuntimeVersion,
       }) => {
-        let verified = hadAdminVerified;
         const pkg = packageName || bundle.package;
+        // ⚠️ The same two rules as the single path, and they must stay the
+        // same two: bundle-listing-parity.test.js exists because these
+        // diverged once already.
+        let verified = hadAdminVerified;
         if (!verified && pkgVerifiedMap[pkg]) verified = true;
-        if (!verified && ownerEmail.endsWith('@calimero.network'))
-          verified = true;
-        if (!verified && ownerEmail) {
+
+        let publisherVerified = ownerEmail.endsWith('@calimero.network');
+        if (!publisherVerified && ownerEmail) {
           const userId = emailToUserId[ownerEmail];
           if (userId) {
-            if (userMap[userId]?.verified) verified = true;
-            if (!verified && userAdminVerifiedMap[userId]) verified = true;
+            if (userMap[userId]?.verified) publisherVerified = true;
+            if (!publisherVerified && userAdminVerifiedMap[userId])
+              publisherVerified = true;
           }
         }
         return {
@@ -190,6 +215,7 @@ function createBundleSanitizers(kv) {
           min_runtime_version: minRuntimeVersion,
           minRuntimeVersion,
           verified,
+          publisherVerified,
           ...exposeServerStamped(bundle),
         };
       }

@@ -1,10 +1,18 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ImageOff, Trash2, Pencil, EyeOff } from 'lucide-react';
+import {
+  ImageOff,
+  Trash2,
+  Pencil,
+  EyeOff,
+  ChevronLeft,
+  ChevronRight,
+} from 'lucide-react';
 import {
   getPackageAssets,
   uploadPackageAsset,
   deletePackageAsset,
+  reorderPackageAssets,
   type PackageAsset,
 } from '@/lib/api';
 import { useToast } from './Toast';
@@ -51,6 +59,35 @@ export function AppPreview({
     },
     onSettled: () => setBusy(false),
   });
+
+  /**
+   * Order and captions, both through the one PATCH the API already had.
+   *
+   * ⚠️ THE ENDPOINT TAKES THE WHOLE LIST, and anything omitted keeps its
+   * relative position at the end rather than being deleted — so a partial
+   * request silently reorders. Every call here sends every asset.
+   */
+  const arrange = useMutation({
+    mutationFn: (next: PackageAsset[]) =>
+      reorderPackageAssets(
+        pkg,
+        next.map(a => ({ id: a.id, alt: a.alt }))
+      ),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['assets', pkg] }),
+    onError: () => notify('Could not save that change.', 'error'),
+  });
+
+  const move = (id: string, delta: number) => {
+    const from = assets.findIndex(a => a.id === id);
+    const to = from + delta;
+    if (from < 0 || to < 0 || to >= assets.length) return;
+    const next = [...assets];
+    [next[from], next[to]] = [next[to], next[from]];
+    arrange.mutate(next);
+  };
+
+  const caption = (id: string, alt: string) =>
+    arrange.mutate(assets.map(a => (a.id === id ? { ...a, alt } : a)));
 
   const remove = useMutation({
     mutationFn: (id: string) => deletePackageAsset(pkg, id),
@@ -130,12 +167,16 @@ export function AppPreview({
         </div>
       ) : (
         <div className='flex gap-3 overflow-x-auto pb-2'>
-          {assets.map(a => (
+          {assets.map((a, i) => (
             <AssetTile
               key={a.id}
               asset={a}
               canEdit={canEdit}
+              first={i === 0}
+              last={i === assets.length - 1}
               onRemove={() => remove.mutate(a.id)}
+              onMove={delta => move(a.id, delta)}
+              onCaption={alt => caption(a.id, alt)}
             />
           ))}
         </div>
@@ -147,38 +188,95 @@ export function AppPreview({
 function AssetTile({
   asset,
   canEdit,
+  first,
+  last,
   onRemove,
+  onMove,
+  onCaption,
 }: {
   asset: PackageAsset;
   canEdit: boolean;
+  first: boolean;
+  last: boolean;
   onRemove: () => void;
+  onMove: (delta: number) => void;
+  onCaption: (alt: string) => void;
 }) {
   return (
-    <div className='group relative h-44 flex-shrink-0'>
-      {asset.kind === 'video' ? (
-        <video
-          src={asset.url}
-          controls
-          preload='metadata'
-          className='h-44 rounded-xl border border-line'
+    <div className='group relative flex-shrink-0'>
+      <div className='relative h-44'>
+        {asset.kind === 'video' ? (
+          <video
+            src={asset.url}
+            controls
+            preload='metadata'
+            className='h-44 rounded-xl border border-line'
+          />
+        ) : (
+          <img
+            src={asset.url}
+            alt={asset.alt}
+            loading='lazy'
+            decoding='async'
+            className='h-44 rounded-xl border border-line object-cover'
+          />
+        )}
+        {canEdit && (
+          <>
+            <button
+              onClick={onRemove}
+              aria-label='Remove this file'
+              className='absolute right-2 top-2 rounded-md bg-black/70 p-1.5 text-neutral-300 opacity-0 transition-opacity hover:text-red-400 group-hover:opacity-100 focus-visible:opacity-100'
+            >
+              <Trash2 className='h-3.5 w-3.5' />
+            </button>
+
+            {/* Order. Buttons rather than drag-and-drop: the first screenshot
+              is the one the home page and the card use, so "make this one
+              first" is the whole job, and a drag target is unreachable from a
+              keyboard and awkward on a phone. */}
+            <div className='absolute bottom-2 left-2 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100'>
+              <button
+                onClick={() => onMove(-1)}
+                disabled={first}
+                aria-label='Move earlier'
+                className='rounded-md bg-black/70 p-1.5 text-neutral-300 transition-colors hover:text-white disabled:opacity-30'
+              >
+                <ChevronLeft className='h-3.5 w-3.5' />
+              </button>
+              <button
+                onClick={() => onMove(1)}
+                disabled={last}
+                aria-label='Move later'
+                className='rounded-md bg-black/70 p-1.5 text-neutral-300 transition-colors hover:text-white disabled:opacity-30'
+              >
+                <ChevronRight className='h-3.5 w-3.5' />
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Alt text. ⚠️ It is saved on BLUR, not per keystroke: the PATCH
+          rewrites the whole index, so a request per character would be a
+          request per character against a Redis write. */}
+      {canEdit ? (
+        <input
+          defaultValue={asset.alt}
+          onBlur={e => {
+            if (e.target.value !== asset.alt) onCaption(e.target.value);
+          }}
+          placeholder='Describe this image'
+          aria-label='Alt text'
+          data-testid='asset-alt'
+          className='input mt-1.5 h-7 w-full max-w-[18rem] text-[11.5px]'
         />
       ) : (
-        <img
-          src={asset.url}
-          alt={asset.alt}
-          loading='lazy'
-          decoding='async'
-          className='h-44 rounded-xl border border-line object-cover'
-        />
-      )}
-      {canEdit && (
-        <button
-          onClick={onRemove}
-          aria-label='Remove this file'
-          className='absolute right-2 top-2 rounded-md bg-black/70 p-1.5 text-neutral-300 opacity-0 transition-opacity hover:text-red-400 group-hover:opacity-100 focus-visible:opacity-100'
-        >
-          <Trash2 className='h-3.5 w-3.5' />
-        </button>
+        asset.alt && (
+          <p className='mt-1.5 max-w-[18rem] truncate text-[11.5px] text-neutral-500'>
+            {asset.alt}
+          </p>
+        )
       )}
     </div>
   );

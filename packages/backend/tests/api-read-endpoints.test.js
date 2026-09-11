@@ -267,7 +267,7 @@ describe('listing sanitization', () => {
     expect(res.body[0].verified).toBe(true);
   });
 
-  test('a calimero.network owner is marked verified', async () => {
+  test('a calimero.network owner verifies the PUBLISHER, not the package', async () => {
     sets.set('bundles:all', new Set(['com.a.one']));
     sets.set('bundle-versions:com.a.one', new Set(['1.0.0']));
     store.set(
@@ -285,8 +285,40 @@ describe('listing sanitization', () => {
     const res = makeRes();
     await listHandler({ method: 'GET', query: {}, headers: {} }, res);
 
-    expect(res.body[0].verified).toBe(true);
+    // ⚠️ INVERTED DELIBERATELY. This used to assert `verified: true` off the
+    // owner's email domain, which is what made all 21 live bundles verified
+    // and the badge meaningless — "show verified apps only" would have hidden
+    // nothing. `verified` is now the admin's decision about THE PACKAGE and
+    // nothing else; the domain test survives as `publisherVerified`, which is
+    // the badge next to the author.
+    expect(res.body[0].verified).toBe(false);
+    expect(res.body[0].publisherVerified).toBe(true);
     expect(res.body[0].metadata._ownerEmail).toBeUndefined();
+  });
+
+  test('an admin decision verifies the package, whoever published it', async () => {
+    // The other half of the split: a package by a publisher nobody has
+    // verified can still be a verified package.
+    sets.set('bundles:all', new Set(['com.b.two']));
+    sets.set('bundle-versions:com.b.two', new Set(['1.0.0']));
+    store.set(
+      'bundle:com.b.two/1.0.0',
+      JSON.stringify({
+        json: {
+          package: 'com.b.two',
+          appVersion: '1.0.0',
+          metadata: { author: 'bob', _ownerEmail: 'bob@example.com' },
+        },
+        created_at: '2026-01-01T00:00:00.000Z',
+      })
+    );
+    store.set('admin_verified:package:com.b.two', '1');
+
+    const res = makeRes();
+    await listHandler({ method: 'GET', query: {}, headers: {} }, res);
+
+    expect(res.body[0].verified).toBe(true);
+    expect(res.body[0].publisherVerified).toBe(false);
   });
 
   test('an unknown owner is not verified', async () => {

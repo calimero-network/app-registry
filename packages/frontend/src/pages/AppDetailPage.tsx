@@ -39,7 +39,10 @@ interface V2Bundle {
   version: string;
   package: string;
   appVersion: string;
+  /** An admin approved THIS PACKAGE. Not the publisher — see below. */
   verified?: boolean;
+  /** The person: a verified account or a calimero.network address. */
+  publisherVerified?: boolean;
   yanked?: boolean;
   metadata?: {
     name?: string;
@@ -217,7 +220,10 @@ export default function AppDetailPage() {
   const abi = bundle.abi;
   const sig = bundle.signature;
   const ifaces = bundle.interfaces;
-  const authorVerified = !!bundle.verified;
+  // Two claims, two fields. `verified` is the admin's decision about the
+  // package; `publisherVerified` is about the person who published it.
+  const packageVerified = !!bundle.verified;
+  const authorVerified = !!bundle.publisherVerified;
   // Ownership: author is now stored as username; fallback for legacy bundles where author was email
   const bundleAuthor = meta?.author ?? '';
   const isOwner =
@@ -289,7 +295,10 @@ export default function AppDetailPage() {
               while this is the identifier that gets installed. */}
           <p className='flex items-center gap-1.5 font-mono text-[12px] text-neutral-500'>
             {bundle.package}
-            {authorVerified && (
+            {/* The PACKAGE's mark, on the identifier that actually gets
+                installed — this one is the admin's decision, not the
+                publisher's domain. */}
+            {packageVerified && (
               <BadgeCheck
                 className='h-3.5 w-3.5 flex-shrink-0 text-emerald-400'
                 aria-label='Verified package'

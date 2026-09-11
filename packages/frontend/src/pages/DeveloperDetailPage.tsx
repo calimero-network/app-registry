@@ -8,7 +8,10 @@ interface V2Bundle {
   version: string;
   package: string;
   appVersion: string;
+  /** An admin approved THIS PACKAGE. Not the publisher — see below. */
   verified?: boolean;
+  /** The person: a verified account or a calimero.network address. */
+  publisherVerified?: boolean;
   metadata?: {
     name?: string;
     description?: string;
