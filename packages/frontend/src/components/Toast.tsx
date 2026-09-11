@@ -87,18 +87,25 @@ function ToastRow({
     return () => clearTimeout(id);
   }, [toast.kind, onDismiss]);
 
+  // ⚠️ ONE OF THESE THREE INVERTED WITH THE THEME AND TWO DID NOT.
+  // `bg-neutral-900` goes through the themed scale, so the info toast turned
+  // near-WHITE in light mode, while `red-950`/`emerald-950` are literal dark
+  // palette values that stayed near-black — two toasts from the same stack
+  // rendering as opposite colours. All three now tint a themed surface, so
+  // they carry their meaning in the border and the ink and agree on the
+  // ground they sit on.
   const tone =
     toast.kind === 'error'
-      ? 'border-red-800/50 bg-red-950/80 text-red-200'
+      ? 'border-red-500/50 text-red-500'
       : toast.kind === 'success'
-        ? 'border-emerald-800/50 bg-emerald-950/80 text-emerald-200'
-        : 'border-line-strong bg-neutral-900/90 text-neutral-200';
+        ? 'border-emerald-500/50 text-emerald-600'
+        : 'border-line-strong text-neutral-200';
 
   return (
     <div
       role={toast.kind === 'error' ? 'alert' : 'status'}
       data-testid='toast'
-      className={`pointer-events-auto flex items-start gap-3 rounded-lg border px-3.5 py-2.5 text-[12.5px] shadow-xl backdrop-blur ${tone}`}
+      className={`menu-panel pointer-events-auto flex items-start gap-3 border px-3.5 py-2.5 text-[12.5px] backdrop-blur ${tone}`}
     >
       <span className='flex-1'>{toast.message}</span>
       <button
