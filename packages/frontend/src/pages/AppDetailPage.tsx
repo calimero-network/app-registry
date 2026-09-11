@@ -233,12 +233,24 @@ export default function AppDetailPage() {
         m => m.email.toLowerCase() === userEmailLower
       )?.role ?? null)
     : null;
-  const isOrgMember = orgRole !== null;
-  const canEdit = isOwner || isOrgMember;
-  // Deleting and yanking are org-administrative, not merely org-membership:
-  // they must line up with canManagePackage() on the API side.
   const isOrgManager = orgRole === 'owner' || orgRole === 'admin';
+
+  /**
+   * ⚠️ ONE RULE, AND IT IS THE SERVER'S.
+   *
+   * `canManagePackage` in shared/package-permissions.js is: the package's
+   * author, an admin or owner of the organization it belongs to, or a site
+   * admin. Every route that edits a package — the metadata PATCH, the asset
+   * upload, delete, yank — asks exactly that.
+   *
+   * This page used to compute `isOwner || isOrgMember` for editing, which was
+   * wrong in BOTH directions: it offered the controls to a plain org member,
+   * who gets a 403 the moment they use them, and it hid them from a site
+   * admin, who is allowed. An affordance that does not match the rule behind
+   * it is worse than no affordance — it either lies or withholds.
+   */
   const canManagePackage = isOwner || isOrgManager || !!user?.isAdmin;
+  const canEdit = canManagePackage;
 
   return (
     <div className='space-y-6'>
@@ -535,9 +547,12 @@ export default function AppDetailPage() {
                   (vAuthor.includes('@') &&
                     !user.username &&
                     vAuthor === user.email));
-              const canEditVersion = isVersionOwner || isOrgMember;
+              // Same rule as above, per version: the server asks
+              // `canManagePackage` for the metadata PATCH too, so editing and
+              // managing a version are the same permission.
               const canManageVersion =
                 isVersionOwner || isOrgManager || !!user?.isAdmin;
+              const canEditVersion = canManageVersion;
               const isConfirmingThisVersion =
                 confirmDeleteVersion === b.appVersion;
               return (

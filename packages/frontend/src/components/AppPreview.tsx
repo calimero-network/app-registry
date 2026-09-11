@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ImageOff, Trash2, Upload as UploadIcon, EyeOff } from 'lucide-react';
+import { ImageOff, Trash2, Pencil, EyeOff } from 'lucide-react';
 import {
   getPackageAssets,
   uploadPackageAsset,
@@ -74,16 +74,31 @@ export function AppPreview({
     <section data-testid='app-preview' aria-label='Preview'>
       <div className='mb-3 flex items-center justify-between'>
         <p className='section-heading'>Preview</p>
+        {/* An edit affordance, in the same shape and place as the "Edit
+            metadata" pencil in the header — editing a package's pictures and
+            editing its name are the same job, done by the same people, and
+            they were two different-looking controls.
+
+            ⚠️ It is a <label> wrapping a hidden file input, NOT a button. A
+            file picker can only be opened by a real user gesture on an
+            `<input type=file>`; routing the click through a button and
+            calling `.click()` on the input works today and is the first thing
+            a stricter browser policy breaks. */}
         {canEdit && (
-          <label className='inline-flex cursor-pointer items-center gap-1.5 text-[12px] text-neutral-400 transition-colors hover:text-neutral-200'>
-            <UploadIcon className='h-3.5 w-3.5' aria-hidden='true' />
-            {busy ? 'Uploading…' : 'Add image or video'}
+          <label
+            data-testid='asset-edit'
+            title='Add an image or video'
+            className='inline-flex cursor-pointer items-center gap-1.5 rounded-md px-2 py-1 text-[12px] text-neutral-400 transition-colors hover:bg-ink/[0.04] hover:text-neutral-200'
+          >
+            <Pencil className='h-3.5 w-3.5' aria-hidden='true' />
+            {busy ? 'Uploading…' : 'Edit'}
             <input
               type='file'
               accept='image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm'
               className='sr-only'
               onChange={onPick}
               disabled={busy}
+              aria-label='Add an image or video to the preview'
               data-testid='asset-input'
             />
           </label>
