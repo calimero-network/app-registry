@@ -7,7 +7,9 @@ import { ToastProvider } from '@/components/Toast';
 import { applyTheme, getStoredTheme } from '@/components/ThemeToggle';
 
 // Before render, not in an effect: applying the theme after mount paints one
-// dark frame first, which reads as a flash on every load in light mode.
+// frame in the wrong palette first, which reads as a flash on every load.
+// index.html already stamps the default; this is what honours a stored
+// choice, and it has to run before React paints anything.
 applyTheme(getStoredTheme());
 import App from './App';
 import './index.css';

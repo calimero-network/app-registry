@@ -227,16 +227,25 @@ test.describe('sign in', () => {
 });
 
 test.describe('light / dark', () => {
-  // With no stored choice the app follows the OS, and Playwright emulates a
-  // LIGHT preference by default — so pin dark here, or "click the toggle and
-  // expect light" is testing the wrong direction.
+  // ⚠️ THE OS PREFERENCE IS EMULATED AS DARK HERE ON PURPOSE. Light is the
+  // default whatever the desktop says, and Playwright emulates LIGHT by
+  // default — so a suite that left it alone would pass against a build that
+  // still followed the OS.
   test.use({ colorScheme: 'dark' });
 
-  test('follows the OS when the visitor has expressed no preference', async ({
-    page,
-  }) => {
+  test('opens in light mode even on a dark desktop', async ({ page }) => {
     await page.goto('/');
-    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+  });
+
+  test('the first paint is light, before any script runs', async ({ page }) => {
+    // The base palette in index.css is the DARK one — light is an override
+    // on `[data-theme='light']`. Applying that from the module only means the
+    // browser paints a dark ground first and swaps it, on every load. The
+    // attribute is in the served HTML, so read the markup rather than the
+    // DOM, which would show whatever JavaScript did to it afterwards.
+    const res = await page.request.get('/');
+    expect(await res.text()).toContain('<html lang="en" data-theme="light">');
   });
 
   test('the toggle flips the theme and survives a reload', async ({ page }) => {
@@ -245,10 +254,14 @@ test.describe('light / dark', () => {
     await expect(toggle).toBeVisible();
 
     await toggle.click();
-    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
 
     await page.reload();
-    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+
+    // And a stored choice still beats the default on a fresh load.
+    await page.goto('/explore');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
   });
 
   test('light mode actually inverts the ground and the text', async ({
@@ -272,10 +285,12 @@ test.describe('light / dark', () => {
         };
       });
 
-    const dark = await read();
-    await page.getByTestId('theme-toggle').click();
-    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+    // Light is where the app starts now, so this reads light first and
+    // toggles INTO dark; the comparison is the same either way.
     const light = await read();
+    await page.getByTestId('theme-toggle').click();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+    const dark = await read();
 
     expect(light.body).not.toBe(dark.body);
     // `text-neutral-100` means "most prominent text". In light mode it must
@@ -294,8 +309,8 @@ test.describe('light / dark', () => {
     page,
   }) => {
     // #a5ff11 on white is about 1.4:1. It has to become the deep green.
+    // No toggle press: light is already what the page opens in.
     await page.goto('/');
-    await page.getByTestId('theme-toggle').click();
     const accent = await page.evaluate(() =>
       getComputedStyle(document.documentElement)
         .getPropertyValue('--accent-text-rgb')

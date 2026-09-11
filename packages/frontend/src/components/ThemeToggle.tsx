@@ -8,6 +8,13 @@ import { useCallback, useEffect, useState } from 'react';
  * it, and the choice persisted in localStorage. Two Calimero products with
  * two different theme mechanisms is how palettes drift apart.
  *
+ * ⚠️ LIGHT IS THE DEFAULT, AND `prefers-color-scheme` IS NOT CONSULTED.
+ * It used to follow the OS, which means a visitor on a dark desktop never saw
+ * the light design however it was described as the default — in practice
+ * `prefers-color-scheme` resolves to light or dark for everyone, so honouring
+ * it and having a default are the same decision made twice. A stored choice
+ * still wins over everything; the toggle is the way to dark.
+ *
  * The palette itself lives in index.css. The important part there is that the
  * neutral scale is INVERTED rather than lightened — `text-neutral-100` means
  * "most prominent text" throughout this app, so in light mode it has to be
@@ -19,17 +26,17 @@ export type ThemeMode = 'light' | 'dark';
 
 const STORAGE_KEY = 'registry:theme';
 
+export const DEFAULT_THEME: ThemeMode = 'light';
+
 export function getStoredTheme(): ThemeMode {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored === 'light' || stored === 'dark') return stored;
-    // No stored choice: follow the OS rather than assuming. Someone on a
-    // light desktop should not be handed a dark page they never asked for.
-    return window.matchMedia?.('(prefers-color-scheme: light)').matches
-      ? 'light'
-      : 'dark';
+    return DEFAULT_THEME;
   } catch {
-    return 'dark';
+    // Private browsing: no stored choice is readable, so this is the default
+    // path rather than an error path.
+    return DEFAULT_THEME;
   }
 }
 

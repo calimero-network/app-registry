@@ -1,5 +1,15 @@
 <!doctype html>
-<html lang="en">
+<!--
+      `data-theme="light"` is stamped here, not only from JavaScript.
+
+      ⚠️ THE BASE PALETTE IN index.css IS THE DARK ONE — light is the
+      `:root[data-theme='light']` override. The stylesheet is a <link> in the
+      head, so without this attribute the browser paints a dark ground for
+      every load before the module runs and swaps it. main.tsx still applies
+      the real value before render; this only makes the DEFAULT case the one
+      that never flashes.
+    -->
+<html lang="en" data-theme="light">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="/favicon.png" />
