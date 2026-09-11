@@ -345,6 +345,34 @@ html {
 }
 
 /*
+ * The laptop's entrance.
+ *
+ * It fades up from transparent and lands with a small overshoot — the
+ * `cubic-bezier(0.34, 1.56, 0.64, 1)` is what makes it a jump rather than a
+ * slide. Once only, on mount; the loop inside the SVG carries it from there.
+ *
+ * `both` matters: without a fill mode the device would sit at opacity 0 until
+ * the animation started and snap back to its declared styles afterwards. It
+ * is also what makes the reduced-motion case correct — the animation is cut
+ * to nothing, and `both` leaves the element at the final keyframe, which is
+ * the fully visible one.
+ */
+@keyframes hero-enter {
+  from {
+    opacity: 0;
+    transform: translateY(22px) scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.hero-device {
+  animation: hero-enter 900ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/*
  * The two hero captions.
  *
  * 18s to the cycle, matching LOOP in HeroGraphic: the first line covers the

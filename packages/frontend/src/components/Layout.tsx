@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { ScrollToTop } from './ScrollToTop';
 import { Menu, X } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { navigation } from '@/constants/navigation';
@@ -120,6 +121,8 @@ export function Layout({ children }: LayoutProps) {
 
   return (
     <div className='min-h-screen'>
+      <ScrollToTop />
+
       {/* ── Rail (md and up) ── */}
       <aside
         data-testid='sidebar'

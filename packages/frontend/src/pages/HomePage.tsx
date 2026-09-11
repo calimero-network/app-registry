@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { PosterCard, type Poster } from '@/components/PosterCard';
+import { PosterGallery } from '@/components/PosterGallery';
+import { type Poster } from '@/components/PosterCard';
 import { getApps } from '@/lib/api';
 import { AppCard } from '@/components/AppCard';
 import { ShowcaseCard } from '@/components/ShowcaseCard';
@@ -42,6 +43,8 @@ const POSTERS: Poster[] = [
     eyebrow: 'Run apps locally',
     title: 'Get Calimero Desktop',
     body: 'A node and an app launcher on your own machine. Install anything here in one click.',
+    chips: ['macOS', 'Windows', 'Linux'],
+    cta: 'Download',
     href: 'https://calimero.network/download',
   },
   {
@@ -49,6 +52,8 @@ const POSTERS: Poster[] = [
     eyebrow: 'Learn',
     title: 'Documentation',
     body: 'From an empty directory to a signed bundle published here.',
+    chips: ['Quickstart', 'SDKs', 'CLI reference'],
+    cta: 'Read the docs',
     href: 'https://docs.calimero.network',
   },
   {
@@ -56,6 +61,8 @@ const POSTERS: Poster[] = [
     eyebrow: 'Ship yours',
     title: 'Publish an app',
     body: 'Build with cargo mero, sign the bundle, push it to the registry.',
+    chips: ['Build', 'Sign', 'Push'],
+    cta: 'How publishing works',
     href: '/docs',
     internal: true,
   },
@@ -64,6 +71,8 @@ const POSTERS: Poster[] = [
     eyebrow: 'Browse',
     title: 'Every published app',
     body: 'The whole registry, filtered by category and searchable by name.',
+    chips: ['Games', 'Productivity', 'Social'],
+    cta: 'Browse the registry',
     href: '/explore',
     internal: true,
   },
@@ -72,6 +81,8 @@ const POSTERS: Poster[] = [
     eyebrow: 'Peer to peer',
     title: 'Calimero on GitHub',
     body: 'The node, the SDKs and this registry — all of it in the open.',
+    chips: ['core', 'SDKs', 'app-registry'],
+    cta: 'Open GitHub',
     href: 'https://github.com/calimero-network',
   },
 ];
@@ -144,7 +155,10 @@ export default function HomePage() {
               fogs the screen it is supposed to be lighting. They breathe on a
               long, offset cycle so the panel looks lit rather than static —
               opacity only, so it stays on the compositor. */}
-          <div aria-hidden='true' className='pointer-events-none absolute inset-0 z-0'>
+          <div
+            aria-hidden='true'
+            className='pointer-events-none absolute inset-0 z-0'
+          >
             <div
               className='hero-lamp absolute -top-32 left-[18%] h-[26rem] w-[26rem] rounded-full blur-3xl'
               style={{ background: 'var(--hero-glow)' }}
@@ -155,10 +169,12 @@ export default function HomePage() {
             />
           </div>
 
-          <div className='relative z-10 px-4 pb-7 pt-9 sm:px-6 sm:pb-9 sm:pt-12'>
-            {/* Smaller than the panel it sits in, and centred: the frame
-                around it is what makes it read as a device on a desk. */}
-            <div className='mx-auto aspect-[960/560] w-full max-w-xl'>
+          <div className='relative z-10 px-5 pb-8 pt-8 sm:px-8 sm:pb-9 sm:pt-9'>
+            {/* Wide enough to carry the panel. The first pass drew it at
+                `max-w-xl`, which left a third of the box empty on either side
+                and made the whole section read as padding with a picture in
+                it. */}
+            <div className='hero-device mx-auto aspect-[960/560] w-full max-w-3xl'>
               <HeroGraphic />
             </div>
 
@@ -168,12 +184,12 @@ export default function HomePage() {
                 Set large, bold and in the display face — it is the headline
                 for the animation above it, not a caption under a figure. Two
                 absolutely-positioned lines in a fixed-height box, so the panel
-                does not resize as they swap; the box is tall enough for the
-                longer line to wrap at narrow widths without clipping.
+                does not resize as they swap; the box is two lines tall, which
+                is what the longer line wraps to at every width the panel has.
 
                 Reduced motion lands on the base styles — line one visible,
                 line two hidden — rather than on an empty box. */}
-            <div className='relative mt-8 h-32 w-full overflow-hidden sm:h-24'>
+            <div className='relative mx-auto mt-6 h-[4.6rem] w-full max-w-3xl overflow-hidden sm:h-[4.9rem]'>
               <p
                 data-testid='hero-caption'
                 className='hero-line hero-line-a absolute inset-x-0 top-0 font-display text-[21px] font-bold leading-snug tracking-tight text-neutral-100 sm:text-[27px]'
@@ -182,7 +198,8 @@ export default function HomePage() {
                 marketplace.
               </p>
               <p className='hero-line hero-line-b absolute inset-x-0 top-0 font-display text-[21px] font-bold leading-snug tracking-tight text-neutral-100 sm:text-[27px]'>
-                Open the installed application and use it peer-to-peer.
+                Open the installed application and use it peer-to-peer, fully
+                encrypted.
               </p>
             </div>
           </div>
@@ -208,10 +225,8 @@ export default function HomePage() {
 
       <section>
         <SectionHeading title='Get started' />
-        <div className='mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3'>
-          {POSTERS.map(poster => (
-            <PosterCard key={poster.title} poster={poster} />
-          ))}
+        <div className='mt-3'>
+          <PosterGallery posters={POSTERS} />
         </div>
       </section>
 

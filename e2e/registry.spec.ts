@@ -466,3 +466,76 @@ test.describe('live app preview', () => {
     expect(settled!).toBeCloseTo(rest! * 1.12, 3);
   });
 });
+
+test.describe('get-started gallery', () => {
+  test('the arrows step it, and only the shown slide is reachable', async ({
+    page,
+  }) => {
+    // ⚠️ THE ARROWS WERE UNCLICKABLE. The active slide is `z-10` and its
+    // scrim is `absolute inset-0`, so controls at the default stacking level
+    // sat underneath it — visible and hoverable, but every click landed on
+    // the poster link behind them. Nothing about the markup looked wrong;
+    // only pressing them showed it.
+    await page.goto('/');
+    const dots = page.getByTestId('poster-dot');
+    await expect(dots.nth(0)).toHaveAttribute('aria-current', 'true');
+
+    await page.getByTestId('poster-right').click();
+    await expect(dots.nth(1)).toHaveAttribute('aria-current', 'true');
+    await expect(page).toHaveURL('/'); // i.e. the click did not follow a link
+
+    await page.getByTestId('poster-left').click();
+    await expect(dots.nth(0)).toHaveAttribute('aria-current', 'true');
+
+    // All five stay mounted so the crossfade has something to cross to, but
+    // four of them must be out of the tab order and out of the a11y tree.
+    const focusable = page.locator('[data-testid="promo-tile"][tabindex="0"]');
+    await expect(focusable).toHaveCount(1);
+  });
+});
+
+test.describe('scroll position', () => {
+  test('following a link lands at the top of the next page', async ({
+    page,
+  }) => {
+    // React Router does not reset the scroll offset, so "See all" from the
+    // bottom of the home page opened Explore already scrolled past its
+    // heading and filters.
+    await page.goto('/');
+    await page.evaluate(() => window.scrollTo(0, 1200));
+    expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+
+    await page.getByRole('link', { name: 'See all' }).click();
+    await expect(page).toHaveURL(/\/explore/);
+    expect(await page.evaluate(() => window.scrollY)).toBe(0);
+  });
+
+  test('a query-string change does NOT scroll the page', async ({ page }) => {
+    // Explore rewrites `?q=` and `?category=` in place. Resetting the scroll
+    // on the whole location rather than on the pathname would yank the page
+    // to the top on every keystroke.
+    //
+    // ⚠️ THE VIEWPORT IS DELIBERATELY SHORT. Filtering to one category leaves
+    // three cards, and at 720px tall that page is exactly one screen — the
+    // browser clamps the offset to 0 because there is nothing left to scroll,
+    // and the assertion fails against a page that is behaving correctly. At
+    // 400px tall the filtered page still overflows, so the offset surviving
+    // means something.
+    await page.setViewportSize({ width: 1280, height: 400 });
+    await page.goto('/explore');
+    await page.evaluate(() => window.scrollTo(0, 150));
+    const before = await page.evaluate(() => window.scrollY);
+    expect(before).toBe(150);
+
+    // ⚠️ `el.click()`, NOT `locator.click()`. Playwright scrolls a target into
+    // view before pressing it, and the category chips sit at the top of the
+    // page — so the harness itself moves the scroll offset to 0 and the
+    // assertion measures Playwright rather than the app. Dispatching the
+    // click on the element leaves the viewport where it is.
+    await page
+      .getByTestId('category-games')
+      .evaluate((el: HTMLElement) => el.click());
+    await expect(page).toHaveURL(/category=games/);
+    expect(await page.evaluate(() => window.scrollY)).toBe(before);
+  });
+});

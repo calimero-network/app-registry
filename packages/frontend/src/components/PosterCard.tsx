@@ -2,9 +2,9 @@ import { Link } from 'react-router-dom';
 import { ArrowUpRight } from 'lucide-react';
 
 /**
- * The "Get started" gallery: poster tiles, not link rows.
+ * One "Get started" poster, drawn full size.
  *
- * Each card is one flat graphic with the words set over it — the shape a
+ * Each slide is one flat graphic with the words set over it — the shape a
  * printed poster has — rather than an icon in a box beside a paragraph. The
  * whole tile is the artwork, so the radius is on the card and the art bleeds
  * to every edge of it.
@@ -18,7 +18,7 @@ import { ArrowUpRight } from 'lucide-react';
  * ⚠️ NOT the brand lime. The accent already means something specific in this
  * product (installed, verified, selected), and five green posters would both
  * flatten that and make the page one colour. These are pastels chosen to be
- * distinguishable from each other at thumbnail size.
+ * distinguishable from each other at a glance.
  */
 
 export type Poster = {
@@ -27,6 +27,12 @@ export type Poster = {
   eyebrow: string;
   title: string;
   body: string;
+  /** Three short facts, set as chips under the copy. A wide slide with only
+   *  a title and a sentence in it is mostly empty paper. */
+  chips: string[];
+  /** The words on the button. It is decoration — the whole slide is the
+   *  link — so it must never be a nested <button> or a second anchor. */
+  cta: string;
   href: string;
   /** In-app routes go through the router; anything else opens a tab. */
   internal?: boolean;
@@ -52,46 +58,80 @@ const PALETTES: Record<PosterVariant, Palette> = {
   source: { from: '#f7e7c7', to: '#efd6a4', mark: '#b58432', ink: '#312716' },
 };
 
-export function PosterCard({ poster }: { poster: Poster }) {
+export function PosterCard({
+  poster,
+  active,
+}: {
+  poster: Poster;
+  /**
+   * Off-screen slides stay in the DOM — that is what lets the track slide —
+   * but they must not take focus or be read out, or tabbing walks off the
+   * side of the gallery into three invisible links.
+   */
+  active: boolean;
+}) {
   const p = PALETTES[poster.art];
 
   const inner = (
     <>
       <PosterArt variant={poster.art} palette={p} />
 
-      {/* The type sits on the artwork. A scrim under it rather than a solid
-          band: the poster has to stay one image, but a title over a busy
-          corner is unreadable without some help. */}
+      {/* The type sits on the artwork. A scrim from the left rather than a
+          solid band: the poster has to stay one image, and the words run
+          along the bottom-left where the compositions leave room. */}
       <span
         aria-hidden='true'
-        className='absolute inset-x-0 bottom-0 h-2/3'
+        className='absolute inset-0'
         style={{
-          background: `linear-gradient(to top, ${p.from}f2 8%, ${p.from}b8 45%, transparent 100%)`,
+          background: `linear-gradient(100deg, ${p.from}f7 0%, ${p.from}d9 38%, ${p.from}40 68%, transparent 100%)`,
         }}
       />
 
-      <span className='relative flex h-full flex-col justify-end gap-1 p-5'>
+      <span className='relative flex h-full max-w-[34rem] flex-col justify-end gap-2 p-6 sm:p-9'>
         <span
-          className='text-[10.5px] font-semibold uppercase tracking-[0.14em]'
+          className='text-[11px] font-semibold uppercase tracking-[0.16em]'
           style={{ color: p.mark }}
         >
           {poster.eyebrow}
         </span>
         <span
-          className='flex items-center gap-1.5 text-[17px] font-semibold leading-tight'
+          className='font-display text-[26px] font-bold leading-tight tracking-tight sm:text-[34px]'
           style={{ color: p.ink }}
         >
           {poster.title}
-          <ArrowUpRight
-            className='h-4 w-4 flex-shrink-0 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5'
-            aria-hidden='true'
-          />
         </span>
         <span
-          className='max-w-[26ch] text-[12.5px] font-light leading-relaxed'
-          style={{ color: p.ink, opacity: 0.72 }}
+          className='text-[13.5px] font-light leading-relaxed sm:text-[15px]'
+          style={{ color: p.ink, opacity: 0.75 }}
         >
           {poster.body}
+        </span>
+
+        <span className='mt-1 flex flex-wrap items-center gap-1.5'>
+          {poster.chips.map(chip => (
+            <span
+              key={chip}
+              className='rounded-full px-2.5 py-1 text-[11.5px] font-medium'
+              style={{
+                color: p.ink,
+                background: '#ffffff',
+                opacity: 0.72,
+              }}
+            >
+              {chip}
+            </span>
+          ))}
+        </span>
+
+        {/* A span, not a button: the entire slide is already one link, and a
+            control inside it would be a second tab stop pointing at the same
+            place. */}
+        <span
+          className='mt-2 inline-flex w-fit items-center gap-1.5 rounded-full px-4 py-2 text-[13px] font-semibold text-white transition-transform duration-200 group-hover:translate-x-0.5'
+          style={{ background: p.mark }}
+        >
+          {poster.cta}
+          <ArrowUpRight className='h-4 w-4' aria-hidden='true' />
         </span>
       </span>
     </>
@@ -100,13 +140,18 @@ export function PosterCard({ poster }: { poster: Poster }) {
   // `overflow-hidden` on the anchor is what actually clips the artwork to the
   // radius — the SVG is a rectangle and would otherwise square off the corners.
   const className =
-    'group relative flex aspect-[4/3] flex-col overflow-hidden rounded-2xl ' +
-    'transition-transform duration-300 ease-out hover:-translate-y-0.5 ' +
+    'group relative flex h-full w-full flex-col overflow-hidden rounded-2xl ' +
     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600/60';
 
   if (poster.internal) {
     return (
-      <Link to={poster.href} data-testid='promo-tile' className={className}>
+      <Link
+        to={poster.href}
+        data-testid='promo-tile'
+        tabIndex={active ? 0 : -1}
+        aria-hidden={active ? undefined : true}
+        className={className}
+      >
         {inner}
       </Link>
     );
@@ -118,6 +163,8 @@ export function PosterCard({ poster }: { poster: Poster }) {
       target='_blank'
       rel='noreferrer'
       data-testid='promo-tile'
+      tabIndex={active ? 0 : -1}
+      aria-hidden={active ? undefined : true}
       className={className}
     >
       {inner}
@@ -138,10 +185,16 @@ function PosterArt({
   variant: PosterVariant;
   palette: Palette;
 }) {
+  // ⚠️ A WIDE viewBox, ANCHORED RIGHT. The slides are 21:9 on a desktop and
+  // 4:3 on a phone; a 4:3 drawing sliced into a 21:9 box loses the top and
+  // bottom of the motif and blows the rest up to twice its intended size.
+  // Drawing at 420x180 and slicing from `xMaxYMid` keeps the motif intact at
+  // every width — and the left, which is what gets cropped on a narrow
+  // screen, is where the type sits anyway.
   return (
     <svg
-      viewBox='0 0 240 180'
-      preserveAspectRatio='xMidYMid slice'
+      viewBox='0 0 420 180'
+      preserveAspectRatio='xMaxYMid slice'
       className='absolute inset-0 h-full w-full'
       aria-hidden='true'
     >
@@ -151,12 +204,18 @@ function PosterArt({
           <stop offset='100%' stopColor={p.to} />
         </linearGradient>
       </defs>
-      <rect width='240' height='180' fill={`url(#poster-${variant})`} />
-      {variant === 'desktop' && <DesktopPoster p={p} />}
-      {variant === 'docs' && <DocsPoster p={p} />}
-      {variant === 'publish' && <PublishPoster p={p} />}
-      {variant === 'explore' && <ExplorePoster p={p} />}
-      {variant === 'source' && <SourcePoster p={p} />}
+      <rect width='420' height='180' fill={`url(#poster-${variant})`} />
+      {/* Two quiet shapes under the type, so the left of a wide slide is
+          composed rather than blank. */}
+      <circle cx='40' cy='150' r='96' fill={p.mark} opacity='0.07' />
+      <circle cx='150' cy='-20' r='70' fill={p.mark} opacity='0.06' />
+      <g transform='translate(178 0)'>
+        {variant === 'desktop' && <DesktopPoster p={p} />}
+        {variant === 'docs' && <DocsPoster p={p} />}
+        {variant === 'publish' && <PublishPoster p={p} />}
+        {variant === 'explore' && <ExplorePoster p={p} />}
+        {variant === 'source' && <SourcePoster p={p} />}
+      </g>
     </svg>
   );
 }
@@ -207,7 +266,15 @@ function DesktopPoster({ p }: { p: Palette }) {
           opacity={i === 1 ? '0.9' : '0.14'}
         />
       ))}
-      <rect x='96' y='114' width='48' height='6' rx='3' fill={p.ink} opacity='0.18' />
+      <rect
+        x='96'
+        y='114'
+        width='48'
+        height='6'
+        rx='3'
+        fill={p.ink}
+        opacity='0.18'
+      />
     </g>
   );
 }
@@ -235,7 +302,15 @@ function DocsPoster({ p }: { p: Palette }) {
         strokeLinejoin='round'
         opacity='0.7'
       />
-      <line x1='120' y1='40' x2='120' y2='118' stroke={p.mark} strokeWidth='1.5' opacity='0.5' />
+      <line
+        x1='120'
+        y1='40'
+        x2='120'
+        y2='118'
+        stroke={p.mark}
+        strokeWidth='1.5'
+        opacity='0.5'
+      />
       {[0, 1, 2].map(i => (
         <rect
           key={i}
@@ -248,7 +323,15 @@ function DocsPoster({ p }: { p: Palette }) {
           opacity='0.2'
         />
       ))}
-      <rect x='132' y='50' width='36' height='30' rx='5' fill={p.mark} opacity='0.8' />
+      <rect
+        x='132'
+        y='50'
+        width='36'
+        height='30'
+        rx='5'
+        fill={p.mark}
+        opacity='0.8'
+      />
       {[0, 1, 2].map(i => (
         <rect
           key={i}
@@ -385,22 +468,30 @@ function SourcePoster({ p }: { p: Palette }) {
     <g>
       <circle cx='120' cy='40' r='54' fill={p.mark} opacity='0.14' />
       {nodes.map(([x1, y1], i) =>
-        nodes.slice(i + 1).map(([x2, y2], j) => (
-          <line
-            key={`${i}-${j}`}
-            x1={x1}
-            y1={y1}
-            x2={x2}
-            y2={y2}
-            stroke={p.ink}
-            strokeWidth='1.4'
-            opacity='0.18'
-          />
-        ))
+        nodes
+          .slice(i + 1)
+          .map(([x2, y2], j) => (
+            <line
+              key={`${i}-${j}`}
+              x1={x1}
+              y1={y1}
+              x2={x2}
+              y2={y2}
+              stroke={p.ink}
+              strokeWidth='1.4'
+              opacity='0.18'
+            />
+          ))
       )}
       {nodes.map(([cx, cy], i) => (
         <g key={i}>
-          <circle cx={cx} cy={cy} r={i === 0 ? 17 : 13} fill='#ffffff' opacity='0.6' />
+          <circle
+            cx={cx}
+            cy={cy}
+            r={i === 0 ? 17 : 13}
+            fill='#ffffff'
+            opacity='0.6'
+          />
           <circle
             cx={cx}
             cy={cy}
