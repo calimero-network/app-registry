@@ -7,7 +7,6 @@ import { navigation } from '@/constants/navigation';
 import { ProfileDropdown } from './ProfileDropdown';
 import { GlobalSearch } from './GlobalSearch';
 import { RegistryMark } from './RegistryMark';
-import { ThemeToggle } from './ThemeToggle';
 import calimeroLogo from '@/assets/calimero-logo.svg';
 
 const FOOTER_LINKS = [
@@ -108,7 +107,6 @@ export function Layout({ children }: LayoutProps) {
       </nav>
 
       <div className='mt-auto flex flex-col gap-0.5'>
-        <ThemeToggle />
         <ProfileDropdown
           user={user}
           loading={loading}

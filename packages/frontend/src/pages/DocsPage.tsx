@@ -168,36 +168,53 @@ export default function DocsPage() {
   return (
     <div className='flex gap-10'>
       {/* ── Sidebar ── */}
-      <aside className='hidden lg:block w-48 flex-shrink-0'>
-        <nav className='sticky top-20'>
-          <p className='section-heading mb-3'>On this page</p>
-          <ul className='space-y-0.5'>
-            {SECTIONS.map(({ id, label }) => (
-              <li key={id}>
-                <a
-                  href={`#${id}`}
-                  className={`block px-3 py-1.5 rounded-md text-[12px] transition-colors ${
-                    activeSection === id
-                      ? 'bg-ink/[0.06] text-brand-600 font-medium'
-                      : 'text-neutral-500 hover:text-neutral-300 hover:bg-ink/[0.04]'
-                  }`}
-                >
-                  {label}
-                </a>
-              </li>
-            ))}
-          </ul>
-          <div className='mt-5 pt-4 border-t border-line'>
-            <a
-              href='https://docs.calimero.network'
-              target='_blank'
-              rel='noopener noreferrer'
-              className='flex items-center gap-1.5 px-3 py-1.5 text-[12px] text-neutral-500 hover:text-neutral-300 transition-colors'
-            >
-              <ExternalLink className='w-3 h-3 flex-shrink-0' />
-              Official Docs
-            </a>
+      {/* ── The menu ──
+          It was ten unstyled links floating under an 11px grey label, an
+          active state that was a pale wash, and a hairline above "Official
+          Docs" that light mode could not render — nothing said it was one
+          thing, or which part of it you were in.
+
+          ⚠️ THE ACTIVE ROW IS MARKED BY A RULE ON ITS EDGE, NOT BY A TINT. A
+          background wash needs enough contrast to be seen and little enough
+          not to fight the text; on white that leaves almost no room, which is
+          why the old one read as a smudge. A 2px bar in the accent is legible
+          in both themes at any weight. */}
+      <aside className='hidden w-56 flex-shrink-0 lg:block'>
+        <nav className='sticky top-20' aria-label='On this page'>
+          <div className='card overflow-hidden p-1.5'>
+            <p className='section-heading px-2.5 pb-1.5 pt-2'>On this page</p>
+            <ul>
+              {SECTIONS.map(({ id, label }) => {
+                const active = activeSection === id;
+                return (
+                  <li key={id}>
+                    <a
+                      href={`#${id}`}
+                      aria-current={active ? 'true' : undefined}
+                      data-testid={`docs-nav-${id}`}
+                      className={`block border-l-2 py-1.5 pl-2.5 pr-2 text-[12.5px] transition-colors ${
+                        active
+                          ? 'border-brand-600 bg-ink/[0.04] font-medium text-neutral-100'
+                          : 'border-transparent text-neutral-500 hover:border-line-strong hover:text-neutral-200'
+                      }`}
+                    >
+                      {label}
+                    </a>
+                  </li>
+                );
+              })}
+            </ul>
           </div>
+
+          <a
+            href='https://docs.calimero.network'
+            target='_blank'
+            rel='noopener noreferrer'
+            className='mt-2 flex items-center gap-1.5 rounded-lg px-3 py-2 text-[12px] text-neutral-500 transition-colors hover:bg-ink/[0.04] hover:text-neutral-300'
+          >
+            <ExternalLink className='h-3 w-3 flex-shrink-0' />
+            Official Docs
+          </a>
         </nav>
       </aside>
 

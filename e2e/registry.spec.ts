@@ -300,6 +300,10 @@ test.describe('light / dark', () => {
     // Asserting the attribute alone would pass even if no colour moved — the
     // whole risk here is a `data-theme` that flips while ~580 hardcoded
     // utilities stay dark. So compare rendered pixels.
+    // ⚠️ THE TOGGLE LIVES ON THE HOME PAGE NOW, and the colours being measured
+    // are on Explore — so the theme is flipped where the control is and the
+    // pixels are read where the cards are. Clicking it here used to work
+    // because it sat in the rail on every page.
     await page.goto('/explore');
     const card = page.getByTestId('app-card').first();
     await expect(card).toBeVisible();
@@ -318,8 +322,12 @@ test.describe('light / dark', () => {
     // Light is where the app starts now, so this reads light first and
     // toggles INTO dark; the comparison is the same either way.
     const light = await read();
+
+    await page.goto('/');
     await page.getByTestId('theme-toggle').click();
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+    await page.goto('/explore');
+    await expect(page.getByTestId('app-card').first()).toBeVisible();
     const dark = await read();
 
     expect(light.body).not.toBe(dark.body);
@@ -414,6 +422,38 @@ test.describe('separators', () => {
       expect(read.card).toBe(read.rail);
     });
   }
+});
+
+test.describe('the theme control', () => {
+  test('is an icon on Home, and is NOT in the rail', async ({ page }) => {
+    // It used to sit in the rail on every page, which gave a decision made
+    // once the same standing as the links used every visit.
+    await page.goto('/');
+    const toggle = page.getByTestId('theme-toggle');
+    await expect(toggle).toBeVisible();
+    await expect(
+      page.getByTestId('sidebar').getByTestId('theme-toggle')
+    ).toHaveCount(0);
+
+    // Icon only: the accessible name carries the meaning, not visible text.
+    await expect(toggle).toHaveText('');
+    await expect(toggle).toHaveAttribute('aria-label', /light|dark/i);
+
+    await page.goto('/explore');
+    await expect(page.getByTestId('theme-toggle')).toHaveCount(0);
+  });
+
+  test('the choice it sets still applies on every other page', async ({
+    page,
+  }) => {
+    // Moving the control must not scope the theme to the page carrying it.
+    await page.goto('/');
+    await page.getByTestId('theme-toggle').click();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+
+    await page.goto('/docs');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  });
 });
 
 test.describe('the accent as text', () => {
@@ -715,5 +755,64 @@ test.describe('scroll position', () => {
       .evaluate((el: HTMLElement) => el.click());
     await expect(page).toHaveURL(/category=games/);
     expect(await page.evaluate(() => window.scrollY)).toBe(before);
+  });
+});
+
+test.describe('the upload page', () => {
+  test('carries the form and the graphic, not a second set of instructions', async ({
+    page,
+  }) => {
+    // ⚠️ THE WALKTHROUGH THAT WAS HERE CONTRADICTED THE DOCS. It taught
+    // `mero-sign` and `calimero-registry bundle create` / `bundle push` — a
+    // flow the docs page states outright is replaced by `cargo mero`. Two
+    // sets of instructions where one is wrong is worse than one set, and the
+    // docs already cover every command it mentioned.
+    await page.goto('/upload');
+    await expect(page.getByTestId('publish-art')).toBeVisible();
+
+    const body = (await page.locator('main').innerText()).toLowerCase();
+    expect(body).not.toContain('mero-sign');
+    expect(body).not.toContain('calimero-registry bundle');
+    expect(body).not.toContain('step by step');
+
+    // And it points at the one place the instructions do live.
+    await expect(
+      page.getByRole('link', { name: 'The documentation' })
+    ).toBeVisible();
+  });
+
+  test('the graphic animates without JavaScript', async ({ page }) => {
+    // Same rule as the hero: a rAF loop runs forever in every background tab
+    // and bypasses `prefers-reduced-motion`, which is honoured globally here
+    // by a media query that can only reach declarative animation.
+    await page.goto('/upload');
+    const running = await page.evaluate(() => {
+      const el = document.querySelector('.pa-bundle') as HTMLElement;
+      return getComputedStyle(el).animationName;
+    });
+    expect(running).toBe('pa-lift');
+  });
+});
+
+test.describe('the docs menu', () => {
+  test('is one panel with a marked active row', async ({ page }) => {
+    // It was ten unstyled links under a grey label with a pale wash for the
+    // active one — nothing said it was a single thing or where you were.
+    await page.goto('/docs');
+    const first = page.getByTestId('docs-nav-introduction');
+    await expect(first).toBeVisible();
+    await expect(first).toHaveAttribute('aria-current', 'true');
+
+    // ⚠️ Marked by a RULE on the edge, not a tint: on white there is almost no
+    // room between "visible" and "fighting the text", which is why the old
+    // wash read as a smudge.
+    const border = await first.evaluate(
+      el => getComputedStyle(el).borderLeftColor
+    );
+    const ground = await page.evaluate(
+      () => getComputedStyle(document.body).backgroundColor
+    );
+    expect(border).not.toBe(ground);
+    expect(border).not.toBe('rgba(0, 0, 0, 0)');
   });
 });

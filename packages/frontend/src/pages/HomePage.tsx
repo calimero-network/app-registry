@@ -4,6 +4,7 @@ import { PosterGallery } from '@/components/PosterGallery';
 import { type Poster } from '@/components/PosterCard';
 import { getApps } from '@/lib/api';
 import { AppCard } from '@/components/AppCard';
+import { ThemeToggle } from '@/components/ThemeToggle';
 import { ShowcaseCard } from '@/components/ShowcaseCard';
 import { HeroGraphic } from '@/components/HeroGraphic';
 import { formatCategory } from '@/lib/utils';
@@ -128,13 +129,21 @@ export default function HomePage() {
             above it. Stacked rather than inline: the subtitle is a sentence,
             not a tagline, and sitting it beside the title made both harder
             to read. */}
-        <h1 className='text-2xl font-semibold tracking-tight text-neutral-100 sm:text-3xl'>
-          App Registry
-        </h1>
-        <p className='mt-2 max-w-2xl text-[13.5px] font-light leading-relaxed text-neutral-400'>
-          Applications for Calimero — signed, versioned, and installed into a
-          node you run yourself.
-        </p>
+        <div className='flex items-start justify-between gap-4'>
+          <div>
+            <h1 className='text-2xl font-semibold tracking-tight text-neutral-100 sm:text-3xl'>
+              App Registry
+            </h1>
+            <p className='mt-2 max-w-2xl text-[13.5px] font-light leading-relaxed text-neutral-400'>
+              Applications for Calimero — signed, versioned, and installed into
+              a node you run yourself.
+            </p>
+          </div>
+          {/* The one control on the page that is not navigation, so it sits
+              out of the reading column rather than in the rail with the
+              things you press every visit. */}
+          <ThemeToggle />
+        </div>
 
         {/* The laptop sits inside its own lit panel rather than floating on
             the page ground, and it is drawn small inside that panel: at full

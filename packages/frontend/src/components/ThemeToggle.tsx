@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 
 /**
- * Light / dark toggle.
+ * Light / dark toggle — an icon, and it lives on the HOME page only.
+ *
+ * It used to sit in the rail on every page. A theme is set once and then left
+ * alone, so a permanent control in the primary navigation gave a one-time
+ * decision the same weight as Explore and Docs. The choice still persists
+ * across the whole site; only the switch moved.
  *
  * Deliberately the same shape as `apps/mero-sheets/app/src/theme.ts`: a
  * `data-theme` attribute on `<html>`, CSS custom properties that flip under
@@ -102,10 +107,13 @@ export function ThemeToggle() {
       aria-label={dark ? 'Switch to light mode' : 'Switch to dark mode'}
       aria-pressed={dark}
       title={dark ? 'Light mode' : 'Dark mode'}
-      className='flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] text-neutral-400 transition-colors duration-150 hover:bg-ink/[0.04] hover:text-neutral-200'
+      // ⚠️ THE LABEL IS GONE FROM THE FACE OF IT, NOT FROM THE CONTROL.
+      // `aria-label` and `title` still say which way it goes, because an icon
+      // that toggles between a sun and a moon is ambiguous about whether it
+      // shows the current state or the one it switches to.
+      className='inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line text-neutral-400 transition-colors duration-150 hover:bg-ink/[0.04] hover:text-neutral-200'
     >
       {dark ? <SunIcon /> : <MoonIcon />}
-      {dark ? 'Light mode' : 'Dark mode'}
     </button>
   );
 }

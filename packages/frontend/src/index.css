@@ -570,6 +570,116 @@ html {
   }
 }
 
+/*
+ * The publish graphic (Upload page).
+ *
+ * One 4.6s story on a shared clock: the bundle lifts and is sealed, the packet
+ * crosses the wire, a row lands in the registry, the peers light up. Each
+ * piece is a separate animation with a delay rather than one keyframe track,
+ * so a change to the pacing does not mean re-timing every element.
+ *
+ * ⚠️ EVERY DECLARATION HERE IS COMPOSITOR-ONLY — transform and opacity. The
+ * SVG's own `animateMotion` carries the packet, which is declarative for the
+ * same reason: `prefers-reduced-motion` is honoured globally by a media query
+ * that can only reach animation the browser owns. A JS loop would bypass it
+ * and run in every background tab.
+ *
+ * ⚠️ THE BASE STYLES ARE THE REDUCED-MOTION STATE. Cutting an animation
+ * leaves an element at its DECLARED styles, so nothing here starts at
+ * `opacity: 0` — a viewer who asked for less motion gets the finished scene,
+ * not an empty box.
+ */
+.pa-bundle {
+  transform-origin: 162px 180px;
+  animation: pa-lift 4.6s ease-in-out infinite;
+}
+@keyframes pa-lift {
+  0%,
+  18% {
+    transform: translateY(0) scale(1);
+  }
+  26% {
+    transform: translateY(-6px) scale(1.02);
+  }
+  40%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+}
+
+.pa-seal,
+.pa-tick {
+  animation: pa-seal 4.6s ease-out infinite;
+}
+@keyframes pa-seal {
+  0%,
+  20% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  30%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.pa-seal,
+.pa-tick {
+  transform-origin: 202px 208px;
+}
+
+.pa-row {
+  animation: pa-row 4.6s ease-out infinite;
+}
+.pa-row-0 {
+  animation-delay: 0s;
+}
+.pa-row-1 {
+  animation-delay: -0.12s;
+}
+.pa-row-2 {
+  animation-delay: -0.24s;
+}
+@keyframes pa-row {
+  0%,
+  62% {
+    opacity: 0.14;
+  }
+  70% {
+    opacity: 0.5;
+  }
+  86%,
+  100% {
+    opacity: 0.14;
+  }
+}
+
+.pa-peer {
+  animation: pa-peer 4.6s ease-out infinite;
+}
+.pa-peer-0 {
+  animation-delay: -0.05s;
+}
+.pa-peer-1 {
+  animation-delay: -0.18s;
+}
+.pa-peer-2 {
+  animation-delay: -0.3s;
+}
+@keyframes pa-peer {
+  0%,
+  74% {
+    opacity: 0.55;
+  }
+  84% {
+    opacity: 1;
+  }
+  96%,
+  100% {
+    opacity: 0.55;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
