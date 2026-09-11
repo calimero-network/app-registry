@@ -147,7 +147,7 @@ export default function HomePage() {
             green light behind green UI flattens every one of those. */}
         <div
           data-testid='hero-panel'
-          className='relative mt-10 overflow-hidden rounded-[28px] border border-line'
+          className='relative mt-8 overflow-hidden rounded-[28px] border border-line'
           style={{ background: 'var(--hero-wash)' }}
         >
           {/* ⚠️ BEHIND THE DEVICE, NOT OVER IT. These are stacked at z-0 and
@@ -169,12 +169,19 @@ export default function HomePage() {
             />
           </div>
 
-          <div className='relative z-10 px-5 pb-8 pt-8 sm:px-8 sm:pb-9 sm:pt-9'>
-            {/* Wide enough to carry the panel. The first pass drew it at
-                `max-w-xl`, which left a third of the box empty on either side
-                and made the whole section read as padding with a picture in
-                it. */}
-            <div className='hero-device mx-auto aspect-[960/560] w-full max-w-3xl'>
+          <div className='relative z-10 px-5 pb-6 pt-6 sm:px-8 sm:pb-7 sm:pt-7'>
+            {/* ⚠️ SIZED AGAINST A 14" LAPTOP'S FOLD, NOT AGAINST THE PANEL.
+                At `max-w-3xl` with the old padding the panel came to 624px
+                and the first app card began at y=879 — nineteen pixels below
+                an 860px viewport, so the entire first screen was one picture
+                and no actual app was visible without scrolling. That is the
+                same failure that removed the original "Discover & Deploy"
+                hero.
+
+                Still wide enough to carry the panel, which is why it is not
+                back at the `max-w-xl` of the first pass — that left a third
+                of the box empty on either side. */}
+            <div className='hero-device mx-auto aspect-[960/508] w-full max-w-[40rem]'>
               <HeroGraphic />
             </div>
 
@@ -195,15 +202,15 @@ export default function HomePage() {
 
                 Reduced motion lands on the base styles — line one visible,
                 line two hidden — rather than on an empty box. */}
-            <div className='relative mx-auto mt-6 h-[6.2rem] w-full max-w-3xl overflow-hidden sm:h-[4.9rem]'>
+            <div className='relative mx-auto mt-5 h-[6.2rem] w-full max-w-[40rem] overflow-hidden sm:h-[4.1rem]'>
               <p
                 data-testid='hero-caption'
-                className='hero-line hero-line-a absolute inset-x-0 top-0 font-display text-[18px] font-bold leading-snug tracking-tight text-neutral-100 sm:text-[27px]'
+                className='hero-line hero-line-a absolute inset-x-0 top-0 font-display text-[18px] font-bold leading-snug tracking-tight text-neutral-100 sm:text-[23px]'
               >
                 Download Calimero Desktop and install applications from the
                 marketplace.
               </p>
-              <p className='hero-line hero-line-b absolute inset-x-0 top-0 font-display text-[18px] font-bold leading-snug tracking-tight text-neutral-100 sm:text-[27px]'>
+              <p className='hero-line hero-line-b absolute inset-x-0 top-0 font-display text-[18px] font-bold leading-snug tracking-tight text-neutral-100 sm:text-[23px]'>
                 Open the installed application and use it peer-to-peer, fully
                 encrypted.
               </p>

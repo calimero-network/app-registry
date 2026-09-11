@@ -536,6 +536,28 @@ test.describe('home shelves', () => {
   });
 });
 
+test.describe('the fold', () => {
+  // A 14" MacBook: 1512x982 logical, ~860 of it left once the browser's own
+  // chrome is off. The most common laptop this site is read on.
+  test.use({ viewport: { width: 1512, height: 860 } });
+
+  test('a real app is visible without scrolling', async ({ page }) => {
+    // ⚠️ MEASURED AGAINST THE VIEWPORT, NOT A PIXEL HEIGHT. The hero panel
+    // was 624px and the first card began at y=879 — nineteen pixels under the
+    // fold, so the whole first screen was one picture of a laptop. Asserting
+    // "the panel is under 500px" would go stale the moment anything above it
+    // changes height; what matters is that an app is on screen.
+    await page.goto('/');
+    const card = page.getByTestId('showcase-card').first();
+    await expect(card).toBeVisible();
+
+    const top = await card.evaluate(el => el.getBoundingClientRect().top);
+    expect(top).toBeLessThan(860);
+    // And not merely peeking: enough of it to read.
+    expect(top).toBeLessThan(780);
+  });
+});
+
 test.describe('explore card width', () => {
   test('a card is the same width filtered down to one as it is unfiltered', async ({
     page,

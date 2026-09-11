@@ -61,7 +61,19 @@ export function HeroGraphic() {
       aria-hidden='true'
       data-testid='hero-graphic'
     >
-      <svg viewBox='0 0 960 560' className='h-full w-full'>
+      {/*
+        ⚠️ THE viewBox IS CROPPED, NOT THE DRAWING. The laptop occupies y=18
+        to y=514 of a 560-tall board, so 64px of it was empty margin — 11% of
+        the hero's height spent on nothing, at the top of the page, on a
+        laptop screen where the fold is 860px. Trimming the box is free
+        height: every coordinate inside is untouched, so the animation still
+        lands where it did.
+
+        The container's `aspect-[960/508]` has to stay in step with this. A
+        mismatch does not distort anything (`xMidYMid meet` is the default)
+        but it letterboxes, which puts the margin straight back.
+      */}
+      <svg viewBox='0 14 960 508' className='h-full w-full'>
         <defs>
           <clipPath id='hero-screen'>
             <rect x='96' y='30' width='768' height='452' rx='10' />
