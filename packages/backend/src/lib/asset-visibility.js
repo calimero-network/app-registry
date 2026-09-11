@@ -28,11 +28,19 @@
  * applies this check on every read. Nothing ever hands out a bucket URL.
  */
 
-const { kv } = require('./kv-client');
+const review = require('./package-review');
 
-/** Has an admin explicitly approved this package? */
+/**
+ * Has an admin explicitly approved this package?
+ *
+ * ⚠️ NOW THREE STATES, NOT A BOOLEAN. `declined` hides assets exactly as
+ * `pending` does, so every caller must ask for `approved` — a check written
+ * as "not pending" would make declining a package publish it. The review
+ * module still reads the old `admin_verified:package:<pkg>` key, so the 21
+ * packages approved before this existed stay approved.
+ */
 async function isPackageApproved(pkg) {
-  return (await kv.get(`admin_verified:package:${pkg}`)) === '1';
+  return review.isApproved(pkg);
 }
 
 /**
@@ -43,17 +51,28 @@ async function isPackageApproved(pkg) {
  * @returns {Promise<{visible: boolean, state: 'approved'|'pending', reason: string}>}
  */
 async function assetVisibility({ pkg, isOwner = false, isAdmin = false }) {
-  const approved = await isPackageApproved(pkg);
-  if (approved) {
+  const rec = await review.getReview(pkg);
+  if (rec.state === 'approved') {
     return { visible: true, state: 'approved', reason: 'package_approved' };
   }
+  // Pending and declined are the same to a stranger. They differ for the
+  // owner, who is told which one it is and why, and for the queue, which a
+  // declined package has left.
   if (isAdmin) {
-    return { visible: true, state: 'pending', reason: 'admin_review' };
+    return { visible: true, state: rec.state, reason: 'admin_review' };
   }
   if (isOwner) {
-    return { visible: true, state: 'pending', reason: 'own_package' };
+    return {
+      visible: true,
+      state: rec.state,
+      reason: rec.state === 'declined' ? 'declined' : 'own_package',
+      // ⚠️ The reason is the OWNER's to read, and nobody else's. It is
+      // written by an admin about their package and must never appear in a
+      // public response.
+      declineReason: rec.state === 'declined' ? rec.reason : undefined,
+    };
   }
-  return { visible: false, state: 'pending', reason: 'awaiting_approval' };
+  return { visible: false, state: rec.state, reason: 'awaiting_approval' };
 }
 
 module.exports = { assetVisibility, isPackageApproved };
