@@ -300,6 +300,10 @@ test.describe('light / dark', () => {
     // Asserting the attribute alone would pass even if no colour moved — the
     // whole risk here is a `data-theme` that flips while ~580 hardcoded
     // utilities stay dark. So compare rendered pixels.
+    // ⚠️ THE TOGGLE LIVES ON THE HOME PAGE NOW, and the colours being measured
+    // are on Explore — so the theme is flipped where the control is and the
+    // pixels are read where the cards are. Clicking it here used to work
+    // because it sat in the rail on every page.
     await page.goto('/explore');
     const card = page.getByTestId('app-card').first();
     await expect(card).toBeVisible();
@@ -318,8 +322,12 @@ test.describe('light / dark', () => {
     // Light is where the app starts now, so this reads light first and
     // toggles INTO dark; the comparison is the same either way.
     const light = await read();
+
+    await page.goto('/');
     await page.getByTestId('theme-toggle').click();
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+    await page.goto('/explore');
+    await expect(page.getByTestId('app-card').first()).toBeVisible();
     const dark = await read();
 
     expect(light.body).not.toBe(dark.body);
@@ -347,6 +355,149 @@ test.describe('light / dark', () => {
         .trim()
     );
     expect(accent).not.toBe('165 255 17');
+  });
+});
+
+test.describe('separators', () => {
+  // ⚠️ MEASURED, NOT ASSERTED ON A CLASS NAME. The bug this pins was 77 call
+  // sites reading `border-ink/[0.06]` — perfectly correct-looking markup that
+  // rendered a #f1f1f1 line on a white page. Every class-based assertion in
+  // the world passes against that. So: composite the border over its own
+  // background and demand a real difference.
+  // ⚠️ COMPOSITE FIRST. `getComputedStyle` hands back a border's OWN colour,
+  // so `rgba(19, 18, 21, 0.06)` — a line nobody can see — reads as 233 away
+  // from a white page if you simply subtract the channels. The first version
+  // of this spec did exactly that and passed against the bug it was written
+  // for. Alpha has to be flattened onto the ground before anything is
+  // compared.
+  const over = (c: string, ground: number[]) => {
+    const [r, g, b, a = 1] = c.match(/[\d.]+/g)!.map(Number);
+    return [r, g, b].map((ch, i) => ch * a + ground[i] * (1 - a));
+  };
+  const delta = (a: string, b: string) => {
+    const ground = b.match(/[\d.]+/g)!.map(Number);
+    const fa = over(a, ground);
+    const fb = over(b, ground);
+    return Math.max(...fa.map((ch, i) => Math.abs(ch - fb[i])));
+  };
+
+  for (const theme of ['light', 'dark'] as const) {
+    test(`a card's edge is visible against the page in ${theme} mode`, async ({
+      page,
+    }) => {
+      // Through storage, not by setting the attribute: this is the path a
+      // visitor takes, and it also proves the choice still drives the theme.
+      await page.addInitScript(t => {
+        localStorage.setItem('registry:theme:choice', t as string);
+      }, theme);
+      await page.goto('/explore');
+      await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
+      await expect(page.getByTestId('app-card').first()).toBeVisible();
+
+      const read = await page.evaluate(() => {
+        const card = document.querySelector(
+          '[data-testid="app-card"]'
+        ) as HTMLElement;
+        // ⚠️ TWO ELEMENTS, DELIBERATELY. The card's border comes from the
+        // component layer and the rail's from a swept utility class. They
+        // were two different tokens, so a spec that read only the card
+        // passed while every separator on the page was still invisible.
+        // They are one token now, and this is what holds them to it.
+        const rail = document.querySelector(
+          '[data-testid="sidebar"]'
+        ) as HTMLElement;
+        return {
+          card: getComputedStyle(card).borderTopColor,
+          rail: getComputedStyle(rail).borderRightColor,
+          page: getComputedStyle(document.body).backgroundColor,
+        };
+      });
+
+      // Measured: the old 6%-ink hairline composites to 14 away from the
+      // page, the #e4e4e6 line to 24, and dark mode's to 22. 18 is the gap
+      // between them, so this fails on the hairline and passes on a line.
+      expect(delta(read.card, read.page)).toBeGreaterThan(18);
+      expect(delta(read.rail, read.page)).toBeGreaterThan(18);
+      // The same declared value, not merely two visible ones.
+      expect(read.card).toBe(read.rail);
+    });
+  }
+});
+
+test.describe('the theme control', () => {
+  test('is an icon on Home, and is NOT in the rail', async ({ page }) => {
+    // It used to sit in the rail on every page, which gave a decision made
+    // once the same standing as the links used every visit.
+    await page.goto('/');
+    const toggle = page.getByTestId('theme-toggle');
+    await expect(toggle).toBeVisible();
+    await expect(
+      page.getByTestId('sidebar').getByTestId('theme-toggle')
+    ).toHaveCount(0);
+
+    // Icon only: the accessible name carries the meaning, not visible text.
+    await expect(toggle).toHaveText('');
+    await expect(toggle).toHaveAttribute('aria-label', /light|dark/i);
+
+    await page.goto('/explore');
+    await expect(page.getByTestId('theme-toggle')).toHaveCount(0);
+  });
+
+  test('the choice it sets still applies on every other page', async ({
+    page,
+  }) => {
+    // Moving the control must not scope the theme to the page carrying it.
+    await page.goto('/');
+    await page.getByTestId('theme-toggle').click();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+
+    await page.goto('/docs');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  });
+});
+
+test.describe('the accent as text', () => {
+  test('the registry lockup clears AA against the rail in light mode', async ({
+    page,
+  }) => {
+    // The label is 8px, bold, uppercase and tracked — the least forgiving
+    // text in the app — and it is painted in the same token as every link
+    // and every inline code span. A ratio, not a class: the token moved
+    // twice already and the markup never changed either time.
+    await page.goto('/');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+
+    const ratio = await page.evaluate(() => {
+      const label = document
+        .querySelector(
+          '[data-testid="rail-brand"] [data-testid="registry-mark"]'
+        )!
+        .querySelector('span:last-child') as HTMLElement;
+      const rail = document.querySelector(
+        '[data-testid="sidebar"]'
+      ) as HTMLElement;
+      const lin = (c: string) =>
+        c
+          .match(/[\d.]+/g)!
+          .slice(0, 3)
+          .map(Number)
+          .map(v => {
+            const x = v / 255;
+            return x <= 0.03928
+              ? x / 12.92
+              : Math.pow((x + 0.055) / 1.055, 2.4);
+          });
+      const L = (c: string) => {
+        const [r, g, b] = lin(c);
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+      };
+      const a = L(getComputedStyle(label).color);
+      const b = L(getComputedStyle(rail).backgroundColor);
+      const [hi, lo] = a > b ? [a, b] : [b, a];
+      return (hi + 0.05) / (lo + 0.05);
+    });
+
+    expect(ratio).toBeGreaterThan(4.5);
   });
 });
 
@@ -422,6 +573,28 @@ test.describe('home shelves', () => {
     await page.goto('/');
     const recent = page.getByTestId('app-card');
     await expect(recent).toHaveCount(3); // 4 fixture apps minus the featured one
+  });
+});
+
+test.describe('the fold', () => {
+  // A 14" MacBook: 1512x982 logical, ~860 of it left once the browser's own
+  // chrome is off. The most common laptop this site is read on.
+  test.use({ viewport: { width: 1512, height: 860 } });
+
+  test('a real app is visible without scrolling', async ({ page }) => {
+    // ⚠️ MEASURED AGAINST THE VIEWPORT, NOT A PIXEL HEIGHT. The hero panel
+    // was 624px and the first card began at y=879 — nineteen pixels under the
+    // fold, so the whole first screen was one picture of a laptop. Asserting
+    // "the panel is under 500px" would go stale the moment anything above it
+    // changes height; what matters is that an app is on screen.
+    await page.goto('/');
+    const card = page.getByTestId('showcase-card').first();
+    await expect(card).toBeVisible();
+
+    const top = await card.evaluate(el => el.getBoundingClientRect().top);
+    expect(top).toBeLessThan(860);
+    // And not merely peeking: enough of it to read.
+    expect(top).toBeLessThan(780);
   });
 });
 
@@ -582,5 +755,64 @@ test.describe('scroll position', () => {
       .evaluate((el: HTMLElement) => el.click());
     await expect(page).toHaveURL(/category=games/);
     expect(await page.evaluate(() => window.scrollY)).toBe(before);
+  });
+});
+
+test.describe('the upload page', () => {
+  test('carries the form and the graphic, not a second set of instructions', async ({
+    page,
+  }) => {
+    // ⚠️ THE WALKTHROUGH THAT WAS HERE CONTRADICTED THE DOCS. It taught
+    // `mero-sign` and `calimero-registry bundle create` / `bundle push` — a
+    // flow the docs page states outright is replaced by `cargo mero`. Two
+    // sets of instructions where one is wrong is worse than one set, and the
+    // docs already cover every command it mentioned.
+    await page.goto('/upload');
+    await expect(page.getByTestId('publish-art')).toBeVisible();
+
+    const body = (await page.locator('main').innerText()).toLowerCase();
+    expect(body).not.toContain('mero-sign');
+    expect(body).not.toContain('calimero-registry bundle');
+    expect(body).not.toContain('step by step');
+
+    // And it points at the one place the instructions do live.
+    await expect(
+      page.getByRole('link', { name: 'The documentation' })
+    ).toBeVisible();
+  });
+
+  test('the graphic animates without JavaScript', async ({ page }) => {
+    // Same rule as the hero: a rAF loop runs forever in every background tab
+    // and bypasses `prefers-reduced-motion`, which is honoured globally here
+    // by a media query that can only reach declarative animation.
+    await page.goto('/upload');
+    const running = await page.evaluate(() => {
+      const el = document.querySelector('.pa-bundle') as HTMLElement;
+      return getComputedStyle(el).animationName;
+    });
+    expect(running).toBe('pa-lift');
+  });
+});
+
+test.describe('the docs menu', () => {
+  test('is one panel with a marked active row', async ({ page }) => {
+    // It was ten unstyled links under a grey label with a pale wash for the
+    // active one — nothing said it was a single thing or where you were.
+    await page.goto('/docs');
+    const first = page.getByTestId('docs-nav-introduction');
+    await expect(first).toBeVisible();
+    await expect(first).toHaveAttribute('aria-current', 'true');
+
+    // ⚠️ Marked by a RULE on the edge, not a tint: on white there is almost no
+    // room between "visible" and "fighting the text", which is why the old
+    // wash read as a smudge.
+    const border = await first.evaluate(
+      el => getComputedStyle(el).borderLeftColor
+    );
+    const ground = await page.evaluate(
+      () => getComputedStyle(document.body).backgroundColor
+    );
+    expect(border).not.toBe(ground);
+    expect(border).not.toBe('rgba(0, 0, 0, 0)');
   });
 });

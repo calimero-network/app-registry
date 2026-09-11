@@ -157,7 +157,11 @@ describe('buildBundleListing', () => {
 
     expect(result[0].metadata._ownerEmail).toBeUndefined();
     expect(result[0].metadata._adminVerified).toBeUndefined();
-    expect(result[0].verified).toBe(true);
+    // ⚠️ Inverted with the split: `_adminVerified: false` and no decision on
+    // record means the PACKAGE is not verified, however the owner's email
+    // ends. The publisher still is.
+    expect(result[0].verified).toBe(false);
+    expect(result[0].publisherVerified).toBe(true);
   });
 
   test('an empty entry list yields an empty listing', async () => {

@@ -27,7 +27,7 @@ const SECTIONS = [
 
 function Code({ children }: { children: React.ReactNode }) {
   return (
-    <code className='text-[11px] text-brand-600 bg-ink/[0.04] border border-ink/[0.06] rounded px-1.5 py-0.5 font-mono'>
+    <code className='rounded border border-brand-600/20 bg-brand-600/[0.08] px-1.5 py-0.5 font-mono text-[11px] text-brand-600'>
       {children}
     </code>
   );
@@ -35,7 +35,7 @@ function Code({ children }: { children: React.ReactNode }) {
 
 function CodeBlock({ children }: { children: string }) {
   return (
-    <pre className='text-[11.5px] text-neutral-300 bg-neutral-950 border border-ink/[0.06] rounded-lg p-4 overflow-x-auto font-mono leading-relaxed'>
+    <pre className='overflow-x-auto rounded-lg border border-line bg-[var(--surface-2)] p-4 font-mono text-[11.5px] leading-relaxed text-neutral-300'>
       {children}
     </pre>
   );
@@ -43,7 +43,7 @@ function CodeBlock({ children }: { children: string }) {
 
 function Diagram({ children }: { children: string }) {
   return (
-    <pre className='text-[10.5px] text-brand-600/70 bg-neutral-950 border border-brand-900/30 rounded-lg p-5 overflow-x-auto font-mono leading-loose'>
+    <pre className='overflow-x-auto rounded-lg border border-brand-600/25 bg-[var(--surface-2)] p-5 font-mono text-[10.5px] leading-loose text-brand-600'>
       {children}
     </pre>
   );
@@ -57,18 +57,27 @@ function SectionHeading({
   children: React.ReactNode;
 }) {
   return (
-    <h2
-      id={id}
-      className='text-xl font-semibold text-neutral-100 mb-5 scroll-mt-24'
-    >
-      {children}
-    </h2>
+    <div className='mb-5 scroll-mt-24' id={id}>
+      {/* A rule in the accent above each heading. Ten sections ran together
+          as one column of grey text with nothing between them; a chapter mark
+          is cheaper than a full divider and does not cut the page into
+          boxes. */}
+      <span
+        aria-hidden='true'
+        className='mb-3 block h-[3px] w-10 rounded-full bg-brand-600'
+      />
+      <h2 className='text-xl font-semibold text-neutral-100'>{children}</h2>
+    </div>
   );
 }
 
 function SubHeading({ children }: { children: React.ReactNode }) {
   return (
-    <h3 className='text-[14px] font-semibold text-neutral-200 mt-8 mb-3'>
+    <h3 className='mb-3 mt-8 flex items-center gap-2 text-[14px] font-semibold text-neutral-200'>
+      <span
+        aria-hidden='true'
+        className='h-3.5 w-[2px] flex-shrink-0 rounded-full bg-brand-600/60'
+      />
       {children}
     </h3>
   );
@@ -84,7 +93,7 @@ function P({ children }: { children: React.ReactNode }) {
 
 function Note({ children }: { children: React.ReactNode }) {
   return (
-    <div className='rounded-lg border border-brand-600/20 bg-brand-950/20 px-4 py-3 text-[12px] text-neutral-300 font-light leading-relaxed'>
+    <div className='rounded-lg border-l-[3px] border-brand-600/70 bg-brand-600/[0.07] px-4 py-3 text-[12px] font-light leading-relaxed text-neutral-300'>
       {children}
     </div>
   );
@@ -122,7 +131,7 @@ function FieldList({
   width: string;
 }) {
   return (
-    <div className='rounded-lg border border-ink/[0.06] bg-ink/[0.02] p-4 space-y-3'>
+    <div className='rounded-lg border border-line bg-ink/[0.02] p-4 space-y-3'>
       {rows.map(([field, desc]) => (
         <div
           key={field}
@@ -168,41 +177,62 @@ export default function DocsPage() {
   return (
     <div className='flex gap-10'>
       {/* ── Sidebar ── */}
-      <aside className='hidden lg:block w-48 flex-shrink-0'>
-        <nav className='sticky top-20'>
-          <p className='section-heading mb-3'>On this page</p>
-          <ul className='space-y-0.5'>
-            {SECTIONS.map(({ id, label }) => (
-              <li key={id}>
-                <a
-                  href={`#${id}`}
-                  className={`block px-3 py-1.5 rounded-md text-[12px] transition-colors ${
-                    activeSection === id
-                      ? 'bg-ink/[0.06] text-brand-600 font-medium'
-                      : 'text-neutral-500 hover:text-neutral-300 hover:bg-ink/[0.04]'
-                  }`}
-                >
-                  {label}
-                </a>
-              </li>
-            ))}
-          </ul>
-          <div className='mt-5 pt-4 border-t border-ink/[0.06]'>
-            <a
-              href='https://docs.calimero.network'
-              target='_blank'
-              rel='noopener noreferrer'
-              className='flex items-center gap-1.5 px-3 py-1.5 text-[12px] text-neutral-500 hover:text-neutral-300 transition-colors'
-            >
-              <ExternalLink className='w-3 h-3 flex-shrink-0' />
-              Official Docs
-            </a>
+      {/* ── The menu ──
+          It was ten unstyled links floating under an 11px grey label, an
+          active state that was a pale wash, and a hairline above "Official
+          Docs" that light mode could not render — nothing said it was one
+          thing, or which part of it you were in.
+
+          ⚠️ THE ACTIVE ROW IS MARKED BY A RULE ON ITS EDGE, NOT BY A TINT. A
+          background wash needs enough contrast to be seen and little enough
+          not to fight the text; on white that leaves almost no room, which is
+          why the old one read as a smudge. A 2px bar in the accent is legible
+          in both themes at any weight. */}
+      <aside className='hidden w-56 flex-shrink-0 lg:block'>
+        <nav className='sticky top-20' aria-label='On this page'>
+          <div className='card overflow-hidden p-1.5'>
+            <p className='section-heading px-2.5 pb-1.5 pt-2'>On this page</p>
+            <ul>
+              {SECTIONS.map(({ id, label }) => {
+                const active = activeSection === id;
+                return (
+                  <li key={id}>
+                    <a
+                      href={`#${id}`}
+                      aria-current={active ? 'true' : undefined}
+                      data-testid={`docs-nav-${id}`}
+                      className={`block border-l-2 py-1.5 pl-2.5 pr-2 text-[12.5px] transition-colors ${
+                        active
+                          ? 'border-brand-600 bg-ink/[0.04] font-medium text-neutral-100'
+                          : 'border-transparent text-neutral-500 hover:border-line-strong hover:text-neutral-200'
+                      }`}
+                    >
+                      {label}
+                    </a>
+                  </li>
+                );
+              })}
+            </ul>
           </div>
+
+          <a
+            href='https://docs.calimero.network'
+            target='_blank'
+            rel='noopener noreferrer'
+            className='mt-2 flex items-center gap-1.5 rounded-lg px-3 py-2 text-[12px] text-neutral-500 transition-colors hover:bg-ink/[0.04] hover:text-neutral-300'
+          >
+            <ExternalLink className='h-3 w-3 flex-shrink-0' />
+            Official Docs
+          </a>
         </nav>
       </aside>
 
       {/* ── Content ── */}
-      <div className='flex-1 min-w-0 space-y-16 pb-16 animate-fade-in'>
+      {/* ⚠️ `divide-y` RATHER THAN A BORDER ON EACH SECTION: the last section
+          would otherwise carry a rule with nothing under it, and the first
+          would need a special case. The rule sits in the line token, so it is
+          visible on paper — the hairline it replaces was 6% ink on white. */}
+      <div className='min-w-0 flex-1 animate-fade-in divide-y divide-line pb-16 [&>section]:py-12 [&>section:first-of-type]:pt-0'>
         {/* ⚠️ THE TABLE OF CONTENTS IS `hidden lg:block` ABOVE, AND THIS PAGE
             IS 25,000px TALL. Below `lg` that left a phone with one continuous
             scroll and no way to reach a section — the rail's own menu does
@@ -214,7 +244,7 @@ export default function DocsPage() {
             onClick={() => setTocOpen(v => !v)}
             aria-expanded={tocOpen}
             data-testid='docs-toc-toggle'
-            className='flex w-full items-center justify-between rounded-lg border border-ink/[0.08] bg-ink/[0.02] px-3.5 py-2.5 text-[13px] text-neutral-300'
+            className='flex w-full items-center justify-between rounded-lg border border-line bg-ink/[0.02] px-3.5 py-2.5 text-[13px] text-neutral-300'
           >
             On this page
             <ChevronDown
@@ -227,7 +257,7 @@ export default function DocsPage() {
           {tocOpen && (
             <ul
               data-testid='docs-toc'
-              className='mt-1.5 space-y-0.5 rounded-lg border border-ink/[0.08] bg-ink/[0.02] p-1.5'
+              className='mt-1.5 space-y-0.5 rounded-lg border border-line bg-ink/[0.02] p-1.5'
             >
               {SECTIONS.map(({ id, label }) => (
                 <li key={id}>
@@ -308,8 +338,16 @@ export default function DocsPage() {
                 },
               ].map(({ icon: Icon, title, desc }) => (
                 <div key={title} className='card p-4'>
-                  <div className='flex items-center gap-2 mb-2'>
-                    <Icon className='w-3.5 h-3.5 text-brand-600' />
+                  <div className='mb-2 flex items-center gap-2.5'>
+                    {/* The icon in a tinted chip rather than loose on the
+                        card. ⚠️ Still the accent, not four invented hues:
+                        green already means something specific in this product
+                        (verified, installed, selected), and a palette of
+                        decorative colours beside it makes every one of those
+                        meanings weaker. */}
+                    <span className='flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg bg-brand-600/[0.12]'>
+                      <Icon className='h-3.5 w-3.5 text-brand-600' />
+                    </span>
                     <span className='text-[13px] font-medium text-neutral-200'>
                       {title}
                     </span>

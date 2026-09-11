@@ -11,6 +11,7 @@
  */
 
 const { assetVisibility } = require('../src/lib/asset-visibility');
+const review = require('../src/lib/package-review');
 const { sniff, assetKey, indexKey } = require('../src/lib/asset-store');
 const { kv } = require('../src/lib/kv-client');
 
@@ -116,5 +117,51 @@ describe('storage layout', () => {
 
   it('scopes the Redis index per package', () => {
     expect(indexKey('com.example.app')).toBe('pkg-assets:com.example.app');
+  });
+});
+
+describe('the declined state', () => {
+  // Declined is not "less approved" — it is a decision. It hides assets
+  // exactly as pending does, which is why every caller has to ask for
+  // `approved` rather than for "not pending".
+  const pkg = 'com.example.declined';
+
+  beforeEach(async () => {
+    await review.setReview(pkg, {
+      state: 'declined',
+      by: 'admin@calimero.network',
+      reason: 'The screenshot shows a third-party logo.',
+    });
+  });
+
+  afterEach(async () => {
+    await review.setReview(pkg, { state: 'pending' });
+  });
+
+  it('hides assets from a stranger', async () => {
+    const v = await assetVisibility({ pkg });
+    expect(v.visible).toBe(false);
+    expect(v.state).toBe('declined');
+  });
+
+  it('shows the owner their own assets, and the reason', async () => {
+    const v = await assetVisibility({ pkg, isOwner: true });
+    expect(v.visible).toBe(true);
+    expect(v.reason).toBe('declined');
+    expect(v.declineReason).toMatch(/third-party logo/);
+  });
+
+  it('does NOT hand the reason to a stranger', async () => {
+    // ⚠️ An admin writes it about someone's package. It goes to the owner and
+    // to admins; a public reader must not see it.
+    const v = await assetVisibility({ pkg });
+    expect(v.declineReason).toBeUndefined();
+  });
+
+  it('a decline overrides an earlier approval', async () => {
+    await review.setReview(pkg, { state: 'approved', by: 'a@b.c' });
+    expect((await assetVisibility({ pkg })).visible).toBe(true);
+    await review.setReview(pkg, { state: 'declined', by: 'a@b.c' });
+    expect((await assetVisibility({ pkg })).visible).toBe(false);
   });
 });

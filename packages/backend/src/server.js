@@ -90,6 +90,51 @@ async function buildServer() {
     },
   });
 
+  // ⚠️ THE BODY PARSERS THE SERVERLESS RUNTIME GIVES FOR FREE.
+  //
+  // `POST /api/auth/refresh` carries no body — there is nothing to send, the
+  // credential is a cookie. Fastify refuses both shapes the browser produces:
+  // `application/x-www-form-urlencoded` has no registered parser (415), and
+  // `application/json` with an empty body is a parse error (400). Either way
+  // the request never reaches the handler, so **a session could never refresh
+  // against the dev server** — every page load logged a failure and every
+  // local session quietly expired at the access token's lifetime. On Vercel
+  // the handler reads the body itself and none of this applies, which is why
+  // it went unnoticed.
+  //
+  // An absent body is not a malformed one. Both parsers treat it as `{}`.
+  server.addContentTypeParser(
+    'application/json',
+    { parseAs: 'string' },
+    (_req, body, done) => {
+      if (!body) return done(null, {});
+      try {
+        done(null, JSON.parse(body));
+      } catch (err) {
+        err.statusCode = 400;
+        done(err);
+      }
+    }
+  );
+  server.addContentTypeParser(
+    'application/x-www-form-urlencoded',
+    { parseAs: 'string' },
+    (_req, body, done) => {
+      if (!body) return done(null, {});
+      try {
+        done(null, Object.fromEntries(new URLSearchParams(body)));
+      } catch (err) {
+        err.statusCode = 400;
+        done(err);
+      }
+    }
+  );
+
+  // The endpoints that exist only as serverless handlers under `api/`.
+  // ⚠️ Registered from the handlers themselves rather than hand-written here
+  // — see routes/serverless-mount.js for what that drift cost.
+  await server.register(require('./routes/serverless-mount'));
+
   // Auth routes (Google OAuth, session cookie, /api/auth/me, /api/auth/logout)
   await server.register(require('./routes/auth-routes'), { config });
 

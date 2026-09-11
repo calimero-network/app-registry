@@ -39,7 +39,10 @@ interface V2Bundle {
   version: string;
   package: string;
   appVersion: string;
+  /** An admin approved THIS PACKAGE. Not the publisher — see below. */
   verified?: boolean;
+  /** The person: a verified account or a calimero.network address. */
+  publisherVerified?: boolean;
   yanked?: boolean;
   metadata?: {
     name?: string;
@@ -217,7 +220,10 @@ export default function AppDetailPage() {
   const abi = bundle.abi;
   const sig = bundle.signature;
   const ifaces = bundle.interfaces;
-  const authorVerified = !!bundle.verified;
+  // Two claims, two fields. `verified` is the admin's decision about the
+  // package; `publisherVerified` is about the person who published it.
+  const packageVerified = !!bundle.verified;
+  const authorVerified = !!bundle.publisherVerified;
   // Ownership: author is now stored as username; fallback for legacy bundles where author was email
   const bundleAuthor = meta?.author ?? '';
   const isOwner =
@@ -233,12 +239,24 @@ export default function AppDetailPage() {
         m => m.email.toLowerCase() === userEmailLower
       )?.role ?? null)
     : null;
-  const isOrgMember = orgRole !== null;
-  const canEdit = isOwner || isOrgMember;
-  // Deleting and yanking are org-administrative, not merely org-membership:
-  // they must line up with canManagePackage() on the API side.
   const isOrgManager = orgRole === 'owner' || orgRole === 'admin';
+
+  /**
+   * ⚠️ ONE RULE, AND IT IS THE SERVER'S.
+   *
+   * `canManagePackage` in shared/package-permissions.js is: the package's
+   * author, an admin or owner of the organization it belongs to, or a site
+   * admin. Every route that edits a package — the metadata PATCH, the asset
+   * upload, delete, yank — asks exactly that.
+   *
+   * This page used to compute `isOwner || isOrgMember` for editing, which was
+   * wrong in BOTH directions: it offered the controls to a plain org member,
+   * who gets a 403 the moment they use them, and it hid them from a site
+   * admin, who is allowed. An affordance that does not match the rule behind
+   * it is worse than no affordance — it either lies or withholds.
+   */
   const canManagePackage = isOwner || isOrgManager || !!user?.isAdmin;
+  const canEdit = canManagePackage;
 
   return (
     <div className='space-y-6'>
@@ -277,7 +295,10 @@ export default function AppDetailPage() {
               while this is the identifier that gets installed. */}
           <p className='flex items-center gap-1.5 font-mono text-[12px] text-neutral-500'>
             {bundle.package}
-            {authorVerified && (
+            {/* The PACKAGE's mark, on the identifier that actually gets
+                installed — this one is the admin's decision, not the
+                publisher's domain. */}
+            {packageVerified && (
               <BadgeCheck
                 className='h-3.5 w-3.5 flex-shrink-0 text-emerald-400'
                 aria-label='Verified package'
@@ -291,7 +312,7 @@ export default function AppDetailPage() {
               <span className='text-neutral-400'>{meta.author}</span>
             )}
             {formatCategory(resolvedCategory) && (
-              <span className='rounded-md border border-ink/[0.08] bg-ink/[0.03] px-1.5 py-0.5 text-[11px] text-neutral-400'>
+              <span className='rounded-md border border-line bg-ink/[0.03] px-1.5 py-0.5 text-[11px] text-neutral-400'>
                 {formatCategory(resolvedCategory)}
               </span>
             )}
@@ -399,7 +420,7 @@ export default function AppDetailPage() {
             className='card flex items-center justify-between px-4 py-3 hover:border-brand-600/30'
           >
             <div className='flex items-center gap-3'>
-              <div className='flex items-center justify-center w-8 h-8 rounded-full bg-ink/[0.06] border border-ink/[0.06]'>
+              <div className='flex items-center justify-center w-8 h-8 rounded-full bg-ink/[0.06] border border-line'>
                 <Building2 className='w-4 h-4 text-neutral-400' />
               </div>
               <div>
@@ -535,9 +556,12 @@ export default function AppDetailPage() {
                   (vAuthor.includes('@') &&
                     !user.username &&
                     vAuthor === user.email));
-              const canEditVersion = isVersionOwner || isOrgMember;
+              // Same rule as above, per version: the server asks
+              // `canManagePackage` for the metadata PATCH too, so editing and
+              // managing a version are the same permission.
               const canManageVersion =
                 isVersionOwner || isOrgManager || !!user?.isAdmin;
+              const canEditVersion = canManageVersion;
               const isConfirmingThisVersion =
                 confirmDeleteVersion === b.appVersion;
               return (
@@ -769,7 +793,7 @@ function LinkCard({
       target='_blank'
       rel='noreferrer noopener'
       aria-label={label}
-      className='card flex flex-col justify-center gap-1 px-3.5 py-2.5 transition-colors hover:border-ink/[0.16]'
+      className='card flex flex-col justify-center gap-1 px-3.5 py-2.5 transition-colors hover:border-line-strong'
     >
       <p className='text-[11px] text-neutral-500'>{label}</p>
       <Icon className='h-4 w-4 text-brand-600' />
@@ -820,7 +844,7 @@ function ArtifactRow({
   hash: string | null;
 }) {
   return (
-    <div className='flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-6 py-2 border-b border-ink/[0.06] last:border-0'>
+    <div className='flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-6 py-2 border-b border-line last:border-0'>
       <span className='text-[11px] font-medium text-neutral-400 w-12 flex-shrink-0'>
         {label}
       </span>

@@ -225,7 +225,12 @@ api.interceptors.response.use(
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const toAppSummary = (bundle: any): AppSummary => {
   const author = bundle.metadata?.author || 'Unknown';
+  // ⚠️ TWO CLAIMS, CARRIED SEPARATELY. `verified` is the admin's decision
+  // about the package; `publisherVerified` is about the person. Mapping one
+  // onto both — which this did — is how a single value came to make two
+  // different assertions on the same card.
   const verified = !!bundle.verified;
+  const publisherVerified = !!bundle.publisherVerified;
   const tags: string[] = Array.isArray(bundle.metadata?.tags)
     ? bundle.metadata.tags
     : [];
@@ -254,6 +259,7 @@ export const toAppSummary = (bundle: any): AppSummary => {
     alias: bundle.metadata?.name,
     downloads: bundle.downloads || 0,
     verified,
+    publisherVerified,
     icon: bundle.metadata?.icon || undefined,
     description: bundle.metadata?.description || undefined,
     tags,
@@ -265,7 +271,8 @@ export const toAppSummary = (bundle: any): AppSummary => {
     developer: {
       display_name: author,
       pubkey: author,
-      verified,
+      // The developer's own record: the publisher's claim, not the package's.
+      verified: publisherVerified,
     },
   };
 };
@@ -723,4 +730,61 @@ export const reorderPackageAssets = async (
     { assets }
   );
   return res.data.assets;
+};
+
+// ——— Moderation review queue (admin) ———
+//
+// Packages whose newest upload postdates their last decision. ⚠️ Keyed on the
+// ASSETS, not on the state: a package approved last month that uploaded a
+// screenshot this morning is waiting again, or the first approval becomes a
+// licence to publish anything afterwards.
+
+export interface ReviewAsset {
+  id: string;
+  kind: 'image' | 'video';
+  contentType: string;
+  bytes: number;
+  alt: string;
+  order: number;
+  uploadedAt: string | null;
+  url: string;
+}
+
+export interface ReviewItem {
+  package: string;
+  latestVersion: string | null;
+  metadata: Record<string, unknown> & { name?: string; description?: string };
+  author: string;
+  state: 'pending' | 'approved' | 'declined';
+  decidedAt: string | null;
+  decidedBy: string | null;
+  reason: string;
+  newestAssetAt: string | null;
+  assets: ReviewAsset[];
+}
+
+export const getReviewQueue = async (): Promise<ReviewItem[]> => {
+  const { data } = await api.get<{ queue: ReviewItem[] }>(
+    '/admin/review-queue'
+  );
+  return Array.isArray(data?.queue) ? data.queue : [];
+};
+
+/**
+ * Record a decision about a package.
+ *
+ * `approve` publishes its assets; `decline` keeps them hidden, takes the
+ * package out of the queue and gives its owner a reason. ⚠️ Declining is NOT
+ * the same as leaving it pending — that difference is the whole reason the
+ * decision stopped being a boolean.
+ */
+export const decidePackage = async (
+  pkg: string,
+  action: 'approve' | 'decline',
+  reason = ''
+): Promise<void> => {
+  await api.patch(`/admin/packages/${encodeURIComponent(pkg)}`, {
+    action,
+    reason,
+  });
 };

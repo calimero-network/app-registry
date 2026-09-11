@@ -22,7 +22,14 @@ export interface AppSummary {
   latest_version: string;
   alias?: string;
   downloads?: number;
+  /**
+   * An admin approved THIS PACKAGE. ⚠️ Not the publisher — see
+   * `publisherVerified`. The two used to be one field that was true when
+   * either held, which made every bundle verified and the badge meaningless.
+   */
   verified?: boolean;
+  /** The person who published it: a verified account, or a calimero.network address. */
+  publisherVerified?: boolean;
   /**
    * `metadata.icon` — a `data:image/png;base64,...` URI, the same field
    * tauri-app reads for launcher icons. Absent on bundles published before an

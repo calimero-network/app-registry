@@ -109,11 +109,11 @@ function DeveloperCard({
   return (
     <Link
       to={`/developers/${encodeURIComponent(developer.pubkey)}`}
-      className='group block rounded-xl border border-ink/[0.06] bg-ink/[0.02] px-4 py-3 transition-colors duration-150 hover:border-ink/[0.14] hover:bg-ink/[0.04]'
+      className='group block rounded-xl border border-line bg-ink/[0.02] px-4 py-3 transition-colors duration-150 hover:border-line-strong hover:bg-ink/[0.04]'
     >
       <div className='flex items-center justify-between'>
         <div className='flex items-center gap-3 min-w-0'>
-          <div className='flex items-center justify-center w-8 h-8 rounded-full bg-ink/[0.06] border border-ink/[0.06] flex-shrink-0'>
+          <div className='flex items-center justify-center w-8 h-8 rounded-full bg-ink/[0.06] border border-line flex-shrink-0'>
             <User className='w-3.5 h-3.5 text-neutral-400' />
           </div>
           <div className='min-w-0'>

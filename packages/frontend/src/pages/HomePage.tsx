@@ -4,6 +4,7 @@ import { PosterGallery } from '@/components/PosterGallery';
 import { type Poster } from '@/components/PosterCard';
 import { getApps } from '@/lib/api';
 import { AppCard } from '@/components/AppCard';
+import { ThemeToggle } from '@/components/ThemeToggle';
 import { ShowcaseCard } from '@/components/ShowcaseCard';
 import { HeroGraphic } from '@/components/HeroGraphic';
 import { formatCategory } from '@/lib/utils';
@@ -128,13 +129,21 @@ export default function HomePage() {
             above it. Stacked rather than inline: the subtitle is a sentence,
             not a tagline, and sitting it beside the title made both harder
             to read. */}
-        <h1 className='text-2xl font-semibold tracking-tight text-neutral-100 sm:text-3xl'>
-          App Registry
-        </h1>
-        <p className='mt-2 max-w-2xl text-[13.5px] font-light leading-relaxed text-neutral-400'>
-          Applications for Calimero — signed, versioned, and installed into a
-          node you run yourself.
-        </p>
+        <div className='flex items-start justify-between gap-4'>
+          <div>
+            <h1 className='text-2xl font-semibold tracking-tight text-neutral-100 sm:text-3xl'>
+              App Registry
+            </h1>
+            <p className='mt-2 max-w-2xl text-[13.5px] font-light leading-relaxed text-neutral-400'>
+              Applications for Calimero — signed, versioned, and installed into
+              a node you run yourself.
+            </p>
+          </div>
+          {/* The one control on the page that is not navigation, so it sits
+              out of the reading column rather than in the rail with the
+              things you press every visit. */}
+          <ThemeToggle />
+        </div>
 
         {/* The laptop sits inside its own lit panel rather than floating on
             the page ground, and it is drawn small inside that panel: at full
@@ -147,7 +156,7 @@ export default function HomePage() {
             green light behind green UI flattens every one of those. */}
         <div
           data-testid='hero-panel'
-          className='relative mt-10 overflow-hidden rounded-[28px] border border-ink/[0.07]'
+          className='relative mt-8 overflow-hidden rounded-[28px] border border-line'
           style={{ background: 'var(--hero-wash)' }}
         >
           {/* ⚠️ BEHIND THE DEVICE, NOT OVER IT. These are stacked at z-0 and
@@ -169,12 +178,19 @@ export default function HomePage() {
             />
           </div>
 
-          <div className='relative z-10 px-5 pb-8 pt-8 sm:px-8 sm:pb-9 sm:pt-9'>
-            {/* Wide enough to carry the panel. The first pass drew it at
-                `max-w-xl`, which left a third of the box empty on either side
-                and made the whole section read as padding with a picture in
-                it. */}
-            <div className='hero-device mx-auto aspect-[960/560] w-full max-w-3xl'>
+          <div className='relative z-10 px-5 pb-6 pt-6 sm:px-8 sm:pb-7 sm:pt-7'>
+            {/* ⚠️ SIZED AGAINST A 14" LAPTOP'S FOLD, NOT AGAINST THE PANEL.
+                At `max-w-3xl` with the old padding the panel came to 624px
+                and the first app card began at y=879 — nineteen pixels below
+                an 860px viewport, so the entire first screen was one picture
+                and no actual app was visible without scrolling. That is the
+                same failure that removed the original "Discover & Deploy"
+                hero.
+
+                Still wide enough to carry the panel, which is why it is not
+                back at the `max-w-xl` of the first pass — that left a third
+                of the box empty on either side. */}
+            <div className='hero-device mx-auto aspect-[960/508] w-full max-w-[40rem]'>
               <HeroGraphic />
             </div>
 
@@ -195,15 +211,15 @@ export default function HomePage() {
 
                 Reduced motion lands on the base styles — line one visible,
                 line two hidden — rather than on an empty box. */}
-            <div className='relative mx-auto mt-6 h-[6.2rem] w-full max-w-3xl overflow-hidden sm:h-[4.9rem]'>
+            <div className='relative mx-auto mt-5 h-[6.2rem] w-full max-w-[40rem] overflow-hidden sm:h-[4.1rem]'>
               <p
                 data-testid='hero-caption'
-                className='hero-line hero-line-a absolute inset-x-0 top-0 font-display text-[18px] font-bold leading-snug tracking-tight text-neutral-100 sm:text-[27px]'
+                className='hero-line hero-line-a absolute inset-x-0 top-0 font-display text-[18px] font-bold leading-snug tracking-tight text-neutral-100 sm:text-[23px]'
               >
                 Download Calimero Desktop and install applications from the
                 marketplace.
               </p>
-              <p className='hero-line hero-line-b absolute inset-x-0 top-0 font-display text-[18px] font-bold leading-snug tracking-tight text-neutral-100 sm:text-[27px]'>
+              <p className='hero-line hero-line-b absolute inset-x-0 top-0 font-display text-[18px] font-bold leading-snug tracking-tight text-neutral-100 sm:text-[23px]'>
                 Open the installed application and use it peer-to-peer, fully
                 encrypted.
               </p>
@@ -218,7 +234,7 @@ export default function HomePage() {
               floating on the page ground. It groups the apps we publish
               ourselves into a single object, which is what separates them
               from the derived shelves below. */}
-          <div className='rounded-2xl border border-ink/[0.07] bg-ink/[0.02] p-4 sm:p-5'>
+          <div className='rounded-2xl border border-line bg-ink/[0.02] p-4 sm:p-5'>
             <SectionHeading title='Apps we build' />
             <div className='mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3'>
               {featured.map(app => (
@@ -244,7 +260,7 @@ export default function HomePage() {
               <Link
                 key={c}
                 to={`/explore?category=${c}`}
-                className='inline-flex items-center gap-1.5 rounded-full border border-ink/[0.08] bg-ink/[0.02] px-3 py-1.5 text-[12.5px] text-neutral-300 transition-colors duration-150 hover:border-ink/[0.16] hover:text-neutral-100'
+                className='inline-flex items-center gap-1.5 rounded-full border border-line bg-ink/[0.02] px-3 py-1.5 text-[12.5px] text-neutral-300 transition-colors duration-150 hover:border-line-strong hover:text-neutral-100'
               >
                 {formatCategory(c)}
               </Link>
@@ -291,7 +307,7 @@ function SkeletonList() {
       {Array.from({ length: 4 }).map((_, i) => (
         <div
           key={i}
-          className='flex animate-pulse gap-4 rounded-xl border border-ink/[0.06] p-4'
+          className='flex animate-pulse gap-4 rounded-xl border border-line p-4'
         >
           <div className='h-14 w-14 flex-shrink-0 rounded-xl bg-ink/[0.06]' />
           <div className='flex-1 space-y-2 pt-1'>

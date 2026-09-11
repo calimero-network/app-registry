@@ -259,6 +259,27 @@ async function updateAssets(pkg, updates) {
   return reordered;
 }
 
+/**
+ * Every asset for a package, bytes and index.
+ *
+ * ⚠️ FOR PACKAGE DELETE. Deleting a package while its images stay in the
+ * bucket repeats the known `.mpk` orphan-blob leak — except these are files a
+ * person uploaded, and the reason for the delete may have been that they
+ * asked for them to be taken down. Objects first, index last, so a failure
+ * halfway leaves entries pointing at bytes rather than bytes with nothing
+ * pointing at them.
+ */
+async function removeAllAssets(pkg) {
+  const assets = await listAssets(pkg);
+  if (bucketName()) {
+    for (const a of assets) {
+      await getBucket().file(a.key).delete({ ignoreNotFound: true });
+    }
+  }
+  await kv.del(indexKey(pkg));
+  return assets.length;
+}
+
 function _resetForTests() {
   _storage = undefined;
   _bucket = undefined;
@@ -270,6 +291,7 @@ module.exports = {
   addAsset,
   readAsset,
   removeAsset,
+  removeAllAssets,
   updateAssets,
   sniff,
   indexKey,

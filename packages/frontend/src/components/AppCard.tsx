@@ -41,8 +41,8 @@ export function AppCard({
       data-testid='app-card'
       data-package={app.package_name}
       className={cn(
-        'group flex gap-4 rounded-xl border border-ink/[0.06] bg-ink/[0.02]',
-        'transition-colors duration-150 hover:border-ink/[0.14] hover:bg-ink/[0.04]',
+        'group flex gap-4 rounded-xl border border-line bg-ink/[0.02]',
+        'transition-colors duration-150 hover:border-line-strong hover:bg-ink/[0.04]',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600/60',
         large ? 'p-4' : 'p-3'
       )}
@@ -94,7 +94,11 @@ export function AppCard({
             <span className='truncate text-neutral-400'>
               {app.developer?.display_name || app.developer_pubkey}
             </span>
-            {app.verified && <VerifiedMark label='Verified author' />}
+            {/* ⚠️ The AUTHOR's badge reads the publisher's field. Both marks
+                used to read `app.verified`, so a single value was making two
+                different claims — and after the split it would have put a
+                package's approval next to a person's name. */}
+            {app.publisherVerified && <VerifiedMark label='Verified author' />}
           </span>
           {when && (
             <>
@@ -116,7 +120,7 @@ export function AppCard({
         </div>
 
         {category && (
-          <span className='mt-2 inline-block rounded-md border border-ink/[0.08] bg-ink/[0.03] px-1.5 py-0.5 text-[10.5px] text-neutral-400'>
+          <span className='mt-2 inline-block rounded-md border border-line bg-ink/[0.03] px-1.5 py-0.5 text-[10.5px] text-neutral-400'>
             {category}
           </span>
         )}

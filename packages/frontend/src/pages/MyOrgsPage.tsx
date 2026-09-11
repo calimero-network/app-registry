@@ -197,7 +197,7 @@ export default function MyOrgsPage() {
                   className={`w-full rounded-lg border bg-ink/[0.06] px-4 py-2.5 text-[13px] text-neutral-200 placeholder:text-neutral-500 focus:outline-hidden focus:ring-1 transition-colors ${
                     nameError
                       ? 'border-red-500/70 focus:border-red-500 focus:ring-red-500/30'
-                      : 'border-ink/[0.08] focus:border-brand-600 focus:ring-brand-600'
+                      : 'border-line focus:border-brand-600 focus:ring-brand-600'
                   }`}
                 />
                 <span className='absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-neutral-600 pointer-events-none'>
@@ -223,7 +223,7 @@ export default function MyOrgsPage() {
                   className={`w-full rounded-lg border bg-ink/[0.06] px-4 py-2.5 text-[13px] text-neutral-200 placeholder:text-neutral-500 focus:outline-hidden focus:ring-1 font-mono transition-colors ${
                     slugError
                       ? 'border-red-500/70 focus:border-red-500 focus:ring-red-500/30'
-                      : 'border-ink/[0.08] focus:border-brand-600 focus:ring-brand-600'
+                      : 'border-line focus:border-brand-600 focus:ring-brand-600'
                   }`}
                 />
                 <span className='absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-neutral-600 pointer-events-none'>
@@ -280,7 +280,7 @@ export default function MyOrgsPage() {
           </button>
 
           {showTokenSection && (
-            <div className='px-4 pb-4 space-y-4 border-t border-ink/[0.06]'>
+            <div className='px-4 pb-4 space-y-4 border-t border-line'>
               <p className='text-[12px] text-neutral-400 pt-3'>
                 Generate a token to authenticate the CLI for org management and
                 bundle publishing. Configure it once with:
@@ -296,7 +296,7 @@ export default function MyOrgsPage() {
                   value={newTokenLabel}
                   onChange={e => setNewTokenLabel(e.target.value)}
                   placeholder='Token label (e.g. laptop)'
-                  className='flex-1 min-w-[160px] rounded-lg border border-ink/[0.08] bg-ink/[0.06] px-3 py-2 text-[13px] text-neutral-200 placeholder:text-neutral-500 focus:border-brand-600 focus:outline-hidden'
+                  className='flex-1 min-w-[160px] rounded-lg border border-line bg-ink/[0.06] px-3 py-2 text-[13px] text-neutral-200 placeholder:text-neutral-500 focus:border-brand-600 focus:outline-hidden'
                 />
                 <button
                   type='button'

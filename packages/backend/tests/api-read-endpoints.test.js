@@ -267,7 +267,7 @@ describe('listing sanitization', () => {
     expect(res.body[0].verified).toBe(true);
   });
 
-  test('a calimero.network owner is marked verified', async () => {
+  test('a calimero.network owner is trusted, so the package is verified too', async () => {
     sets.set('bundles:all', new Set(['com.a.one']));
     sets.set('bundle-versions:com.a.one', new Set(['1.0.0']));
     store.set(
@@ -285,8 +285,67 @@ describe('listing sanitization', () => {
     const res = makeRes();
     await listHandler({ method: 'GET', query: {}, headers: {} }, res);
 
+    // ⚠️ THIS ASSERTION HAS MOVED TWICE, AND THE REASONS ARE DIFFERENT.
+    // Originally `verified` was true merely BECAUSE of the domain — the two
+    // claims were one field, so every bundle was verified and the badge said
+    // nothing. Splitting them made this false. It is true again now, but by a
+    // rule rather than a coincidence: an unreviewed package from a trusted
+    // publisher is approved on arrival, because the queue exists to stop
+    // strangers publishing rubbish, not to make the people who build this
+    // thing queue behind their own gate. The two fields are still separate —
+    // see the next test, where a package IS verified and its publisher is
+    // not.
     expect(res.body[0].verified).toBe(true);
+    expect(res.body[0].publisherVerified).toBe(true);
     expect(res.body[0].metadata._ownerEmail).toBeUndefined();
+  });
+
+  test('an outside publisher is NOT verified until somebody decides', async () => {
+    // The half the shortcut must not touch: default deny for everyone else.
+    sets.set('bundles:all', new Set(['com.c.three']));
+    sets.set('bundle-versions:com.c.three', new Set(['1.0.0']));
+    store.set(
+      'bundle:com.c.three/1.0.0',
+      JSON.stringify({
+        json: {
+          package: 'com.c.three',
+          appVersion: '1.0.0',
+          metadata: { author: 'carol', _ownerEmail: 'carol@example.com' },
+        },
+        created_at: '2026-01-01T00:00:00.000Z',
+      })
+    );
+
+    const res = makeRes();
+    await listHandler({ method: 'GET', query: {}, headers: {} }, res);
+
+    expect(res.body[0].verified).toBe(false);
+    expect(res.body[0].publisherVerified).toBe(false);
+  });
+
+  test('an admin decision verifies the package, whoever published it', async () => {
+    // The other half of the split: a package by a publisher nobody has
+    // verified can still be a verified package.
+    sets.set('bundles:all', new Set(['com.b.two']));
+    sets.set('bundle-versions:com.b.two', new Set(['1.0.0']));
+    store.set(
+      'bundle:com.b.two/1.0.0',
+      JSON.stringify({
+        json: {
+          package: 'com.b.two',
+          appVersion: '1.0.0',
+          metadata: { author: 'bob', _ownerEmail: 'bob@example.com' },
+        },
+        created_at: '2026-01-01T00:00:00.000Z',
+      })
+    );
+    store.set('admin_verified:package:com.b.two', '1');
+
+    const res = makeRes();
+    await listHandler({ method: 'GET', query: {}, headers: {} }, res);
+
+    expect(res.body[0].verified).toBe(true);
+    expect(res.body[0].publisherVerified).toBe(false);
   });
 
   test('an unknown owner is not verified', async () => {

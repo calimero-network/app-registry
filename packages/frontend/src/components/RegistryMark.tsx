@@ -48,10 +48,22 @@ export function RegistryMark({
         // rather than under the mark — the glyph occupies roughly the first
         // 52px of the asset, and a label starting at x=0 reads as a caption
         // for the icon instead of a lockup with the name.
-        className={`font-bold uppercase leading-none text-brand-600 ${
+        // ⚠️ CONTRAST ALONE COULD NOT FIX THIS. The label was 8px — and 7px
+        // in the mobile bar — so however dark the green got, it rendered as a
+        // smudge rather than as words. Deepening the ink from #5f9400 to
+        // #3f6a00 took it from 3.3:1 to 5.7:1 and it still looked wrong,
+        // because the failure was SIZE. 11px at weight 800 is what makes it
+        // read; the colour change matters, but only once the glyphs are big
+        // enough to carry it.
+        //
+        // ⚠️ The left margin moves WITH the size. The label is indented past
+        // the shield so it sits under the WORDMARK rather than under the
+        // glyph; grow the type without pulling the indent back and the
+        // lockup drifts right of the letters it belongs to.
+        className={`font-extrabold uppercase leading-none text-brand-600 ${
           compact
-            ? '-mt-[2px] ml-[42px] text-[7px] tracking-[0.04em]'
-            : '-mt-[3px] ml-[52px] text-[8px] tracking-[0.06em]'
+            ? '-mt-[3px] ml-[38px] text-[9.5px] tracking-[0.02em]'
+            : '-mt-[4px] ml-[47px] text-[11px] tracking-[0.03em]'
         }`}
       >
         App Registry

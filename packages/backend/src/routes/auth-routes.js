@@ -41,13 +41,31 @@ function loginErrorUrl(frontendUrl, error) {
   return `${frontendUrl}/login?error=${encodeURIComponent(error)}`;
 }
 
+/**
+ * ⚠️ `reply.redirect(url, code)` — URL FIRST. Fastify 5 swapped the argument
+ * order; v4 took `(code, url)`. Every one of the seven redirects in this file
+ * still used the old order, so the URL was the number 302 and the whole
+ * Google flow threw: `GET /api/auth/google` answered 500 instead of sending
+ * anyone to Google, and each error path in the callback would have thrown on
+ * its way to reporting the error. Nothing here is covered by a test that
+ * follows a redirect, and the 500 was caught and logged as "Auth redirect
+ * failed", which reads like a Google problem.
+ */
 async function authRoutes(server, options) {
   // Rate limit all auth endpoints: 20 requests per IP per minute
   await server.register(rateLimit, {
     max: 20,
     timeWindow: '1 minute',
     keyGenerator: request => request.ip,
+    // ⚠️ `statusCode` IS NOT OPTIONAL HERE. Without it @fastify/rate-limit
+    // builds an error carrying no status and Fastify's handler defaults to
+    // 500 — so a throttled client was told the server had failed, which the
+    // frontend reports as an outage rather than as "slow down", and a real
+    // 500 became indistinguishable from a rate limit. The response already
+    // carried `x-ratelimit-*` and `retry-after` headers, which is what made
+    // it look correct.
     errorResponseBuilder: () => ({
+      statusCode: 429,
       error: 'too_many_requests',
       message: 'Too many auth requests. Please wait before trying again.',
     }),
@@ -86,7 +104,7 @@ async function authRoutes(server, options) {
         secure: isSecure,
       });
       const url = buildGoogleAuthUrl(redirectUri, clientId, state);
-      return reply.redirect(302, url);
+      return reply.redirect(url, 302);
     } catch (err) {
       server.log.error({ err }, 'GET /api/auth/google failed');
       return reply.code(500).send({
@@ -101,8 +119,8 @@ async function authRoutes(server, options) {
     if (!clientId || !clientSecret) {
       reply.clearCookie(STATE_COOKIE_NAME, { path: '/' });
       return reply.redirect(
-        302,
-        loginErrorUrl(frontendUrl, 'auth_not_configured')
+        loginErrorUrl(frontendUrl, 'auth_not_configured'),
+        302
       );
     }
     const { code, state: queryState } = request.query || {};
@@ -110,10 +128,10 @@ async function authRoutes(server, options) {
     reply.clearCookie(STATE_COOKIE_NAME, { path: '/' });
 
     if (!queryState || queryState !== cookieState) {
-      return reply.redirect(302, loginErrorUrl(frontendUrl, 'invalid_state'));
+      return reply.redirect(loginErrorUrl(frontendUrl, 'invalid_state'), 302);
     }
     if (!code) {
-      return reply.redirect(302, loginErrorUrl(frontendUrl, 'missing_code'));
+      return reply.redirect(loginErrorUrl(frontendUrl, 'missing_code'), 302);
     }
 
     let user;
@@ -126,14 +144,14 @@ async function authRoutes(server, options) {
       );
     } catch (err) {
       server.log.warn({ err }, 'Google OAuth exchange failed');
-      return reply.redirect(302, loginErrorUrl(frontendUrl, 'oauth_failed'));
+      return reply.redirect(loginErrorUrl(frontendUrl, 'oauth_failed'), 302);
     }
 
     // Block blacklisted users
     if (await isBlacklisted(user.email)) {
       return reply.redirect(
-        302,
-        loginErrorUrl(frontendUrl, 'account_suspended')
+        loginErrorUrl(frontendUrl, 'account_suspended'),
+        302
       );
     }
 
@@ -169,7 +187,7 @@ async function authRoutes(server, options) {
       request.log.warn({ err }, 'login: refresh issue failed, session-only');
     }
 
-    return reply.redirect(302, `${frontendUrl}/my-packages`);
+    return reply.redirect(`${frontendUrl}/my-packages`, 302);
   });
 
   // GET /api/auth/me — return current user from session cookie or Bearer token

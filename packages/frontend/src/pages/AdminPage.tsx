@@ -1,8 +1,10 @@
 import { useState } from 'react';
+import { ReviewQueue } from '@/components/ReviewQueue';
 import { Navigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   ShieldCheck,
+  Image as ImageIcon,
   Users,
   Package,
   Building2,
@@ -18,7 +20,7 @@ import {
 import { api } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 
-type Tab = 'users' | 'packages' | 'orgs';
+type Tab = 'review' | 'users' | 'packages' | 'orgs';
 
 interface AdminUser {
   id: string;
@@ -53,7 +55,8 @@ interface AdminOrg {
 
 export default function AdminPage() {
   const { user, loading } = useAuth();
-  const [tab, setTab] = useState<Tab>('users');
+  // Review first: it is the only tab with work waiting in it.
+  const [tab, setTab] = useState<Tab>('review');
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
   if (loading) {
@@ -80,9 +83,10 @@ export default function AdminPage() {
       </div>
 
       {/* Tabs */}
-      <div className='flex gap-1 border-b border-ink/[0.06]'>
+      <div className='flex gap-1 border-b border-line'>
         {(
           [
+            { key: 'review', label: 'Review', icon: ImageIcon },
             { key: 'users', label: 'Users', icon: Users },
             { key: 'packages', label: 'Packages', icon: Package },
             { key: 'orgs', label: 'Orgs', icon: Building2 },
@@ -110,6 +114,7 @@ export default function AdminPage() {
         ))}
       </div>
 
+      {tab === 'review' && <ReviewQueue />}
       {tab === 'users' && (
         <UsersTab
           confirmDelete={confirmDelete}
@@ -596,7 +601,7 @@ function ActionBtn({
       'text-emerald-500 hover:text-emerald-400 border-emerald-900/40 hover:border-emerald-700/50',
     blue: 'text-brand-500 hover:text-brand-400 border-brand-900/40 hover:border-brand-700/50',
     neutral:
-      'text-neutral-400 hover:text-ink/80 border-ink/[0.06] hover:border-ink/[0.1]',
+      'text-neutral-400 hover:text-ink/80 border-line hover:border-line-strong',
   };
   return (
     <button

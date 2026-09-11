@@ -43,11 +43,23 @@ export default {
           100: '#ECFC91',
           accent: '#A5FF11',
         },
-        // The neutral used with an opacity modifier for hairlines and fills:
-        // `bg-white/[0.04]` is invisible on a white page, so those became
-        // `bg-ink/[0.04]`, which is near-white in dark mode and near-black in
-        // light.
+        // The neutral used with an opacity modifier for FILLS: `bg-white/[0.04]`
+        // is invisible on a white page, so those became `bg-ink/[0.04]`, which
+        // is near-white in dark mode and near-black in light.
         ink: 'rgb(var(--ink-rgb) / <alpha-value>)',
+        // ⚠️ SEPARATORS DO NOT GO THROUGH `ink`, AND CANNOT.
+        //
+        // They used to: `border-ink/[0.06]`, 77 times. In light mode that is
+        // 6% near-black on white — `#f1f1f1`, a line you cannot see — and no
+        // value of `--ink-rgb` fixes it, because 6% of ANY colour over white
+        // lands at `#f0f0f0` at its darkest. The alpha is the bug and it was
+        // baked into the class names.
+        //
+        // So a line is its own token, opaque in light mode and a translucent
+        // white in dark, where the ground is what gives it its value. No
+        // `<alpha-value>`: these must not be dimmable back into invisibility.
+        line: 'var(--line)',
+        'line-strong': 'var(--line-strong)',
         background: {
           primary: '#0a0a0a',
           secondary: '#0a0a0a',

@@ -165,7 +165,7 @@ export function ProfileDropdown({
       <button
         type='button'
         onClick={() => setOpen(!open)}
-        className='flex w-full items-center gap-2 rounded-lg border border-transparent p-1.5 transition-colors duration-150 hover:border-ink/[0.1] hover:bg-ink/[0.06]'
+        className='flex w-full items-center gap-2 rounded-lg border border-transparent p-1.5 transition-colors duration-150 hover:border-line-strong hover:bg-ink/[0.06]'
         aria-expanded={open}
         aria-haspopup='true'
         aria-label={displayName}
@@ -187,12 +187,12 @@ export function ProfileDropdown({
       </button>
       {open && (
         <div
-          className={`absolute left-0 z-50 min-w-[200px] rounded-lg border border-ink/[0.08] bg-[#0d0d0f] py-1 shadow-xl ${
+          className={`absolute left-0 z-50 min-w-[200px] rounded-lg border border-line bg-[#0d0d0f] py-1 shadow-xl ${
             side === 'up' ? 'bottom-full mb-1' : 'top-full mt-1'
           }`}
           role='menu'
         >
-          <div className='border-b border-ink/[0.06] px-3 py-2'>
+          <div className='border-b border-line px-3 py-2'>
             <p className='truncate text-[12px] text-neutral-400'>
               Signed in as
             </p>

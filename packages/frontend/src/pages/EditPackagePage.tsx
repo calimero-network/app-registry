@@ -199,7 +199,7 @@ export default function EditPackagePage() {
           <ol className='list-decimal list-inside space-y-2 text-[12px] text-neutral-300 font-mono bg-ink/[0.03] rounded-lg p-4'>
             <li>Sign the file with mero-sign:</li>
           </ol>
-          <pre className='text-[11px] text-neutral-400 bg-neutral-950 rounded-md p-3 overflow-x-auto border border-ink/[0.06]'>
+          <pre className='text-[11px] text-neutral-400 bg-neutral-950 rounded-md p-3 overflow-x-auto border border-line'>
             {`mero-sign sign manifest.json --key your-key.json`}
           </pre>
           <ol
@@ -208,7 +208,7 @@ export default function EditPackagePage() {
           >
             <li>Publish the signed manifest with the CLI:</li>
           </ol>
-          <pre className='text-[11px] text-neutral-400 bg-neutral-950 rounded-md p-3 overflow-x-auto flex items-center gap-2 border border-ink/[0.06]'>
+          <pre className='text-[11px] text-neutral-400 bg-neutral-950 rounded-md p-3 overflow-x-auto flex items-center gap-2 border border-line'>
             <Terminal className='w-3.5 h-3.5 flex-shrink-0 text-neutral-500' />
             {`calimero-registry bundle edit ${appId} ${version} --remote --manifest signed-manifest.json`}
           </pre>
