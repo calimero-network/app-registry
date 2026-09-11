@@ -125,15 +125,25 @@
        line here is the bug this token exists to end. */
     --line: #e4e4e6;
     --line-strong: #c8c8c8;
-    /* ⚠️ DEEPER THAN THE LANDING PAGES' #5f9400, ON PURPOSE. That value is
-       3.3:1 on paper — it works there because it is set large. Here the same
-       token is the rail's "APP REGISTRY" label at 8px, inline code, active
-       nav and ~60 links, all of them small and most of them bold, and at
-       3.3:1 the lockup read as a grey-green smudge. #3f6a00 is 5.7:1 against
-       the rail and clears AA for small text; it is the same hue, taken down
-       until it is legible. */
-    --accent-text-rgb: 63 106 0;
-    --accent-text-hover-rgb: 47 84 0;
+    /* ── ACCENT TEXT: AS CLOSE TO THE LIME AS TYPE CAN GET ──
+       #4a7c00, up from #3f6a00. This is the brightest, greenest value that
+       still clears AA for small text, and it is deliberately sitting on that
+       line: 4.50:1 against the rail, 5.03:1 on a card.
+
+       ⚠️ IT CANNOT BE THE LIME ITSELF, AND NO AMOUNT OF TASTE CHANGES THAT.
+       Measured, #a5ff11 as text is 1.11:1 on the rail, 1.21:1 on the page and
+       1.24:1 on a card — against 15.24:1 on the dark ground, which is the
+       whole reason it looks right in dark mode and vanishes here. So the one
+       green is honoured where it CAN be honoured — every fill, via
+       `brand-accent`, is now literally #a5ff11 in both themes — and accent
+       type in light mode goes as far toward it as legibility allows. Pushing
+       one step further (#548a00) drops to 3.74:1 and fails.
+
+       This token carries the rail's "APP REGISTRY" label, inline code, active
+       nav and ~60 links: all small, most bold, so AA here is 4.5:1, not the
+       3:1 that large text would allow. */
+    --accent-text-rgb: 74 124 0;
+    --accent-text-hover-rgb: 57 97 0;
     /* Three steps, so the shell reads as a shell: chrome #f2f2f3, page
        #fcfcfc, cards #ffffff. A white rail against a white page separated
        only by a hairline is what made the old light mode look unfinished. */
@@ -247,6 +257,28 @@
 
   .card:hover {
     border-color: var(--accent-glow);
+  }
+
+  /* A floating menu — the profile dropdown, and anything else that opens over
+     the page. Same tokens as `.card`, because it is the same idea: a raised
+     surface with a line around it.
+
+     ⚠️ IT NEEDS ITS OWN SHADOW, NOT `shadow-xl`. Tailwind's shadow is a black
+     alpha, which is invisible against the dark ground and far too heavy on
+     paper; and a menu must not inherit `.card`'s `box-shadow: none` in dark
+     mode either, or it stops reading as raised above the page. So the shadow
+     here is explicit per theme. */
+  .menu-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: 0 12px 32px rgb(0 0 0 / 0.45);
+  }
+
+  :root[data-theme='light'] .menu-panel {
+    box-shadow:
+      0 10px 28px rgb(19 18 21 / 0.12),
+      0 2px 6px rgb(19 18 21 / 0.06);
   }
 
   .input {

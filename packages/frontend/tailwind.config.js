@@ -41,7 +41,22 @@ export default {
           400: '#c9ff73',
           300: '#d6ff99',
           100: '#ECFC91',
+          // ── THE ONE GREEN FOR FILLS, IDENTICAL IN BOTH THEMES ──
+          //
+          // A solid control must not change colour with the theme, and these
+          // are the tokens that guarantee it: literal hex, no custom property,
+          // so there is nowhere for a light-mode override to reach them.
+          //
+          // ⚠️ DO NOT REACH FOR `brand-600` TO FILL SOMETHING. It is the
+          // accent TEXT token and it flips (lime on a dark ground, a deep
+          // green on paper). `bg-brand-600 text-black` therefore rendered a
+          // lime button with black text in dark mode and a DEEP GREEN button
+          // with black text in light mode — 1.3:1, the "ugly as hell" mud on
+          // Create organization and the org member buttons. Every solid
+          // control now uses `bg-brand-accent text-black`, which measures
+          // 15.94:1 on either theme because both of its colours are fixed.
           accent: '#A5FF11',
+          'accent-hover': '#B8FF4A',
         },
         // The neutral used with an opacity modifier for FILLS: `bg-white/[0.04]`
         // is invisible on a white page, so those became `bg-ink/[0.04]`, which

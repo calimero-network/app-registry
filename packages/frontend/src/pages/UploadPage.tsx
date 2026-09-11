@@ -132,7 +132,7 @@ export default function UploadPage() {
                 ref={inputRef}
                 type='file'
                 accept='.mpk'
-                className='text-[13px] text-neutral-300 file:mr-3 file:py-2 file:px-3 file:rounded-md file:border-0 file:bg-brand-600 file:text-neutral-950 file:font-medium file:cursor-pointer cursor-pointer'
+                className='text-[13px] text-neutral-300 file:mr-3 file:py-2 file:px-3 file:rounded-md file:border-0 file:bg-brand-accent file:text-black file:font-medium file:cursor-pointer cursor-pointer'
                 onChange={async e => {
                   const selected = e.target.files?.[0];
                   setError(null);
