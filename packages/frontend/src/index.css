@@ -64,6 +64,34 @@
     --accent: #a5ff11;
     --accent-glow: rgba(165, 255, 17, 0.18);
     --accent-dim: rgba(165, 255, 17, 0.08);
+    /* ── THE HERO LAPTOP'S THREE GREENS ──
+
+       The hero draws a UI inside a screen filled with `--app-rail`, and it
+       used `--accent` for every green and `--app-rail` for the ink ON those
+       greens. Both assumptions hold only in dark mode:
+
+        - `--app-rail` is #0d1117 here, so "Install", the tick, the send arrow
+          and the text of your own chat bubbles were near-BLACK on lime. In
+          light mode that same token is #f2f2f3 — near-white on lime, ~1.4:1,
+          which is why the messages in the third scene could not be read.
+        - The lime is a fill colour, not an ink. At the opacities this graphic
+          leans on (0.10 selected row, 0.16 active channel, 0.22 card stroke)
+          it is invisible on paper, and as TEXT — the channel name, "installed
+          to your node" — it measures 1.2:1.
+
+       So the greens are split by ROLE rather than by theme:
+
+        - `--hero-accent`      a solid brand fill (icon tiles, the progress
+                               bar, the dock, your own bubble). Lime in both.
+        - `--hero-accent-soft` anything translucent, hairline or set as type.
+        - `--hero-on-accent`   ink drawn on top of a solid fill.
+
+       ⚠️ DARK MODE IS UNCHANGED BY THIS, BY CONSTRUCTION. Here `soft` IS the
+       lime and `on-accent` IS `--app-rail`, so every shape resolves to the
+       value it already had; only the light overrides move. */
+    --hero-accent: #a5ff11;
+    --hero-accent-soft: #a5ff11;
+    --hero-on-accent: #0d1117;
     --success: #3fb950;
     --warning: #d29922;
     --error: #f85149;
@@ -179,6 +207,14 @@
     --accent: #a5ff11;
     --accent-glow: rgba(95, 148, 0, 0.35);
     --accent-dim: rgba(95, 148, 0, 0.09);
+    /* Solid fills keep the one lime — black ink on it is 15.94:1 on either
+       theme, the same rule the buttons follow. What cannot follow it is the
+       translucent and typeset green: #487800 is the accent ink this theme
+       already uses for ~60 links, and it is what makes the active channel,
+       the selected row and "installed to your node" visible on paper. */
+    --hero-accent: #a5ff11;
+    --hero-accent-soft: #487800;
+    --hero-on-accent: #0d1117;
     --shadow-card: 0 1px 2px rgba(19, 18, 21, 0.04);
     --focus-ring: rgba(95, 148, 0, 0.65);
     --focus-halo: rgba(95, 148, 0, 0.14);

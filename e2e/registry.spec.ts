@@ -501,6 +501,74 @@ test.describe('the accent as text', () => {
   });
 });
 
+test.describe("the hero laptop's greens", () => {
+  /**
+   * ⚠️ MEASURED ON THE TOKENS, NOT ON THE PIXELS. Every green in the hero is
+   * an SVG fill composited at an `opacity` the browser will not report
+   * resolved — `getComputedStyle` hands back `var(--hero-accent)`, not the
+   * colour on screen — so a screenshot would be the only way to read the
+   * literal pixel, and a screenshot cannot say WHY it is wrong. What decides
+   * legibility is the pair of values behind the shapes, and both pairs are
+   * asserted here in both themes.
+   *
+   * The graphic used `--accent` for every green and `--app-rail` for the ink
+   * on top of one. In light mode that second token is #f2f2f3, so "Install",
+   * the tick, the send arrow and the text of your own chat messages were
+   * near-WHITE on lime.
+   */
+  /** Runs in the page: reads the tokens off :root and measures WCAG ratios. */
+  const measure = () => {
+    const cs = getComputedStyle(document.documentElement);
+    const channels = (name: string) => {
+      const hex = cs.getPropertyValue(name).trim().replace('#', '');
+      const full =
+        hex.length === 3
+          ? hex
+              .split('')
+              .map(c => c + c)
+              .join('')
+          : hex;
+      return [0, 2, 4].map(i => parseInt(full.slice(i, i + 2), 16));
+    };
+    const luminance = (name: string) => {
+      const [r, g, b] = channels(name).map(v => {
+        const x = v / 255;
+        return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4);
+      });
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    };
+    const ratio = (a: string, b: string) => {
+      const [la, lb] = [luminance(a), luminance(b)];
+      const [hi, lo] = la > lb ? [la, lb] : [lb, la];
+      return (hi + 0.05) / (lo + 0.05);
+    };
+    return {
+      inkOnFill: ratio('--hero-on-accent', '--hero-accent'),
+      typeOnScreen: ratio('--hero-accent-soft', '--app-rail'),
+    };
+  };
+
+  for (const theme of ['light', 'dark'] as const) {
+    test(`stay legible against each other in ${theme} mode`, async ({
+      page,
+    }) => {
+      await page.goto('/');
+      if (theme === 'dark') await page.getByTestId('theme-toggle').click();
+      await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
+
+      const { inkOnFill, typeOnScreen } = await page.evaluate(measure);
+
+      // "Install", the tick, the send arrow, and the text inside your own
+      // chat bubbles — all ink sitting on a solid accent fill.
+      expect(inkOnFill, 'ink on an accent fill').toBeGreaterThan(4.5);
+      // The channel name, "installed to your node", the selected row's wash
+      // and the composer caret — accent set as type or as a hairline, against
+      // the screen the laptop is drawing.
+      expect(typeOnScreen, 'accent type on the screen').toBeGreaterThan(4.5);
+    });
+  }
+});
+
 test.describe('home shelves', () => {
   test('leads with a title and an explanation', async ({ page }) => {
     await page.goto('/');
