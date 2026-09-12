@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Upload } from 'lucide-react';
 import { pushBundleFile } from '@/lib/api';
 import { PublishArt } from '@/components/PublishArt';
+import { usePageMeta } from '@/lib/seo';
 
 type UploadErrorLike = {
   response?: {
@@ -19,6 +20,12 @@ type UploadErrorLike = {
 };
 
 export default function UploadPage() {
+  usePageMeta({
+    title: 'Publish a bundle',
+    description:
+      'Publish a signed .mpk bundle to the Calimero registry. The manifest is verified on upload, and again by every peer that installs it.',
+  });
+
   const { user } = useAuth();
   const location = useLocation();
   const [file, setFile] = useState<File | null>(null);

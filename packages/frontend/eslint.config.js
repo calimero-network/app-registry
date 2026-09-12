@@ -36,6 +36,28 @@ export default [
     },
   },
   {
+    // Build-time tooling, run by hand (`pnpm og`) rather than bundled. It is
+    // Node, and the one `document` reference in it is inside a callback that
+    // Playwright serialises and runs inside Chromium — hence both sets of
+    // globals, and `console` as the script's only way to report where it
+    // wrote the file.
+    files: ['scripts/**/*.mjs'],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'module',
+      globals: {
+        Buffer: 'readonly',
+        console: 'readonly',
+        document: 'readonly',
+        process: 'readonly',
+        URL: 'readonly',
+      },
+    },
+    rules: {
+      'no-console': 'off',
+    },
+  },
+  {
     ignores: ['dist/**', 'node_modules/**', '*.timestamp-*.mjs'],
   },
   prettier,

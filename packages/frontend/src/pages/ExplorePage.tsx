@@ -7,6 +7,7 @@ import { AppCard } from '@/components/AppCard';
 import { GlobalSearch } from '@/components/GlobalSearch';
 import { formatCategory } from '@/lib/utils';
 import { CATEGORIES, type AppSummary } from '@/types/api';
+import { usePageMeta } from '@/lib/seo';
 
 /**
  * ⚠️ THE CARD COLUMN IS A HARD-CODED WIDTH PER BREAKPOINT, not a percentage.
@@ -37,6 +38,12 @@ const COLUMN = 'w-full sm:w-[560px] md:w-[688px] lg:w-[900px]';
  * latency without being able to return anything different.
  */
 export default function ExplorePage() {
+  usePageMeta({
+    title: 'Explore apps',
+    description:
+      'Every application published to the Calimero registry: signed bundles, their publishers, versions and install sizes.',
+  });
+
   const [params, setParams] = useSearchParams();
   const query = (params.get('q') ?? '').trim().toLowerCase();
   const category = params.get('category') ?? '';

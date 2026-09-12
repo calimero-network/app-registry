@@ -1,0 +1,16 @@
+# Calimero App Registry
+#
+# Everything public is crawlable. The paths below are not secrets — they are
+# behind a session and render an empty shell to a crawler, so listing them
+# keeps that shell out of the index rather than protecting anything.
+
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /login
+Disallow: /my-packages
+Disallow: /orgs
+Disallow: /api/
+
+# Generated from what is actually published — see api/sitemap.js.
+Sitemap: https://apps.calimero.network/sitemap.xml
