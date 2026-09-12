@@ -33,6 +33,19 @@ export function PublishArt() {
           'linear-gradient(112deg, #e9ecfb 0%, #eef0fc 46%, #f5f2fb 100%)',
       }}
     >
+      {/*
+        ⚠️ THE CAPTION IS ONLY AN OVERLAY WHERE THERE IS ROOM FOR ONE. At
+        21:9 a phone gives this box about 147px of height, and the two lines
+        sitting `absolute bottom-0` inside it came to ~110 of them — so the
+        headline ran straight through the registry card and the peers, and the
+        drawing read as a smudge behind the type.
+
+        Under `sm` the caption is in normal flow BELOW the art, which is also
+        what makes the block taller: the picture keeps its full 21:9 and the
+        words get their own space rather than borrowing it. From `sm` up the
+        old overlay is restored — the composition leaves its lower left empty
+        on purpose, and there the text has somewhere to sit.
+      */}
       <div className='relative aspect-[21/9] w-full'>
         <svg
           viewBox='0 0 840 360'
@@ -188,22 +201,22 @@ export function PublishArt() {
             </g>
           ))}
         </svg>
+      </div>
 
-        <div className='absolute inset-x-0 bottom-0 p-5 sm:p-7'>
-          <p
-            className='font-display text-[15px] font-bold leading-tight tracking-tight sm:text-[19px]'
-            style={{ color: INK }}
-          >
-            Sign it, push it, and every node can verify it.
-          </p>
-          <p
-            className='mt-1 text-[12px] font-light sm:text-[13px]'
-            style={{ color: INK, opacity: 0.7 }}
-          >
-            A bundle is WASM plus a signed manifest. The registry checks the
-            signature; peers check it again on install.
-          </p>
-        </div>
+      <div className='relative px-5 pb-5 pt-4 sm:absolute sm:inset-x-0 sm:bottom-0 sm:p-7'>
+        <p
+          className='font-display text-[15px] font-bold leading-tight tracking-tight sm:text-[19px]'
+          style={{ color: INK }}
+        >
+          Sign it, push it, and every node can verify it.
+        </p>
+        <p
+          className='mt-1 text-[12px] font-light leading-snug sm:text-[13px]'
+          style={{ color: INK, opacity: 0.7 }}
+        >
+          A bundle is WASM plus a signed manifest. The registry checks the
+          signature; peers check it again on install.
+        </p>
       </div>
     </div>
   );
