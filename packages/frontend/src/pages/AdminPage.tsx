@@ -104,7 +104,7 @@ export default function AdminPage() {
             }}
             className={`flex items-center gap-1.5 px-3 py-2 text-[13px] border-b-2 -mb-px transition-colors ${
               tab === key
-                ? 'border-brand-500 text-brand-400'
+                ? 'border-brand-600 text-brand-600'
                 : 'border-transparent text-neutral-500 hover:text-neutral-300'
             }`}
           >
@@ -216,7 +216,7 @@ function UsersTab({
                     <BadgeCheck className='h-3.5 w-3.5 text-emerald-400 flex-shrink-0' />
                   )}
                   {u.isAdmin && (
-                    <ShieldCheck className='h-3.5 w-3.5 text-brand-400 flex-shrink-0' />
+                    <ShieldCheck className='h-3.5 w-3.5 text-brand-600 flex-shrink-0' />
                   )}
                   {u.isBlacklisted && (
                     <Ban className='h-3.5 w-3.5 text-red-400 flex-shrink-0' />
@@ -599,7 +599,7 @@ function ActionBtn({
     red: 'text-red-500 hover:text-red-400 border-red-900/40 hover:border-red-700/50',
     green:
       'text-emerald-500 hover:text-emerald-400 border-emerald-900/40 hover:border-emerald-700/50',
-    blue: 'text-brand-500 hover:text-brand-400 border-brand-900/40 hover:border-brand-700/50',
+    blue: 'text-brand-600 hover:text-brand-500 border-brand-900/40 hover:border-brand-700/50',
     neutral:
       'text-neutral-400 hover:text-ink/80 border-line hover:border-line-strong',
   };

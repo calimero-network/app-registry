@@ -86,3 +86,84 @@ describe('the accent fill token', () => {
     ).toBe(true);
   });
 });
+
+/**
+ * The accent used as INK, off the end of the themed ladder.
+ *
+ * Only two steps of `brand` follow the theme: `brand-600` (accent text) and
+ * `brand-500` (its hover). Every other step is a literal hex — `brand-400` is
+ * #c9ff73, `brand-300` #d6ff99, `brand-100` #ECFC91, `brand-accent` #a5ff11 —
+ * which is exactly right for a FILL, where the ground under it is fixed too,
+ * and wrong for text, where the ground flips from near-black to white.
+ *
+ * Measured on the profile menu, which is where this was reported:
+ *
+ *   | light mode        | rest    | hover       |
+ *   |-------------------|---------|-------------|
+ *   | Admin (before)    | 7.58:1  | **1.02:1**  |
+ *   | My packages       | 13.87:1 | 16.53:1     |
+ *
+ * The admin row VANISHED under the cursor while the rows above it got more
+ * legible. Dark mode measured 14.37 → 11.62 on the same markup, which is why
+ * it went unnoticed.
+ *
+ * Four more call sites had the same misuse, and two of them were not hovers
+ * at all — the admin panel's ACTIVE tab label (1.13:1 on the light page) and
+ * the shield marking an admin in the users table (1.16:1 on a white card)
+ * were unreadable in light mode at rest.
+ *
+ * ⚠️ A SOURCE SCAN, FOR THE SAME REASON AS THE RULE ABOVE: every one of these
+ * is behind a session — the profile menu of a signed-in admin, the admin
+ * panel, an organisation's detail page — and the e2e suite has no signed-in
+ * user, so no computed-style assertion can reach any of them.
+ */
+const ACCENT_INK = /\btext-brand-([A-Za-z0-9-]+)/g;
+/** The two steps that resolve through a custom property, and so flip. */
+const THEMED_STEPS = new Set(['600', '500']);
+
+describe('the accent as ink', () => {
+  const files = walk(SRC).filter(f => !f.includes('/test/'));
+
+  it('is only ever the two steps that follow the theme', () => {
+    const offenders: string[] = [];
+
+    for (const file of files) {
+      readFileSync(file, 'utf8')
+        .split('\n')
+        .forEach((line, i) => {
+          for (const [match, step] of line.matchAll(ACCENT_INK)) {
+            if (!THEMED_STEPS.has(step)) {
+              offenders.push(`${file.replace(SRC, 'src/')}:${i + 1} ${match}`);
+            }
+          }
+        });
+    }
+
+    expect(
+      offenders,
+      `Accent TEXT is brand-600, and brand-500 on hover. Every other brand ` +
+        `step is a literal hex with no light-mode value: as ink on a white ` +
+        `page they measure ~1.1:1. If the colour is a FILL, use ` +
+        `bg-brand-accent with text-black.`
+    ).toEqual([]);
+  });
+
+  it('knows which spellings it is talking about', () => {
+    // Guards the guard, both ways.
+    const offending = (line: string) =>
+      [...line.matchAll(ACCENT_INK)].some(
+        ([, step]) => !THEMED_STEPS.has(step)
+      );
+
+    expect(offending('text-brand-600 hover:text-brand-500')).toBe(false);
+    expect(offending('text-brand-600/60')).toBe(false);
+    expect(offending('bg-brand-accent text-black')).toBe(false);
+    expect(offending('border-brand-900/40 hover:border-brand-700/50')).toBe(
+      false
+    );
+
+    expect(offending('text-brand-500 hover:text-brand-400')).toBe(true);
+    expect(offending('text-brand-accent')).toBe(true);
+    expect(offending('border-brand-500 text-brand-400')).toBe(true);
+  });
+});
