@@ -501,6 +501,74 @@ test.describe('the accent as text', () => {
   });
 });
 
+test.describe("the hero laptop's greens", () => {
+  /**
+   * ⚠️ MEASURED ON THE TOKENS, NOT ON THE PIXELS. Every green in the hero is
+   * an SVG fill composited at an `opacity` the browser will not report
+   * resolved — `getComputedStyle` hands back `var(--hero-accent)`, not the
+   * colour on screen — so a screenshot would be the only way to read the
+   * literal pixel, and a screenshot cannot say WHY it is wrong. What decides
+   * legibility is the pair of values behind the shapes, and both pairs are
+   * asserted here in both themes.
+   *
+   * The graphic used `--accent` for every green and `--app-rail` for the ink
+   * on top of one. In light mode that second token is #f2f2f3, so "Install",
+   * the tick, the send arrow and the text of your own chat messages were
+   * near-WHITE on lime.
+   */
+  /** Runs in the page: reads the tokens off :root and measures WCAG ratios. */
+  const measure = () => {
+    const cs = getComputedStyle(document.documentElement);
+    const channels = (name: string) => {
+      const hex = cs.getPropertyValue(name).trim().replace('#', '');
+      const full =
+        hex.length === 3
+          ? hex
+              .split('')
+              .map(c => c + c)
+              .join('')
+          : hex;
+      return [0, 2, 4].map(i => parseInt(full.slice(i, i + 2), 16));
+    };
+    const luminance = (name: string) => {
+      const [r, g, b] = channels(name).map(v => {
+        const x = v / 255;
+        return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4);
+      });
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    };
+    const ratio = (a: string, b: string) => {
+      const [la, lb] = [luminance(a), luminance(b)];
+      const [hi, lo] = la > lb ? [la, lb] : [lb, la];
+      return (hi + 0.05) / (lo + 0.05);
+    };
+    return {
+      inkOnFill: ratio('--hero-on-accent', '--hero-accent'),
+      typeOnScreen: ratio('--hero-accent-soft', '--app-rail'),
+    };
+  };
+
+  for (const theme of ['light', 'dark'] as const) {
+    test(`stay legible against each other in ${theme} mode`, async ({
+      page,
+    }) => {
+      await page.goto('/');
+      if (theme === 'dark') await page.getByTestId('theme-toggle').click();
+      await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
+
+      const { inkOnFill, typeOnScreen } = await page.evaluate(measure);
+
+      // "Install", the tick, the send arrow, and the text inside your own
+      // chat bubbles — all ink sitting on a solid accent fill.
+      expect(inkOnFill, 'ink on an accent fill').toBeGreaterThan(4.5);
+      // The channel name, "installed to your node", the selected row's wash
+      // and the composer caret — accent set as type or as a hairline, against
+      // the screen the laptop is drawing.
+      expect(typeOnScreen, 'accent type on the screen').toBeGreaterThan(4.5);
+    });
+  }
+});
+
 test.describe('home shelves', () => {
   test('leads with a title and an explanation', async ({ page }) => {
     await page.goto('/');
@@ -814,5 +882,91 @@ test.describe('the docs menu', () => {
     );
     expect(border).not.toBe(ground);
     expect(border).not.toBe('rgba(0, 0, 0, 0)');
+  });
+});
+
+test.describe('one green in both themes', () => {
+  /**
+   * The complaint this encodes: a solid button was a different, muddier green
+   * in light mode than in dark, and the upload page showed two different
+   * greens touching each other.
+   *
+   * ⚠️ THE CAUSE WAS A TOKEN USED FOR THE WRONG JOB. `brand-600` is accent
+   * TEXT and it flips with the theme by design (lime on a dark ground, a deep
+   * green on paper); using it as a BACKGROUND therefore produced a lime
+   * button with black text in dark mode and a #3f6a00 button with black text
+   * in light mode, which measures about 1.3:1. Fills go through
+   * `brand-accent`, a literal hex with no custom property behind it.
+   *
+   * A computed colour, not a class name: the class could be renamed and the
+   * bug reintroduced under a different spelling, and the thing that actually
+   * matters is that the two themes paint the same pixels.
+   */
+  const readButton = async (page: import('@playwright/test').Page) =>
+    page.evaluate(() => {
+      const btn = document.querySelector('.btn-primary') as HTMLElement;
+      const s = getComputedStyle(btn);
+      return { background: s.backgroundColor, color: s.color };
+    });
+
+  test('a primary button is the same colour in light as in dark', async ({
+    page,
+  }) => {
+    const seen: Record<string, { background: string; color: string }> = {};
+
+    for (const theme of ['light', 'dark'] as const) {
+      await page.addInitScript(t => {
+        localStorage.setItem('registry:theme:choice', t as string);
+      }, theme);
+      // The 404 page carries a primary and a secondary button and needs no
+      // session, which the upload page's own pair does.
+      await page.goto('/no-such-page');
+      await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
+      await expect(page.locator('.btn-primary')).toBeVisible();
+      seen[theme] = await readButton(page);
+    }
+
+    expect(seen.light).toEqual(seen.dark);
+    // And specifically the lime, rather than the two themes having merely
+    // agreed on some other colour.
+    expect(seen.light.background).toBe('rgb(165, 255, 17)');
+  });
+
+  test('the accent fill keeps black ink on it, which is what makes it legible', async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem('registry:theme:choice', 'light');
+    });
+    await page.goto('/no-such-page');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+
+    const ratio = await page.evaluate(() => {
+      const btn = document.querySelector('.btn-primary') as HTMLElement;
+      const lin = (c: string) =>
+        c
+          .match(/[\d.]+/g)!
+          .slice(0, 3)
+          .map(Number)
+          .map(v => {
+            const x = v / 255;
+            return x <= 0.03928
+              ? x / 12.92
+              : Math.pow((x + 0.055) / 1.055, 2.4);
+          });
+      const L = (c: string) => {
+        const [r, g, b] = lin(c);
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+      };
+      const s = getComputedStyle(btn);
+      const a = L(s.color);
+      const b = L(s.backgroundColor);
+      const [hi, lo] = a > b ? [a, b] : [b, a];
+      return (hi + 0.05) / (lo + 0.05);
+    });
+
+    // ~15.9:1. This is the reason the lime can be shared across both themes
+    // as a fill when it cannot be shared as text.
+    expect(ratio).toBeGreaterThan(10);
   });
 });

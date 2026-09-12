@@ -7,6 +7,7 @@ import {
   EyeOff,
   ChevronLeft,
   ChevronRight,
+  Maximize2,
 } from 'lucide-react';
 import {
   getPackageAssets,
@@ -14,8 +15,10 @@ import {
   deletePackageAsset,
   reorderPackageAssets,
   type PackageAsset,
+  type PackageAssets,
 } from '@/lib/api';
 import { useToast } from './Toast';
+import { Lightbox, type LightboxItem } from './Lightbox';
 
 /**
  * The preview strip on an app page, plus the editor for whoever owns it.
@@ -27,6 +30,10 @@ import { useToast } from './Toast';
  * Everything here is gated server-side. The listing returns an empty array to
  * anyone who may not see a pending package's assets, so this component never
  * decides visibility itself; it only reports what came back.
+ *
+ * TILES LOAD THUMBNAILS; ONLY THE LIGHTBOX LOADS THE ORIGINAL. See
+ * lib/image.ts for where the small copy comes from and why it is made in the
+ * browser.
  */
 export function AppPreview({
   pkg,
@@ -38,9 +45,11 @@ export function AppPreview({
   const qc = useQueryClient();
   const { notify } = useToast();
   const [busy, setBusy] = useState(false);
+  const [openAt, setOpenAt] = useState<number | null>(null);
 
+  const key = ['assets', pkg];
   const { data } = useQuery({
-    queryKey: ['assets', pkg],
+    queryKey: key,
     queryFn: () => getPackageAssets(pkg),
   });
 
@@ -50,7 +59,7 @@ export function AppPreview({
   const upload = useMutation({
     mutationFn: (file: File) => uploadPackageAsset(pkg, file),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['assets', pkg] });
+      qc.invalidateQueries({ queryKey: key });
       notify('Uploaded.', 'success');
     },
     onError: (err: unknown) => {
@@ -61,20 +70,46 @@ export function AppPreview({
   });
 
   /**
-   * Order and captions, both through the one PATCH the API already had.
+   * Write the strip's new order into the cache immediately.
    *
-   * ⚠️ THE ENDPOINT TAKES THE WHOLE LIST, and anything omitted keeps its
-   * relative position at the end rather than being deleted — so a partial
-   * request silently reorders. Every call here sends every asset.
+   * ⚠️ THIS IS WHY THE ARROWS LOOKED BROKEN. They were correct, and the PATCH
+   * they sent was correct, but nothing on screen moved until the request came
+   * back AND a refetch of the listing completed after it. Against the asset
+   * endpoints as they were — a full auth and ownership resolution per call —
+   * that was a second or more of a button that visibly did nothing, so it read
+   * as a dead control and got clicked again, queueing another swap.
+   *
+   * The reorder is local state the server merely persists, so the cache is
+   * updated first and rolled back only if the write is refused.
    */
+  const applyLocally = (next: PackageAsset[]) => {
+    const previous = qc.getQueryData<PackageAssets>(key);
+    qc.setQueryData<PackageAssets>(key, old =>
+      old ? { ...old, assets: next.map((a, i) => ({ ...a, order: i })) } : old
+    );
+    return previous;
+  };
+
   const arrange = useMutation({
+    // The endpoint takes the WHOLE list, and anything omitted keeps its
+    // relative position at the end rather than being deleted — so a partial
+    // request silently reorders. Every call here sends every asset.
     mutationFn: (next: PackageAsset[]) =>
       reorderPackageAssets(
         pkg,
         next.map(a => ({ id: a.id, alt: a.alt }))
       ),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['assets', pkg] }),
-    onError: () => notify('Could not save that change.', 'error'),
+    onMutate: (next: PackageAsset[]) => {
+      // Stop an in-flight refetch from landing on top of the optimistic write
+      // and snapping the tiles back to the server's previous order.
+      qc.cancelQueries({ queryKey: key });
+      return { previous: applyLocally(next) };
+    },
+    onError: (_err, _next, ctx) => {
+      if (ctx?.previous) qc.setQueryData(key, ctx.previous);
+      notify('Could not save that change.', 'error');
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: key }),
   });
 
   const move = (id: string, delta: number) => {
@@ -91,11 +126,17 @@ export function AppPreview({
 
   const remove = useMutation({
     mutationFn: (id: string) => deletePackageAsset(pkg, id),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['assets', pkg] });
-      notify('Removed.', 'success');
+    // Same reasoning as the reorder: the tile goes now, not after a round-trip.
+    onMutate: (id: string) => {
+      qc.cancelQueries({ queryKey: key });
+      return { previous: applyLocally(assets.filter(a => a.id !== id)) };
     },
-    onError: () => notify('Could not remove that file.', 'error'),
+    onSuccess: () => notify('Removed.', 'success'),
+    onError: (_err, _id, ctx) => {
+      if (ctx?.previous) qc.setQueryData(key, ctx.previous);
+      notify('Could not remove that file.', 'error');
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: key }),
   });
 
   const onPick = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -106,6 +147,17 @@ export function AppPreview({
     setBusy(true);
     upload.mutate(file);
   };
+
+  // The full-size sources, in the order shown. Built from the same array the
+  // strip renders, so opening tile 3 opens item 3 even mid-reorder.
+  const lightboxItems: LightboxItem[] = assets.map(a => ({
+    id: a.id,
+    url: a.url,
+    alt: a.alt,
+    kind: a.kind,
+    width: a.width,
+    height: a.height,
+  }));
 
   return (
     <section data-testid='app-preview' aria-label='Preview'>
@@ -174,12 +226,22 @@ export function AppPreview({
               canEdit={canEdit}
               first={i === 0}
               last={i === assets.length - 1}
+              onOpen={() => setOpenAt(i)}
               onRemove={() => remove.mutate(a.id)}
               onMove={delta => move(a.id, delta)}
               onCaption={alt => caption(a.id, alt)}
             />
           ))}
         </div>
+      )}
+
+      {openAt !== null && (
+        <Lightbox
+          items={lightboxItems}
+          index={Math.min(openAt, Math.max(0, lightboxItems.length - 1))}
+          onIndex={setOpenAt}
+          onClose={() => setOpenAt(null)}
+        />
       )}
     </section>
   );
@@ -190,6 +252,7 @@ function AssetTile({
   canEdit,
   first,
   last,
+  onOpen,
   onRemove,
   onMove,
   onCaption,
@@ -198,10 +261,20 @@ function AssetTile({
   canEdit: boolean;
   first: boolean;
   last: boolean;
+  onOpen: () => void;
   onRemove: () => void;
   onMove: (delta: number) => void;
   onCaption: (alt: string) => void;
 }) {
+  // The editing controls sit on top of the picture, which is itself the
+  // button that opens it. Without this every Remove or Move click would also
+  // open the lightbox behind the change it just made.
+  const swallow = (fn: () => void) => (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    fn();
+  };
+
   return (
     <div className='group relative flex-shrink-0'>
       <div className='relative h-44'>
@@ -213,20 +286,59 @@ function AssetTile({
             className='h-44 rounded-xl border border-line'
           />
         ) : (
-          <img
-            src={asset.url}
-            alt={asset.alt}
-            loading='lazy'
-            decoding='async'
-            className='h-44 rounded-xl border border-line object-cover'
-          />
+          /* A real <button>, so the picture is reachable by keyboard and
+             announced as something you can activate — a click handler on the
+             <img> is neither. */
+          <button
+            type='button'
+            onClick={onOpen}
+            aria-label={
+              asset.alt ? `Open ${asset.alt} full screen` : 'Open full screen'
+            }
+            data-testid='asset-open'
+            className='group/tile block h-44 cursor-zoom-in overflow-hidden rounded-xl border border-line focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus-ring)]'
+          >
+            <img
+              // ⚠️ THE THUMBNAIL, NOT `asset.url`. This tile is 176px tall and
+              // was loading the publisher's original — up to 4MB, times eight
+              // tiles, every one proxied through a function that buffers the
+              // whole object first. `thumbUrl` falls back to the original for
+              // assets uploaded before thumbnails existed, so this is safe for
+              // every row in the index.
+              // ?? `url`: `thumbUrl` is newly added to this response, so an
+              // older payload (a stale SPA, a self-hosted backend on a
+              // previous deploy) has no such field and must still render.
+              src={asset.thumbUrl ?? asset.url}
+              alt={asset.alt}
+              // Reserves the box before the bytes land, so a strip of tiles
+              // does not collapse and then shove the page down as each one
+              // arrives.
+              width={asset.width ?? undefined}
+              height={asset.height ?? undefined}
+              loading='lazy'
+              decoding='async'
+              className='h-44 w-auto max-w-none object-cover transition-transform duration-300 group-hover/tile:scale-[1.03]'
+            />
+          </button>
         )}
+
+        {/* Only on the image tiles: a video's own controls occupy this corner,
+            and an overlay there fights the play button. */}
+        {asset.kind === 'image' && (
+          <span
+            aria-hidden='true'
+            className='pointer-events-none absolute right-2 top-2 rounded-md bg-black/60 p-1.5 text-white opacity-0 transition-opacity group-hover:opacity-100'
+          >
+            <Maximize2 className='h-3.5 w-3.5' />
+          </span>
+        )}
+
         {canEdit && (
           <>
             <button
-              onClick={onRemove}
+              onClick={swallow(onRemove)}
               aria-label='Remove this file'
-              className='absolute right-2 top-2 rounded-md bg-black/70 p-1.5 text-neutral-300 opacity-0 transition-opacity hover:text-red-400 group-hover:opacity-100 focus-visible:opacity-100'
+              className='absolute left-2 top-2 rounded-md bg-black/70 p-1.5 text-neutral-300 opacity-0 transition-opacity hover:text-red-400 group-hover:opacity-100 focus-visible:opacity-100'
             >
               <Trash2 className='h-3.5 w-3.5' />
             </button>
@@ -237,7 +349,7 @@ function AssetTile({
               keyboard and awkward on a phone. */}
             <div className='absolute bottom-2 left-2 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100'>
               <button
-                onClick={() => onMove(-1)}
+                onClick={swallow(() => onMove(-1))}
                 disabled={first}
                 aria-label='Move earlier'
                 className='rounded-md bg-black/70 p-1.5 text-neutral-300 transition-colors hover:text-white disabled:opacity-30'
@@ -245,7 +357,7 @@ function AssetTile({
                 <ChevronLeft className='h-3.5 w-3.5' />
               </button>
               <button
-                onClick={() => onMove(1)}
+                onClick={swallow(() => onMove(1))}
                 disabled={last}
                 aria-label='Move later'
                 className='rounded-md bg-black/70 p-1.5 text-neutral-300 transition-colors hover:text-white disabled:opacity-30'

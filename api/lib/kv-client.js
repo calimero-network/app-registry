@@ -30,14 +30,41 @@ if (isProduction && process.env.REDIS_URL) {
   // Wrapper to ensure connection before operations
   kvClient = {
     _connected: false,
+    /**
+     * ⚠️ SINGLE-FLIGHT, AND IT HAS TO BE.
+     *
+     * The old shape was `if (!this._connected) { await connect(); this._connected = true }`.
+     * The flag is only set AFTER the await, so every caller that arrives while
+     * the first connect is still in the air sees `false` and calls
+     * `connect()` again — node-redis rejects the second one outright.
+     *
+     * That was survivable only because these handlers read Redis one key at a
+     * time. The listing endpoints now issue their reads together with
+     * `Promise.all`, which is precisely the burst that trips it: the very
+     * first request a cold function serves would fan out and several of those
+     * reads would reject. Holding the PROMISE rather than a boolean makes
+     * every concurrent caller await the same connect.
+     */
+    _connecting: null,
 
     async _ensureConnected() {
-      if (!this._connected) {
-        await redisClient.connect();
-        this._connected = true;
-        // eslint-disable-next-line no-console
-        console.log('✅ Connected to Vercel Marketplace Redis');
+      if (this._connected) return;
+      if (!this._connecting) {
+        this._connecting = redisClient
+          .connect()
+          .then(() => {
+            this._connected = true;
+            // eslint-disable-next-line no-console
+            console.log('✅ Connected to Vercel Marketplace Redis');
+          })
+          .catch(err => {
+            // Clear it, or one failed connect poisons the client for the life
+            // of the function instance.
+            this._connecting = null;
+            throw err;
+          });
       }
+      return this._connecting;
     },
 
     // String operations

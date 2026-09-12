@@ -77,7 +77,17 @@ dist
 
 # Gatsby files
 .cache/
-public
+# ⚠️ ROOT-ANCHORED, AND IT HAS TO BE. This was a bare `public`, a Gatsby rule
+# that matches a directory of that name at ANY depth — including
+# packages/frontend/public, which is Vite's static asset directory and the one
+# place a file can be served from the site root.
+#
+# Nothing in it had ever been committed. `favicon.png` sits there, index.html
+# has always linked it, and on a clean checkout — which is what Vercel builds
+# from — the directory did not exist, so the deployed site answered 404 for its
+# own icon. Anything else put there (og.png, robots.txt) would have vanished
+# the same way, silently, since it works perfectly on the machine that made it.
+/public
 
 # Storybook build outputs
 .out

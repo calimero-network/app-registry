@@ -134,3 +134,36 @@ test('nothing scrolls sideways on any page', async ({ page }) => {
     expect(over, `${url} scrolls sideways`).toBe(false);
   }
 });
+
+test('the publish graphic and its caption do not overlap', async ({ page }) => {
+  // ⚠️ AT 21:9 A PHONE GIVES THIS BOX ~147px OF HEIGHT, and the caption — a
+  // 15px headline plus two lines of 12px, inside 20px of padding — needs about
+  // 110 of them. Absolutely positioned at the bottom of the drawing, it ran
+  // straight through the registry card and the peers. Under `sm` the caption
+  // is in normal flow BELOW the art; from `sm` up the overlay is restored,
+  // where the composition leaves its lower left empty for it.
+  await page.goto('/upload');
+  const art = page.getByTestId('publish-art');
+  await expect(art).toBeVisible();
+
+  const box = await page.evaluate(() => {
+    const root = document.querySelector(
+      '[data-testid="publish-art"]'
+    ) as HTMLElement;
+    const svg = root.querySelector('svg')!.getBoundingClientRect();
+    const caption = root
+      .querySelector('p')!
+      .parentElement!.getBoundingClientRect();
+    return {
+      svgBottom: svg.bottom,
+      captionTop: caption.top,
+      captionBottom: caption.bottom,
+      rootBottom: root.getBoundingClientRect().bottom,
+    };
+  });
+
+  // The words start below the picture...
+  expect(box.captionTop).toBeGreaterThanOrEqual(box.svgBottom - 1);
+  // ...and the card grew to hold them rather than clipping them.
+  expect(box.captionBottom).toBeLessThanOrEqual(box.rootBottom + 1);
+});

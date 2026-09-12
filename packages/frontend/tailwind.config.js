@@ -41,7 +41,22 @@ export default {
           400: '#c9ff73',
           300: '#d6ff99',
           100: '#ECFC91',
+          // ── THE ONE GREEN FOR FILLS, IDENTICAL IN BOTH THEMES ──
+          //
+          // A solid control must not change colour with the theme, and these
+          // are the tokens that guarantee it: literal hex, no custom property,
+          // so there is nowhere for a light-mode override to reach them.
+          //
+          // ⚠️ DO NOT REACH FOR `brand-600` TO FILL SOMETHING. It is the
+          // accent TEXT token and it flips (lime on a dark ground, a deep
+          // green on paper). `bg-brand-600 text-black` therefore rendered a
+          // lime button with black text in dark mode and a DEEP GREEN button
+          // with black text in light mode — 1.3:1, the "ugly as hell" mud on
+          // Create organization and the org member buttons. Every solid
+          // control now uses `bg-brand-accent text-black`, which measures
+          // 15.94:1 on either theme because both of its colours are fixed.
           accent: '#A5FF11',
+          'accent-hover': '#B8FF4A',
         },
         // The neutral used with an opacity modifier for FILLS: `bg-white/[0.04]`
         // is invisible on a white page, so those became `bg-ink/[0.04]`, which
@@ -102,6 +117,25 @@ export default {
         'scale-in': 'scaleIn 0.4s ease-out both',
         'glow-pulse': 'glowPulse 3s ease-in-out infinite',
         float: 'float 6s ease-in-out infinite',
+        // ── The mobile drawer ──
+        //
+        // A panel that comes from off-screen has to be MOVED, not faded: the
+        // drawer used to mount at its final position, so the menu appeared
+        // over the page with no sense of where it came from.
+        //
+        // ⚠️ THE EXIT DURATION IS MIRRORED IN Layout.tsx (DRAWER_EXIT_MS).
+        // The element is unmounted by a timer, so a longer animation here is
+        // an animation that gets cut off mid-slide.
+        //
+        // Easing is asymmetric on purpose: the panel arrives on a decelerating
+        // curve (fast off the edge, settling at the stop) and leaves on an
+        // accelerating one, which is how a sheet that is being dismissed
+        // reads. `both` holds the last frame so the exit does not snap back to
+        // x=0 for the frame before the unmount.
+        'drawer-in': 'drawerIn 260ms cubic-bezier(0.32, 0.72, 0, 1) both',
+        'drawer-out': 'drawerOut 200ms cubic-bezier(0.4, 0, 1, 1) both',
+        'scrim-in': 'fadeIn 260ms ease-out both',
+        'scrim-out': 'scrimOut 200ms ease-in both',
       },
       keyframes: {
         fadeIn: {
@@ -131,6 +165,18 @@ export default {
         float: {
           '0%, 100%': { transform: 'translateY(0)' },
           '50%': { transform: 'translateY(-8px)' },
+        },
+        drawerIn: {
+          '0%': { transform: 'translateX(-100%)' },
+          '100%': { transform: 'translateX(0)' },
+        },
+        drawerOut: {
+          '0%': { transform: 'translateX(0)' },
+          '100%': { transform: 'translateX(-100%)' },
+        },
+        scrimOut: {
+          '0%': { opacity: '1' },
+          '100%': { opacity: '0' },
         },
       },
     },

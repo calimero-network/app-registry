@@ -149,9 +149,30 @@ async function saveIndex(pkg, assets) {
 /**
  * Store one asset and append it to the package's index.
  *
+ * ⚠️ THE THUMBNAIL IS OPTIONAL AND UNTRUSTED.
+ *
+ * There is no image library in this runtime — adding `sharp` to resize
+ * server-side would pull a platform-specific native binary into every
+ * serverless function, including the ones that never touch an image. So the
+ * downscale happens in the browser, which already has the decoded bitmap in
+ * hand, and arrives here as a second buffer.
+ *
+ * That makes it caller-supplied bytes, so it is sniffed exactly like the
+ * original and rejected unless it is genuinely an image — otherwise "thumb"
+ * becomes a way to store an arbitrary blob under a package's prefix and have
+ * the registry serve it with an image Content-Type.
+ *
+ * A missing or rejected thumbnail is not an error: the asset stores fine and
+ * `thumbKey` stays unset, which every reader treats as "serve the original".
+ * That is also what the assets uploaded before this existed do.
+ *
  * @returns {{ok: true, asset: object} | {ok: false, error: string, message: string}}
  */
-async function addAsset(pkg, buffer, { alt = '' } = {}) {
+async function addAsset(
+  pkg,
+  buffer,
+  { alt = '', thumb = null, width = null, height = null } = {}
+) {
   const kind = sniff(buffer);
   if (!kind) {
     return {
@@ -190,6 +211,30 @@ async function addAsset(pkg, buffer, { alt = '' } = {}) {
     .file(key)
     .save(buffer, { contentType: kind.contentType, resumable: false });
 
+  // The thumbnail, if one came and if it really is an image. It must never be
+  // larger than what it is standing in for — a "thumbnail" heavier than the
+  // original is a sign the client got the encode wrong, and storing it would
+  // make the strip slower rather than faster.
+  let thumbKey = null;
+  let thumbBytes = null;
+  let thumbContentType = null;
+  if (Buffer.isBuffer(thumb) && thumb.length) {
+    const thumbKind = sniff(thumb);
+    if (
+      thumbKind &&
+      thumbKind.kind === 'image' &&
+      thumb.length <= MAX_IMAGE_BYTES &&
+      thumb.length < buffer.length
+    ) {
+      thumbKey = assetKey(pkg, `${id}-thumb`, thumbKind.ext);
+      thumbContentType = thumbKind.contentType;
+      thumbBytes = thumb.length;
+      await getBucket()
+        .file(thumbKey)
+        .save(thumb, { contentType: thumbKind.contentType, resumable: false });
+    }
+  }
+
   const asset = {
     id,
     key,
@@ -199,21 +244,57 @@ async function addAsset(pkg, buffer, { alt = '' } = {}) {
     alt: String(alt).slice(0, 200),
     order: existing.length,
     uploadedAt: new Date().toISOString(),
+    thumbKey,
+    thumbBytes,
+    thumbContentType,
+    // Intrinsic pixel size, so a tile can reserve its space before the bytes
+    // land instead of collapsing to nothing and shoving the page down when
+    // they arrive. Recorded only when the client measured it.
+    width: Number.isFinite(width) && width > 0 ? Math.round(width) : null,
+    height: Number.isFinite(height) && height > 0 ? Math.round(height) : null,
   };
   await saveIndex(pkg, [...existing, asset]);
   return { ok: true, asset };
 }
 
-/** Raw bytes for one asset, or null. Reads are always proxied — see routes. */
-async function readAsset(pkg, id) {
+/**
+ * Raw bytes for one asset, or null. Reads are always proxied — see routes.
+ *
+ * `variant: 'thumb'` serves the downscaled copy when there is one. Assets
+ * stored before thumbnails existed have no `thumbKey`, and a request for their
+ * thumbnail falls back to the original rather than 404ing — the strip asks for
+ * a thumbnail for every tile and must not break on the older half of them.
+ *
+ * The returned `contentType` belongs to whichever object was actually read,
+ * not to the asset record: a WebP thumbnail of a PNG served as `image/png` is
+ * a file the browser refuses to decode.
+ */
+async function readAsset(pkg, id, { variant = 'full' } = {}) {
   const assets = await listAssets(pkg);
   const asset = assets.find(a => a.id === id);
   if (!asset) return null;
+
+  const useThumb = variant === 'thumb' && !!asset.thumbKey;
+  const key = useThumb ? asset.thumbKey : asset.key;
+  const contentType = useThumb
+    ? asset.thumbContentType || 'image/webp'
+    : asset.contentType;
+
   try {
-    const [contents] = await getBucket().file(asset.key).download();
-    return { asset, buffer: contents };
+    const [contents] = await getBucket().file(key).download();
+    return {
+      asset,
+      buffer: contents,
+      contentType,
+      variant: useThumb ? 'thumb' : 'full',
+    };
   } catch (err) {
-    if (isNotFound(err)) return null;
+    if (isNotFound(err)) {
+      // A thumbnail recorded in the index but missing from the bucket must not
+      // take the image down with it.
+      if (useThumb) return readAsset(pkg, id, { variant: 'full' });
+      return null;
+    }
     throw err;
   }
 }
@@ -226,8 +307,15 @@ async function removeAsset(pkg, id) {
 
   // Object first: dropping the index entry first would orphan the bytes, which
   // is exactly the leak package-delete already has.
+  //
+  // ⚠️ BOTH OBJECTS. The thumbnail is a second file, and forgetting it here
+  // would leave a readable copy of a picture behind after its owner asked for
+  // it to be removed — the same leak, reintroduced at a different key.
   if (bucketName()) {
     await getBucket().file(asset.key).delete({ ignoreNotFound: true });
+    if (asset.thumbKey) {
+      await getBucket().file(asset.thumbKey).delete({ ignoreNotFound: true });
+    }
   }
   const remaining = assets
     .filter(a => a.id !== id)
@@ -274,6 +362,10 @@ async function removeAllAssets(pkg) {
   if (bucketName()) {
     for (const a of assets) {
       await getBucket().file(a.key).delete({ ignoreNotFound: true });
+      // The thumbnail too — see removeAsset.
+      if (a.thumbKey) {
+        await getBucket().file(a.thumbKey).delete({ ignoreNotFound: true });
+      }
     }
   }
   await kv.del(indexKey(pkg));

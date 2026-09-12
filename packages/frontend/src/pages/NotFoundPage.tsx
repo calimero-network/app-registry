@@ -1,7 +1,10 @@
 import { Link } from 'react-router-dom';
 import { Home, Search } from 'lucide-react';
+import { usePageMeta } from '@/lib/seo';
 
 export default function NotFoundPage() {
+  usePageMeta({ title: 'Page not found' });
+
   return (
     <div className='flex flex-col items-center justify-center py-24 text-center'>
       <p className='text-7xl font-bold text-brand-600/30 tabular-nums drop-shadow-[0_0_40px_rgba(165,255,17,0.1)]'>

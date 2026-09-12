@@ -41,7 +41,10 @@ export function UsernameSetupModal() {
 
   return (
     <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs'>
-      <div className='w-full max-w-md rounded-xl border border-line bg-[#0d0d0f] p-6 shadow-2xl'>
+      {/* Same bug as the profile dropdown had: a literal `bg-[#0d0d0f]` is
+          unreachable by the theme swap, so this dialog stayed black in light
+          mode while the ink inside it inverted to near-black. */}
+      <div className='menu-panel w-full max-w-md p-6'>
         <h2 className='text-lg font-semibold text-neutral-100 mb-1'>
           Choose your username
         </h2>

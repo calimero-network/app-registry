@@ -9,6 +9,7 @@ import { ShowcaseCard } from '@/components/ShowcaseCard';
 import { HeroGraphic } from '@/components/HeroGraphic';
 import { formatCategory } from '@/lib/utils';
 import { CATEGORIES, type AppSummary } from '@/types/api';
+import { usePageMeta } from '@/lib/seo';
 
 /**
  * The storefront front page.
@@ -89,6 +90,10 @@ const POSTERS: Poster[] = [
 ];
 
 export default function HomePage() {
+  // The root restores the site defaults, so arriving here from any other page
+  // does not leave that page's title in the tab.
+  usePageMeta();
+
   const { data: apps = [], isLoading } = useQuery({
     queryKey: ['apps'],
     queryFn: () => getApps(),

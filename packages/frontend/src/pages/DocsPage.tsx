@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { usePageMeta } from '@/lib/seo';
 import {
   BookOpen,
   ExternalLink,
@@ -150,6 +151,12 @@ function FieldList({
 }
 
 export default function DocsPage() {
+  usePageMeta({
+    title: 'Documentation',
+    description:
+      'Build, sign and publish a Calimero application bundle with cargo mero — from an empty directory to a package installable from this registry.',
+  });
+
   const [activeSection, setActiveSection] = useState('introduction');
   // The mobile table of contents. Closed by default: it is a jump list, not
   // part of the page.

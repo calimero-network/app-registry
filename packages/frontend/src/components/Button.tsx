@@ -27,9 +27,9 @@ export function Button({
 
   const variantClasses = {
     primary:
-      'bg-brand-600 text-black hover:shadow-[0_0_20px_rgba(165,255,17,0.4)]',
+      'bg-brand-accent text-black hover:shadow-[0_0_20px_rgba(165,255,17,0.4)]',
     secondary:
-      'bg-transparent border-2 border-brand-600 text-brand-600 hover:bg-brand-600 hover:text-black',
+      'bg-transparent border-2 border-brand-600 text-brand-600 hover:bg-brand-accent hover:text-black',
   };
 
   const sizeClasses = {

@@ -151,6 +151,30 @@ async function getOrgMemberRole(orgId, email) {
 }
 
 /**
+ * Every member's role in one read.
+ *
+ * ⚠️ USE THIS WHEN LISTING. `getOrgMemberRole` costs TWO sequential `hGet`s
+ * per member — it checks the normalised address and then the raw one, because
+ * roles were written under both spellings historically — so the member list
+ * was paying 2N round trips for a single hash. The whole hash is one reply.
+ *
+ * Returns a lookup that applies the same normalised-then-raw fallback, so it
+ * answers identically to `getOrgMemberRole` for any address.
+ *
+ * @param {string} orgId
+ * @returns {Promise<(email: string) => string|null>}
+ */
+async function getOrgMemberRoles(orgId) {
+  if (!orgId) return () => null;
+  const rolesKey = ORG_PREFIX + orgId + ROLES_SUFFIX;
+  const all = (await kv.hGetAll(rolesKey)) || {};
+  return email => {
+    if (!email) return null;
+    return all[_normEmail(email)] || all[email] || null;
+  };
+}
+
+/**
  * Update a member's role without touching their membership.
  * @param {string} orgId
  * @param {string} email
@@ -257,12 +281,11 @@ async function getOrgIdsByMember(email) {
  */
 async function getOrgsByMember(email) {
   const orgIds = await getOrgIdsByMember(email);
-  const orgs = [];
-  for (const id of orgIds) {
-    const org = await getOrg(id);
-    if (org) orgs.push(org);
-  }
-  return orgs;
+  // One wave, not one round trip per org. This backs "My organizations", so
+  // the serial loop it replaces made the page slower for exactly the people
+  // who belong to the most orgs.
+  const orgs = await Promise.all(orgIds.map(id => getOrg(id)));
+  return orgs.filter(Boolean);
 }
 
 /**
@@ -337,6 +360,7 @@ module.exports = {
   isOrgAdmin,
   getOrgIdsByMember,
   getOrgsByMember,
+  getOrgMemberRoles,
   getPkg2Org,
   setPkg2Org,
   deletePkg2Org,

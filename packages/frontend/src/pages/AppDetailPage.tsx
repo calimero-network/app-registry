@@ -34,6 +34,7 @@ import { AppPreview } from '@/components/AppPreview';
 import { OpenAppTile } from '@/components/OpenAppTile';
 import { CATEGORIES } from '@/types/api';
 import { formatBytes, formatCategory, formatRelativeDate } from '@/lib/utils';
+import { usePageMeta } from '@/lib/seo';
 
 interface V2Bundle {
   version: string;
@@ -172,6 +173,17 @@ export default function AppDetailPage() {
   });
 
   const bundle = allBundles[0];
+
+  // ⚠️ ABOVE THE EARLY RETURNS. Two of the three exits below are conditional
+  // (`isLoading`, `!bundle`), and a hook after them would only run on the
+  // third — which is React's rules-of-hooks violation AND leaves the tab
+  // showing the previously visited app while this one loads.
+  usePageMeta({
+    title: bundle?.metadata?.name || appId || null,
+    description:
+      bundle?.metadata?.description ||
+      `${appId} — a signed application bundle published to the Calimero registry.`,
+  });
 
   if (isLoading) {
     return (

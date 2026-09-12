@@ -91,8 +91,8 @@ export function ProfileDropdown({
     : (user.name ?? user.email ?? 'Signed in');
   const initials = getInitials(user.name, user.email);
   const initialsAvatar = (
-    <div className='flex h-7 w-7 items-center justify-center rounded-full bg-brand-600/80 ring-1 ring-brand-500/60 select-none'>
-      <span className='text-[11px] font-semibold text-white leading-none'>
+    <div className='flex h-7 w-7 items-center justify-center rounded-full bg-brand-accent ring-1 ring-brand-accent-hover select-none'>
+      <span className='text-[11px] font-semibold text-black leading-none'>
         {initials}
       </span>
     </div>
@@ -171,8 +171,31 @@ export function ProfileDropdown({
         aria-label={displayName}
       >
         {avatar}
+        {/* The name, not just the picture.
+            The trigger rendered the avatar and the chevron and nothing else,
+            so the rail gave a signed-in person no way to see WHICH account
+            they were signed in as without opening the menu — and with a
+            Google picture loaded, no way to tell they were signed in at all
+            rather than looking at a generic placeholder. The compact mobile
+            block had shown the name all along; this brings the rail level
+            with it.
+
+            `min-w-0` is what makes `truncate` work: a flex child defaults to
+            `min-width:auto`, which refuses to shrink below its content, so
+            without it a long `@username` pushes the chevron out of the rail
+            instead of ellipsing. */}
+        <span className='min-w-0 flex-1 truncate text-left text-[13px] font-medium text-neutral-200'>
+          {displayName}
+        </span>
+        {user.verified && (
+          <BadgeCheck
+            className='h-3.5 w-3.5 flex-shrink-0 text-emerald-400'
+            aria-label='Verified'
+            role='img'
+          />
+        )}
         <svg
-          className={`h-3 w-3 text-neutral-500 transition-transform ${open ? 'rotate-180' : ''}`}
+          className={`h-3 w-3 flex-shrink-0 text-neutral-500 transition-transform ${open ? 'rotate-180' : ''}`}
           fill='none'
           viewBox='0 0 24 24'
           stroke='currentColor'
@@ -187,7 +210,15 @@ export function ProfileDropdown({
       </button>
       {open && (
         <div
-          className={`absolute left-0 z-50 min-w-[200px] rounded-lg border border-line bg-[#0d0d0f] py-1 shadow-xl ${
+          // ⚠️ `bg-[#0d0d0f]` — a hardcoded near-black — is what made this
+          // menu the one surface in the app that never left dark mode. The
+          // theme swap works by redefining custom properties, so a literal
+          // hex in a class name is unreachable by it: in light mode the panel
+          // stayed black while the `text-neutral-300` items inside it
+          // inverted to near-black ink, which is why the open dropdown read
+          // as an empty dark box. `.menu-panel` draws from the same
+          // `--surface`/`--border`/`--shadow-card` tokens as `.card`.
+          className={`menu-panel absolute left-0 z-50 min-w-[200px] py-1 ${
             side === 'up' ? 'bottom-full mb-1' : 'top-full mt-1'
           }`}
           role='menu'

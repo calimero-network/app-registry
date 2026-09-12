@@ -3,8 +3,15 @@ import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Search, Package, User, ArrowUpRight, BadgeCheck } from 'lucide-react';
 import { getApps } from '@/lib/api';
+import { usePageMeta } from '@/lib/seo';
 
 export default function DevelopersPage() {
+  usePageMeta({
+    title: 'Developers',
+    description:
+      'The publishers behind the applications in the Calimero registry, and what each of them has signed.',
+  });
+
   const [searchTerm, setSearchTerm] = useState('');
 
   const { data: apps = [], isLoading } = useQuery({

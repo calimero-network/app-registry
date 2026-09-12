@@ -64,6 +64,34 @@
     --accent: #a5ff11;
     --accent-glow: rgba(165, 255, 17, 0.18);
     --accent-dim: rgba(165, 255, 17, 0.08);
+    /* ── THE HERO LAPTOP'S THREE GREENS ──
+
+       The hero draws a UI inside a screen filled with `--app-rail`, and it
+       used `--accent` for every green and `--app-rail` for the ink ON those
+       greens. Both assumptions hold only in dark mode:
+
+        - `--app-rail` is #0d1117 here, so "Install", the tick, the send arrow
+          and the text of your own chat bubbles were near-BLACK on lime. In
+          light mode that same token is #f2f2f3 — near-white on lime, ~1.4:1,
+          which is why the messages in the third scene could not be read.
+        - The lime is a fill colour, not an ink. At the opacities this graphic
+          leans on (0.10 selected row, 0.16 active channel, 0.22 card stroke)
+          it is invisible on paper, and as TEXT — the channel name, "installed
+          to your node" — it measures 1.2:1.
+
+       So the greens are split by ROLE rather than by theme:
+
+        - `--hero-accent`      a solid brand fill (icon tiles, the progress
+                               bar, the dock, your own bubble). Lime in both.
+        - `--hero-accent-soft` anything translucent, hairline or set as type.
+        - `--hero-on-accent`   ink drawn on top of a solid fill.
+
+       ⚠️ DARK MODE IS UNCHANGED BY THIS, BY CONSTRUCTION. Here `soft` IS the
+       lime and `on-accent` IS `--app-rail`, so every shape resolves to the
+       value it already had; only the light overrides move. */
+    --hero-accent: #a5ff11;
+    --hero-accent-soft: #a5ff11;
+    --hero-on-accent: #0d1117;
     --success: #3fb950;
     --warning: #d29922;
     --error: #f85149;
@@ -125,15 +153,32 @@
        line here is the bug this token exists to end. */
     --line: #e4e4e6;
     --line-strong: #c8c8c8;
-    /* ⚠️ DEEPER THAN THE LANDING PAGES' #5f9400, ON PURPOSE. That value is
-       3.3:1 on paper — it works there because it is set large. Here the same
-       token is the rail's "APP REGISTRY" label at 8px, inline code, active
-       nav and ~60 links, all of them small and most of them bold, and at
-       3.3:1 the lockup read as a grey-green smudge. #3f6a00 is 5.7:1 against
-       the rail and clears AA for small text; it is the same hue, taken down
-       until it is legible. */
-    --accent-text-rgb: 63 106 0;
-    --accent-text-hover-rgb: 47 84 0;
+    /* ── ACCENT TEXT: AS CLOSE TO THE LIME AS TYPE CAN GET ──
+       #487800, up from #3f6a00: brighter and greener, and still clearing AA
+       for small text with room to spare — 4.74:1 against the rail, 5.29:1 on
+       a card.
+
+       ⚠️ DO NOT SHAVE THIS ANY CLOSER TO THE LIME. #4a7c00 is one step
+       further and measures 4.4968:1, which LOOKS like 4.5 rounded and is not:
+       the lockup spec in e2e/registry.spec.ts asserts a computed ratio and
+       fails on it. That spec is the reason this token is a measurement rather
+       than a preference — it has moved three times now and the markup never
+       changed once.
+
+       ⚠️ IT CANNOT BE THE LIME ITSELF, AND NO AMOUNT OF TASTE CHANGES THAT.
+       Measured, #a5ff11 as text is 1.11:1 on the rail, 1.21:1 on the page and
+       1.24:1 on a card — against 15.24:1 on the dark ground, which is the
+       whole reason it looks right in dark mode and vanishes here. So the one
+       green is honoured where it CAN be honoured — every fill, via
+       `brand-accent`, is now literally #a5ff11 in both themes — and accent
+       type in light mode goes as far toward it as legibility allows. Pushing
+       one step further (#548a00) drops to 3.74:1 and fails.
+
+       This token carries the rail's "APP REGISTRY" label, inline code, active
+       nav and ~60 links: all small, most bold, so AA here is 4.5:1, not the
+       3:1 that large text would allow. */
+    --accent-text-rgb: 72 120 0;
+    --accent-text-hover-rgb: 56 94 0;
     /* Three steps, so the shell reads as a shell: chrome #f2f2f3, page
        #fcfcfc, cards #ffffff. A white rail against a white page separated
        only by a hairline is what made the old light mode look unfinished. */
@@ -162,6 +207,14 @@
     --accent: #a5ff11;
     --accent-glow: rgba(95, 148, 0, 0.35);
     --accent-dim: rgba(95, 148, 0, 0.09);
+    /* Solid fills keep the one lime — black ink on it is 15.94:1 on either
+       theme, the same rule the buttons follow. What cannot follow it is the
+       translucent and typeset green: #487800 is the accent ink this theme
+       already uses for ~60 links, and it is what makes the active channel,
+       the selected row and "installed to your node" visible on paper. */
+    --hero-accent: #a5ff11;
+    --hero-accent-soft: #487800;
+    --hero-on-accent: #0d1117;
     --shadow-card: 0 1px 2px rgba(19, 18, 21, 0.04);
     --focus-ring: rgba(95, 148, 0, 0.65);
     --focus-halo: rgba(95, 148, 0, 0.14);
@@ -247,6 +300,28 @@
 
   .card:hover {
     border-color: var(--accent-glow);
+  }
+
+  /* A floating menu — the profile dropdown, and anything else that opens over
+     the page. Same tokens as `.card`, because it is the same idea: a raised
+     surface with a line around it.
+
+     ⚠️ IT NEEDS ITS OWN SHADOW, NOT `shadow-xl`. Tailwind's shadow is a black
+     alpha, which is invisible against the dark ground and far too heavy on
+     paper; and a menu must not inherit `.card`'s `box-shadow: none` in dark
+     mode either, or it stops reading as raised above the page. So the shadow
+     here is explicit per theme. */
+  .menu-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: 0 12px 32px rgb(0 0 0 / 0.45);
+  }
+
+  :root[data-theme='light'] .menu-panel {
+    box-shadow:
+      0 10px 28px rgb(19 18 21 / 0.12),
+      0 2px 6px rgb(19 18 21 / 0.06);
   }
 
   .input {

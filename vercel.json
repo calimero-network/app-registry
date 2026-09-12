@@ -16,6 +16,10 @@
       "destination": "/api/$1"
     },
     {
+      "source": "/sitemap.xml",
+      "destination": "/api/sitemap"
+    },
+    {
       "source": "/artifacts/:package/:version/:filename",
       "destination": "/api/artifacts/$package/$version/$filename"
     },

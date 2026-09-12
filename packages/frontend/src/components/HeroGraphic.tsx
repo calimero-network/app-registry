@@ -79,8 +79,16 @@ export function HeroGraphic() {
             <rect x='96' y='30' width='768' height='452' rx='10' />
           </clipPath>
           <linearGradient id='hero-lid' x1='0' y1='0' x2='0' y2='1'>
-            <stop offset='0%' stopColor='var(--accent)' stopOpacity='0.10' />
-            <stop offset='60%' stopColor='var(--accent)' stopOpacity='0' />
+            <stop
+              offset='0%'
+              stopColor='var(--hero-accent-soft)'
+              stopOpacity='0.10'
+            />
+            <stop
+              offset='60%'
+              stopColor='var(--hero-accent-soft)'
+              stopOpacity='0'
+            />
           </linearGradient>
           <linearGradient id='hero-base' x1='0' y1='0' x2='1' y2='0'>
             <stop offset='0%' stopColor='currentColor' stopOpacity='0.10' />
@@ -208,7 +216,7 @@ export function HeroGraphic() {
                     width='706'
                     height='80'
                     rx='14'
-                    fill={on ? 'var(--accent)' : 'currentColor'}
+                    fill={on ? 'var(--hero-accent-soft)' : 'currentColor'}
                     opacity={on ? '0.10' : '0.035'}
                   />
                   {on && (
@@ -219,7 +227,7 @@ export function HeroGraphic() {
                       height='80'
                       rx='14'
                       fill='none'
-                      stroke='var(--accent)'
+                      stroke='var(--hero-accent-soft)'
                       strokeOpacity='0.5'
                     />
                   )}
@@ -229,7 +237,7 @@ export function HeroGraphic() {
                     width='48'
                     height='48'
                     rx='13'
-                    fill='var(--accent)'
+                    fill={on ? 'var(--hero-accent)' : 'var(--hero-accent-soft)'}
                     opacity={on ? '0.9' : '0.3'}
                   />
                   <text
@@ -298,7 +306,7 @@ export function HeroGraphic() {
                     width='76'
                     height='28'
                     rx='14'
-                    fill='var(--accent)'
+                    fill={on ? 'var(--hero-accent)' : 'var(--hero-accent-soft)'}
                     opacity={on ? '1' : '0.2'}
                   />
                   <text
@@ -308,7 +316,7 @@ export function HeroGraphic() {
                     fontWeight='600'
                     fontFamily={SANS}
                     textAnchor='middle'
-                    fill='var(--app-rail)'
+                    fill='var(--hero-on-accent)'
                     fillOpacity={on ? '1' : '0.5'}
                   >
                     Install
@@ -330,7 +338,7 @@ export function HeroGraphic() {
                 keyTimes='0;0.06;0.115'
                 calcMode='linear'
               />
-              <circle r='0' fill='var(--accent)'>
+              <circle r='0' fill='var(--hero-accent-soft)'>
                 <animate
                   attributeName='r'
                   dur={LOOP}
@@ -386,7 +394,7 @@ export function HeroGraphic() {
               height='214'
               rx='18'
               fill='none'
-              stroke='var(--accent)'
+              stroke='var(--hero-accent-soft)'
               strokeOpacity='0.22'
             />
             <rect
@@ -395,7 +403,7 @@ export function HeroGraphic() {
               width='68'
               height='68'
               rx='19'
-              fill='var(--accent)'
+              fill='var(--hero-accent)'
               opacity='0.9'
             />
             <text
@@ -439,7 +447,7 @@ export function HeroGraphic() {
               fill='currentColor'
               opacity='0.1'
             />
-            <rect x='304' y='282' height='10' rx='5' fill='var(--accent)'>
+            <rect x='304' y='282' height='10' rx='5' fill='var(--hero-accent)'>
               <animate
                 attributeName='width'
                 dur={LOOP}
@@ -466,10 +474,10 @@ export function HeroGraphic() {
                 values='0;0;1;1;0'
                 keyTimes='0;0.545;0.57;0.635;0.665'
               />
-              <circle cx='676' cy='287' r='15' fill='var(--accent)' />
+              <circle cx='676' cy='287' r='15' fill='var(--hero-accent)' />
               <path
                 d='M669 287l5 5 10-11'
-                stroke='var(--app-rail)'
+                stroke='var(--hero-on-accent)'
                 strokeWidth='3'
                 fill='none'
                 strokeLinecap='round'
@@ -480,8 +488,8 @@ export function HeroGraphic() {
                 y='334'
                 fontSize='10.5'
                 fontFamily={MONO}
-                fill='var(--accent)'
-                fillOpacity='0.85'
+                fill='var(--hero-accent-soft)'
+                fillOpacity='1'
               >
                 installed to your node
               </text>
@@ -531,7 +539,7 @@ export function HeroGraphic() {
                 width='40'
                 height='40'
                 rx='12'
-                fill='var(--accent)'
+                fill='var(--hero-accent)'
               />
             </g>
           </g>
@@ -567,7 +575,7 @@ export function HeroGraphic() {
                   width='160'
                   height='26'
                   rx='7'
-                  fill={i === 1 ? 'var(--accent)' : 'currentColor'}
+                  fill={i === 1 ? 'var(--hero-accent-soft)' : 'currentColor'}
                   opacity={i === 1 ? '0.16' : '0'}
                 />
                 <text
@@ -575,8 +583,8 @@ export function HeroGraphic() {
                   y={142 + i * 34}
                   fontSize='12'
                   fontFamily={SANS}
-                  fill={i === 1 ? 'var(--accent)' : 'currentColor'}
-                  fillOpacity={i === 1 ? '0.95' : '0.4'}
+                  fill={i === 1 ? 'var(--hero-accent-soft)' : 'currentColor'}
+                  fillOpacity={i === 1 ? '1' : '0.4'}
                 >
                   {c}
                 </text>
@@ -598,7 +606,7 @@ export function HeroGraphic() {
                 cx={124 + i * 18}
                 cy='440'
                 r='7'
-                fill='var(--accent)'
+                fill='var(--hero-accent-soft)'
                 opacity={0.85 - i * 0.2}
               />
             ))}
@@ -661,7 +669,7 @@ export function HeroGraphic() {
                     width={w}
                     height='36'
                     rx='12'
-                    fill={m.mine ? 'var(--accent)' : 'currentColor'}
+                    fill={m.mine ? 'var(--hero-accent)' : 'currentColor'}
                     opacity={m.mine ? '0.85' : '0.08'}
                   />
                   <text
@@ -669,8 +677,8 @@ export function HeroGraphic() {
                     y={y + 23}
                     fontSize='12.5'
                     fontFamily={SANS}
-                    fill={m.mine ? 'var(--app-rail)' : 'currentColor'}
-                    fillOpacity={m.mine ? '0.95' : '0.75'}
+                    fill={m.mine ? 'var(--hero-on-accent)' : 'currentColor'}
+                    fillOpacity={m.mine ? '1' : '0.85'}
                   >
                     {m.text}
                   </text>
@@ -707,7 +715,7 @@ export function HeroGraphic() {
                 />
               </tspan>
             </text>
-            <rect y='434' width='2' height='16' fill='var(--accent)'>
+            <rect y='434' width='2' height='16' fill='var(--hero-accent-soft)'>
               <animate
                 attributeName='x'
                 dur={LOOP}
@@ -722,10 +730,10 @@ export function HeroGraphic() {
                 repeatCount='indefinite'
               />
             </rect>
-            <circle cx='812' cy='442' r='13' fill='var(--accent)' />
+            <circle cx='812' cy='442' r='13' fill='var(--hero-accent)' />
             <path
               d='M807 442l4 4 7-8'
-              stroke='var(--app-rail)'
+              stroke='var(--hero-on-accent)'
               strokeWidth='2'
               fill='none'
               strokeLinecap='round'

@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { CATEGORIES } from '../types/api';
+import { prepareImage } from '@/lib/image';
 import type {
   AppSummary,
   VersionInfo,
@@ -676,6 +677,18 @@ export interface PackageAsset {
   order: number;
   /** Always an API path, never a bucket URL — reads are gated on each request. */
   url: string;
+  /**
+   * What a TILE should load: a downscaled copy when one exists, otherwise the
+   * same path as `url`. Use `url` only when showing the picture full screen —
+   * loading it in the strip is what made an app page with eight screenshots
+   * fetch up to 32MB to fill eight 176px boxes.
+   */
+  thumbUrl?: string;
+  hasThumb?: boolean;
+  thumbBytes?: number | null;
+  /** Intrinsic size of the original, when the uploader measured it. */
+  width?: number | null;
+  height?: number | null;
 }
 
 export interface PackageAssets {
@@ -696,23 +709,36 @@ export const getPackageAssets = async (pkg: string): Promise<PackageAssets> => {
   };
 };
 
-/** Upload one file. Base64 because the serverless routes take JSON, not multipart. */
+/**
+ * Upload one file. Base64 because the serverless routes take JSON, not
+ * multipart.
+ *
+ * A downscaled copy rides along when the browser could make one, so the strip
+ * has something small to load. `prepareImage` never throws and returns nulls
+ * on every failure path, so an upload is never blocked by it — see lib/image.
+ */
 export const uploadPackageAsset = async (
   pkg: string,
   file: File,
   alt = ''
 ): Promise<PackageAsset> => {
-  const data = await new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error('Could not read the file.'));
-    // readAsDataURL gives "data:<type>;base64,<payload>" — the server sniffs
-    // the bytes itself, so only the payload is sent.
-    reader.onload = () => resolve(String(reader.result).split(',')[1] ?? '');
-    reader.readAsDataURL(file);
-  });
+  const [data, prepared] = await Promise.all([
+    new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error('Could not read the file.'));
+      // readAsDataURL gives "data:<type>;base64,<payload>" — the server sniffs
+      // the bytes itself, so only the payload is sent.
+      reader.onload = () => resolve(String(reader.result).split(',')[1] ?? '');
+      reader.readAsDataURL(file);
+    }),
+    prepareImage(file),
+  ]);
   const res = await api.post(`/v2/packages/${encodeURIComponent(pkg)}/assets`, {
     data,
     alt,
+    thumb: prepared.thumb ?? undefined,
+    width: prepared.width ?? undefined,
+    height: prepared.height ?? undefined,
   });
   return res.data.asset;
 };
@@ -747,7 +773,11 @@ export interface ReviewAsset {
   alt: string;
   order: number;
   uploadedAt: string | null;
+  /** Full size. For the lightbox, not for a tile. */
   url: string;
+  thumbUrl?: string;
+  width?: number | null;
+  height?: number | null;
 }
 
 export interface ReviewItem {

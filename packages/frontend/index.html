@@ -14,7 +14,115 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="/favicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Calimero Registry</title>
+    <link rel="apple-touch-icon" href="/favicon.png" />
+
+    <!--
+      ── SEO AND LINK PREVIEWS ──
+
+      ⚠️ EVERYTHING A CRAWLER OR A CHAT CLIENT READS HAS TO BE HERE, IN THE
+      HTML. This is a client-rendered SPA behind a catch-all rewrite: every
+      route is served this exact file. Googlebot will run the bundle and see
+      the per-route title `usePageMeta` sets, but the unfurlers that matter for
+      a shared link — Slack, iMessage, WhatsApp, X, LinkedIn, Discord — fetch
+      the document and never execute a line of JavaScript. Whatever is written
+      below is the preview for EVERY url on this origin.
+
+      ⚠️ THE OG IMAGE IS AN ABSOLUTE URL AND A PNG. A relative path is dropped
+      by most scrapers, and an SVG is refused by all of the above — so the card
+      is rendered to `public/og.png` by `scripts/build-og-image.mjs` and
+      committed. 1200×630 is what they crop from.
+
+      `og:title` is deliberately not the same string as <title>: the tab wants
+      the product name first, the card wants the claim.
+    -->
+    <title>Calimero App Registry — signed apps for your own node</title>
+    <meta
+      name="description"
+      content="Browse, publish and install signed Calimero application bundles. Every manifest is checked by the registry, then checked again by the peer that installs it."
+    />
+    <link rel="canonical" href="https://apps.calimero.network/" />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <meta name="author" content="Calimero Network" />
+    <!-- The browser chrome matches the theme the page paints, in both. -->
+    <meta
+      name="theme-color"
+      media="(prefers-color-scheme: light)"
+      content="#fcfcfc"
+    />
+    <meta
+      name="theme-color"
+      media="(prefers-color-scheme: dark)"
+      content="#0d1117"
+    />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Calimero App Registry" />
+    <meta property="og:url" content="https://apps.calimero.network/" />
+    <meta property="og:title" content="Apps your node can verify for itself" />
+    <meta
+      property="og:description"
+      content="Browse, publish and install signed Calimero application bundles. Every manifest is checked by the registry, then checked again by the peer that installs it."
+    />
+    <meta property="og:image" content="https://apps.calimero.network/og.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="Calimero App Registry — apps your node can verify for itself"
+    />
+    <meta property="og:locale" content="en_US" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Apps your node can verify for itself" />
+    <meta
+      name="twitter:description"
+      content="Browse, publish and install signed Calimero application bundles. Every manifest is checked by the registry, then checked again by the peer that installs it."
+    />
+    <meta name="twitter:image" content="https://apps.calimero.network/og.png" />
+    <meta
+      name="twitter:image:alt"
+      content="Calimero App Registry — apps your node can verify for itself"
+    />
+
+    <!--
+      Two things, and only two: the site (so a result can carry a search box
+      pointed at Explore) and the organisation behind it. No `SoftwareApplication`
+      markup — that describes a single app, and the one page that could honestly
+      claim it is an app detail page, which is rendered client-side.
+    -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebSite",
+            "@id": "https://apps.calimero.network/#website",
+            "url": "https://apps.calimero.network/",
+            "name": "Calimero App Registry",
+            "description": "Signed, verifiable application bundles for Calimero nodes.",
+            "publisher": { "@id": "https://apps.calimero.network/#org" },
+            "potentialAction": {
+              "@type": "SearchAction",
+              "target": {
+                "@type": "EntryPoint",
+                "urlTemplate": "https://apps.calimero.network/explore?q={search_term_string}"
+              },
+              "query-input": "required name=search_term_string"
+            }
+          },
+          {
+            "@type": "Organization",
+            "@id": "https://apps.calimero.network/#org",
+            "name": "Calimero Network",
+            "url": "https://calimero.network",
+            "logo": "https://apps.calimero.network/og.png",
+            "sameAs": ["https://github.com/calimero-network"]
+          }
+        ]
+      }
+    </script>
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
