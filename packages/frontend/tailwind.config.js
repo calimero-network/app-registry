@@ -117,6 +117,25 @@ export default {
         'scale-in': 'scaleIn 0.4s ease-out both',
         'glow-pulse': 'glowPulse 3s ease-in-out infinite',
         float: 'float 6s ease-in-out infinite',
+        // ── The mobile drawer ──
+        //
+        // A panel that comes from off-screen has to be MOVED, not faded: the
+        // drawer used to mount at its final position, so the menu appeared
+        // over the page with no sense of where it came from.
+        //
+        // ⚠️ THE EXIT DURATION IS MIRRORED IN Layout.tsx (DRAWER_EXIT_MS).
+        // The element is unmounted by a timer, so a longer animation here is
+        // an animation that gets cut off mid-slide.
+        //
+        // Easing is asymmetric on purpose: the panel arrives on a decelerating
+        // curve (fast off the edge, settling at the stop) and leaves on an
+        // accelerating one, which is how a sheet that is being dismissed
+        // reads. `both` holds the last frame so the exit does not snap back to
+        // x=0 for the frame before the unmount.
+        'drawer-in': 'drawerIn 260ms cubic-bezier(0.32, 0.72, 0, 1) both',
+        'drawer-out': 'drawerOut 200ms cubic-bezier(0.4, 0, 1, 1) both',
+        'scrim-in': 'fadeIn 260ms ease-out both',
+        'scrim-out': 'scrimOut 200ms ease-in both',
       },
       keyframes: {
         fadeIn: {
@@ -146,6 +165,18 @@ export default {
         float: {
           '0%, 100%': { transform: 'translateY(0)' },
           '50%': { transform: 'translateY(-8px)' },
+        },
+        drawerIn: {
+          '0%': { transform: 'translateX(-100%)' },
+          '100%': { transform: 'translateX(0)' },
+        },
+        drawerOut: {
+          '0%': { transform: 'translateX(0)' },
+          '100%': { transform: 'translateX(-100%)' },
+        },
+        scrimOut: {
+          '0%': { opacity: '1' },
+          '100%': { opacity: '0' },
         },
       },
     },
