@@ -135,11 +135,15 @@ export function ProfileDropdown({
           <Building2 className='h-3.5 w-3.5 mr-2.5' />
           Organizations
         </Link>
+        {/* Same fix as the menu below. ⚠️ THIS BRANCH IS UNREACHABLE: nothing
+            passes `compact` any more — the mobile drawer renders the rail, so
+            one component serves both widths. Corrected in place rather than
+            deleted, since deleting it is a separate call. */}
         {user.isAdmin && (
           <Link
             to='/admin'
             onClick={onNavigate}
-            className='flex items-center px-3 py-2 rounded-md text-[13px] font-normal text-brand-500 hover:bg-brand-600/10 hover:text-brand-400'
+            className='flex items-center px-3 py-2 rounded-md text-[13px] font-normal text-neutral-400 hover:bg-ink/[0.06] hover:text-neutral-200'
           >
             <ShieldCheck className='h-3.5 w-3.5 mr-2.5' />
             Admin
@@ -252,11 +256,24 @@ export function ProfileDropdown({
             <Building2 className='h-3.5 w-3.5' />
             Organizations
           </Link>
+          {/* ⚠️ THE SAME CLASSES AS THE TWO ITEMS ABOVE, DELIBERATELY.
+              This row inked itself in `brand-500` over a green tint and
+              brightened to `brand-400` on hover — and that step is a LITERAL
+              #c9ff73 with no light-mode counterpart, because the themed
+              accent stops at 600 and 500.
+              So in light mode it sat at 7.58:1 and hovering took it to a pale
+              lime on a pale green tint: **1.02:1**, the row vanishing under
+              the cursor, while the two items above it went 13.87 → 16.53 and
+              got MORE legible. Dark mode was fine (14.37 → 11.62), which is
+              why it survived.
+
+              The shield icon is what marks this as the admin row now; the
+              colour was doing that job and failing at it on paper. */}
           {user.isAdmin && (
             <Link
               to='/admin'
               onClick={() => setOpen(false)}
-              className='flex items-center gap-2 px-3 py-2 text-[13px] text-brand-500 hover:bg-brand-600/10 hover:text-brand-400'
+              className='flex items-center gap-2 px-3 py-2 text-[13px] text-neutral-300 hover:bg-ink/[0.06] hover:text-neutral-100'
               role='menuitem'
             >
               <ShieldCheck className='h-3.5 w-3.5' />

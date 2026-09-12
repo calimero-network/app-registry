@@ -1043,7 +1043,7 @@ function OrgInfoRow({
           href={href}
           target='_blank'
           rel='noopener noreferrer'
-          className='text-brand-500 hover:text-brand-400 hover:underline truncate inline-flex items-center gap-1 transition-colors'
+          className='text-brand-600 hover:text-brand-500 hover:underline truncate inline-flex items-center gap-1 transition-colors'
         >
           {value}
           <ExternalLink className='w-3 h-3 flex-shrink-0' />
