@@ -54,6 +54,29 @@ updates:
       - dependency-name: 'canonicalize'
         update-types:
           - 'version-update:semver-major'
+      # ⚠️ TYPESCRIPT 7 NEEDS THE LINT STACK MODERNISED FIRST.
+      #
+      # It fails two independent ways (#294). `tsc` removed options the
+      # frontend config is built on:
+      #
+      #   TS5108: Option 'moduleResolution=node10' has been removed.
+      #   TS5102: Option 'baseUrl' has been removed.
+      #
+      # and eslint dies before linting anything, because @typescript-eslint
+      # v7 and its pinned ts-api-utils read TS internals that moved:
+      #
+      #   TypeError: Cannot read properties of undefined (reading 'Intrinsic')
+      #     at ts-api-utils/lib/index.cjs:779
+      #
+      # The second one is the blocker and it is not TypeScript's fault. Every
+      # package pins @typescript-eslint/eslint-plugin ^7 against a parser a
+      # major newer, and the root declares eslint ^8.55.0 while 10.7.0 is
+      # what resolves — which is also where the standing `unmet peer
+      # eslint@^8.56.0` warnings come from. Align that, migrate the tsconfig,
+      # then drop this entry. 5.x patches and minors still come through.
+      - dependency-name: 'typescript'
+        update-types:
+          - 'version-update:semver-major'
 
   # Enable version updates for GitHub Actions
   - package-ecosystem: 'github-actions'
