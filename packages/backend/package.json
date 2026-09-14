@@ -28,7 +28,7 @@
     "@fastify/rate-limit": "^11.2.0",
     "@fastify/swagger": "^9.8.1",
     "@fastify/swagger-ui": "^6.1.1",
-    "@google-cloud/storage": "^7.21.0",
+    "@google-cloud/storage": "^8.1.0",
     "@noble/ed25519": "^3.2.0",
     "ajv": "^8.20.0",
     "ajv-formats": "^3.0.1",
