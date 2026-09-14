@@ -36,7 +36,7 @@
     "@noble/ed25519": "^3.2.0",
     "axios": "^1.19.0",
     "bs58": "^6.0.0",
-    "canonicalize": "^2.1.0",
+    "canonicalize": "^5.0.0",
     "chalk": "^6.0.0",
     "commander": "^15.0.0",
     "fastify": "^5.12.3",

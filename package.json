@@ -82,7 +82,7 @@
     "ajv": "^8.20.0",
     "ajv-formats": "^3.0.1",
     "busboy": "^1.6.0",
-    "canonicalize": "^2.1.0",
+    "canonicalize": "^5.0.0",
     "jsonwebtoken": "^9.0.3",
     "multibase": "^4.0.0",
     "node-fetch": "^3.3.2",
