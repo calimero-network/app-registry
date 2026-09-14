@@ -73,8 +73,20 @@ updates:
       include: 'scope'
 
   # Enable version updates for Docker
+  #
+  # ⚠️ THE DIRECTORY IS WHERE THE DOCKERFILE IS, NOT THE REPO ROOT. This was
+  # '/' and there is no Dockerfile there, so the docker leg has never once
+  # produced an update — it just fails the scheduled run every week with:
+  #
+  #   dependency_file_not_found
+  #   "No Dockerfiles nor Kubernetes YAML found in /"  (file-path /Dockerfile)
+  #
+  # A red weekly job that opens nothing looks exactly like a quiet one until
+  # you go and read it. Both images live in packages/backend (Dockerfile and
+  # Dockerfile.simple), which is also what the CI build and `docker:build`
+  # point at.
   - package-ecosystem: 'docker'
-    directory: '/'
+    directory: '/packages/backend'
     schedule:
       interval: 'weekly'
       day: 'monday'
