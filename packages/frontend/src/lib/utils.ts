@@ -158,3 +158,42 @@ export function fallbackHue(seed: string): number {
   }
   return Math.abs(hash) % 360;
 }
+
+/**
+ * Build provenance stamped into a bundle manifest by `cargo mero bundle`.
+ * Every field is optional: it is derived from however the app's `calimero-sdk`
+ * dependency happened to resolve, and not every resolution names a release.
+ */
+export interface BuildInfo {
+  sdkSource?: string;
+  sdkVersion?: string;
+  sdkRev?: string;
+}
+
+/**
+ * The node release a bundle was compiled against, as a label — or `null` when
+ * the bundle does not say.
+ *
+ * ⚠️ NULL IS THE COMMON CASE AND MUST RENDER AS NOTHING. Every bundle published
+ * before cargo-mero began stamping `buildInfo` has none, so a caller that
+ * substitutes a placeholder is asserting a version the bundle never claimed.
+ * The same page already carries a scar from this: the manifest-version card
+ * rendered the literal string "vundefined" for bundles predating that field.
+ *
+ * Three shapes reach here, in descending order of what they pin down:
+ *   - a release  -> `0.11.0-rc.34`  (a git `tag=`, or a crates.io version)
+ *   - a commit   -> `6c6fb4a`       (a branch/rev build: no release to name,
+ *                                    but the commit identifies it exactly)
+ *   - neither    -> `null`          (a local path build, or an old bundle)
+ */
+export function nodeBuildLabel(build?: BuildInfo | null): string | null {
+  const version = build?.sdkVersion?.trim();
+  if (version) return version;
+
+  // No release was named. The commit still identifies the build, and a short
+  // SHA is what a reader can actually paste into `git show`.
+  const rev = build?.sdkRev?.trim();
+  if (rev) return rev.slice(0, 7);
+
+  return null;
+}

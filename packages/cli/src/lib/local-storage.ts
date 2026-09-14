@@ -92,6 +92,20 @@ export interface BundleManifest {
 
   /** Minimum runtime version required by this bundle (e.g. "0.2.0"). Preserved when pushing. */
   minRuntimeVersion?: string;
+  /** Deep-link handler declarations. A sibling of `metadata`, not nested in it. */
+  handlers?: { slug?: string };
+  /**
+   * Which node release the WASM was compiled against, derived by
+   * `cargo mero bundle` from the resolved `calimero-sdk` dependency.
+   *
+   * Distinct from `minRuntimeVersion`, which is hand-declared and states a
+   * floor. Absent on bundles built before cargo-mero began stamping it.
+   */
+  buildInfo?: {
+    sdkSource?: string;
+    sdkVersion?: string;
+    sdkRev?: string;
+  };
   /** DID of the signer — part of the signed payload, must be forwarded as-is. */
   signerId?: string;
 }
