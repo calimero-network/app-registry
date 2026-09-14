@@ -1,5 +1,17 @@
 # Simple Dockerfile for Calimero Registry V1 API
-FROM node:18-alpine
+#
+# ⚠️ NODE 24, AND IT CANNOT GO BACK. This was node:18-alpine while the repo's
+# own package.json has declared `engines.node >= 24` for a long time, so the
+# compose stack was already building on a runtime the project does not
+# support. @google-cloud/storage 8 (#300) turned that from untidy into
+# broken: it declares `engines.node >= 22`, and both src/lib/blob-store.js
+# and src/lib/asset-store.js require it at server start.
+#
+# The image CI builds and ships is packages/backend/Dockerfile, which is
+# already node:24-alpine — this is the one docker-compose.yml uses, so the
+# breakage was local-dev-only and would have surfaced as a runtime error
+# nobody could reproduce in CI.
+FROM node:24-alpine
 
 # Install pnpm
 RUN npm install -g pnpm
