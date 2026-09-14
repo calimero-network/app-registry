@@ -16,6 +16,44 @@ updates:
       prefix: 'chore'
       prefix-development: 'chore'
       include: 'scope'
+    groups:
+      # ⚠️ REACT AND REACT-DOM CANNOT BE UPDATED SEPARATELY, AND DEPENDABOT
+      # WILL KEEP TRYING UNLESS IT IS TOLD NOT TO.
+      #
+      # `src/test/react-version-pairing.test.ts` asserts the two resolve to
+      # the same installed version — they share an internal runtime contract
+      # and a mismatched pair fails at runtime, not at install. Ungrouped,
+      # dependabot opens one PR per package, so each one moves half the pair
+      # and is red the moment it is created:
+      #
+      #   #284  react 19.3.0 vs react-dom 19.2.8  ->  expected '19.2.8' to be '19.3.0'
+      #   #286  the mirror image
+      #
+      # Neither could ever go green on its own. Grouped, they arrive in one
+      # PR that passes.
+      react:
+        patterns:
+          - 'react'
+          - 'react-dom'
+          - '@types/react'
+          - '@types/react-dom'
+    ignore:
+      # ⚠️ canonicalize 3+ IS ESM-ONLY, AND THIS REPO REQUIRES IT FROM CJS.
+      #
+      # v5 ships `"type": "module"` with an `import`-only export map, while
+      # `packages/backend/src/lib/verify.js`, `api/lib/verify.js` and
+      # `api/lib/signed-request.js` are CommonJS and do
+      # `const canonicalize = require('canonicalize')` at module load. The
+      # bump (#287) fails as `Cannot find module 'canonicalize'` across six
+      # backend suites.
+      #
+      # Taking it means converting signature-verification code to ESM or to
+      # an async dynamic import — a refactor of the security path, for a
+      # library that implements a frozen spec (RFC 8785 JCS) and has nothing
+      # new to give us. Patches and minors still come through.
+      - dependency-name: 'canonicalize'
+        update-types:
+          - 'version-update:semver-major'
 
   # Enable version updates for GitHub Actions
   - package-ecosystem: 'github-actions'
