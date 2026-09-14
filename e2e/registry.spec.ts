@@ -970,3 +970,105 @@ test.describe('one green in both themes', () => {
     expect(ratio).toBeGreaterThan(10);
   });
 });
+
+test.describe('the warning amber', () => {
+  /**
+   * ⚠️ MEASURED ON THE TOKENS, FOR THE REASON THE HERO SPEC GIVES. Every
+   * warning in the app is a low-alpha fill — `bg-amber-950/20`, `/30`,
+   * `bg-amber-500/10` — and Tailwind 4 emits those as `color-mix()`, which
+   * `getComputedStyle` does not hand back resolved. So the wash is composited
+   * here from the tokens that produce it, which is also the thing that has to
+   * stay true: the markup never changes, the tokens do.
+   *
+   * What this guards: amber used to be Tailwind's stock scale, picked for a
+   * dark ground and never overridden. In light mode the "copy this token now
+   * — it will not be shown again" banner in /orgs rendered amber-400 on a
+   * #dad1cd wash at 1.11:1. It was the most important sentence on the page
+   * and it was invisible.
+   */
+  const measure = () => {
+    const cs = getComputedStyle(document.documentElement);
+    const chan = (name: string) =>
+      cs.getPropertyValue(name).trim().split(/\s+/).map(Number) as [
+        number,
+        number,
+        number,
+      ];
+    const hex = (name: string) => {
+      const h = cs.getPropertyValue(name).trim().replace('#', '');
+      const full =
+        h.length === 3
+          ? h
+              .split('')
+              .map(c => c + c)
+              .join('')
+          : h;
+      return [0, 2, 4].map(i => parseInt(full.slice(i, i + 2), 16)) as [
+        number,
+        number,
+        number,
+      ];
+    };
+    const over = (
+      fg: [number, number, number],
+      a: number,
+      bg: [number, number, number]
+    ) => fg.map((c, i) => c * a + bg[i] * (1 - a)) as [number, number, number];
+    const L = ([r, g, b]: [number, number, number]) => {
+      const f = (v: number) => {
+        const x = v / 255;
+        return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4);
+      };
+      return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+    };
+    const ratio = (
+      fg: [number, number, number],
+      bg: [number, number, number]
+    ) => {
+      const [la, lb] = [L(fg), L(bg)];
+      const [hi, lo] = la > lb ? [la, lb] : [lb, la];
+      return (hi + 0.05) / (lo + 0.05);
+    };
+    const card = hex('--surface');
+    return {
+      // /orgs: the fresh API token banner.
+      tokenBanner: ratio(
+        chan('--warn-400-rgb'),
+        over(chan('--warn-950-rgb'), 0.2, card)
+      ),
+      // AppPreview: the unverified-publisher badge.
+      unverifiedBadge: ratio(
+        chan('--warn-300-rgb'),
+        over(chan('--warn-950-rgb'), 0.3, card)
+      ),
+      // AppDetailPage: the yanked-version notice.
+      yankedNotice: ratio(
+        chan('--warn-400-rgb'),
+        over(chan('--warn-900-rgb'), 0.2, card)
+      ),
+      // OrgDetailPage / ReviewQueue: the status pill, the tightest pair.
+      statusPill: ratio(
+        chan('--warn-500-rgb'),
+        over(chan('--warn-500-rgb'), 0.1, card)
+      ),
+    };
+  };
+
+  for (const theme of ['light', 'dark'] as const) {
+    test(`clears AA on its own wash in ${theme} mode`, async ({ page }) => {
+      await page.goto('/');
+      if (theme === 'dark') await page.getByTestId('theme-toggle').click();
+      await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
+
+      const r = await page.evaluate(measure);
+
+      // Small text on a tinted ground: AA is 4.5:1, not the 3:1 large type
+      // would allow. The statusPill pair is the binding one at ~4.75:1 in
+      // light mode — do not darken the wash or lighten the 500 ink further.
+      expect(r.tokenBanner).toBeGreaterThan(4.5);
+      expect(r.unverifiedBadge).toBeGreaterThan(4.5);
+      expect(r.yankedNotice).toBeGreaterThan(4.5);
+      expect(r.statusPill).toBeGreaterThan(4.5);
+    });
+  }
+});

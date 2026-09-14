@@ -31,6 +31,32 @@
     --line-strong: #39424e;
     --accent-text-rgb: 165 255 17;
     --accent-text-hover-rgb: 184 255 74;
+    /* ── WARNING AMBER ──
+       The same trap the lime fell into, in a different hue. Every warning in
+       this app is written with Tailwind's stock amber — `text-amber-400` on
+       `bg-amber-950/20`, 14 sites — and those steps are picked for a dark
+       ground. On paper the wash lands at #dad1cd and amber-400 on it measures
+       1.11:1: the "copy this token now, it will not be shown again" banner in
+       /orgs was invisible in light mode, which is the one message on the page
+       that must not be missed.
+
+       So amber resolves through tokens now, exactly like the neutral scale,
+       and all 14 call sites flip with the theme without being touched.
+
+       ⚠️ DARK MODE IS UNCHANGED BY CONSTRUCTION. These are the sRGB values
+       Tailwind 4.3.3's own oklch ambers already rendered to, so every shape
+       here keeps the colour it had; only the light overrides move.
+
+       Roles, because the steps are not interchangeable:
+         300/400/500  warning INK (text and icons)
+         800/900      hairline borders
+         900/950      the low-alpha background wash */
+    --warn-300-rgb: 255 210 48;
+    --warn-400-rgb: 255 185 0;
+    --warn-500-rgb: 254 154 0;
+    --warn-800-rgb: 151 60 0;
+    --warn-900-rgb: 123 51 6;
+    --warn-950-rgb: 70 25 1;
     --app-bg: #0d1117;
     --app-rail: #0d1117;
     /* The Calimero wordmark ships dark; invert it for a dark ground. */
@@ -179,6 +205,31 @@
        3:1 that large text would allow. */
     --accent-text-rgb: 72 120 0;
     --accent-text-hover-rgb: 56 94 0;
+    /* ── WARNING AMBER, INVERTED THE WAY THE NEUTRALS ARE ──
+       300-500 are the INK steps, so on paper they run darkest-to-lightest
+       (the mirror of dark mode, where 300 is the brightest). That keeps
+       `text-amber-400 hover:text-amber-300` reading as "goes stronger on
+       hover" in both themes rather than flipping direction.
+
+       800-950 stay bright, because they are only ever drawn at 20-50% alpha:
+       a DARK amber at 20% over white is the grey-brown mud that made the
+       banner unreadable, while a bright one gives the warm tint a warning
+       should have.
+
+       Measured against every ground these actually sit on — card #ffffff,
+       page #fcfcfc, rail #f2f2f3, and the washes the 900/950 steps paint —
+       the worst case is amber-500 on `bg-amber-500/10` at 4.75:1. All ten
+       text sites clear AA.
+
+       ⚠️ THE INK STEPS CANNOT BE BRIGHTENED MUCH FURTHER. #a15c00 is one
+       step up from the 500 here and measures 4.33:1 on that same pill, which
+       fails. */
+    --warn-300-rgb: 124 74 2;
+    --warn-400-rgb: 138 75 0;
+    --warn-500-rgb: 154 91 0;
+    --warn-800-rgb: 217 119 6;
+    --warn-900-rgb: 224 148 0;
+    --warn-950-rgb: 240 180 41;
     /* Three steps, so the shell reads as a shell: chrome #f2f2f3, page
        #fcfcfc, cards #ffffff. A white rail against a white page separated
        only by a hairline is what made the old light mode look unfinished. */
