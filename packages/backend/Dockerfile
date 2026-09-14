@@ -1,5 +1,5 @@
 # Multi-stage build for Calimero Registry V1 API
-FROM node:24-alpine AS base
+FROM node:26-alpine AS base
 
 # Pinned to match the root package.json "packageManager" and the lockfile that
 # pnpm 8 generated. Unpinned, this tracked pnpm@latest and broke the image the
@@ -27,7 +27,7 @@ WORKDIR /app/packages/backend
 RUN npm run build
 
 # Production stage
-FROM node:24-alpine AS production
+FROM node:26-alpine AS production
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs

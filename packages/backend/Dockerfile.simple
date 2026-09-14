@@ -1,5 +1,5 @@
 # Simple Dockerfile for Calimero Registry V1 API
-FROM node:18-alpine
+FROM node:26-alpine
 
 # Install pnpm
 RUN npm install -g pnpm
