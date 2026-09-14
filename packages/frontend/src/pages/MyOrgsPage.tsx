@@ -337,7 +337,11 @@ export default function MyOrgsPage() {
                     </button>
                   </div>
                   <div className='flex items-center gap-2'>
-                    <code className='flex-1 text-[11px] font-mono text-neutral-500 bg-ink/[0.06] rounded px-2 py-1.5 truncate'>
+                    {/* neutral-500 is calibrated against the app's own
+                        grounds; on the amber wash this chip sits on it
+                        measures 4.16:1. This is a command the reader has to
+                        retype, so it takes the next step up. */}
+                    <code className='flex-1 text-[11px] font-mono text-neutral-400 bg-ink/[0.06] rounded px-2 py-1.5 truncate'>
                       calimero-registry config set api-key {freshToken}
                     </code>
                     <button

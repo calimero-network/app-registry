@@ -27,6 +27,25 @@ export default {
           200: 'rgb(var(--n-200-rgb) / <alpha-value>)',
           100: 'rgb(var(--n-100-rgb) / <alpha-value>)',
         },
+        // ── WARNING AMBER ──
+        //
+        // Overriding Tailwind's stock `amber` rather than adding a new name,
+        // for the same reason `neutral` is overridden above: the 14 call
+        // sites are already written as `text-amber-400` / `bg-amber-950/20`
+        // and this way not one of them has to change to become theme-aware.
+        //
+        // Only the steps the app actually uses are defined. A step that is
+        // absent here still falls through to Tailwind's default, which is
+        // the dark-only value — so if a new warning needs amber-600, give it
+        // a token here rather than reaching for the stock scale.
+        amber: {
+          300: 'rgb(var(--warn-300-rgb) / <alpha-value>)',
+          400: 'rgb(var(--warn-400-rgb) / <alpha-value>)',
+          500: 'rgb(var(--warn-500-rgb) / <alpha-value>)',
+          800: 'rgb(var(--warn-800-rgb) / <alpha-value>)',
+          900: 'rgb(var(--warn-900-rgb) / <alpha-value>)',
+          950: 'rgb(var(--warn-950-rgb) / <alpha-value>)',
+        },
         brand: {
           900: '#2D381B',
           800: '#8AA200',
