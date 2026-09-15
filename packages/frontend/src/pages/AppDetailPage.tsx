@@ -18,6 +18,7 @@ import {
   BadgeCheck,
   Ban,
   RotateCcw,
+  Cpu,
 } from 'lucide-react';
 import {
   api,
@@ -33,7 +34,12 @@ import { AppIcon } from '@/components/AppIcon';
 import { AppPreview } from '@/components/AppPreview';
 import { OpenAppTile } from '@/components/OpenAppTile';
 import { CATEGORIES } from '@/types/api';
-import { formatBytes, formatCategory, formatRelativeDate } from '@/lib/utils';
+import {
+  formatBytes,
+  formatCategory,
+  formatRelativeDate,
+  nodeBuildLabel,
+} from '@/lib/utils';
 import { usePageMeta } from '@/lib/seo';
 
 interface V2Bundle {
@@ -53,6 +59,25 @@ interface V2Bundle {
     tags?: string[];
     license?: string;
     category?: string;
+  };
+  /**
+   * Which node release the WASM was compiled against, derived by
+   * `cargo mero bundle` from the resolved `calimero-sdk` dependency.
+   *
+   * ⚠️ NOT `minRuntimeVersion`, which is hand-declared, means "refuse to run
+   * below this", and defaults to `0.1.0` for anyone who never set it. This is
+   * read off the build's own resolve graph, so it cannot drift.
+   *
+   * Absent on every bundle published before cargo-mero started stamping it,
+   * which is why `nodeBuildLabel` returns null rather than a placeholder.
+   */
+  buildInfo?: {
+    /** `"git"`, `"registry"`, or `"path"`. */
+    sdkSource?: string;
+    /** The release, when the resolution names one. A branch/rev/path build has none. */
+    sdkVersion?: string;
+    /** The exact commit, for a git dependency. */
+    sdkRev?: string;
   };
   /** Measured by the registry at upload; null for bundles that predate it. */
   installSize?: number | null;
@@ -213,6 +238,9 @@ export default function AppDetailPage() {
 
   const meta = bundle.metadata;
   const links = bundle.links;
+  // null for every bundle published before cargo-mero began stamping
+  // `buildInfo`, which is most of the registry — the card is omitted then.
+  const nodeBuild = nodeBuildLabel(bundle.buildInfo);
 
   // Same resolution the listing uses: `metadata.category` when the bundle
   // carries one, else a `tags` entry naming a category. Reading the explicit
@@ -378,6 +406,14 @@ export default function AppDetailPage() {
           />
         )}
         <InfoCard icon={Clock} label='Version' value={bundle.appVersion} />
+        {/* Which node release this WASM was compiled against — derived by
+            cargo-mero from the resolved calimero-sdk dependency, not declared
+            by the author. Guarded: bundles published before cargo-mero began
+            stamping `buildInfo` carry none, and the card is omitted for them
+            rather than showing a version the bundle never claimed. */}
+        {nodeBuild && (
+          <InfoCard icon={Cpu} label='Built with node' value={nodeBuild} />
+        )}
         {meta?.license && (
           <InfoCard icon={Shield} label='License' value={meta.license} />
         )}
@@ -576,6 +612,7 @@ export default function AppDetailPage() {
               const canEditVersion = canManageVersion;
               const isConfirmingThisVersion =
                 confirmDeleteVersion === b.appVersion;
+              const vNodeBuild = nodeBuildLabel(b.buildInfo);
               return (
                 <div
                   key={b.appVersion}
@@ -586,6 +623,15 @@ export default function AppDetailPage() {
                     <span className='text-[13px] font-medium text-neutral-200'>
                       v{b.appVersion}
                     </span>
+                    {/* Per version, because this is exactly where it is worth
+                        comparing: two releases of the same app can be built
+                        against different node versions. Omitted, not
+                        placeholdered, when the bundle does not say. */}
+                    {vNodeBuild && (
+                      <span className='pill bg-neutral-500/10 text-neutral-400 text-[10px] font-mono'>
+                        node {vNodeBuild}
+                      </span>
+                    )}
                   </div>
                   <div className='flex items-center gap-3'>
                     <span className='inline-flex items-center gap-1 text-[11px] text-neutral-500 font-mono'>

@@ -29,22 +29,21 @@ import {
   collectBundleFiles,
 } from '../lib/services.js';
 
-interface BundlePushPayload {
+/**
+ * The push body: the signed manifest as it stands, plus the two `_`-prefixed
+ * transient fields the server strips before checking the signature.
+ *
+ * Extends the manifest rather than re-listing its fields. A closed list here
+ * would mean a manifest field that this type does not know about is a type
+ * error at the spread, pushing the next person back to copying fields by hand
+ * — which is what dropped `handlers` and would have dropped `buildInfo`.
+ */
+interface BundlePushPayload extends BundleManifest {
   version: string;
   package: string;
   appVersion: string;
   _binary: string;
   _overwrite: boolean;
-  metadata?: BundleManifest['metadata'];
-  interfaces?: BundleManifest['interfaces'];
-  wasm?: BundleManifest['wasm'];
-  abi?: BundleManifest['abi'];
-  services?: BundleManifest['services'];
-  migrations?: BundleManifest['migrations'];
-  links?: BundleManifest['links'];
-  signature?: BundleManifest['signature'];
-  signerId?: string;
-  minRuntimeVersion?: string;
 }
 
 interface ApiResponseBody {
@@ -1130,48 +1129,30 @@ async function pushToRemote(
     const bundleHex = bundleBuffer.toString('hex');
     console.log(`   Converted to hex (${bundleHex.length} characters)`);
 
-    // 3. Build request payload matching API format
+    // 3. Build request payload matching API format.
+    //
+    // ⚠️ SPREAD THE MANIFEST. DO NOT LIST ITS FIELDS. This block used to copy
+    // fields one at a time, which is a whitelist that silently drops anything
+    // added to the manifest afterwards — and dropping a field is not a partial
+    // send, it is a FAILED PUBLISH. The signature covers the canonical manifest
+    // with only `signature` and `_`-prefixed keys excluded, so a field that
+    // goes missing here changes the bytes the server hashes and the push comes
+    // back `invalid_signature`, pointing at the key rather than at this copy.
+    // `handlers` (deep-link slugs) and `buildInfo` (the node release the WASM
+    // was built against) were both already outside the old list.
+    //
+    // The server's own push-file route does exactly this spread, so the two
+    // publish paths now send the same bytes.
     const payload: BundlePushPayload = {
+      ...manifest,
       version: manifest.version || '1.0',
       package: manifest.package,
       appVersion: manifest.appVersion,
+      // Always include migrations even if empty — dropping [] changes the signed payload
+      migrations: manifest.migrations ?? [],
       _binary: bundleHex,
       _overwrite: true,
     };
-
-    // Preserve all manifest fields
-    if (manifest.metadata) {
-      payload.metadata = manifest.metadata;
-    }
-    if (manifest.interfaces) {
-      payload.interfaces = manifest.interfaces;
-    }
-    if (manifest.wasm) {
-      payload.wasm = manifest.wasm;
-    }
-    if (manifest.abi !== undefined) {
-      payload.abi = manifest.abi;
-    }
-    if (manifest.services !== undefined) {
-      payload.services = manifest.services;
-    }
-    // Always include migrations even if empty — dropping [] changes the signed payload
-    payload.migrations = manifest.migrations ?? [];
-    if (manifest.links) {
-      payload.links = manifest.links;
-    }
-    if (manifest.signature) {
-      payload.signature = manifest.signature;
-    }
-    if (
-      manifest.minRuntimeVersion != null &&
-      String(manifest.minRuntimeVersion).trim()
-    ) {
-      payload.minRuntimeVersion = String(manifest.minRuntimeVersion).trim();
-    }
-    if (manifest.signerId) {
-      payload.signerId = manifest.signerId;
-    }
 
     // 4. Prepare headers
     const headers: Record<string, string> = {
