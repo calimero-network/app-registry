@@ -700,8 +700,60 @@ test.describe('live app preview', () => {
     });
     // `.invalid` never resolves; the frame has to be fulfilled locally or the
     // spec waits on DNS.
+    //
+    // ⚠️ THE STUB BOOTS THE WAY A REAL APP BOOTS, and that is the whole point
+    // of it. It used to be `<h1>framed</h1>` — static markup, which renders
+    // under ANY sandbox — so the suite was green through the entire period
+    // every published app showed as a black rectangle here. A stub that does
+    // not do the thing that broke is not coverage of it.
+    //
+    // So it reads `localStorage` first, exactly as the Calimero SDK does when
+    // it looks for a session. On a frame without `allow-same-origin` the
+    // origin is opaque and that read THROWS rather than returning null, which
+    // is what killed every app before its first render.
     await page.route('https://mero-chat.invalid/**', route =>
-      route.fulfill({ contentType: 'text/html', body: '<h1>framed</h1>' })
+      route.fulfill({
+        contentType: 'text/html',
+        body: `<!doctype html><html><body style="margin:0;background:#0b0d12">
+          <div id="root"></div>
+          <script>
+            // No try/catch: a throw here must leave #root empty, the same way
+            // a real app's does.
+            localStorage.getItem('calimero-session');
+            document.getElementById('root').innerHTML =
+              '<h1 data-testid="framed-app">framed</h1>';
+          </script>
+        </body></html>`,
+      })
+    );
+  });
+
+  test('the framed app actually boots, rather than painting its background and dying', async ({
+    page,
+  }) => {
+    // ⚠️ THE TILE WAS A BLACK RECTANGLE FOR EVERY PUBLISHED APP, and every
+    // guard in the component stayed quiet: the document DID load, so `onLoad`
+    // ran, `loaded` went true, the 6s timeout was cleared, and the fallback
+    // link never appeared. All 18 frontends, one identical `SecurityError`
+    // each, from `localStorage` on the opaque origin a sandbox without
+    // `allow-same-origin` imposes. The apps set a dark `body` background in
+    // CSS, so what was left on screen was that colour and nothing else.
+    //
+    // ASSERTING ON THE FRAME'S CONTENT is what makes this a test of the bug.
+    // The tile was visible, correctly sized and correctly animated throughout
+    // — the sibling test below passed the whole time. Only what is INSIDE the
+    // frame distinguishes a working preview from a coloured box.
+    await page.goto('/apps/com.calimero.mero-chat');
+    await expect(page.getByTestId('open-app')).toBeVisible();
+
+    const frame = page.frameLocator('iframe.preview-frame');
+    await expect(frame.getByTestId('framed-app')).toHaveText('framed');
+
+    // And the flag is really the reason, not an incidental attribute: the
+    // stub is on another origin, so it must be granted.
+    await expect(page.locator('iframe.preview-frame')).toHaveAttribute(
+      'sandbox',
+      /allow-same-origin/
     );
   });
 
