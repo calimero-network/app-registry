@@ -98,7 +98,7 @@ export function OpenAppTile({ url, name }: { url: string; name: string }) {
         target='_blank'
         rel='noreferrer noopener'
         data-testid='open-app-fallback'
-        className='flex aspect-[16/9] max-h-[30rem] items-center justify-center rounded-2xl border border-line bg-ink/[0.02] text-[13px] text-neutral-300 transition-colors hover:border-line-strong'
+        className='flex aspect-[16/9] max-h-[30rem] items-center justify-center rounded-2xl border border-line bg-ink/[0.02] text-[15px] text-neutral-300 transition-colors hover:border-line-strong'
       >
         <span className='inline-flex items-center gap-2'>
           <ExternalLink className='h-4 w-4' aria-hidden='true' />
@@ -144,7 +144,7 @@ export function OpenAppTile({ url, name }: { url: string; name: string }) {
       {/* `preview-cta` is what makes this visible on a touch device, where
           there is no hover to reveal it — see `index.css`. */}
       <span className='preview-cta absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-all duration-500 ease-out group-hover:bg-black/45 group-hover:opacity-100'>
-        <span className='inline-flex items-center gap-2 rounded-lg bg-black/75 px-4 py-2.5 text-[13px] font-medium text-white'>
+        <span className='inline-flex items-center gap-2 rounded-lg bg-black/75 px-4 py-2.5 text-[15px] font-medium text-white'>
           <ExternalLink className='h-4 w-4' aria-hidden='true' />
           View application on web
         </span>

@@ -63,8 +63,9 @@ export default function DevelopersPage() {
     <div className='space-y-6'>
       {/* Header */}
       <div className='animate-fade-in'>
+        <p className='eyebrow mb-3'>Publishers</p>
         <h1 className='text-xl font-semibold text-neutral-100'>Developers</h1>
-        <p className='mt-1 text-[13px] text-neutral-500 font-light'>
+        <p className='mt-1 text-[15px] text-neutral-500 font-light'>
           Browse developers and their published applications
         </p>
       </div>
@@ -85,7 +86,7 @@ export default function DevelopersPage() {
       {filteredDevelopers.length === 0 ? (
         <div className='text-center py-16'>
           <User className='mx-auto h-8 w-8 text-neutral-600' />
-          <p className='mt-3 text-[13px] text-neutral-400'>
+          <p className='mt-3 text-[15px] text-neutral-400'>
             {searchTerm
               ? 'No developers match your search.'
               : 'No developers have published applications yet.'}
@@ -124,19 +125,19 @@ function DeveloperCard({
             <User className='w-3.5 h-3.5 text-neutral-400' />
           </div>
           <div className='min-w-0'>
-            <h3 className='flex items-center gap-1.5 truncate text-[13px] font-medium text-neutral-100'>
+            <h3 className='flex items-center gap-1.5 truncate text-[15px] font-medium text-neutral-100'>
               <span className='font-mono truncate'>{displayName}</span>
               {developer.verified && (
                 <BadgeCheck className='h-3.5 w-3.5 flex-shrink-0 text-emerald-400' />
               )}
             </h3>
-            <p className='text-[11px] text-neutral-500 font-light'>
+            <p className='text-[12.5px] text-neutral-500 font-light'>
               Latest: {developer.latestApp}
             </p>
           </div>
         </div>
         <div className='flex items-center gap-3 flex-shrink-0 ml-4'>
-          <div className='flex items-center gap-1 text-[11px] text-neutral-500'>
+          <div className='flex items-center gap-1 text-[12.5px] text-neutral-500'>
             <Package className='w-3 h-3' />
             {developer.appCount}
           </div>

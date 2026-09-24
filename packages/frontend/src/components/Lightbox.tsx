@@ -164,7 +164,7 @@ export function Lightbox({
           <LightboxImage key={item.id} item={item} />
         )}
         {(item.alt || count > 1) && (
-          <figcaption className='flex items-center gap-3 text-[12.5px] text-white/70'>
+          <figcaption className='flex items-center gap-3 text-[14.5px] text-white/70'>
             {item.alt && <span className='truncate'>{item.alt}</span>}
             {count > 1 && (
               <span className='flex-shrink-0 tabular-nums text-white/50'>
