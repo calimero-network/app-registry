@@ -125,50 +125,56 @@ export default function HomePage() {
   );
 
   return (
-    <div className='space-y-14'>
-      <section>
-        {/* Title and one line of copy. The three-point list that was here
-            said the same thing at four times the length; the animation below
-            shows it instead. */}
-        {/* Title, then description under it, then the animation with room
-            above it. Stacked rather than inline: the subtitle is a sentence,
-            not a tagline, and sitting it beside the title made both harder
-            to read. */}
-        <div className='flex items-start justify-between gap-4'>
-          <div>
-            <h1 className='text-2xl font-semibold tracking-tight text-neutral-100 sm:text-3xl'>
-              App Registry
-            </h1>
-            <p className='mt-2 max-w-2xl text-[13.5px] font-light leading-relaxed text-neutral-400'>
-              Applications for Calimero — signed, versioned, and installed into
-              a node you run yourself.
-            </p>
+    <div className='space-y-16 lg:space-y-20'>
+      {/* ── The first screen: the promise and a way in, beside the product ──
+          calimero.network's hero, sized for an app store rather than a
+          landing page: a tracked lime eyebrow, the black uppercase headline
+          with its second line in lime, one sentence, and two buttons —
+          next to the laptop animation of that promise being kept.
+
+          ⚠️ SIZED AGAINST A 14" LAPTOP'S FOLD. The first featured app must
+          be on screen without scrolling (e2e "the fold"); a full-height
+          landing hero here would push every app below it, which is the
+          failure that removed the original "Discover & Deploy" hero. */}
+      <section className='grid items-center gap-10 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-12 xl:gap-16'>
+        <div className='flex flex-col items-start gap-5'>
+          <p className='eyebrow'>Signed apps for Calimero</p>
+          <h1 className='hero-title text-[40px] text-neutral-100 sm:text-[52px] xl:text-[56px]'>
+            App Registry
+            <span className='block text-brand-600'>for the node you run</span>
+          </h1>
+          <p className='max-w-[42ch] text-[18px] font-light leading-relaxed tracking-[0.03em] text-neutral-300'>
+            Applications for Calimero — signed, versioned, and installed into a
+            node you run yourself.
+          </p>
+          <div className='flex flex-wrap items-center gap-3'>
+            <Link to='/explore' className='btn-primary'>
+              Browse apps
+            </Link>
+            <Link to='/upload' className='btn-secondary'>
+              Publish an app
+            </Link>
           </div>
           {/* The one control on the page that is not navigation, so it sits
-              out of the reading column rather than in the rail with the
-              things you press every visit. */}
-          <ThemeToggle />
+              with the fine print rather than in the header with the links
+              used every visit. */}
+          <div className='flex w-full items-center justify-between gap-4 border-t border-line pt-5'>
+            <p className='max-w-[46ch] text-[14px] font-light leading-snug text-neutral-500'>
+              Every bundle is checked by the registry, then checked again by the
+              node that installs it.
+            </p>
+            <ThemeToggle />
+          </div>
         </div>
 
-        {/* The laptop sits inside its own lit panel rather than floating on
-            the page ground, and it is drawn small inside that panel: at full
-            bleed the device was the whole section and the three scenes read
-            as a slideshow instead of as one product being used.
-
-            The wash is periwinkle and the lights are indigo — deliberately
-            NOT the brand lime. The accent already carries meaning inside the
-            animation (selected row, install progress, your own messages), and
-            green light behind green UI flattens every one of those. */}
+        {/* The laptop sits in its own panel: a charcoal surface with one
+            hairline and a faint lime bloom behind the device, not over it —
+            a blurred light painted over the screen fogs the UI it lights. */}
         <div
           data-testid='hero-panel'
-          className='relative mt-8 overflow-hidden rounded-[28px] border border-line'
+          className='relative overflow-hidden border border-line'
           style={{ background: 'var(--hero-wash)' }}
         >
-          {/* ⚠️ BEHIND THE DEVICE, NOT OVER IT. These are stacked at z-0 and
-              everything else at z-10: a blurred blob painted over the laptop
-              fogs the screen it is supposed to be lighting. They breathe on a
-              long, offset cycle so the panel looks lit rather than static —
-              opacity only, so it stays on the compositor. */}
           <div
             aria-hidden='true'
             className='pointer-events-none absolute inset-0 z-0'
@@ -184,49 +190,32 @@ export default function HomePage() {
           </div>
 
           <div className='relative z-10 px-5 pb-6 pt-6 sm:px-8 sm:pb-7 sm:pt-7'>
-            {/* ⚠️ SIZED AGAINST A 14" LAPTOP'S FOLD, NOT AGAINST THE PANEL.
-                At `max-w-3xl` with the old padding the panel came to 624px
-                and the first app card began at y=879 — nineteen pixels below
-                an 860px viewport, so the entire first screen was one picture
-                and no actual app was visible without scrolling. That is the
-                same failure that removed the original "Discover & Deploy"
-                hero.
-
-                Still wide enough to carry the panel, which is why it is not
-                back at the `max-w-xl` of the first pass — that left a third
-                of the box empty on either side. */}
             <div className='hero-device mx-auto aspect-[960/508] w-full max-w-[40rem]'>
               <HeroGraphic />
             </div>
 
             {/* The caption runs on the same 18s cycle as the graphic: line one
-                covers browse + install, line two covers using the app.
-
-                Set large, bold and in the display face — it is the headline
-                for the animation above it, not a caption under a figure. Two
+                covers browse + install, line two covers using the app. Two
                 absolutely-positioned lines in a fixed-height box, so the panel
                 does not resize as they swap.
 
-                ⚠️ THE HEIGHT IS PER-BREAKPOINT BECAUSE THE WRAP IS. Two lines
-                is what these sentences take from `sm` up; at 360px they take
-                four, and a box sized for the desktop wrap clipped the last
-                line through the middle of its glyphs — the overflow is
-                hidden, so it looked like a rendering fault rather than a
-                height that was too small.
+                ⚠️ THE HEIGHT IS PER-BREAKPOINT BECAUSE THE WRAP IS, and the
+                overflow is hidden — a box sized for the desktop wrap clips
+                the last line through its glyphs on a phone (e2e measures it).
 
                 Reduced motion lands on the base styles — line one visible,
                 line two hidden — rather than on an empty box. */}
-            <div className='relative mx-auto mt-5 h-[6.2rem] w-full max-w-[40rem] overflow-hidden sm:h-[4.1rem]'>
+            <div className='relative mx-auto mt-5 h-[7.4rem] w-full max-w-[40rem] overflow-hidden border-t border-line pt-4 sm:h-[5.2rem]'>
               <p
                 data-testid='hero-caption'
-                className='hero-line hero-line-a absolute inset-x-0 top-0 font-display text-[18px] font-bold leading-snug tracking-tight text-neutral-100 sm:text-[23px]'
+                className='hero-line hero-line-a absolute inset-x-0 top-4 text-[17px] font-bold uppercase leading-snug tracking-[0.1em] text-neutral-100 sm:text-[19px]'
               >
                 Download Calimero Desktop and install applications from the
                 marketplace.
               </p>
-              <p className='hero-line hero-line-b absolute inset-x-0 top-0 font-display text-[18px] font-bold leading-snug tracking-tight text-neutral-100 sm:text-[23px]'>
-                Open the installed application and use it peer-to-peer, fully
-                encrypted.
+              <p className='hero-line hero-line-b absolute inset-x-0 top-4 text-[17px] font-bold uppercase leading-snug tracking-[0.1em] text-neutral-100 sm:text-[19px]'>
+                Open the installed application and use it peer-to-peer, its data
+                encrypted between peers.
               </p>
             </div>
           </div>
@@ -235,13 +224,12 @@ export default function HomePage() {
 
       {featured.length > 0 && (
         <section>
-          {/* One panel holding the whole shelf, rather than three cards
-              floating on the page ground. It groups the apps we publish
-              ourselves into a single object, which is what separates them
-              from the derived shelves below. */}
-          <div className='rounded-2xl border border-line bg-ink/[0.02] p-4 sm:p-5'>
-            <SectionHeading title='Apps we build' />
-            <div className='mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3'>
+          {/* The apps we publish ourselves, as large cards under their own
+              section head — which is what separates them from the derived
+              shelves below. */}
+          <div>
+            <SectionHeading eyebrow='Featured' title='Apps we build' />
+            <div className='mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3'>
               {featured.map(app => (
                 <ShowcaseCard key={app.id} app={app} />
               ))}
@@ -250,22 +238,15 @@ export default function HomePage() {
         </section>
       )}
 
-      <section>
-        <SectionHeading title='Get started' />
-        <div className='mt-3'>
-          <PosterGallery posters={POSTERS} />
-        </div>
-      </section>
-
       {categoriesInUse.length > 0 && (
         <section>
-          <SectionHeading title='Browse by category' />
-          <div className='mt-3 flex flex-wrap gap-1.5'>
+          <SectionHeading eyebrow='Browse' title='By category' />
+          <div className='mt-6 flex flex-wrap gap-2'>
             {categoriesInUse.map(c => (
               <Link
                 key={c}
                 to={`/explore?category=${c}`}
-                className='inline-flex items-center gap-1.5 rounded-full border border-line bg-ink/[0.02] px-3 py-1.5 text-[12.5px] text-neutral-300 transition-colors duration-150 hover:border-line-strong hover:text-neutral-100'
+                className='inline-flex items-center gap-1.5 border border-line-strong px-4 py-2.5 text-[14px] font-bold uppercase tracking-[0.15em] text-neutral-300 transition-colors duration-150 hover:border-brand-600 hover:text-brand-600'
               >
                 {formatCategory(c)}
               </Link>
@@ -275,29 +256,55 @@ export default function HomePage() {
       )}
 
       <section>
-        <SectionHeading title='Recently updated' href='/explore' />
+        <SectionHeading
+          eyebrow='The catalogue'
+          title='Recently updated'
+          href='/explore'
+        />
         {isLoading ? (
           <SkeletonList />
         ) : (
-          <div className='mt-3 grid gap-3'>
+          <div className='mt-6 grid gap-3'>
             {recent.map(app => (
               <AppCard key={app.id} app={app} />
             ))}
           </div>
         )}
       </section>
+
+      <section>
+        <SectionHeading eyebrow='Get started' title='Run, build, publish' />
+        <div className='mt-6'>
+          <PosterGallery posters={POSTERS} />
+        </div>
+      </section>
     </div>
   );
 }
 
-function SectionHeading({ title, href }: { title: string; href?: string }) {
+function SectionHeading({
+  eyebrow,
+  title,
+  href,
+}: {
+  eyebrow?: string;
+  title: string;
+  href?: string;
+}) {
+  // The landing's section head: a tracked eyebrow over an uppercase title,
+  // with a lime "See all" link at the end of the line.
   return (
-    <div className='flex items-baseline justify-between'>
-      <h2 className='text-[15px] font-medium text-neutral-200'>{title}</h2>
+    <div className='flex items-end justify-between gap-4 border-b border-line pb-4'>
+      <div>
+        {eyebrow && <p className='eyebrow mb-2'>{eyebrow}</p>}
+        <h2 className='text-[26px] font-black uppercase leading-none tracking-[0.01em] text-neutral-100 sm:text-[32px]'>
+          {title}
+        </h2>
+      </div>
       {href && (
         <Link
           to={href}
-          className='text-[12.5px] text-neutral-500 transition-colors hover:text-neutral-300'
+          className='whitespace-nowrap text-[14px] font-bold uppercase tracking-[0.17em] text-brand-600 transition-colors hover:text-brand-500'
         >
           See all
         </Link>
@@ -312,7 +319,7 @@ function SkeletonList() {
       {Array.from({ length: 4 }).map((_, i) => (
         <div
           key={i}
-          className='flex animate-pulse gap-4 rounded-xl border border-line p-4'
+          className='flex animate-pulse gap-4 border border-line p-4'
         >
           <div className='h-14 w-14 flex-shrink-0 rounded-xl bg-ink/[0.06]' />
           <div className='flex-1 space-y-2 pt-1'>
