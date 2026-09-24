@@ -5,18 +5,18 @@ test.beforeEach(async ({ page }) => {
   await stubRegistry(page);
 });
 
-test.describe('vertical rail', () => {
-  test('renders as a sidebar and routes', async ({ page }) => {
+test.describe('the header', () => {
+  test('renders as a top bar and routes', async ({ page }) => {
     await page.goto('/');
-    const rail = page.getByTestId('sidebar');
-    await expect(rail).toBeVisible();
+    const nav = page.getByTestId('primary-nav');
+    await expect(nav).toBeVisible();
 
-    // Vertical, not horizontal: the rail is taller than it is wide and starts
-    // at the top-left. Asserting on the class would pass even if the layout
-    // were still a header, so measure the box.
-    const box = await rail.boundingBox();
-    expect(box!.height).toBeGreaterThan(box!.width);
-    expect(box!.x).toBeLessThan(10);
+    // Horizontal, at the top of the page: calimero.network's header, not a
+    // rail. Asserting on the class would pass whatever the layout did, so
+    // measure the box.
+    const box = await nav.boundingBox();
+    expect(box!.width).toBeGreaterThan(box!.height);
+    expect(box!.y).toBeLessThan(10);
 
     await page.getByTestId('nav-explore').click();
     await expect(page).toHaveURL(/\/explore/);
@@ -25,7 +25,7 @@ test.describe('vertical rail', () => {
 });
 
 test.describe('global search', () => {
-  test('filters from the rail and puts the term in the URL', async ({
+  test('filters from the header and puts the term in the URL', async ({
     page,
   }) => {
     await page.goto('/explore');
@@ -199,11 +199,16 @@ test.describe('sign in', () => {
     await expect(signIn).toHaveAttribute('href', '/api/auth/google');
   });
 
-  test('the sign-in button is as wide as the nav items', async ({ page }) => {
+  test('the sign-in button sits in the header, beside the one CTA', async ({
+    page,
+  }) => {
     await page.goto('/');
-    const nav = await page.getByTestId('nav-explore').boundingBox();
-    const signIn = await page.getByTestId('sign-in').boundingBox();
-    expect(Math.abs(nav!.width - signIn!.width)).toBeLessThan(2);
+    const header = page.getByTestId('site-header');
+    await expect(header.getByTestId('sign-in')).toBeVisible();
+    await expect(header.getByTestId('nav-upload')).toHaveAttribute(
+      'href',
+      '/upload'
+    );
   });
 
   test('a failed sign-in surfaces as a toast, not a blank page', async ({
@@ -227,25 +232,22 @@ test.describe('sign in', () => {
 });
 
 test.describe('light / dark', () => {
-  // ⚠️ THE OS PREFERENCE IS EMULATED AS DARK HERE ON PURPOSE. Light is the
-  // default whatever the desktop says, and Playwright emulates LIGHT by
-  // default — so a suite that left it alone would pass against a build that
-  // still followed the OS.
-  test.use({ colorScheme: 'dark' });
+  // ⚠️ THE OS PREFERENCE IS EMULATED AS LIGHT HERE ON PURPOSE. Dark — the
+  // calimero.network charcoal — is the default whatever the desktop says, so
+  // the suite asks for a light desktop to prove the OS is not consulted.
+  test.use({ colorScheme: 'light' });
 
-  test('opens in light mode even on a dark desktop', async ({ page }) => {
+  test('opens in dark mode even on a light desktop', async ({ page }) => {
     await page.goto('/');
-    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
   });
 
-  test('the first paint is light, before any script runs', async ({ page }) => {
-    // The base palette in index.css is the DARK one — light is an override
-    // on `[data-theme='light']`. Applying that from the module only means the
-    // browser paints a dark ground first and swaps it, on every load. The
-    // attribute is in the served HTML, so read the markup rather than the
+  test('the first paint is dark, before any script runs', async ({ page }) => {
+    // The attribute is in the served HTML, so the default never flashes the
+    // other palette before the module runs. Read the markup rather than the
     // DOM, which would show whatever JavaScript did to it afterwards.
     const res = await page.request.get('/');
-    expect(await res.text()).toContain('<html lang="en" data-theme="light">');
+    expect(await res.text()).toContain('<html lang="en" data-theme="dark">');
   });
 
   test('an old auto-written preference does not count as a choice', async ({
@@ -257,9 +259,9 @@ test.describe('light / dark', () => {
     // meaning every existing visitor carried `dark` as a "choice" they never
     // made, and a stored choice beats the default. The old key is abandoned.
     await page.goto('/');
-    await page.evaluate(() => localStorage.setItem('registry:theme', 'dark'));
+    await page.evaluate(() => localStorage.setItem('registry:theme', 'light'));
     await page.reload();
-    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
     expect(
       await page.evaluate(() => localStorage.getItem('registry:theme'))
     ).toBeNull();
@@ -284,14 +286,14 @@ test.describe('light / dark', () => {
     await expect(toggle).toBeVisible();
 
     await toggle.click();
-    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
 
     await page.reload();
-    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
 
     // And a stored choice still beats the default on a fresh load.
     await page.goto('/explore');
-    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
   });
 
   test('light mode actually inverts the ground and the text', async ({
@@ -319,16 +321,16 @@ test.describe('light / dark', () => {
         };
       });
 
-    // Light is where the app starts now, so this reads light first and
-    // toggles INTO dark; the comparison is the same either way.
-    const light = await read();
+    // Dark is where the app starts, so this reads dark first and toggles
+    // INTO light; the comparison is the same either way.
+    const dark = await read();
 
     await page.goto('/');
     await page.getByTestId('theme-toggle').click();
-    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
     await page.goto('/explore');
     await expect(page.getByTestId('app-card').first()).toBeVisible();
-    const dark = await read();
+    const light = await read();
 
     expect(light.body).not.toBe(dark.body);
     // `text-neutral-100` means "most prominent text". In light mode it must
@@ -347,8 +349,11 @@ test.describe('light / dark', () => {
     page,
   }) => {
     // #a5ff11 on white is about 1.4:1. It has to become the deep green.
-    // No toggle press: light is already what the page opens in.
+    await page.addInitScript(() => {
+      localStorage.setItem('registry:theme:choice', 'light');
+    });
     await page.goto('/');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
     const accent = await page.evaluate(() =>
       getComputedStyle(document.documentElement)
         .getPropertyValue('--accent-text-rgb')
@@ -398,17 +403,17 @@ test.describe('separators', () => {
         const card = document.querySelector(
           '[data-testid="app-card"]'
         ) as HTMLElement;
-        // ⚠️ TWO ELEMENTS, DELIBERATELY. The card's border comes from the
-        // component layer and the rail's from a swept utility class. They
-        // were two different tokens, so a spec that read only the card
-        // passed while every separator on the page was still invisible.
-        // They are one token now, and this is what holds them to it.
+        // ⚠️ TWO ELEMENTS, DELIBERATELY. The card's border and the header's
+        // hairline come from different call sites. They were two different
+        // tokens once, so a spec that read only the card passed while every
+        // separator on the page was still invisible. They are one token now,
+        // and this is what holds them to it.
         const rail = document.querySelector(
-          '[data-testid="sidebar"]'
+          '[data-testid="site-header"]'
         ) as HTMLElement;
         return {
           card: getComputedStyle(card).borderTopColor,
-          rail: getComputedStyle(rail).borderRightColor,
+          rail: getComputedStyle(rail).borderBottomColor,
           page: getComputedStyle(document.body).backgroundColor,
         };
       });
@@ -425,14 +430,14 @@ test.describe('separators', () => {
 });
 
 test.describe('the theme control', () => {
-  test('is an icon on Home, and is NOT in the rail', async ({ page }) => {
-    // It used to sit in the rail on every page, which gave a decision made
-    // once the same standing as the links used every visit.
+  test('is an icon on Home, and is NOT in the header', async ({ page }) => {
+    // It used to sit in the navigation on every page, which gave a decision
+    // made once the same standing as the links used every visit.
     await page.goto('/');
     const toggle = page.getByTestId('theme-toggle');
     await expect(toggle).toBeVisible();
     await expect(
-      page.getByTestId('sidebar').getByTestId('theme-toggle')
+      page.getByTestId('site-header').getByTestId('theme-toggle')
     ).toHaveCount(0);
 
     // Icon only: the accessible name carries the meaning, not visible text.
@@ -449,32 +454,35 @@ test.describe('the theme control', () => {
     // Moving the control must not scope the theme to the page carrying it.
     await page.goto('/');
     await page.getByTestId('theme-toggle').click();
-    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
 
     await page.goto('/docs');
-    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
   });
 });
 
 test.describe('the accent as text', () => {
-  test('the registry lockup clears AA against the rail in light mode', async ({
+  test('the registry lockup clears AA against the header in light mode', async ({
     page,
   }) => {
     // The label is 8px, bold, uppercase and tracked — the least forgiving
     // text in the app — and it is painted in the same token as every link
     // and every inline code span. A ratio, not a class: the token moved
     // twice already and the markup never changed either time.
+    await page.addInitScript(() => {
+      localStorage.setItem('registry:theme:choice', 'light');
+    });
     await page.goto('/');
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
 
     const ratio = await page.evaluate(() => {
       const label = document
         .querySelector(
-          '[data-testid="rail-brand"] [data-testid="registry-mark"]'
+          '[data-testid="header-brand"] [data-testid="registry-mark"]'
         )!
         .querySelector('span:last-child') as HTMLElement;
       const rail = document.querySelector(
-        '[data-testid="sidebar"]'
+        '[data-testid="site-header"]'
       ) as HTMLElement;
       const lin = (c: string) =>
         c
@@ -553,7 +561,7 @@ test.describe("the hero laptop's greens", () => {
       page,
     }) => {
       await page.goto('/');
-      if (theme === 'dark') await page.getByTestId('theme-toggle').click();
+      if (theme === 'light') await page.getByTestId('theme-toggle').click();
       await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
 
       const { inkOnFill, typeOnScreen } = await page.evaluate(measure);
@@ -1109,7 +1117,7 @@ test.describe('the warning amber', () => {
   for (const theme of ['light', 'dark'] as const) {
     test(`clears AA on its own wash in ${theme} mode`, async ({ page }) => {
       await page.goto('/');
-      if (theme === 'dark') await page.getByTestId('theme-toggle').click();
+      if (theme === 'light') await page.getByTestId('theme-toggle').click();
       await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
 
       const r = await page.evaluate(measure);

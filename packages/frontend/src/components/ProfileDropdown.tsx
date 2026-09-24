@@ -1,13 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import {
-  Box,
-  Building2,
-  LogIn,
-  LogOut,
-  BadgeCheck,
-  ShieldCheck,
-} from 'lucide-react';
+import { Box, Building2, LogOut, BadgeCheck, ShieldCheck } from 'lucide-react';
 import type { AuthUser } from '@/contexts/AuthContext';
 
 interface ProfileDropdownProps {
@@ -59,9 +52,7 @@ export function ProfileDropdown({
   }, [open]);
 
   if (loading) {
-    return (
-      <div className='ml-2 h-8 w-24 animate-pulse rounded-md bg-ink/[0.06]' />
-    );
+    return <div className='h-10 w-28 animate-pulse bg-ink/[0.06]' />;
   }
 
   if (!user) {
@@ -78,9 +69,10 @@ export function ProfileDropdown({
         href='/api/auth/google'
         onClick={onNavigate}
         data-testid='sign-in'
-        className='flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] text-neutral-400 transition-colors duration-150 hover:bg-ink/[0.04] hover:text-neutral-200'
+        // The landing's secondary button: a lime outline that fills on hover.
+        // Full width in the drawer, its own width in the header.
+        className={`btn-secondary !px-5 !py-2.5 ${side === 'up' ? 'w-full' : ''}`}
       >
-        <LogIn className='h-4 w-4 flex-shrink-0' aria-hidden='true' />
         Sign in
       </a>
     );
@@ -91,8 +83,8 @@ export function ProfileDropdown({
     : (user.name ?? user.email ?? 'Signed in');
   const initials = getInitials(user.name, user.email);
   const initialsAvatar = (
-    <div className='flex h-7 w-7 items-center justify-center rounded-full bg-brand-accent ring-1 ring-brand-accent-hover select-none'>
-      <span className='text-[11px] font-semibold text-black leading-none'>
+    <div className='flex h-8 w-8 items-center justify-center bg-brand-accent select-none'>
+      <span className='text-[14px] font-bold text-black leading-none'>
         {initials}
       </span>
     </div>
@@ -102,7 +94,7 @@ export function ProfileDropdown({
       <img
         src={user.picture}
         alt=''
-        className='h-7 w-7 rounded-full object-cover ring-1 ring-ink/[0.1]'
+        className='h-8 w-8 object-cover border border-line-strong'
         onError={() => setImgError(true)}
       />
     ) : (
@@ -112,7 +104,7 @@ export function ProfileDropdown({
   if (compact) {
     return (
       <div className='space-y-0.5'>
-        <div className='flex items-center gap-2 px-3 py-2 text-[13px] text-neutral-400'>
+        <div className='flex items-center gap-2 px-3 py-2 text-[15px] text-neutral-400'>
           {avatar}
           <span className='truncate text-neutral-300'>{displayName}</span>
           {user.verified && (
@@ -122,7 +114,7 @@ export function ProfileDropdown({
         <Link
           to='/my-packages'
           onClick={onNavigate}
-          className='flex items-center px-3 py-2 rounded-md text-[13px] font-normal text-neutral-400 hover:bg-ink/[0.06] hover:text-neutral-200'
+          className='flex items-center px-3 py-2 text-[15px] font-normal text-neutral-400 hover:bg-ink/[0.06] hover:text-neutral-200'
         >
           <Box className='h-3.5 w-3.5 mr-2.5' />
           My packages
@@ -130,7 +122,7 @@ export function ProfileDropdown({
         <Link
           to='/orgs'
           onClick={onNavigate}
-          className='flex items-center px-3 py-2 rounded-md text-[13px] font-normal text-neutral-400 hover:bg-ink/[0.06] hover:text-neutral-200'
+          className='flex items-center px-3 py-2 text-[15px] font-normal text-neutral-400 hover:bg-ink/[0.06] hover:text-neutral-200'
         >
           <Building2 className='h-3.5 w-3.5 mr-2.5' />
           Organizations
@@ -143,7 +135,7 @@ export function ProfileDropdown({
           <Link
             to='/admin'
             onClick={onNavigate}
-            className='flex items-center px-3 py-2 rounded-md text-[13px] font-normal text-neutral-400 hover:bg-ink/[0.06] hover:text-neutral-200'
+            className='flex items-center px-3 py-2 text-[15px] font-normal text-neutral-400 hover:bg-ink/[0.06] hover:text-neutral-200'
           >
             <ShieldCheck className='h-3.5 w-3.5 mr-2.5' />
             Admin
@@ -155,7 +147,7 @@ export function ProfileDropdown({
             logout();
             onNavigate?.();
           }}
-          className='flex w-full items-center px-3 py-2 rounded-md text-[13px] font-normal text-neutral-400 hover:bg-ink/[0.04] hover:text-neutral-200 text-left'
+          className='flex w-full items-center px-3 py-2 text-[15px] font-normal text-neutral-400 hover:bg-ink/[0.04] hover:text-neutral-200 text-left'
         >
           <LogOut className='h-3.5 w-3.5 mr-2.5' />
           Log out
@@ -169,7 +161,7 @@ export function ProfileDropdown({
       <button
         type='button'
         onClick={() => setOpen(!open)}
-        className='flex w-full items-center gap-2 rounded-lg border border-transparent p-1.5 transition-colors duration-150 hover:border-line-strong hover:bg-ink/[0.06]'
+        className={`flex items-center gap-2 border border-line p-1 pr-2.5 transition-colors duration-150 hover:border-line-strong hover:bg-ink/[0.04] ${side === 'up' ? 'w-full' : ''}`}
         aria-expanded={open}
         aria-haspopup='true'
         aria-label={displayName}
@@ -188,7 +180,13 @@ export function ProfileDropdown({
             `min-width:auto`, which refuses to shrink below its content, so
             without it a long `@username` pushes the chevron out of the rail
             instead of ellipsing. */}
-        <span className='min-w-0 flex-1 truncate text-left text-[13px] font-medium text-neutral-200'>
+        <span
+          className={`min-w-0 flex-1 truncate text-left text-[15px] font-medium text-neutral-200 ${
+            // In the header the name gives way before the bar runs out of
+            // room (it is in the menu, and the avatar marks the session).
+            side === 'up' ? '' : 'sr-only'
+          }`}
+        >
           {displayName}
         </span>
         {user.verified && (
@@ -222,16 +220,16 @@ export function ProfileDropdown({
           // inverted to near-black ink, which is why the open dropdown read
           // as an empty dark box. `.menu-panel` draws from the same
           // `--surface`/`--border`/`--shadow-card` tokens as `.card`.
-          className={`menu-panel absolute left-0 z-50 min-w-[200px] py-1 ${
-            side === 'up' ? 'bottom-full mb-1' : 'top-full mt-1'
+          className={`menu-panel absolute z-50 min-w-[220px] py-1 ${
+            side === 'up' ? 'bottom-full left-0 mb-1' : 'right-0 top-full mt-2'
           }`}
           role='menu'
         >
           <div className='border-b border-line px-3 py-2'>
-            <p className='truncate text-[12px] text-neutral-400'>
+            <p className='truncate text-[14px] text-neutral-400'>
               Signed in as
             </p>
-            <p className='flex items-center gap-1.5 truncate text-[13px] font-medium text-neutral-200'>
+            <p className='flex items-center gap-1.5 truncate text-[15px] font-medium text-neutral-200'>
               {displayName}
               {user.verified && (
                 <BadgeCheck className='h-3.5 w-3.5 flex-shrink-0 text-emerald-400' />
@@ -241,7 +239,7 @@ export function ProfileDropdown({
           <Link
             to='/my-packages'
             onClick={() => setOpen(false)}
-            className='flex items-center gap-2 px-3 py-2 text-[13px] text-neutral-300 hover:bg-ink/[0.06] hover:text-neutral-100'
+            className='flex items-center gap-2 px-3 py-2 text-[15px] text-neutral-300 hover:bg-ink/[0.06] hover:text-neutral-100'
             role='menuitem'
           >
             <Box className='h-3.5 w-3.5' />
@@ -250,7 +248,7 @@ export function ProfileDropdown({
           <Link
             to='/orgs'
             onClick={() => setOpen(false)}
-            className='flex items-center gap-2 px-3 py-2 text-[13px] text-neutral-300 hover:bg-ink/[0.06] hover:text-neutral-100'
+            className='flex items-center gap-2 px-3 py-2 text-[15px] text-neutral-300 hover:bg-ink/[0.06] hover:text-neutral-100'
             role='menuitem'
           >
             <Building2 className='h-3.5 w-3.5' />
@@ -273,7 +271,7 @@ export function ProfileDropdown({
             <Link
               to='/admin'
               onClick={() => setOpen(false)}
-              className='flex items-center gap-2 px-3 py-2 text-[13px] text-neutral-300 hover:bg-ink/[0.06] hover:text-neutral-100'
+              className='flex items-center gap-2 px-3 py-2 text-[15px] text-neutral-300 hover:bg-ink/[0.06] hover:text-neutral-100'
               role='menuitem'
             >
               <ShieldCheck className='h-3.5 w-3.5' />
@@ -286,7 +284,7 @@ export function ProfileDropdown({
               setOpen(false);
               logout();
             }}
-            className='flex w-full items-center gap-2 px-3 py-2 text-[13px] text-neutral-400 hover:bg-ink/[0.06] hover:text-neutral-200'
+            className='flex w-full items-center gap-2 px-3 py-2 text-[15px] text-neutral-400 hover:bg-ink/[0.06] hover:text-neutral-200'
             role='menuitem'
           >
             <LogOut className='h-3.5 w-3.5' />

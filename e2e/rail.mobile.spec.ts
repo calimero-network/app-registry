@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { stubRegistry } from './fixtures';
 
 /**
- * The rail collapses to a drawer under `md`. Worth its own file because the
+ * The header's navigation collapses to a drawer below 1100px. Worth its own file because the
  * desktop project never renders this path at all — a sidebar that works on a
  * laptop and traps you on a phone would pass every other spec here.
  */
@@ -10,10 +10,12 @@ test.beforeEach(async ({ page }) => {
   await stubRegistry(page);
 });
 
-test('the rail is hidden and reachable through the menu', async ({ page }) => {
+test('the header nav is hidden and reachable through the menu', async ({
+  page,
+}) => {
   await page.goto('/');
 
-  await expect(page.getByTestId('sidebar')).toBeHidden();
+  await expect(page.getByTestId('primary-nav')).toBeHidden();
   await expect(page.getByTestId('sidebar-drawer')).toHaveCount(0);
 
   await page.getByRole('button', { name: 'Open menu' }).click();
@@ -25,8 +27,8 @@ test('navigating closes the drawer', async ({ page }) => {
   // reads as a frozen app.
   await page.goto('/');
   await page.getByRole('button', { name: 'Open menu' }).click();
-  // Scoped to the drawer: the desktop rail is `hidden md:block`, so it is
-  // display:none but still in the DOM carrying the same test ids. An unscoped
+  // Scoped to the drawer: the desktop header nav is display:none at this
+  // width but still in the DOM carrying the same test ids. An unscoped
   // locator matches twice and fails strictness.
   const drawer = page.getByTestId('sidebar-drawer');
   await drawer.getByTestId('nav-explore').click();
