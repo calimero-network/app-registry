@@ -23,6 +23,22 @@ import {
 } from '@/lib/api';
 import { useToast } from './Toast';
 import { Lightbox, type LightboxItem } from './Lightbox';
+import {
+  preloadImage,
+  preloadWhenIdle,
+  mayPreloadInBackground,
+} from '@/lib/imageCache';
+
+/**
+ * How many originals to fetch in the background once the strip is up.
+ *
+ * Not all of them: the whole reason the strip loads thumbnails is that eight
+ * originals can be 32MB, and pulling them all on every page view would put
+ * that cost straight back. The first few are the ones people open; any other
+ * tile is fetched the moment the pointer or focus reaches it, which is well
+ * ahead of the click.
+ */
+const BACKGROUND_PRELOADS = 3;
 
 /**
  * Mirrors `MAX_ASSETS` in packages/backend/src/lib/asset-store.js. The server
@@ -79,6 +95,19 @@ export function AppPreview({
 
   const assets = data?.assets ?? [];
   const pending = !!data?.pendingApproval;
+
+  // Warm the first few originals once the browser has nothing better to do,
+  // so opening one full screen paints immediately. Keyed on the URLs rather
+  // than the array, which react-query rebuilds on every refetch.
+  const warmKey = assets
+    .filter(a => a.kind === 'image')
+    .slice(0, BACKGROUND_PRELOADS)
+    .map(a => a.url)
+    .join('\n');
+  useEffect(() => {
+    if (!warmKey || !mayPreloadInBackground()) return;
+    return preloadWhenIdle(warmKey.split('\n'));
+  }, [warmKey]);
 
   /**
    * Picked files upload ONE AT A TIME, in the order they were picked.
@@ -281,6 +310,9 @@ export function AppPreview({
     kind: a.kind,
     width: a.width,
     height: a.height,
+    // Already in the browser from the strip, so the lightbox can show it on
+    // its first frame while the original is still arriving.
+    thumbUrl: a.thumbUrl ?? undefined,
   }));
 
   return (
@@ -511,6 +543,10 @@ function AssetTile({
           <button
             type='button'
             onClick={onOpen}
+            // Hover and focus both come well before a click: start the
+            // original now so the lightbox usually has it by the time it opens.
+            onMouseEnter={() => preloadImage(asset.url).catch(() => {})}
+            onFocus={() => preloadImage(asset.url).catch(() => {})}
             aria-label={
               asset.alt ? `Open ${asset.alt} full screen` : 'Open full screen'
             }

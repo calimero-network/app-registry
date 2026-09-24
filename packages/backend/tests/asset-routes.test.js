@@ -512,3 +512,121 @@ describe('GET /api/v2/packages/:package — the composite read', () => {
     expect(res.statusCode).toBe(404);
   });
 });
+
+describe('caching the bytes', () => {
+  /** Upload one asset and return its id (the owner can always list it). */
+  async function uploadedId() {
+    await upload();
+    const list = makeRes();
+    await assetsHandler(
+      req('GET', { email: OWNER, query: { package: PKG } }),
+      list
+    );
+    return list.body.assets[0].id;
+  }
+
+  const approve = () =>
+    adminPkgHandler(
+      req('PATCH', {
+        email: ADMIN,
+        query: { packageName: PKG },
+        body: { action: 'approve' },
+      }),
+      makeRes()
+    );
+
+  /** GET the raw bytes, with extra request headers. */
+  async function raw(id, { email = null, headers = {}, variant } = {}) {
+    const r = req('GET', {
+      email,
+      query: { package: PKG, assetId: id, ...(variant ? { variant } : {}) },
+    });
+    r.headers = { ...r.headers, ...headers };
+    const res = makeRes();
+    await rawHandler(r, res);
+    return res;
+  }
+
+  test('an APPROVED asset caches for a year, publicly and immutably', async () => {
+    const id = await uploadedId();
+    await approve();
+    const res = await raw(id);
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['cache-control']).toBe(
+      'public, max-age=31536000, immutable'
+    );
+    expect(res.headers.etag).toBe(`"${id}-full"`);
+  });
+
+  test('a PENDING asset is browser-cacheable for its owner but never shared', async () => {
+    // `private` keeps it out of every CDN/edge cache; only the owner's own
+    // browser may hold it. `public` here would let an edge serve a pending
+    // screenshot to strangers.
+    const id = await uploadedId();
+    const res = await raw(id, { email: OWNER });
+    expect(res.statusCode).toBe(200);
+    const directives = res.headers['cache-control'].split(/,\s*/);
+    expect(directives).toContain('private');
+    expect(directives).not.toContain('public');
+    expect(directives).not.toContain('no-store');
+  });
+
+  test('the thumbnail variant has its OWN etag', async () => {
+    // Same id, different bytes — a shared etag would let a browser revalidate
+    // the original against a cached thumbnail and keep the wrong picture.
+    const id = await uploadedId();
+    await approve();
+    const full = await raw(id);
+    const thumb = await raw(id, { variant: 'thumb' });
+    expect(thumb.headers.etag).toBe(`"${id}-thumb"`);
+    expect(thumb.headers.etag).not.toBe(full.headers.etag);
+  });
+
+  test('a matching If-None-Match is a 304 answered WITHOUT reading the bucket', async () => {
+    const id = await uploadedId();
+    await approve();
+    const first = await raw(id);
+    // Delete the object: if the route still downloaded it, it would 404 now.
+    mockObjects.clear();
+    const again = await raw(id, {
+      headers: { 'if-none-match': first.headers.etag },
+    });
+    expect(again.statusCode).toBe(304);
+    expect(again.sent).toBeUndefined();
+    expect(again.headers['cache-control']).toBe(
+      'public, max-age=31536000, immutable'
+    );
+  });
+
+  test('a weak or listed etag still matches; a stale one gets the bytes', async () => {
+    const id = await uploadedId();
+    await approve();
+    const weak = await raw(id, {
+      headers: { 'if-none-match': `"other", W/"${id}-full"` },
+    });
+    expect(weak.statusCode).toBe(304);
+
+    const stale = await raw(id, { headers: { 'if-none-match': '"nope"' } });
+    expect(stale.statusCode).toBe(200);
+    expect(Buffer.isBuffer(stale.sent)).toBe(true);
+  });
+
+  test("⚠️ a stranger's If-None-Match for a PENDING asset is a 404, not a 304", async () => {
+    // A 304 would confirm the hidden id exists; the gate must run first.
+    const id = await uploadedId();
+    const res = await raw(id, {
+      headers: { 'if-none-match': `"${id}-full"` },
+    });
+    expect(res.statusCode).toBe(404);
+    expect(res.headers.etag).toBeUndefined();
+  });
+
+  test('a missing object is a 404 with no cache headers', async () => {
+    const id = await uploadedId();
+    await approve();
+    mockObjects.clear();
+    const res = await raw(id);
+    expect(res.statusCode).toBe(404);
+    expect(res.headers['cache-control']).toBeUndefined();
+  });
+});

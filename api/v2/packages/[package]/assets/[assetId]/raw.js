@@ -81,6 +81,40 @@ module.exports = async function handler(req, res) {
   // `?variant=thumb` serves the downscaled copy. Anything else — including a
   // missing thumbnail on an older asset — serves the original.
   const variant = req.query?.variant === 'thumb' ? 'thumb' : 'full';
+
+  // Approved assets are immutable per id, so they cache hard. A pending one
+  // must not be cached by any SHARED cache — approval state can change and an
+  // edge cache would keep serving the pre-approval answer — but the owner's
+  // own browser may keep it: it is their file, and the id never points at
+  // different bytes (a re-upload is a new random id). `no-store` here meant
+  // the owner re-downloaded the full original every time they opened it.
+  const cacheControl =
+    vis.state === 'approved'
+      ? 'public, max-age=31536000, immutable'
+      : 'private, max-age=3600';
+
+  // ⚠️ AN ETAG FROM THE URL, NOT FROM THE BYTES. The id is random and the
+  // object behind `id + variant` is never rewritten, so the pair already
+  // identifies the content — and deriving it that way is what lets a
+  // revalidation be answered BEFORE the bucket read. Hashing the buffer would
+  // mean downloading the whole object to say "you already have it".
+  //
+  // The 304 sits AFTER the visibility gate on purpose: answering a stranger's
+  // If-None-Match for a pending asset would confirm the hidden id exists.
+  const etag = `"${assetId}-${variant}"`;
+  const ifNoneMatch = req.headers?.['if-none-match'];
+  if (
+    ifNoneMatch &&
+    ifNoneMatch
+      .split(',')
+      .map(t => t.trim().replace(/^W\//, ''))
+      .includes(etag)
+  ) {
+    res.setHeader('ETag', etag);
+    res.setHeader('Cache-Control', cacheControl);
+    return res.status(304).end();
+  }
+
   const found = await readAsset(pkg, assetId, { variant });
   if (!found) return res.status(404).json({ error: 'not_found' });
 
@@ -88,14 +122,7 @@ module.exports = async function handler(req, res) {
   // WebP re-encode of whatever was uploaded, so serving it as the original's
   // `image/png` hands the browser a file it will not decode.
   res.setHeader('Content-Type', found.contentType);
-  // Approved assets are immutable per id, so they cache hard. A pending one
-  // must not be cached by any shared cache — approval state can change and an
-  // edge cache would keep serving the pre-approval answer.
-  res.setHeader(
-    'Cache-Control',
-    vis.state === 'approved'
-      ? 'public, max-age=31536000, immutable'
-      : 'private, no-store'
-  );
+  res.setHeader('ETag', etag);
+  res.setHeader('Cache-Control', cacheControl);
   return res.status(200).send(found.buffer);
 };
