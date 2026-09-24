@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   ImageOff,
@@ -8,6 +8,10 @@ import {
   ChevronLeft,
   ChevronRight,
   Maximize2,
+  Loader2,
+  RotateCw,
+  X,
+  AlertCircle,
 } from 'lucide-react';
 import {
   getPackageAssets,
@@ -19,6 +23,26 @@ import {
 } from '@/lib/api';
 import { useToast } from './Toast';
 import { Lightbox, type LightboxItem } from './Lightbox';
+
+/**
+ * Mirrors `MAX_ASSETS` in packages/backend/src/lib/asset-store.js. The server
+ * is the authority and refuses the ninth upload with a 409 regardless; this
+ * copy only exists so a pick of twelve files queues the ones that fit instead
+ * of sending four requests that are certain to be refused.
+ */
+const MAX_ASSETS = 8;
+
+/** One picked file on its way to the registry. */
+interface QueuedUpload {
+  key: string;
+  file: File;
+  /** An object URL for the queue tile, or null for a video. */
+  preview: string | null;
+  status: 'queued' | 'uploading' | 'failed';
+  error?: string;
+}
+
+let uploadSeq = 0;
 
 /**
  * The preview strip on an app page, plus the editor for whoever owns it.
@@ -44,8 +68,8 @@ export function AppPreview({
 }) {
   const qc = useQueryClient();
   const { notify } = useToast();
-  const [busy, setBusy] = useState(false);
   const [openAt, setOpenAt] = useState<number | null>(null);
+  const [queue, setQueue] = useState<QueuedUpload[]>([]);
 
   const key = ['assets', pkg];
   const { data } = useQuery({
@@ -56,18 +80,93 @@ export function AppPreview({
   const assets = data?.assets ?? [];
   const pending = !!data?.pendingApproval;
 
-  const upload = useMutation({
-    mutationFn: (file: File) => uploadPackageAsset(pkg, file),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: key });
-      notify('Uploaded.', 'success');
-    },
-    onError: (err: unknown) => {
-      const e = err as { response?: { data?: { message?: string } } };
-      notify(e?.response?.data?.message ?? 'Upload failed.', 'error');
-    },
-    onSettled: () => setBusy(false),
-  });
+  /**
+   * Picked files upload ONE AT A TIME, in the order they were picked.
+   *
+   * ⚠️ NOT IN PARALLEL. Every upload rewrites the package's whole asset index
+   * (a read-modify-write of one key), so concurrent POSTs race and the loser's
+   * row is silently dropped — the object lands in storage and never appears in
+   * the strip. One request at a time also keeps each base64 body alone on the
+   * wire, which is what the serverless body limit was sized for.
+   *
+   * `inFlight` is a ref, not derived from state, because StrictMode runs this
+   * effect twice with the SAME queue snapshot; guarding on state alone would
+   * start the first file twice.
+   */
+  const inFlight = useRef<string | null>(null);
+  const uploadedInRun = useRef(0);
+
+  useEffect(() => {
+    if (inFlight.current) return;
+    const next = queue.find(q => q.status === 'queued');
+    if (!next) {
+      // The run is over. One toast for the batch rather than one per file.
+      if (uploadedInRun.current > 0) {
+        const n = uploadedInRun.current;
+        uploadedInRun.current = 0;
+        notify(n === 1 ? 'Uploaded.' : `Uploaded ${n} files.`, 'success');
+      }
+      return;
+    }
+    inFlight.current = next.key;
+    setQueue(q =>
+      q.map(i => (i.key === next.key ? { ...i, status: 'uploading' } : i))
+    );
+    uploadPackageAsset(pkg, next.file)
+      // Wait for the refetch so the new tile is in the strip BEFORE its queue
+      // tile disappears — otherwise the picture blinks out and back in.
+      .then(() => qc.invalidateQueries({ queryKey: key }))
+      .then(() => {
+        uploadedInRun.current += 1;
+        if (next.preview) URL.revokeObjectURL(next.preview);
+        setQueue(q => q.filter(i => i.key !== next.key));
+      })
+      .catch((err: unknown) => {
+        const e = err as {
+          response?: { data?: { message?: string } };
+          message?: string;
+        };
+        const error =
+          e?.response?.data?.message ?? e?.message ?? 'Upload failed.';
+        notify(`${next.file.name}: ${error}`, 'error');
+        setQueue(q =>
+          q.map(i =>
+            i.key === next.key ? { ...i, status: 'failed', error } : i
+          )
+        );
+      })
+      .finally(() => {
+        inFlight.current = null;
+      });
+  }, [queue, pkg]);
+
+  // Object URLs outlive the component unless released.
+  const queueRef = useRef(queue);
+  queueRef.current = queue;
+  useEffect(
+    () => () =>
+      queueRef.current.forEach(
+        i => i.preview && URL.revokeObjectURL(i.preview)
+      ),
+    []
+  );
+
+  const dropFromQueue = (k: string) =>
+    setQueue(q => {
+      const item = q.find(i => i.key === k);
+      if (item?.preview) URL.revokeObjectURL(item.preview);
+      return q.filter(i => i.key !== k);
+    });
+
+  const retry = (k: string) =>
+    setQueue(q =>
+      q.map(i =>
+        i.key === k ? { ...i, status: 'queued', error: undefined } : i
+      )
+    );
+
+  const outstanding = queue.filter(q => q.status !== 'failed').length;
+  const busy = outstanding > 0;
 
   /**
    * Write the strip's new order into the cache immediately.
@@ -140,12 +239,37 @@ export function AppPreview({
   });
 
   const onPick = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+    const files = Array.from(e.target.files ?? []);
     // Reset the input, or picking the same file twice in a row fires nothing.
     e.target.value = '';
-    if (!file) return;
-    setBusy(true);
-    upload.mutate(file);
+    if (files.length === 0) return;
+
+    // Slots left once everything already queued has landed. Failed items do
+    // not hold a slot — they are not going anywhere until retried.
+    const free = Math.max(0, MAX_ASSETS - assets.length - outstanding);
+    const accepted = files.slice(0, free);
+    const skipped = files.length - accepted.length;
+    if (skipped > 0) {
+      notify(
+        accepted.length === 0
+          ? `A package may have at most ${MAX_ASSETS} images or videos. Remove one first.`
+          : `Only ${accepted.length} more fit (at most ${MAX_ASSETS}); skipped ${skipped}.`,
+        'error'
+      );
+    }
+    if (accepted.length === 0) return;
+
+    setQueue(q => [
+      ...q,
+      ...accepted.map(file => ({
+        key: `upload-${++uploadSeq}`,
+        file,
+        preview: file.type.startsWith('image/')
+          ? URL.createObjectURL(file)
+          : null,
+        status: 'queued' as const,
+      })),
+    ]);
   };
 
   // The full-size sources, in the order shown. Built from the same array the
@@ -176,18 +300,21 @@ export function AppPreview({
         {canEdit && (
           <label
             data-testid='asset-edit'
-            title='Add an image or video'
+            title='Add images or videos'
             className='inline-flex cursor-pointer items-center gap-1.5 rounded-md px-2 py-1 text-[12px] text-neutral-400 transition-colors hover:bg-ink/[0.04] hover:text-neutral-200'
           >
             <Pencil className='h-3.5 w-3.5' aria-hidden='true' />
-            {busy ? 'Uploading…' : 'Edit'}
+            {busy ? `Uploading… ${outstanding} left` : 'Edit'}
+            {/* `multiple`: pick several at once; they queue and upload one
+                by one (see the effect above). Still enabled mid-upload, so a
+                second pick joins the end of the line. */}
             <input
               type='file'
+              multiple
               accept='image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm'
               className='sr-only'
               onChange={onPick}
-              disabled={busy}
-              aria-label='Add an image or video to the preview'
+              aria-label='Add images or videos to the preview'
               data-testid='asset-input'
             />
           </label>
@@ -207,7 +334,11 @@ export function AppPreview({
         </p>
       )}
 
-      {assets.length === 0 ? (
+      {queue.length > 0 && (
+        <UploadQueue queue={queue} onRemove={dropFromQueue} onRetry={retry} />
+      )}
+
+      {assets.length === 0 && queue.length > 0 ? null : assets.length === 0 ? (
         <div
           data-testid='no-preview'
           className='flex h-44 items-center justify-center rounded-xl border border-dashed border-line-strong bg-ink/[0.02]'
@@ -244,6 +375,94 @@ export function AppPreview({
         />
       )}
     </section>
+  );
+}
+
+/**
+ * The line of picked files, in upload order: one uploading, the rest waiting,
+ * and any that failed kept in place with the server's reason so the publisher
+ * can retry or drop them instead of wondering which of eight went missing.
+ */
+function UploadQueue({
+  queue,
+  onRemove,
+  onRetry,
+}: {
+  queue: QueuedUpload[];
+  onRemove: (key: string) => void;
+  onRetry: (key: string) => void;
+}) {
+  return (
+    <ol
+      data-testid='upload-queue'
+      aria-label='Upload queue'
+      className='mb-3 flex gap-2 overflow-x-auto pb-1'
+    >
+      {queue.map((item, i) => (
+        <li
+          key={item.key}
+          data-testid='upload-queue-item'
+          data-status={item.status}
+          title={item.error ?? item.file.name}
+          className={`relative flex h-20 w-28 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-ink/[0.03] ${
+            item.status === 'failed' ? 'border-red-700/60' : 'border-line'
+          }`}
+        >
+          {item.preview ? (
+            <img
+              src={item.preview}
+              alt=''
+              className={`h-full w-full object-cover ${
+                item.status === 'uploading' ? '' : 'opacity-50'
+              }`}
+            />
+          ) : (
+            <span className='truncate px-2 text-[11px] text-neutral-400'>
+              {item.file.name}
+            </span>
+          )}
+
+          <span className='absolute bottom-1 left-1 rounded bg-black/70 px-1.5 py-0.5 text-[10.5px] text-neutral-200'>
+            {item.status === 'uploading' ? (
+              <span className='inline-flex items-center gap-1'>
+                <Loader2 className='h-3 w-3 animate-spin' aria-hidden='true' />
+                Uploading
+              </span>
+            ) : item.status === 'failed' ? (
+              <span className='inline-flex items-center gap-1 text-red-300'>
+                <AlertCircle className='h-3 w-3' aria-hidden='true' />
+                Failed
+              </span>
+            ) : (
+              `#${i + 1} waiting`
+            )}
+          </span>
+
+          {item.status === 'failed' && (
+            <button
+              type='button'
+              onClick={() => onRetry(item.key)}
+              aria-label={`Retry ${item.file.name}`}
+              className='absolute right-7 top-1 rounded bg-black/70 p-1 text-neutral-300 hover:text-white'
+            >
+              <RotateCw className='h-3 w-3' />
+            </button>
+          )}
+          {/* The file mid-upload cannot be pulled back — the request is
+              already on the wire — so only waiting and failed ones get an X. */}
+          {item.status !== 'uploading' && (
+            <button
+              type='button'
+              onClick={() => onRemove(item.key)}
+              aria-label={`Remove ${item.file.name} from the queue`}
+              className='absolute right-1 top-1 rounded bg-black/70 p-1 text-neutral-300 hover:text-white'
+            >
+              <X className='h-3 w-3' />
+            </button>
+          )}
+        </li>
+      ))}
+    </ol>
   );
 }
 
