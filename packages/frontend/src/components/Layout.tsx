@@ -253,7 +253,8 @@ export function Layout({ children }: LayoutProps) {
                 style={{ filter: 'var(--logo-filter)' }}
               />
               <p className='max-w-[220px] text-[12.5px] font-light leading-relaxed text-neutral-500'>
-                Signed apps for Calimero — the open-source protocol for sovereign apps.
+                Signed apps for Calimero — the open-source protocol for
+                sovereign apps.
               </p>
             </div>
             {FOOTER_LINKS.map(group => (
