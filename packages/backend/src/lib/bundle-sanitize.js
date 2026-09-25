@@ -134,6 +134,8 @@ function createBundleSanitizers(kv, review) {
       const hadAdminVerified = !!meta._adminVerified;
       delete meta._ownerEmail;
       delete meta._adminVerified;
+      // Up to 16 KB per app; the detail endpoints and the signed .mpk carry it.
+      delete meta.guide;
       return {
         bundle,
         packageName,
