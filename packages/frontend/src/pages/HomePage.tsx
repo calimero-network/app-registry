@@ -125,7 +125,7 @@ export default function HomePage() {
   );
 
   return (
-    <div className='space-y-16 lg:space-y-20'>
+    <div className='space-y-16 lg:space-y-20 lg:max-[1100px]:space-y-16'>
       {/* ── The first screen: the promise and a way in, beside the product ──
           calimero.network's hero, sized for an app store rather than a
           landing page: a tracked lime eyebrow, the black uppercase headline
@@ -136,10 +136,14 @@ export default function HomePage() {
           be on screen without scrolling (e2e "the fold"); a full-height
           landing hero here would push every app below it, which is the
           failure that removed the original "Discover & Deploy" hero. */}
-      <section className='grid items-center gap-10 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-12 xl:gap-16'>
+      {/* 1024-1099px is its own band: two columns, but no desktop zoom and
+          the header already the menu button. The columns split evenly there
+          and the headline steps down, or the buttons wrap under a 400px
+          column and the first app lands under a 768px fold. */}
+      <section className='grid items-center gap-10 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-12 lg:max-[1100px]:grid-cols-2 lg:max-[1100px]:gap-10 xl:gap-16'>
         <div className='flex flex-col items-start gap-5'>
           <p className='eyebrow'>Signed apps for Calimero</p>
-          <h1 className='hero-title text-[40px] text-neutral-100 sm:text-[52px] xl:text-[56px]'>
+          <h1 className='hero-title text-[40px] text-neutral-100 sm:text-[52px] lg:max-[1100px]:text-[40px] xl:text-[56px]'>
             App Registry
             <span className='block text-brand-600'>for the node you run</span>
           </h1>
@@ -203,17 +207,21 @@ export default function HomePage() {
                 overflow is hidden — a box sized for the desktop wrap clips
                 the last line through its glyphs on a phone (e2e measures it).
 
+                Three lines fit from `sm` to `md`, four in the 1024-1099px band
+                where the panel is half the hero; two from `md` and from
+                1100px (e2e measures each width).
+
                 Reduced motion lands on the base styles — line one visible,
                 line two hidden — rather than on an empty box. */}
-            <div className='relative mx-auto mt-5 h-[7.4rem] w-full max-w-[40rem] overflow-hidden border-t border-line pt-4 sm:h-[5.2rem]'>
+            <div className='relative mx-auto mt-5 h-[7.4rem] w-full max-w-[40rem] overflow-hidden border-t border-line pt-4 sm:h-[6.1rem] md:h-[5.2rem] lg:max-[1100px]:h-[7.4rem]'>
               <p
                 data-testid='hero-caption'
-                className='hero-line hero-line-a absolute inset-x-0 top-4 text-[17px] font-bold uppercase leading-snug tracking-[0.1em] text-neutral-100 sm:text-[19px]'
+                className='hero-line hero-line-a absolute inset-x-0 top-4 text-[17px] font-bold uppercase leading-snug tracking-[0.1em] text-neutral-100 sm:text-[19px] lg:max-[1100px]:text-[17px]'
               >
                 Download Calimero Desktop and install applications from the
                 marketplace.
               </p>
-              <p className='hero-line hero-line-b absolute inset-x-0 top-4 text-[17px] font-bold uppercase leading-snug tracking-[0.1em] text-neutral-100 sm:text-[19px]'>
+              <p className='hero-line hero-line-b absolute inset-x-0 top-4 text-[17px] font-bold uppercase leading-snug tracking-[0.1em] text-neutral-100 sm:text-[19px] lg:max-[1100px]:text-[17px]'>
                 Open the installed application and use it peer-to-peer, its data
                 encrypted between peers.
               </p>

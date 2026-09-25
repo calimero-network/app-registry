@@ -198,7 +198,10 @@ export default function DocsPage() {
           why the old one read as a smudge. A 2px bar in the accent is legible
           in both themes at any weight. */}
       <aside className='hidden w-56 flex-shrink-0 lg:block'>
-        <nav className='sticky top-20' aria-label='On this page'>
+        <nav
+          className='sticky top-20 min-[1100px]:top-[104px]'
+          aria-label='On this page'
+        >
           <div className='card overflow-hidden p-1.5'>
             <p className='section-heading px-2.5 pb-1.5 pt-2'>On this page</p>
             <ul>

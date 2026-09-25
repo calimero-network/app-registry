@@ -652,26 +652,56 @@ test.describe('home shelves', () => {
   });
 });
 
-test.describe('the fold', () => {
-  // A 14" MacBook: 1512x982 logical, ~860 of it left once the browser's own
-  // chrome is off. The most common laptop this site is read on.
-  test.use({ viewport: { width: 1512, height: 860 } });
+// A 14" MacBook first: 1512x982 logical, ~860 of it left once the browser's
+// own chrome is off, the most common laptop this site is read on. Then the
+// widths either side of the 1100px breakpoint, where the header becomes the
+// menu button and the desktop zoom switches off.
+for (const viewport of [
+  { width: 1512, height: 860 },
+  { width: 1100, height: 760 },
+  { width: 1024, height: 768 },
+]) {
+  test.describe(`the fold at ${viewport.width}x${viewport.height}`, () => {
+    test.use({ viewport });
 
-  test('a real app is visible without scrolling', async ({ page }) => {
-    // ⚠️ MEASURED AGAINST THE VIEWPORT, NOT A PIXEL HEIGHT. The hero panel
-    // was 624px and the first card began at y=879 — nineteen pixels under the
-    // fold, so the whole first screen was one picture of a laptop. Asserting
-    // "the panel is under 500px" would go stale the moment anything above it
-    // changes height; what matters is that an app is on screen.
-    await page.goto('/');
-    const card = page.getByTestId('showcase-card').first();
-    await expect(card).toBeVisible();
+    test('a real app is visible without scrolling', async ({ page }) => {
+      // ⚠️ MEASURED AGAINST THE VIEWPORT, NOT A PIXEL HEIGHT. The hero panel
+      // was 624px and the first card began at y=879, nineteen pixels under
+      // the fold, so the whole first screen was one picture of a laptop.
+      // Asserting "the panel is under 500px" would go stale the moment
+      // anything above it changes height; what matters is that an app is on
+      // screen.
+      await page.goto('/');
+      const card = page.getByTestId('showcase-card').first();
+      await expect(card).toBeVisible();
 
-    const top = await card.evaluate(el => el.getBoundingClientRect().top);
-    expect(top).toBeLessThan(860);
-    // And not merely peeking: enough of it to read.
-    expect(top).toBeLessThan(780);
+      const top = await card.evaluate(el => el.getBoundingClientRect().top);
+      // Not merely peeking: enough of it to read.
+      expect(top).toBeLessThan(viewport.height - 80);
+    });
   });
+}
+
+test('the hero captions are not clipped at any width', async ({ page }) => {
+  // ⚠️ THE BOX IS A FIXED HEIGHT WITH `overflow-hidden`, set per breakpoint,
+  // so a width where the sentences take a line more than the box allows cuts
+  // the last one through its glyphs. The phone spec covers 390px; these are
+  // the widths around each breakpoint the height changes at.
+  await page.goto('/');
+  for (const width of [640, 767, 768, 1023, 1024, 1099, 1100, 1280, 1920]) {
+    await page.setViewportSize({ width, height: 800 });
+    const fits = await page.evaluate(() => {
+      const a = document.querySelector(
+        '[data-testid="hero-caption"]'
+      ) as HTMLElement;
+      const box = a.parentElement as HTMLElement;
+      const room = box.clientHeight - a.offsetTop;
+      return [...box.children].map(
+        line => (line as HTMLElement).scrollHeight <= room
+      );
+    });
+    expect(fits, `at ${width}px`).toEqual([true, true]);
+  }
 });
 
 test.describe('explore card width', () => {
