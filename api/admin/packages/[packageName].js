@@ -78,7 +78,7 @@ module.exports = async function handler(req, res) {
     // The decision, with an audit trail. `_adminVerified` on the manifest is
     // kept in step so the `verified` badge and any consumer reading it agree
     // with the record.
-    async function stampManifest(on) {
+    const stampManifest = async on => {
       if (!latest) return;
       const raw = await kv.get(`bundle:${packageName}/${latest}`);
       if (!raw) return;
@@ -87,7 +87,7 @@ module.exports = async function handler(req, res) {
       if (on) stored.json.metadata._adminVerified = true;
       else delete stored.json.metadata._adminVerified;
       await kv.set(`bundle:${packageName}/${latest}`, JSON.stringify(stored));
-    }
+    };
 
     if (action === 'approve' || action === 'decline') {
       const state = action === 'approve' ? 'approved' : 'declined';

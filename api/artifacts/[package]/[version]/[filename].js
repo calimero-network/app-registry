@@ -48,7 +48,7 @@ module.exports = async function handler(req, res) {
     // Match both /api/artifacts/... and /artifacts/... patterns
     // Also handle cases where the URL might be the rewritten path
     const match = urlPath.match(
-      /\/(?:api\/)?artifacts\/([^\/]+)\/([^\/]+)\/([^\/]+)/
+      /\/(?:api\/)?artifacts\/([^/]+)\/([^/]+)\/([^/]+)/
     );
     if (match) {
       // Only use parsed values if query params are missing or invalid
