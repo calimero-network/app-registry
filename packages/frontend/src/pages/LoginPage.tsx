@@ -52,14 +52,20 @@ export default function LoginPage() {
   }, [errorCode, notify]);
 
   return (
-    <div className='py-20 text-center' data-testid='login-bounce'>
-      <p className='text-[13px] text-neutral-400'>
-        {errorCode ? 'Sign-in failed.' : 'Redirecting to Google…'}
+    <div
+      className='mx-auto flex max-w-xl flex-col items-center border border-line bg-[var(--surface)] px-6 py-14 text-center sm:px-12'
+      data-testid='login-bounce'
+    >
+      <p className='eyebrow'>Sign in</p>
+      <p className='mt-4 text-[26px] font-black uppercase leading-tight text-neutral-100'>
+        {errorCode ? 'Sign-in failed' : 'Redirecting to Google…'}
       </p>
-      <a
-        href='/api/auth/google'
-        className='mt-3 inline-block text-[13px] text-brand-600 transition-colors hover:text-brand-500'
-      >
+      <p className='mt-3 text-[16px] font-light text-neutral-400'>
+        {errorCode
+          ? 'Nothing was changed. You can try again.'
+          : 'The registry signs you in with your Google account.'}
+      </p>
+      <a href='/api/auth/google' className='btn-secondary mt-8'>
         {errorCode ? 'Try again' : 'Continue'}
       </a>
     </div>

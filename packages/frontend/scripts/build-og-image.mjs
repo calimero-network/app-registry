@@ -14,9 +14,9 @@
  * crops from, and the safe area is the middle ~1080×510: X shows this at a
  * 2:1 ratio, so anything within ~60px of the top or bottom edge can be cut.
  *
- * The wordmark is read from the app's own asset rather than redrawn, and is
- * inverted to white the same way `--logo-filter` does it for the dark theme,
- * so the card cannot drift from what the site shows.
+ * The wordmark and the Power Grotesk faces are read from the app's own assets
+ * rather than redrawn or fetched, and the colours are the dark theme's tokens
+ * from index.css, so the card cannot drift from what the site shows.
  */
 import { chromium } from '@playwright/test';
 import { readFileSync, mkdirSync } from 'node:fs';
@@ -27,121 +27,140 @@ const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, '..');
 const out = resolve(root, 'public/og.png');
 
-const logo = readFileSync(
-  resolve(root, 'src/assets/calimero-logo.svg'),
-  'utf8'
-);
-const logoUrl = `data:image/svg+xml;base64,${Buffer.from(logo).toString('base64')}`;
+const readB64 = rel => readFileSync(resolve(root, rel)).toString('base64');
+
+const logoUrl = `data:image/svg+xml;base64,${readB64('src/assets/brand/calimero-wordmark.svg')}`;
+
+// The site's own face, from the same files it self-hosts — inlined so the
+// card cannot fall back to a system font while a request is in flight.
+const face = (file, weight) => `@font-face {
+  font-family: 'Power Grotesk';
+  src: url(data:font/woff2;base64,${readB64(`public/fonts/powerGrotesk/${file}`)}) format('woff2');
+  font-weight: ${weight};
+}`;
 
 const html = `<!doctype html>
 <html>
   <head>
     <meta charset="utf-8" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=DM+Sans:wght@500;700&display=swap"
-      rel="stylesheet"
-    />
     <style>
+      ${face('PowerGrotesk-Black.woff2', 950)}
+      ${face('PowerGrotesk-Bold.woff2', 700)}
+      ${face('PowerGrotesk-Regular.woff2', 400)}
+      ${face('PowerGrotesk-Light.woff2', 300)}
+
       * { margin: 0; padding: 0; box-sizing: border-box; }
       body {
         width: 1200px;
         height: 630px;
-        background: #0d1117;
-        font-family: 'Inter', system-ui, sans-serif;
-        color: #e6edf3;
+        /* The dark theme's ground and ink (index.css). */
+        background: #131215;
+        font-family: 'Power Grotesk', system-ui, sans-serif;
+        color: #fcfcfc;
         overflow: hidden;
         position: relative;
       }
-      /* The page's own hero lighting: periwinkle, deliberately not the lime —
-         green light behind green UI flattens the accent. */
-      .lamp {
-        position: absolute;
-        border-radius: 999px;
-        filter: blur(90px);
-      }
-      .lamp-a { top: -180px; left: 120px; width: 560px; height: 420px; background: rgba(129, 140, 248, 0.30); }
-      .lamp-b { bottom: -220px; right: -60px; width: 560px; height: 460px; background: rgba(167, 139, 250, 0.22); }
-      .lamp-c { bottom: -260px; left: 30%; width: 520px; height: 380px; background: rgba(165, 255, 17, 0.10); }
 
-      .frame { position: relative; height: 100%; padding: 74px 80px; display: flex; flex-direction: column; }
+      /* The page's faint column lines. */
+      .grid { position: absolute; inset: 0 80px; display: flex; justify-content: space-between; }
+      .grid i { width: 1px; background: rgba(252, 252, 252, 0.035); }
 
-      .mark { display: flex; flex-direction: column; align-items: flex-start; }
-      .mark img { height: 40px; display: block; filter: brightness(0) invert(1); }
-      /* The lockup from RegistryMark: the label is indented past the shield so
-         it sits under the WORDMARK, and overlaps its baseline. */
+      /* The home hero's bloom (--hero-glow / --hero-glow-2). */
+      .glow { position: absolute; border-radius: 50%; }
+      .glow-a { top: -260px; right: -120px; width: 760px; height: 620px;
+        background: radial-gradient(closest-side, rgba(165, 255, 17, 0.12), transparent); }
+      .glow-b { bottom: -320px; right: 260px; width: 700px; height: 520px;
+        background: radial-gradient(closest-side, rgba(109, 234, 173, 0.08), transparent); }
+
+      .frame { position: relative; height: 100%; padding: 70px 80px; display: flex; flex-direction: column; }
+
+      /* RegistryMark's lockup: the wordmark, a hairline, the product label. */
+      .mark { display: flex; align-items: center; gap: 18px; }
+      .mark img { height: 36px; display: block; }
       .mark span {
-        margin-top: -6px;
-        margin-left: 86px;
-        font-family: 'Inter', system-ui, sans-serif;
-        font-weight: 800;
+        border-left: 1px solid #404040;
+        padding: 6px 0 6px 18px;
+        font-weight: 400;
         font-size: 20px;
-        letter-spacing: 0.05em;
+        letter-spacing: 0.28em;
         text-transform: uppercase;
         color: #a5ff11;
         line-height: 1;
       }
 
-      h1 {
+      .eyebrow {
         margin-top: auto;
-        font-family: 'DM Sans', 'Inter', system-ui, sans-serif;
-        font-weight: 700;
-        font-size: 68px;
-        line-height: 1.05;
-        letter-spacing: -0.025em;
-        color: #ffffff;
-        /* Narrow enough to force the break after "can": left to a wider box
-           the line lands on "verify for / itself.", which splits the phrase
-           in the middle and buries the one green word at the end of a line. */
-        max-width: 700px;
+        font-size: 18px;
+        font-weight: 400;
+        letter-spacing: 0.28em;
+        text-transform: uppercase;
+        color: #a5ff11;
+      }
+
+      /* The landing's h1: uppercase, 950, tight. */
+      h1 {
+        margin-top: 18px;
+        font-weight: 950;
+        font-size: 74px;
+        line-height: 1.02;
+        letter-spacing: 0.01em;
+        text-transform: uppercase;
+        color: #fcfcfc;
+        /* Wide enough for two lines, breaking after "can" so the one lime
+           word opens the second line instead of being split from it. */
+        max-width: 1040px;
       }
       h1 em { font-style: normal; color: #a5ff11; }
 
       p {
         margin-top: 22px;
-        font-size: 25px;
-        font-weight: 400;
-        line-height: 1.45;
-        color: #9aa4b2;
-        max-width: 830px;
+        font-size: 24px;
+        font-weight: 300;
+        line-height: 1.4;
+        letter-spacing: 0.03em;
+        color: #8e8e8e;
+        max-width: 860px;
       }
 
-      .foot { margin-top: 44px; display: flex; align-items: center; gap: 16px; }
-      .pill {
+      .foot { margin-top: 36px; display: flex; align-items: center; gap: 14px; }
+      /* The site's tags: square, a hairline, small tracked capitals. */
+      .tag {
         display: inline-flex;
         align-items: center;
         gap: 10px;
-        border: 1px solid #2a323d;
-        border-radius: 999px;
-        padding: 11px 20px;
-        font-size: 20px;
-        color: #c9d1d9;
+        border: 1px solid #404040;
+        padding: 10px 16px;
+        font-size: 15px;
+        font-weight: 700;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: #fcfcfc;
       }
-      .pill b { color: #a5ff11; font-weight: 600; }
-      .dot { width: 9px; height: 9px; border-radius: 999px; background: #a5ff11; }
-      .url { font-size: 20px; color: #6e7681; letter-spacing: 0.01em; }
+      .tag b { color: #a5ff11; font-weight: 700; }
+      .dot { width: 8px; height: 8px; background: #a5ff11; }
+      .url { margin-left: auto; font-size: 17px; letter-spacing: 0.16em; text-transform: uppercase; color: #8e8e8e; }
     </style>
   </head>
   <body>
-    <div class="lamp lamp-a"></div>
-    <div class="lamp lamp-b"></div>
-    <div class="lamp lamp-c"></div>
+    <div class="grid"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+    <div class="glow glow-a"></div>
+    <div class="glow glow-b"></div>
     <div class="frame">
       <div class="mark">
         <img src="${logoUrl}" alt="Calimero" />
         <span>App Registry</span>
       </div>
 
-      <h1>Apps your node can <em>verify</em> for itself.</h1>
+      <div class="eyebrow">Signed apps for Calimero</div>
+      <h1>Apps your node can <em>verify</em> for itself</h1>
       <p>
         Browse, publish and install signed application bundles. Every manifest is
-        checked by the registry, then checked again by the peer that installs it.
+        checked by the registry, then checked again by the node that installs it.
       </p>
 
       <div class="foot">
-        <span class="pill"><span class="dot"></span>Signed <b>.mpk</b> bundles</span>
-        <span class="pill">Open source · self-hostable</span>
+        <span class="tag"><span class="dot"></span>Signed <b>.mpk</b> bundles</span>
+        <span class="tag">Open source · self-hostable</span>
         <span class="url">apps.calimero.network</span>
       </div>
     </div>
@@ -156,9 +175,9 @@ const page = await browser.newPage({
   deviceScaleFactor: 1,
 });
 await page.setContent(html, { waitUntil: 'load' });
-// Without this the card screenshots in the fallback face: the webfont is still
-// in flight when `load` fires, and the metrics differ enough to reflow the
-// headline.
+// Without this the card can screenshot in the fallback face: the faces are
+// decoded asynchronously even from a data: URL, and the metrics differ enough
+// to reflow the headline.
 await page.evaluate(() => document.fonts.ready);
 await page.screenshot({ path: out });
 await browser.close();

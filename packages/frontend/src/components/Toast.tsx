@@ -105,7 +105,7 @@ function ToastRow({
     <div
       role={toast.kind === 'error' ? 'alert' : 'status'}
       data-testid='toast'
-      className={`menu-panel pointer-events-auto flex items-start gap-3 border px-3.5 py-2.5 text-[12.5px] backdrop-blur ${tone}`}
+      className={`menu-panel pointer-events-auto flex items-start gap-3 border px-3.5 py-2.5 text-[14.5px] backdrop-blur ${tone}`}
     >
       <span className='flex-1'>{toast.message}</span>
       <button

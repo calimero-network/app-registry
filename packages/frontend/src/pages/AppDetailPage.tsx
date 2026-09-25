@@ -227,7 +227,7 @@ export default function AppDetailPage() {
         <BackLink />
         <div className='text-center py-16'>
           <Package className='mx-auto h-8 w-8 text-neutral-600' />
-          <p className='mt-3 text-[13px] text-neutral-400'>
+          <p className='mt-3 text-[15px] text-neutral-400'>
             No published versions found for{' '}
             <span className='font-mono text-neutral-300'>{appId}</span>.
           </p>
@@ -323,7 +323,7 @@ export default function AppDetailPage() {
             {canEdit && (
               <Link
                 to={`/apps/${appId}/${bundle.appVersion}/edit`}
-                className='inline-flex items-center gap-1.5 text-[12px] text-neutral-400 transition-colors hover:text-neutral-200'
+                className='inline-flex items-center gap-1.5 text-[14px] text-neutral-400 transition-colors hover:text-neutral-200'
               >
                 <Pencil className='h-3.5 w-3.5' />
                 Edit metadata
@@ -333,7 +333,7 @@ export default function AppDetailPage() {
           {/* The badge belongs on the package id as well as on the author in
               the grid below: the display name is a string anyone can choose,
               while this is the identifier that gets installed. */}
-          <p className='flex items-center gap-1.5 font-mono text-[12px] text-neutral-500'>
+          <p className='flex items-center gap-1.5 font-mono text-[14px] text-neutral-500'>
             {bundle.package}
             {/* The PACKAGE's mark, on the identifier that actually gets
                 installed — this one is the admin's decision, not the
@@ -347,12 +347,12 @@ export default function AppDetailPage() {
             )}
           </p>
 
-          <div className='mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12.5px] text-neutral-500'>
+          <div className='mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[14.5px] text-neutral-500'>
             {meta?.author && (
               <span className='text-neutral-400'>{meta.author}</span>
             )}
             {formatCategory(resolvedCategory) && (
-              <span className='rounded-md border border-line bg-ink/[0.03] px-1.5 py-0.5 text-[11px] text-neutral-400'>
+              <span className='rounded-md border border-line bg-ink/[0.03] px-1.5 py-0.5 text-[12.5px] text-neutral-400'>
                 {formatCategory(resolvedCategory)}
               </span>
             )}
@@ -366,7 +366,7 @@ export default function AppDetailPage() {
           </div>
 
           {meta?.description && (
-            <p className='mt-3 max-w-2xl text-[13px] font-light leading-relaxed text-neutral-400'>
+            <p className='mt-3 max-w-2xl text-[15px] font-light leading-relaxed text-neutral-400'>
               {meta.description}
             </p>
           )}
@@ -377,12 +377,12 @@ export default function AppDetailPage() {
 
       {/* Delete error */}
       {deleteError && (
-        <p className='text-[12px] text-red-400 bg-red-900/20 border border-red-800/40 rounded-lg px-3 py-2'>
+        <p className='text-[14px] text-red-400 bg-red-900/20 border border-red-800/40 rounded-lg px-3 py-2'>
           {deleteError}
         </p>
       )}
       {yankError && (
-        <p className='text-[12px] text-amber-400 bg-amber-900/20 border border-amber-800/40 rounded-lg px-3 py-2'>
+        <p className='text-[14px] text-amber-400 bg-amber-900/20 border border-amber-800/40 rounded-lg px-3 py-2'>
           {yankError}
         </p>
       )}
@@ -472,11 +472,11 @@ export default function AppDetailPage() {
                 <Building2 className='w-4 h-4 text-neutral-400' />
               </div>
               <div>
-                <span className='text-[13px] font-medium text-neutral-200'>
+                <span className='text-[15px] font-medium text-neutral-200'>
                   {linkedOrg.name}
                 </span>
                 {linkedOrg.slug && (
-                  <span className='text-neutral-500 text-[12px] ml-2 font-mono'>
+                  <span className='text-neutral-500 text-[14px] ml-2 font-mono'>
                     {linkedOrg.slug}
                   </span>
                 )}
@@ -521,7 +521,9 @@ export default function AppDetailPage() {
             <div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
               {ifaces.exports && ifaces.exports.length > 0 && (
                 <div>
-                  <p className='text-[11px] text-neutral-500 mb-1.5'>Exports</p>
+                  <p className='text-[12.5px] text-neutral-500 mb-1.5'>
+                    Exports
+                  </p>
                   <div className='flex flex-wrap gap-1'>
                     {ifaces.exports.map(e => (
                       <span
@@ -536,7 +538,7 @@ export default function AppDetailPage() {
               )}
               {ifaces.uses && ifaces.uses.length > 0 && (
                 <div>
-                  <p className='text-[11px] text-neutral-500 mb-1.5'>Uses</p>
+                  <p className='text-[12.5px] text-neutral-500 mb-1.5'>Uses</p>
                   <div className='flex flex-wrap gap-1'>
                     {ifaces.uses.map(u => (
                       <span
@@ -620,7 +622,7 @@ export default function AppDetailPage() {
                 >
                   <div className='flex items-center gap-2'>
                     <Clock className='w-3 h-3 text-neutral-600' />
-                    <span className='text-[13px] font-medium text-neutral-200'>
+                    <span className='text-[15px] font-medium text-neutral-200'>
                       v{b.appVersion}
                     </span>
                     {/* Per version, because this is exactly where it is worth
@@ -628,13 +630,13 @@ export default function AppDetailPage() {
                         against different node versions. Omitted, not
                         placeholdered, when the bundle does not say. */}
                     {vNodeBuild && (
-                      <span className='pill bg-neutral-500/10 text-neutral-400 text-[10px] font-mono'>
+                      <span className='pill bg-neutral-500/10 text-neutral-400 text-[11.5px] font-mono'>
                         node {vNodeBuild}
                       </span>
                     )}
                   </div>
                   <div className='flex items-center gap-3'>
-                    <span className='inline-flex items-center gap-1 text-[11px] text-neutral-500 font-mono'>
+                    <span className='inline-flex items-center gap-1 text-[12.5px] text-neutral-500 font-mono'>
                       {b.metadata?.author || ''}
                       {vAuthorVerified && (
                         <BadgeCheck className='h-3.5 w-3.5 flex-shrink-0 text-emerald-400' />
@@ -643,21 +645,21 @@ export default function AppDetailPage() {
                     {canEditVersion && (
                       <Link
                         to={`/apps/${appId}/${b.appVersion}/edit`}
-                        className='inline-flex items-center gap-1 text-[11px] text-neutral-500 hover:text-neutral-300 transition-colors'
+                        className='inline-flex items-center gap-1 text-[12.5px] text-neutral-500 hover:text-neutral-300 transition-colors'
                       >
                         <Pencil className='w-3 h-3' />
                         Edit
                       </Link>
                     )}
                     {b.yanked && (
-                      <span className='pill bg-amber-500/10 text-amber-400 text-[10px]'>
+                      <span className='pill bg-amber-500/10 text-amber-400 text-[11.5px]'>
                         Yanked
                       </span>
                     )}
                     {canManageVersion &&
                       (b.yanked ? (
                         confirmUnYankVersion === b.appVersion ? (
-                          <span className='flex items-center gap-1.5 text-[11px]'>
+                          <span className='flex items-center gap-1.5 text-[12.5px]'>
                             <span className='text-amber-400'>Unyank?</span>
                             <button
                               onClick={() => {
@@ -686,14 +688,14 @@ export default function AppDetailPage() {
                               setConfirmUnYankVersion(b.appVersion)
                             }
                             disabled={yankingVersion === b.appVersion}
-                            className='inline-flex items-center gap-1 text-[11px] text-amber-500 hover:text-amber-300 transition-colors disabled:opacity-50'
+                            className='inline-flex items-center gap-1 text-[12.5px] text-amber-500 hover:text-amber-300 transition-colors disabled:opacity-50'
                           >
                             <RotateCcw className='w-3 h-3' />
                             Unyank
                           </button>
                         )
                       ) : confirmYankVersion === b.appVersion ? (
-                        <span className='flex items-center gap-1.5 text-[11px]'>
+                        <span className='flex items-center gap-1.5 text-[12.5px]'>
                           <span className='text-amber-400'>Yank?</span>
                           <button
                             onClick={() => {
@@ -720,7 +722,7 @@ export default function AppDetailPage() {
                         <button
                           onClick={() => setConfirmYankVersion(b.appVersion)}
                           disabled={yankingVersion === b.appVersion}
-                          className='inline-flex items-center gap-1 text-[11px] text-neutral-600 hover:text-amber-400 transition-colors disabled:opacity-50'
+                          className='inline-flex items-center gap-1 text-[12.5px] text-neutral-600 hover:text-amber-400 transition-colors disabled:opacity-50'
                         >
                           <Ban className='w-3 h-3' />
                           Yank
@@ -729,7 +731,7 @@ export default function AppDetailPage() {
                     {canManageVersion && (
                       <>
                         {isConfirmingThisVersion ? (
-                          <span className='flex items-center gap-1.5 text-[11px]'>
+                          <span className='flex items-center gap-1.5 text-[12.5px]'>
                             <span className='text-red-400'>Delete?</span>
                             <button
                               onClick={() =>
@@ -752,7 +754,7 @@ export default function AppDetailPage() {
                             onClick={() =>
                               setConfirmDeleteVersion(b.appVersion)
                             }
-                            className='inline-flex items-center gap-1 text-[11px] text-neutral-600 hover:text-red-400 transition-colors'
+                            className='inline-flex items-center gap-1 text-[12.5px] text-neutral-600 hover:text-red-400 transition-colors'
                           >
                             <Trash2 className='w-3 h-3' />
                             Delete
@@ -774,8 +776,8 @@ export default function AppDetailPage() {
           <p className='section-heading mb-3 text-red-400/80'>Danger Zone</p>
           <div className='flex items-center justify-between gap-4'>
             <div>
-              <p className='text-[13px] text-neutral-300'>Delete package</p>
-              <p className='text-[12px] text-neutral-500'>
+              <p className='text-[15px] text-neutral-300'>Delete package</p>
+              <p className='text-[14px] text-neutral-500'>
                 Permanently removes all {allBundles.length} version
                 {allBundles.length !== 1 ? 's' : ''} of{' '}
                 <span className='font-mono'>{appId}</span>. This cannot be
@@ -783,7 +785,7 @@ export default function AppDetailPage() {
               </p>
             </div>
             {confirmDeletePackage ? (
-              <span className='flex items-center gap-2 text-[12px] flex-shrink-0'>
+              <span className='flex items-center gap-2 text-[14px] flex-shrink-0'>
                 <span className='text-red-400'>Are you sure?</span>
                 <button
                   onClick={() => deletePackageMutation.mutate()}
@@ -802,7 +804,7 @@ export default function AppDetailPage() {
             ) : (
               <button
                 onClick={() => setConfirmDeletePackage(true)}
-                className='inline-flex items-center gap-1.5 text-[12px] text-red-500 hover:text-red-400 border border-red-900/50 hover:border-red-700/60 px-3 py-1.5 rounded-lg transition-all flex-shrink-0'
+                className='inline-flex items-center gap-1.5 text-[14px] text-red-500 hover:text-red-400 border border-red-900/50 hover:border-red-700/60 px-3 py-1.5 rounded-lg transition-all flex-shrink-0'
               >
                 <Trash2 className='w-3.5 h-3.5' />
                 Delete package
@@ -821,7 +823,7 @@ function BackLink() {
   return (
     <Link
       to='/apps'
-      className='inline-flex items-center gap-1 text-[12px] text-neutral-500 hover:text-neutral-300 transition-colors'
+      className='inline-flex items-center gap-1 text-[14px] text-neutral-500 hover:text-neutral-300 transition-colors'
     >
       <ArrowLeft className='w-3 h-3' />
       Back to Apps
@@ -853,7 +855,7 @@ function LinkCard({
       aria-label={label}
       className='card flex flex-col justify-center gap-1 px-3.5 py-2.5 transition-colors hover:border-line-strong'
     >
-      <p className='text-[11px] text-neutral-500'>{label}</p>
+      <p className='text-[12.5px] text-neutral-500'>{label}</p>
       <Icon className='h-4 w-4 text-brand-600' />
     </a>
   );
@@ -874,12 +876,12 @@ function InfoCard({
     <div className='card px-3.5 py-2.5 flex items-center gap-2.5'>
       <Icon className='w-3.5 h-3.5 text-neutral-500 flex-shrink-0' />
       <div className='min-w-0'>
-        <p className='text-[11px] text-neutral-500'>{label}</p>
+        <p className='text-[12.5px] text-neutral-500'>{label}</p>
         {/* ⚠️ `truncate` GOES ON THE TEXT, NOT ON THE ROW. The row is a flex
             container, and `text-overflow` does nothing on one — the value was
             clipped mid-glyph with no ellipsis, so it read as a rendering
             fault rather than as truncation. */}
-        <p className='flex items-center gap-1 text-[13px] font-light text-neutral-200'>
+        <p className='flex items-center gap-1 text-[15px] font-light text-neutral-200'>
           <span className='truncate'>{value}</span>
           {verified && (
             <BadgeCheck className='h-3.5 w-3.5 flex-shrink-0 text-emerald-400' />
@@ -903,17 +905,17 @@ function ArtifactRow({
 }) {
   return (
     <div className='flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-6 py-2 border-b border-line last:border-0'>
-      <span className='text-[11px] font-medium text-neutral-400 w-12 flex-shrink-0'>
+      <span className='text-[12.5px] font-medium text-neutral-400 w-12 flex-shrink-0'>
         {label}
       </span>
-      <span className='text-[12px] text-neutral-300 font-mono truncate'>
+      <span className='text-[14px] text-neutral-300 font-mono truncate'>
         {path}
       </span>
-      <span className='text-[11px] text-neutral-500 flex-shrink-0'>
+      <span className='text-[12.5px] text-neutral-500 flex-shrink-0'>
         {formatBytes(size) ?? '—'}
       </span>
       {hash && (
-        <span className='text-[11px] text-neutral-600 font-mono truncate'>
+        <span className='text-[12.5px] text-neutral-600 font-mono truncate'>
           {hash}
         </span>
       )}
@@ -938,9 +940,9 @@ function SigRow({
     <div className='flex items-start gap-2'>
       <Icon className='w-3.5 h-3.5 text-neutral-600 mt-0.5 flex-shrink-0' />
       <div className='min-w-0'>
-        <p className='text-[11px] text-neutral-500'>{label}</p>
+        <p className='text-[12.5px] text-neutral-500'>{label}</p>
         <p
-          className={`text-[12px] text-neutral-300 ${mono ? 'font-mono' : ''} ${breakAll ? 'break-all' : ''}`}
+          className={`text-[14px] text-neutral-300 ${mono ? 'font-mono' : ''} ${breakAll ? 'break-all' : ''}`}
         >
           {value}
         </p>

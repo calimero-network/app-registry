@@ -77,7 +77,7 @@ export function PosterGallery({ posters }: { posters: Poster[] }) {
       {/* The box owns the height; the slides fill it absolutely. An
           aspect-ratio on the wrapper rather than on each slide keeps the
           gallery exactly one slide tall however many are stacked in it. */}
-      <div className='relative aspect-[4/3] w-full overflow-hidden rounded-2xl sm:aspect-[21/9]'>
+      <div className='relative aspect-[4/3] w-full overflow-hidden sm:aspect-[21/9]'>
         {posters.map((poster, i) => {
           const on = i === index;
           return (
@@ -107,7 +107,7 @@ export function PosterGallery({ posters }: { posters: Poster[] }) {
         <Arrow side='right' onClick={() => step(1)} />
       </div>
 
-      <div className='mt-3 flex items-center justify-center gap-2'>
+      <div className='mt-4 flex items-center justify-center gap-2'>
         {posters.map((poster, i) => (
           <button
             key={poster.title}
@@ -119,10 +119,10 @@ export function PosterGallery({ posters }: { posters: Poster[] }) {
             aria-label={`Show ${poster.title}`}
             aria-current={i === index}
             data-testid='poster-dot'
-            className={`h-1.5 rounded-full transition-all duration-300 ${
+            className={`h-[3px] transition-all duration-300 ${
               i === index
-                ? 'w-6 bg-ink/[0.45]'
-                : 'w-1.5 bg-ink/[0.16] hover:bg-ink/[0.3]'
+                ? 'w-8 bg-brand-600'
+                : 'w-4 bg-ink/[0.18] hover:bg-ink/[0.35]'
             }`}
           />
         ))}
@@ -151,10 +151,10 @@ function Arrow({
       // completely unclickable — the click lands on the poster link behind it
       // and opens whatever that slide points at.
       //
-      // Dark ink on a translucent white pill: the posters are light in both
+      // Fixed colours, not theme tokens: the posters are charcoal in both
       // themes, so the control cannot follow the page theme or it disappears
       // against the artwork on one of them.
-      className='flex h-9 w-9 items-center justify-center rounded-full bg-white/75 text-[#1c1f34] shadow-sm backdrop-blur-sm transition hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600/60'
+      className='flex h-10 w-10 items-center justify-center border border-[#a5ff11] bg-[#131215]/80 text-[#a5ff11] transition hover:bg-[#a5ff11] hover:text-[#131215] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#a5ff11]/60'
     >
       <Icon className='h-5 w-5' aria-hidden='true' />
     </button>

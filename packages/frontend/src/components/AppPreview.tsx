@@ -333,7 +333,7 @@ export function AppPreview({
           <label
             data-testid='asset-edit'
             title='Add images or videos'
-            className='inline-flex cursor-pointer items-center gap-1.5 rounded-md px-2 py-1 text-[12px] text-neutral-400 transition-colors hover:bg-ink/[0.04] hover:text-neutral-200'
+            className='inline-flex cursor-pointer items-center gap-1.5 rounded-md px-2 py-1 text-[14px] text-neutral-400 transition-colors hover:bg-ink/[0.04] hover:text-neutral-200'
           >
             <Pencil className='h-3.5 w-3.5' aria-hidden='true' />
             {busy ? `Uploading… ${outstanding} left` : 'Edit'}
@@ -359,7 +359,7 @@ export function AppPreview({
       {pending && assets.length > 0 && (
         <p
           data-testid='assets-pending'
-          className='mb-3 inline-flex items-center gap-1.5 rounded-md border border-amber-800/40 bg-amber-950/30 px-2.5 py-1.5 text-[12px] text-amber-300'
+          className='mb-3 inline-flex items-center gap-1.5 rounded-md border border-amber-800/40 bg-amber-950/30 px-2.5 py-1.5 text-[14px] text-amber-300'
         >
           <EyeOff className='h-3.5 w-3.5' aria-hidden='true' />
           Visible only to you until an admin approves this package.
@@ -375,7 +375,7 @@ export function AppPreview({
           data-testid='no-preview'
           className='flex h-44 items-center justify-center rounded-xl border border-dashed border-line-strong bg-ink/[0.02]'
         >
-          <span className='inline-flex items-center gap-2 text-[12.5px] text-neutral-500'>
+          <span className='inline-flex items-center gap-2 text-[14.5px] text-neutral-500'>
             <ImageOff className='h-4 w-4' aria-hidden='true' />
             No preview available
           </span>
@@ -449,12 +449,12 @@ function UploadQueue({
               }`}
             />
           ) : (
-            <span className='truncate px-2 text-[11px] text-neutral-400'>
+            <span className='truncate px-2 text-[12.5px] text-neutral-400'>
               {item.file.name}
             </span>
           )}
 
-          <span className='absolute bottom-1 left-1 rounded bg-black/70 px-1.5 py-0.5 text-[10.5px] text-neutral-200'>
+          <span className='absolute bottom-1 left-1 rounded bg-black/70 px-1.5 py-0.5 text-[12px] text-neutral-200'>
             {item.status === 'uploading' ? (
               <span className='inline-flex items-center gap-1'>
                 <Loader2 className='h-3 w-3 animate-spin' aria-hidden='true' />
@@ -636,11 +636,11 @@ function AssetTile({
           placeholder='Describe this image'
           aria-label='Alt text'
           data-testid='asset-alt'
-          className='input mt-1.5 h-7 w-full max-w-[18rem] text-[11.5px]'
+          className='input mt-1.5 h-7 w-full max-w-[18rem] text-[13px]'
         />
       ) : (
         asset.alt && (
-          <p className='mt-1.5 max-w-[18rem] truncate text-[11.5px] text-neutral-500'>
+          <p className='mt-1.5 max-w-[18rem] truncate text-[13px] text-neutral-500'>
             {asset.alt}
           </p>
         )

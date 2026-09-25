@@ -28,7 +28,7 @@ const SECTIONS = [
 
 function Code({ children }: { children: React.ReactNode }) {
   return (
-    <code className='rounded border border-brand-600/20 bg-brand-600/[0.08] px-1.5 py-0.5 font-mono text-[11px] text-brand-600'>
+    <code className='rounded border border-brand-600/20 bg-brand-600/[0.08] px-1.5 py-0.5 font-mono text-[12.5px] text-brand-600'>
       {children}
     </code>
   );
@@ -36,7 +36,7 @@ function Code({ children }: { children: React.ReactNode }) {
 
 function CodeBlock({ children }: { children: string }) {
   return (
-    <pre className='overflow-x-auto rounded-lg border border-line bg-[var(--surface-2)] p-4 font-mono text-[11.5px] leading-relaxed text-neutral-300'>
+    <pre className='overflow-x-auto rounded-lg border border-line bg-[var(--surface-2)] p-4 font-mono text-[13px] leading-relaxed text-neutral-300'>
       {children}
     </pre>
   );
@@ -44,7 +44,7 @@ function CodeBlock({ children }: { children: string }) {
 
 function Diagram({ children }: { children: string }) {
   return (
-    <pre className='overflow-x-auto rounded-lg border border-brand-600/25 bg-[var(--surface-2)] p-5 font-mono text-[10.5px] leading-loose text-brand-600'>
+    <pre className='overflow-x-auto rounded-lg border border-brand-600/25 bg-[var(--surface-2)] p-5 font-mono text-[12px] leading-loose text-brand-600'>
       {children}
     </pre>
   );
@@ -65,19 +65,21 @@ function SectionHeading({
           boxes. */}
       <span
         aria-hidden='true'
-        className='mb-3 block h-[3px] w-10 rounded-full bg-brand-600'
+        className='mb-4 block h-[3px] w-10 bg-brand-600'
       />
-      <h2 className='text-xl font-semibold text-neutral-100'>{children}</h2>
+      <h2 className='text-[28px] font-black uppercase leading-tight tracking-[0.01em] text-neutral-100 sm:text-[34px]'>
+        {children}
+      </h2>
     </div>
   );
 }
 
 function SubHeading({ children }: { children: React.ReactNode }) {
   return (
-    <h3 className='mb-3 mt-8 flex items-center gap-2 text-[14px] font-semibold text-neutral-200'>
+    <h3 className='mb-3 mt-10 flex items-center gap-2.5 text-[15px] font-bold uppercase tracking-[0.14em] text-neutral-100'>
       <span
         aria-hidden='true'
-        className='h-3.5 w-[2px] flex-shrink-0 rounded-full bg-brand-600/60'
+        className='h-3.5 w-[2px] flex-shrink-0 bg-brand-600'
       />
       {children}
     </h3>
@@ -86,7 +88,7 @@ function SubHeading({ children }: { children: React.ReactNode }) {
 
 function P({ children }: { children: React.ReactNode }) {
   return (
-    <p className='text-[13px] text-neutral-400 font-light leading-relaxed'>
+    <p className='text-[16px] text-neutral-400 font-light leading-relaxed'>
       {children}
     </p>
   );
@@ -94,7 +96,7 @@ function P({ children }: { children: React.ReactNode }) {
 
 function Note({ children }: { children: React.ReactNode }) {
   return (
-    <div className='rounded-lg border-l-[3px] border-brand-600/70 bg-brand-600/[0.07] px-4 py-3 text-[12px] font-light leading-relaxed text-neutral-300'>
+    <div className='rounded-lg border-l-[3px] border-brand-600/70 bg-brand-600/[0.07] px-4 py-3 text-[14px] font-light leading-relaxed text-neutral-300'>
       {children}
     </div>
   );
@@ -105,10 +107,10 @@ function Steps({ items }: { items: [string, React.ReactNode][] }) {
     <ol className='space-y-3 list-none'>
       {items.map(([step, desc], i) => (
         <li key={i} className='flex gap-3'>
-          <span className='flex-shrink-0 w-5 h-5 rounded-full bg-brand-600/20 text-brand-600 text-[10px] font-bold flex items-center justify-center mt-0.5'>
+          <span className='flex-shrink-0 w-6 h-6 border border-brand-600 text-brand-600 text-[12px] font-bold flex items-center justify-center mt-0.5'>
             {i + 1}
           </span>
-          <div className='text-[13px] text-neutral-400 font-light leading-relaxed'>
+          <div className='text-[15px] text-neutral-400 font-light leading-relaxed'>
             <span className='text-neutral-200 font-medium'>{step}: </span>
             <span>{desc}</span>
           </div>
@@ -136,7 +138,7 @@ function FieldList({
       {rows.map(([field, desc]) => (
         <div
           key={field}
-          className='flex flex-col sm:flex-row gap-0.5 sm:gap-3 text-[12px]'
+          className='flex flex-col sm:flex-row gap-0.5 sm:gap-3 text-[14px]'
         >
           <span
             className={`text-brand-600 font-mono ${width} flex-shrink-0 break-words`}
@@ -196,7 +198,10 @@ export default function DocsPage() {
           why the old one read as a smudge. A 2px bar in the accent is legible
           in both themes at any weight. */}
       <aside className='hidden w-56 flex-shrink-0 lg:block'>
-        <nav className='sticky top-20' aria-label='On this page'>
+        <nav
+          className='sticky top-20 min-[1100px]:top-[104px]'
+          aria-label='On this page'
+        >
           <div className='card overflow-hidden p-1.5'>
             <p className='section-heading px-2.5 pb-1.5 pt-2'>On this page</p>
             <ul>
@@ -208,7 +213,7 @@ export default function DocsPage() {
                       href={`#${id}`}
                       aria-current={active ? 'true' : undefined}
                       data-testid={`docs-nav-${id}`}
-                      className={`block border-l-2 py-1.5 pl-2.5 pr-2 text-[12.5px] transition-colors ${
+                      className={`block border-l-2 py-1.5 pl-2.5 pr-2 text-[14.5px] transition-colors ${
                         active
                           ? 'border-brand-600 bg-ink/[0.04] font-medium text-neutral-100'
                           : 'border-transparent text-neutral-500 hover:border-line-strong hover:text-neutral-200'
@@ -226,7 +231,7 @@ export default function DocsPage() {
             href='https://docs.calimero.network'
             target='_blank'
             rel='noopener noreferrer'
-            className='mt-2 flex items-center gap-1.5 rounded-lg px-3 py-2 text-[12px] text-neutral-500 transition-colors hover:bg-ink/[0.04] hover:text-neutral-300'
+            className='mt-2 flex items-center gap-1.5 rounded-lg px-3 py-2 text-[14px] text-neutral-500 transition-colors hover:bg-ink/[0.04] hover:text-neutral-300'
           >
             <ExternalLink className='h-3 w-3 flex-shrink-0' />
             Official Docs
@@ -251,7 +256,7 @@ export default function DocsPage() {
             onClick={() => setTocOpen(v => !v)}
             aria-expanded={tocOpen}
             data-testid='docs-toc-toggle'
-            className='flex w-full items-center justify-between rounded-lg border border-line bg-ink/[0.02] px-3.5 py-2.5 text-[13px] text-neutral-300'
+            className='flex w-full items-center justify-between rounded-lg border border-line bg-ink/[0.02] px-3.5 py-2.5 text-[15px] text-neutral-300'
           >
             On this page
             <ChevronDown
@@ -273,7 +278,7 @@ export default function DocsPage() {
                     // Closing on the way out: the list covers the top of the
                     // page it just scrolled you to otherwise.
                     onClick={() => setTocOpen(false)}
-                    className='block rounded-md px-3 py-2 text-[13px] text-neutral-400 transition-colors hover:bg-ink/[0.04] hover:text-neutral-200'
+                    className='block rounded-md px-3 py-2 text-[15px] text-neutral-400 transition-colors hover:bg-ink/[0.04] hover:text-neutral-200'
                   >
                     {label}
                   </a>
@@ -355,11 +360,11 @@ export default function DocsPage() {
                     <span className='flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg bg-brand-600/[0.12]'>
                       <Icon className='h-3.5 w-3.5 text-brand-600' />
                     </span>
-                    <span className='text-[13px] font-medium text-neutral-200'>
+                    <span className='text-[15px] font-medium text-neutral-200'>
                       {title}
                     </span>
                   </div>
-                  <p className='text-[12px] text-neutral-500 font-light'>
+                  <p className='text-[14px] text-neutral-500 font-light'>
                     {desc}
                   </p>
                 </div>
@@ -1624,7 +1629,7 @@ calimero-registry bundle get <package> <version> --local`}</CodeBlock>
             </P>
 
             <div className='card p-4 mt-2'>
-              <p className='text-[12px] text-neutral-500 font-light'>
+              <p className='text-[14px] text-neutral-500 font-light'>
                 For more on the Calimero node runtime, the ABI and state
                 migrations, and how the Desktop client manages installed apps,
                 see the{' '}

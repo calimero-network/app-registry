@@ -9,16 +9,11 @@ import { ArrowUpRight } from 'lucide-react';
  * whole tile is the artwork, so the radius is on the card and the art bleeds
  * to every edge of it.
  *
- * ⚠️ THE POSTER PALETTES ARE DELIBERATELY THEME-INDEPENDENT. Every other
- * surface in this app swaps with the theme through variables; these do not.
- * A poster is a printed object — it keeps its own paper and its own ink in
- * both themes, and hard-coding near-black type on a pastel ground is the only
- * way the text is guaranteed to stay legible on artwork this saturated.
- *
- * ⚠️ NOT the brand lime. The accent already means something specific in this
- * product (installed, verified, selected), and five green posters would both
- * flatten that and make the page one colour. These are pastels chosen to be
- * distinguishable from each other at a glance.
+ * ⚠️ THE POSTERS ARE DELIBERATELY THEME-INDEPENDENT. A poster is a printed
+ * object: it keeps its own paper and ink in both themes. They are
+ * calimero.network's panels — charcoal paper, lime line-art, near-white type
+ * — so on a light page they read as the landing's dark bands do, and on a
+ * dark page as one of its cards.
  */
 
 export type Poster = {
@@ -44,18 +39,30 @@ type Palette = {
   /** Two paper tones, top-left to bottom-right. */
   from: string;
   to: string;
+  /** The raised surface a motif is drawn on (a page, a window, a card). */
+  paper: string;
   /** The one saturated shape colour. */
   mark: string;
   /** Line work and type. Near-black, never pure. */
   ink: string;
 };
 
+// One palette, the landing's: the variants differ by their drawing, not by
+// colour, the way calimero.network's illustrations do.
+const CHARCOAL: Palette = {
+  from: '#1f1e22',
+  to: '#141316',
+  paper: '#2a282e',
+  mark: '#a5ff11',
+  ink: '#fcfcfc',
+};
+
 const PALETTES: Record<PosterVariant, Palette> = {
-  desktop: { from: '#dfe3fb', to: '#c3caf6', mark: '#5b6ad0', ink: '#1c1f34' },
-  docs: { from: '#fde3d6', to: '#f9cdb8', mark: '#d97449', ink: '#33211a' },
-  publish: { from: '#efdcf7', to: '#e0c4ef', mark: '#9a5cc0', ink: '#2a1c33' },
-  explore: { from: '#d6ecf7', to: '#b9dff2', mark: '#3d8bb5', ink: '#152730' },
-  source: { from: '#f7e7c7', to: '#efd6a4', mark: '#b58432', ink: '#312716' },
+  desktop: CHARCOAL,
+  docs: CHARCOAL,
+  publish: CHARCOAL,
+  explore: CHARCOAL,
+  source: CHARCOAL,
 };
 
 export function PosterCard({
@@ -105,19 +112,19 @@ export function PosterCard({
 
       <span className='relative flex h-full max-w-[34rem] flex-col justify-end gap-2 p-6 sm:p-9'>
         <span
-          className='text-[11px] font-semibold uppercase tracking-[0.16em]'
+          className='text-[13px] font-normal uppercase tracking-[0.28em]'
           style={{ color: p.mark }}
         >
           {poster.eyebrow}
         </span>
         <span
-          className='font-display text-[26px] font-bold leading-tight tracking-tight sm:text-[34px]'
+          className='text-[26px] font-black uppercase leading-[1.05] tracking-[0.01em] sm:text-[36px]'
           style={{ color: p.ink }}
         >
           {poster.title}
         </span>
         <span
-          className='text-[13.5px] font-light leading-relaxed sm:text-[15px]'
+          className='text-[15.5px] font-light leading-relaxed sm:text-[17px]'
           style={{ color: p.ink, opacity: 0.75 }}
         >
           {poster.body}
@@ -127,11 +134,11 @@ export function PosterCard({
           {poster.chips.map(chip => (
             <span
               key={chip}
-              className='rounded-full px-2.5 py-1 text-[11.5px] font-medium'
+              className='border px-2 py-1 text-[11.5px] font-bold uppercase leading-none tracking-[0.15em]'
               style={{
                 color: p.ink,
-                background: '#ffffff',
-                opacity: 0.72,
+                borderColor: 'rgb(252 252 252 / 0.25)',
+                opacity: 0.8,
               }}
             >
               {chip}
@@ -143,7 +150,7 @@ export function PosterCard({
             control inside it would be a second tab stop pointing at the same
             place. */}
         <span
-          className='mt-2 inline-flex w-fit items-center gap-1.5 rounded-full px-4 py-2 text-[13px] font-semibold text-white transition-transform duration-200 group-hover:translate-x-0.5'
+          className='mt-3 inline-flex w-fit items-center gap-2 px-5 py-3 text-[13px] font-bold uppercase tracking-[0.15em] text-[#131215] transition-shadow duration-300 group-hover:shadow-[0_0_20px_0_rgba(165,255,17,0.45)]'
           style={{ background: p.mark }}
         >
           {poster.cta}
@@ -156,7 +163,7 @@ export function PosterCard({
   // `overflow-hidden` on the anchor is what actually clips the artwork to the
   // radius — the SVG is a rectangle and would otherwise square off the corners.
   const className =
-    'group relative flex h-full w-full flex-col overflow-hidden rounded-2xl ' +
+    'group relative flex h-full w-full flex-col overflow-hidden border border-line ' +
     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600/60';
 
   if (poster.internal) {
@@ -246,8 +253,7 @@ function DesktopPoster({ p }: { p: Palette }) {
         y='26'
         width='136'
         height='84'
-        rx='8'
-        fill='#ffffff'
+        fill={p.paper}
         opacity='0.55'
       />
       <rect
@@ -255,7 +261,6 @@ function DesktopPoster({ p }: { p: Palette }) {
         y='26'
         width='136'
         height='84'
-        rx='8'
         fill='none'
         stroke={p.mark}
         strokeWidth='2'
@@ -277,20 +282,11 @@ function DesktopPoster({ p }: { p: Palette }) {
           y='58'
           width='30'
           height='30'
-          rx='9'
           fill={i === 1 ? p.mark : p.ink}
           opacity={i === 1 ? '0.9' : '0.14'}
         />
       ))}
-      <rect
-        x='96'
-        y='114'
-        width='48'
-        height='6'
-        rx='3'
-        fill={p.ink}
-        opacity='0.18'
-      />
+      <rect x='96' y='114' width='48' height='6' fill={p.ink} opacity='0.18' />
     </g>
   );
 }
@@ -302,12 +298,12 @@ function DocsPoster({ p }: { p: Palette }) {
       <circle cx='44' cy='40' r='40' fill={p.mark} opacity='0.14' />
       <path
         d='M120 40c-16-12-34-14-56-12v78c22-2 40 0 56 12z'
-        fill='#ffffff'
+        fill={p.paper}
         opacity='0.6'
       />
       <path
         d='M120 40c16-12 34-14 56-12v78c-22-2-40 0-56 12z'
-        fill='#ffffff'
+        fill={p.paper}
         opacity='0.45'
       />
       <path
@@ -334,20 +330,11 @@ function DocsPoster({ p }: { p: Palette }) {
           y={52 + i * 12}
           width={i === 2 ? 20 : 32}
           height='4'
-          rx='2'
           fill={p.ink}
           opacity='0.2'
         />
       ))}
-      <rect
-        x='132'
-        y='50'
-        width='36'
-        height='30'
-        rx='5'
-        fill={p.mark}
-        opacity='0.8'
-      />
+      <rect x='132' y='50' width='36' height='30' fill={p.mark} opacity='0.8' />
       {[0, 1, 2].map(i => (
         <rect
           key={i}
@@ -355,8 +342,7 @@ function DocsPoster({ p }: { p: Palette }) {
           y={57 + i * 8}
           width={[22, 14, 18][i]}
           height='3.4'
-          rx='1.7'
-          fill='#ffffff'
+          fill={p.paper}
           opacity='0.85'
         />
       ))}
@@ -371,7 +357,7 @@ function PublishPoster({ p }: { p: Palette }) {
       <circle cx='60' cy='132' r='52' fill={p.mark} opacity='0.14' />
       <path
         d='M120 22l40 24v48l-40 24-40-24V46z'
-        fill='#ffffff'
+        fill={p.paper}
         opacity='0.55'
       />
       <path
@@ -405,7 +391,6 @@ function PublishPoster({ p }: { p: Palette }) {
           y={44 + i * 14}
           width={[30, 22, 26][i]}
           height='5'
-          rx='2.5'
           fill={p.ink}
           opacity='0.16'
         />
@@ -430,7 +415,6 @@ function ExplorePoster({ p }: { p: Palette }) {
               y={30 + row * 56}
               width='44'
               height='44'
-              rx='13'
               fill={on ? p.mark : '#ffffff'}
               opacity={on ? '0.92' : '0.55'}
             />
@@ -439,7 +423,6 @@ function ExplorePoster({ p }: { p: Palette }) {
               y={30 + row * 56}
               width='44'
               height='44'
-              rx='13'
               fill='none'
               stroke={p.mark}
               strokeWidth='1.6'
@@ -505,7 +488,7 @@ function SourcePoster({ p }: { p: Palette }) {
             cx={cx}
             cy={cy}
             r={i === 0 ? 17 : 13}
-            fill='#ffffff'
+            fill={p.paper}
             opacity='0.6'
           />
           <circle

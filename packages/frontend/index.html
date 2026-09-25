@@ -1,15 +1,13 @@
 <!doctype html>
 <!--
-      `data-theme="light"` is stamped here, not only from JavaScript.
+      `data-theme="dark"` is stamped here, not only from JavaScript.
 
-      ⚠️ THE BASE PALETTE IN index.css IS THE DARK ONE — light is the
-      `:root[data-theme='light']` override. The stylesheet is a <link> in the
-      head, so without this attribute the browser paints a dark ground for
-      every load before the module runs and swaps it. main.tsx still applies
-      the real value before render; this only makes the DEFAULT case the one
-      that never flashes.
+      The registry wears calimero.network's charcoal by default; light is the
+      opt-in `:root[data-theme='light']` override. main.tsx still applies a
+      stored choice before render; this makes the DEFAULT case the one that
+      never flashes.
     -->
-<html lang="en" data-theme="light">
+<html lang="en" data-theme="dark">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="/favicon.png" />
@@ -38,7 +36,7 @@
     <title>Calimero App Registry — signed apps for your own node</title>
     <meta
       name="description"
-      content="Browse, publish and install signed Calimero application bundles. Every manifest is checked by the registry, then checked again by the peer that installs it."
+      content="Browse, publish and install signed apps for Calimero, the open-source protocol for sovereign apps. Every bundle is checked by the registry, then checked again by the node that installs it."
     />
     <link rel="canonical" href="https://apps.calimero.network/" />
     <meta name="robots" content="index, follow, max-image-preview:large" />
@@ -47,12 +45,12 @@
     <meta
       name="theme-color"
       media="(prefers-color-scheme: light)"
-      content="#fcfcfc"
+      content="#f5f5f0"
     />
     <meta
       name="theme-color"
       media="(prefers-color-scheme: dark)"
-      content="#0d1117"
+      content="#131215"
     />
 
     <meta property="og:type" content="website" />
@@ -61,7 +59,7 @@
     <meta property="og:title" content="Apps your node can verify for itself" />
     <meta
       property="og:description"
-      content="Browse, publish and install signed Calimero application bundles. Every manifest is checked by the registry, then checked again by the peer that installs it."
+      content="Browse, publish and install signed apps for Calimero, the open-source protocol for sovereign apps. Every bundle is checked by the registry, then checked again by the node that installs it."
     />
     <meta property="og:image" content="https://apps.calimero.network/og.png" />
     <meta property="og:image:type" content="image/png" />
@@ -77,7 +75,7 @@
     <meta name="twitter:title" content="Apps your node can verify for itself" />
     <meta
       name="twitter:description"
-      content="Browse, publish and install signed Calimero application bundles. Every manifest is checked by the registry, then checked again by the peer that installs it."
+      content="Browse, publish and install signed apps for Calimero, the open-source protocol for sovereign apps. Every bundle is checked by the registry, then checked again by the node that installs it."
     />
     <meta name="twitter:image" content="https://apps.calimero.network/og.png" />
     <meta
@@ -122,12 +120,21 @@
         ]
       }
     </script>
-
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- Power Grotesk is self-hosted (public/fonts); preload the two weights
+         the first screen sets, so the headline does not swap in late. -->
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap"
-      rel="stylesheet"
+      rel="preload"
+      href="/fonts/powerGrotesk/PowerGrotesk-Black.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link
+      rel="preload"
+      href="/fonts/powerGrotesk/PowerGrotesk-Regular.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
     />
   </head>
   <body>

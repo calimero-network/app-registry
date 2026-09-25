@@ -69,7 +69,7 @@ export default function DeveloperDetailPage() {
         <BackLink />
         <div className='text-center py-16'>
           <User className='mx-auto h-8 w-8 text-neutral-600' />
-          <p className='mt-3 text-[13px] text-neutral-400'>
+          <p className='mt-3 text-[15px] text-neutral-400'>
             No published bundles found for &quot;{decodedName}&quot;.
           </p>
         </div>
@@ -87,13 +87,14 @@ export default function DeveloperDetailPage() {
           <User className='w-4 h-4 text-neutral-400' />
         </div>
         <div>
+          <p className='eyebrow mb-3'>Developer</p>
           <h1 className='flex items-center gap-2 text-xl font-semibold text-neutral-100'>
             <span className='font-mono'>{displayName}</span>
             {verified && (
               <BadgeCheck className='h-5 w-5 text-emerald-400 flex-shrink-0' />
             )}
           </h1>
-          <p className='text-[12px] text-neutral-500 font-light'>
+          <p className='text-[14px] text-neutral-500 font-light'>
             {apps.length} app{apps.length !== 1 ? 's' : ''} &middot;{' '}
             {developerBundles.length} bundle
             {developerBundles.length !== 1 ? 's' : ''}
@@ -127,7 +128,7 @@ export default function DeveloperDetailPage() {
             >
               <div className='flex items-center gap-2 min-w-0'>
                 <Package className='w-3 h-3 text-neutral-600 flex-shrink-0' />
-                <span className='text-[13px] text-neutral-300 truncate'>
+                <span className='text-[15px] text-neutral-300 truncate'>
                   {b.metadata?.name || b.package}
                 </span>
                 <span className='pill bg-brand-600/10 text-brand-600 font-mono flex-shrink-0'>
@@ -135,7 +136,7 @@ export default function DeveloperDetailPage() {
                 </span>
               </div>
               {b.wasm && (
-                <span className='text-[11px] text-neutral-600 flex-shrink-0 ml-2'>
+                <span className='text-[12.5px] text-neutral-600 flex-shrink-0 ml-2'>
                   {formatBytes(b.wasm.size)}
                 </span>
               )}
@@ -151,7 +152,7 @@ function BackLink() {
   return (
     <Link
       to='/developers'
-      className='inline-flex items-center gap-1 text-[12px] text-neutral-500 hover:text-neutral-300 transition-colors'
+      className='inline-flex items-center gap-1 text-[14px] text-neutral-500 hover:text-neutral-300 transition-colors'
     >
       <ArrowLeft className='w-3 h-3' />
       Back to Developers
