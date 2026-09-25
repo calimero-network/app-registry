@@ -24,45 +24,22 @@ This document describes the End-to-End (E2E) tests that demonstrate the complete
 - ✅ Bundle upload without signature (optional)
 - ✅ Complete E2E flow: register → claim → upload → verify
 
-### `v2-e2e-developer-flow.test.js`
-
-**Status:** ⚠️ Requires ES module support  
-**Purpose:** Comprehensive E2E tests with actual Ed25519 signature generation and verification.
-
-**Test Coverage:**
-
-- Developer registration (placeholder)
-- Namespace claiming (first-come-first-serve)
-- Bundle upload with real signature verification
-- Complete E2E flow with signature
-- Namespace ownership verification (future)
-
-**Note:** This test file requires Jest ES module support. Currently disabled due to `@noble/ed25519` being an ES module.
-
 ### `v2-e2e-api-flow.test.js`
 
-**Status:** ⚠️ Requires API endpoint fixes  
-**Purpose:** E2E tests through actual HTTP API endpoints.
+**Purpose:** Publishes through the real `POST /api/v2/bundles/push` handler with a real Ed25519 signature (`tests/helpers/ed25519-helper.js` signs the way cargo-mero does), so signature verification is exercised rather than mocked.
 
 **Test Coverage:**
 
-- Developer registration via API
-- Namespace claiming via bundle upload API
-- Bundle upload with signature via API
-- Bundle retrieval via API
-- Complete E2E flow via API
-
-**Note:** This test file requires the API endpoints to be properly importable in tests.
+- A signed bundle publishes and appears in the listing
+- A manifest changed after signing is rejected (`400 invalid_signature`)
+- An unsigned manifest is rejected (`400 missing_signature`)
+- The owner can publish a new version; a different key cannot (`403 not_owner`)
 
 ## Running the Tests
 
 ```bash
-# Run simplified E2E tests (recommended)
-cd registry/packages/backend
-npm test -- v2-e2e-simple
-
-# Run all E2E tests
-npm test -- v2-e2e
+cd packages/backend
+pnpm test tests/v2-e2e
 ```
 
 ## Test Flow
@@ -231,23 +208,6 @@ The `v2-e2e-api-flow.test.js` file will test the complete flow through HTTP endp
   }
 }
 ```
-
-## Troubleshooting
-
-### ES Module Import Errors
-
-If you see errors about ES modules when running `v2-e2e-developer-flow.test.js`:
-
-1. Use `v2-e2e-simple.test.js` instead (recommended)
-2. Or configure Jest to support ES modules (see Jest documentation)
-
-### API Endpoint Import Errors
-
-If `v2-e2e-api-flow.test.js` fails to import API endpoints:
-
-1. Check that the API endpoints exist in `registry/api/v2/bundles/`
-2. Verify the import paths are correct
-3. Consider using HTTP requests instead of direct imports
 
 ## Related Documentation
 
