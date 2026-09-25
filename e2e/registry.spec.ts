@@ -853,7 +853,10 @@ test.describe('scroll position', () => {
 
     await page.getByRole('link', { name: 'See all' }).click();
     await expect(page).toHaveURL(/\/explore/);
-    expect(await page.evaluate(() => window.scrollY)).toBe(0);
+    // Polled, not read once: the URL changes when the history entry is
+    // pushed, and the reset runs when React commits the new page, which can
+    // be a frame or two later under a loaded runner.
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
   });
 
   test('a query-string change does NOT scroll the page', async ({ page }) => {
