@@ -50,6 +50,7 @@ process.env.REDIS_URL = 'redis://guide-listing-test';
 
 const listHandler = require('../../../api/v2/bundles/index');
 const detailHandler = require('../../../api/v2/bundles/[package]/[version]');
+const packageDetailHandler = require('../../../api/v2/packages/[package]/index');
 const { buildServer } = require('../src/server');
 
 const PKG = 'com.example.guided';
@@ -157,5 +158,10 @@ describe('one version', () => {
   test('keeps metadata.guide on Fastify GET /api/v2/bundles/:package/:version', async () => {
     const bundle = await callFastify(`/api/v2/bundles/${PKG}/1.0.0`);
     expect(bundle.metadata.guide).toBe(GUIDE);
+  });
+
+  test('keeps metadata.guide on GET /api/v2/packages/:package', async () => {
+    const body = await callVercel(packageDetailHandler, { package: PKG });
+    expect(body.metadata.guide).toBe(GUIDE);
   });
 });
