@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { cachedImageUrl, preloadImage } from '@/lib/imageCache';
 
 /**
  * A preview opened full screen.
@@ -25,6 +26,11 @@ export interface LightboxItem {
   kind: 'image' | 'video';
   width?: number | null;
   height?: number | null;
+  /**
+   * The strip's downscaled copy, already in the browser. Shown under the
+   * full image while it loads, so opening is never a blank overlay.
+   */
+  thumbUrl?: string;
 }
 
 export function Lightbox({
@@ -71,6 +77,17 @@ export function Lightbox({
       document.body.style.overflow = previous;
     };
   }, []);
+
+  // The neighbours, so arrowing through the gallery lands on pictures that
+  // are already here. Images only: a video streams, and prefetching its
+  // whole file is exactly what `preload='metadata'` exists to avoid.
+  useEffect(() => {
+    if (count < 2) return;
+    for (const delta of [1, -1]) {
+      const n = items[(index + delta + count) % count];
+      if (n?.kind === 'image') preloadImage(n.url).catch(() => {});
+    }
+  }, [items, index, count]);
 
   // Move focus into the dialog so Escape and the arrows reach it without the
   // viewer having to click first.
@@ -140,23 +157,11 @@ export function Lightbox({
             className='max-h-[80vh] max-w-full rounded-lg'
           />
         ) : (
-          <img
-            // ⚠️ KEYED ON THE ID. Without it React keeps the same <img> node
-            // across a step and paints the OLD picture until the new bytes
-            // arrive, so arrowing through a gallery shows the previous image
-            // under the new caption.
-            key={item.id}
-            src={item.url}
-            alt={item.alt}
-            width={item.width ?? undefined}
-            height={item.height ?? undefined}
-            // The one place the full-resolution file is wanted, so it is not
-            // lazy and it is worth fetching at high priority.
-            loading='eager'
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            {...({ fetchpriority: 'high' } as any)}
-            className='max-h-[80vh] w-auto max-w-full rounded-lg object-contain'
-          />
+          // ⚠️ KEYED ON THE ID. Without it React keeps the same <img> node
+          // across a step and paints the OLD picture until the new bytes
+          // arrive, so arrowing through a gallery shows the previous image
+          // under the new caption.
+          <LightboxImage key={item.id} item={item} />
         )}
         {(item.alt || count > 1) && (
           <figcaption className='flex items-center gap-3 text-[12.5px] text-white/70'>
@@ -171,5 +176,65 @@ export function Lightbox({
       </figure>
     </div>,
     document.body
+  );
+}
+
+const IMG_CLASS = 'max-h-[80vh] w-auto max-w-full rounded-lg object-contain';
+
+/**
+ * The full image, over its own thumbnail until it has arrived.
+ *
+ * Three cases, in the order they are likely:
+ *  - the original is already in memory (preloaded from the strip): it is the
+ *    `src` on the first render, so there is no placeholder frame at all;
+ *  - it is not, but the thumbnail is: the thumbnail shows at the original's
+ *    size while the full bytes load invisibly on top, then swaps;
+ *  - neither (an older asset with no thumbnail): the plain full image, as it
+ *    always was.
+ */
+function LightboxImage({ item }: { item: LightboxItem }) {
+  // Read once, synchronously, on mount — the whole point is to know on the
+  // first frame.
+  const [cached] = useState(() => cachedImageUrl(item.url));
+  const [loaded, setLoaded] = useState(!!cached);
+  const showPlaceholder = !loaded && !!item.thumbUrl;
+
+  return (
+    <div className='relative flex items-center justify-center'>
+      {showPlaceholder && (
+        <img
+          src={item.thumbUrl}
+          alt=''
+          aria-hidden='true'
+          data-testid='lightbox-placeholder'
+          // The ORIGINAL's size, so the thumbnail fills the box the full
+          // image will occupy and the swap does not shift anything.
+          width={item.width ?? undefined}
+          height={item.height ?? undefined}
+          className={`${IMG_CLASS} blur-[1px]`}
+        />
+      )}
+      <img
+        src={cached ?? item.url}
+        alt={item.alt}
+        width={item.width ?? undefined}
+        height={item.height ?? undefined}
+        data-testid='lightbox-image'
+        data-loaded={loaded ? 'true' : 'false'}
+        onLoad={() => setLoaded(true)}
+        // The one place the full-resolution file is wanted, so it is not
+        // lazy and it is worth fetching at high priority.
+        loading='eager'
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        {...({ fetchpriority: 'high' } as any)}
+        className={
+          showPlaceholder
+            ? // Loading on top of the placeholder, invisible until it can
+              // replace it in one frame.
+              `${IMG_CLASS} pointer-events-none absolute inset-0 m-auto opacity-0`
+            : IMG_CLASS
+        }
+      />
+    </div>
   );
 }
