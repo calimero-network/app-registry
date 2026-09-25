@@ -146,15 +146,6 @@ When implemented, the developer enrollment system will:
    - Marketplace signature for approved bundles
    - Signature verification on upload and retrieval
 
-### API Endpoint Tests
-
-The `v2-e2e-api-flow.test.js` file will test the complete flow through HTTP endpoints:
-
-- `POST /api/v2/developers/enroll` - Developer registration
-- `POST /api/v2/bundles/push` - Bundle upload
-- `GET /api/v2/bundles/:package/:version` - Bundle retrieval
-- `GET /api/v2/namespaces/:namespace` - Namespace ownership check
-
 ## Test Data
 
 ### Sample Developer
