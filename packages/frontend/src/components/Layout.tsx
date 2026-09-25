@@ -13,8 +13,9 @@ const FOOTER_LINKS = [
   {
     heading: 'Product',
     items: [
-      { label: 'Calimero Network', href: 'https://calimero.network' },
-      { label: 'Mero Cloud', href: 'https://cloud.calimero.network' },
+      { label: 'Calimero', href: 'https://calimero.network' },
+      { label: 'Calimero Desktop', href: 'https://calimero.network/download' },
+      { label: 'Calimero Cloud', href: 'https://cloud.calimero.network' },
     ],
   },
   {
@@ -28,7 +29,7 @@ const FOOTER_LINKS = [
     heading: 'Resources',
     items: [
       {
-        label: 'App Registry',
+        label: 'Registry source',
         href: 'https://github.com/calimero-network/app-registry',
       },
       {
@@ -252,7 +253,8 @@ export function Layout({ children }: LayoutProps) {
                 style={{ filter: 'var(--logo-filter)' }}
               />
               <p className='max-w-[220px] text-[12.5px] font-light leading-relaxed text-neutral-500'>
-                A self-sovereign registry for verifiable applications.
+                Signed apps for Calimero — the open-source protocol for
+                sovereign apps.
               </p>
             </div>
             {FOOTER_LINKS.map(group => (

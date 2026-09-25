@@ -26,7 +26,7 @@ export const DEFAULT_TITLE = `${SITE_NAME} — signed apps for your own node`;
  *  is already carried by `og:site_name`. Kept in step with index.html. */
 export const DEFAULT_OG_TITLE = 'Apps your node can verify for itself';
 export const DEFAULT_DESCRIPTION =
-  'Browse, publish and install signed Calimero application bundles. Every manifest is checked by the registry, then checked again by the peer that installs it.';
+  'Browse, publish and install signed apps for Calimero, the open-source protocol for sovereign apps. Every bundle is checked by the registry, then checked again by the node that installs it.';
 
 /** `Explore apps · Calimero App Registry`, and the bare site name at the root. */
 export function formatTitle(title?: string | null) {
