@@ -38,6 +38,7 @@ tags = ["social", "chat"]
 min-runtime-version = "0.7.0"
 frontend = "https://my-app.example.com"
 github = "https://github.com/example/my-app"
+guide = "GUIDE.md"                      # required, see "Writing the app guide" below
 ```
 
 A workspace that ships several wasm services declares them under `[workspace.metadata.calimero]` instead, which also wins over a package table when both are present:
@@ -59,6 +60,48 @@ crate = "mero-index-service"
 
 The app version is not a metadata key.
 It defaults to the crate's `[package] version`, and `--app-version` or `--bump` override it.
+
+---
+
+## Writing the app guide
+
+Every new version ships a guide: Markdown that tells an AI agent how to use the app without reading its source.
+`guide` in the metadata table is a path relative to that `Cargo.toml`, and `cargo mero bundle` embeds the file's text as `metadata.guide`.
+`cargo mero new` scaffolds a `GUIDE.md` with the required sections.
+
+Both push endpoints check the guide.
+[`packages/backend/src/lib/app-guide.js`](packages/backend/src/lib/app-guide.js) is the authoritative definition of the rules; this list summarises it.
+The registry validates it when the bundle reaches `POST /api/v2/bundles/push` or the browser upload, not before:
+
+- These level-2 headings are present, each as a whole line, in any order: `## Overview`, `## Context model`, `## Getting started`, `## Procedures`, `## Rules and limits`.
+- Other headings are allowed.
+- `## Procedures` holds at least one `### <title>` line before the next `##` heading.
+- The guide is at most 16384 bytes of UTF-8, so a multibyte character counts by its encoded size.
+- A line that starts with ` ``` `, after any leading spaces, opens or closes a code fence, and headings inside a fence do not count.
+- `~~~` is not a fence.
+- CRLF line endings and trailing whitespace after a heading are fine.
+
+Procedure titles are how an agent routes a request to an app, so name each after the task (`### Share a folder`), not after a method.
+
+A guide that breaks a rule is rejected with `422` and one `problems` entry per problem (the same field `metadata_incomplete` uses), so every fix can be made in one pass:
+
+```json
+{
+  "error": "invalid_guide",
+  "message": "This bundle's guide does not follow the registry's guide format:\n  - metadata.guide: missing section '## Context model'\n  - metadata.guide: '## Procedures' has no '###' procedure",
+  "problems": [
+    "metadata.guide: missing section '## Context model'",
+    "metadata.guide: '## Procedures' has no '###' procedure"
+  ]
+}
+```
+
+The other entries are `metadata.guide: required`, `metadata.guide: must be a string`, and `metadata.guide: <n> bytes exceeds the 16384 byte limit`.
+The guide is the only check that answers `422`; the older manifest and metadata checks keep `400`, so clients that already branch on them are unaffected.
+
+The rule applies to versions published after it took effect.
+Versions already in the registry are never re-checked: they keep listing and downloading, and a metadata edit that leaves their guide unchanged is accepted.
+An edit that adds or changes a guide must satisfy the rule.
 
 ---
 
@@ -437,6 +480,7 @@ The whole `.mpk` rides along under a `_binary` field; `_`-prefixed keys are stri
 | Signature block is present at all                                                                              | `400 missing_signature` |
 | Signing key matches the package's signer. A key in `owners[]` is accepted too, but **do not use it**&nbsp;[^1] | `403 not_owner`         |
 | `package` and `appVersion` are present                                                                         | `400 invalid_manifest`  |
+| `metadata.guide` follows the [guide format](#writing-the-app-guide)                                            | `422 invalid_guide`     |
 
 `metadata.author` is set server-side from the publishing account and carried forward from the package's oldest version, so a manifest cannot set or change it.
 

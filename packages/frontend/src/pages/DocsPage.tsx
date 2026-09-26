@@ -882,12 +882,49 @@ icon = "app/public/icon-512.png"   # square PNG, >= 512x512
 category = "productivity"
 tags = ["crdt", "offline"]
 license = "MIT"
-frontend = "https://my-app.vercel.app"`}</CodeBlock>
+frontend = "https://my-app.vercel.app"
+guide = "GUIDE.md"                 # required for every new version`}</CodeBlock>
             <P>
               <Code>icon = "default"</Code> is a placeholder, not an icon. It
               resolves to a generic Calimero mark that is byte-identical for
               every app that sets it, and the registry rejects it by content
               hash — "the field is set" is not the check.
+            </P>
+
+            <SubHeading>The app guide</SubHeading>
+            <P>
+              Every new version, of a new or an existing package, carries a
+              guide: Markdown that tells an AI agent how to use the app without
+              reading its source. <Code>guide</Code> is a path relative to the{' '}
+              <Code>Cargo.toml</Code> that declares it, and{' '}
+              <Code>cargo mero new</Code> scaffolds a <Code>GUIDE.md</Code> with
+              the required sections.
+            </P>
+            <FieldList
+              width='w-44'
+              rows={[
+                [
+                  'Sections',
+                  'These ## headings, each as a whole line, in any order: Overview, Context model, Getting started, Procedures, Rules and limits. Other headings are allowed.',
+                ],
+                [
+                  'Procedures',
+                  'At least one ### heading under ## Procedures. Name each after the task an agent will be asked to do, not after a method.',
+                ],
+                ['Size', 'At most 16384 bytes of UTF-8.'],
+                [
+                  'Code fences',
+                  'Headings inside ``` fences do not count. ~~~ is not a fence.',
+                ],
+              ]}
+            />
+            <P>
+              <Code>cargo mero bundle</Code> embeds the file's text as{' '}
+              <Code>metadata.guide</Code>, and the registry validates it when
+              the bundle is uploaded. A guide that breaks a rule is rejected
+              with <Code>422 invalid_guide</Code>, and <Code>problems</Code>{' '}
+              lists every problem at once. Versions published before the rule
+              are never re-checked.
             </P>
           </div>
         </section>
@@ -963,6 +1000,10 @@ cargo mero publish dist/com.example.my-app-1.2.4.mpk`}</CodeBlock>
                 [
                   'Author',
                   'metadata.author is taken from your account on first publish and carried forward from the oldest version on every later one. A manifest cannot set it.',
+                ],
+                [
+                  'Guide',
+                  'Every new version must carry an app guide in the format under Required Metadata. Otherwise: 422 invalid_guide, with problems listing each one.',
                 ],
               ]}
             />
