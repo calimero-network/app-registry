@@ -60,7 +60,7 @@ function parseMultipart(req) {
         limits: { fileSize: 100 * 1024 * 1024 },
       });
     } catch (err) {
-      return reject(new Error('Invalid multipart request: ' + err.message));
+      return reject(new Error(`Invalid multipart request: ${err.message}`));
     }
 
     let found = false;

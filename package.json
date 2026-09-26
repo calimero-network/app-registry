@@ -15,8 +15,8 @@
     "test:backend": "pnpm --filter registry-backend test",
     "test:frontend": "pnpm --filter registry-frontend test",
     "test:cli": "pnpm --filter registry-cli test",
-    "lint": "pnpm --recursive lint",
-    "lint:fix": "pnpm --recursive lint:fix",
+    "lint": "pnpm --recursive lint && eslint api shared --max-warnings 0",
+    "lint:fix": "pnpm --recursive lint:fix && eslint api shared --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "type-check": "pnpm --recursive type-check",
@@ -60,6 +60,10 @@
   },
   "lint-staged": {
     "packages/backend/**/*.{js,jsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "{api,shared}/**/*.js": [
       "eslint --fix",
       "prettier --write"
     ],
