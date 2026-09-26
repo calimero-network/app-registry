@@ -11,7 +11,6 @@ type UploadErrorLike = {
     data?: {
       error?: string;
       message?: string;
-      /** metadata_incomplete and invalid_guide list every gap at once, so show them all. */
       problems?: string[];
       categories?: string[];
     };

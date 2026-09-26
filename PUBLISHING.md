@@ -48,6 +48,7 @@ A workspace that ships several wasm services declares them under `[workspace.met
 package = "network.calimero.mero-drive"
 name = "Mero Drive"
 icon = "assets/icon.png"
+guide = "GUIDE.md"                      # required, see "Writing the app guide" below
 
 [[workspace.metadata.calimero.services]]
 name = "drive"
@@ -69,9 +70,8 @@ Every new version ships a guide: Markdown that tells an AI agent how to use the 
 `guide` in the metadata table is a path relative to that `Cargo.toml`, and `cargo mero bundle` embeds the file's text as `metadata.guide`.
 `cargo mero new` scaffolds a `GUIDE.md` with the required sections.
 
-Both push endpoints check the guide.
-[`packages/backend/src/lib/app-guide.js`](packages/backend/src/lib/app-guide.js) is the authoritative definition of the rules; this list summarises it.
-The registry validates it when the bundle reaches `POST /api/v2/bundles/push` or the browser upload, not before:
+Both push endpoints check the guide when the bundle reaches `POST /api/v2/bundles/push` or the browser upload, not before.
+[`packages/backend/src/lib/app-guide.js`](packages/backend/src/lib/app-guide.js) is the authoritative definition of the rules; this list summarises it:
 
 - These level-2 headings are present, each as a whole line, in any order: `## Overview`, `## Context model`, `## Getting started`, `## Procedures`, `## Rules and limits`.
 - Other headings are allowed.
@@ -101,7 +101,7 @@ The guide is the only check that answers `422`; the older manifest and metadata 
 
 The rule applies to versions published after it took effect.
 Versions already in the registry are never re-checked: they keep listing and downloading, and a metadata edit that leaves their guide unchanged is accepted.
-An edit that adds or changes a guide must satisfy the rule.
+An edit that adds or changes a guide must satisfy the rule, but it only ever touches the registry's stored metadata: to change the guide agents read, publish a new version.
 
 ---
 

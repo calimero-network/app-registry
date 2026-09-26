@@ -853,11 +853,12 @@ media          planning       security       utilities   developer-tools`}</Code
             <SubHeading>Existing packages are not broken by this</SubHeading>
             <P>
               A package that already has a published version keeps publishing
-              even if it is missing something. The response carries a{' '}
-              <Code>warnings</Code> array naming each gap, so a release pipeline
-              can surface it without failing. Only a brand-new package is
-              rejected outright, with every problem listed at once rather than
-              one per attempt:
+              even if it is missing one of the fields above. The response
+              carries a <Code>warnings</Code> array naming each gap, so a
+              release pipeline can surface it without failing. Only a brand-new
+              package is rejected outright, with every problem listed at once
+              rather than one per attempt. The guide below is the exception:
+              every new version needs one, whatever the package's age.
             </P>
             <CodeBlock>{`{
   "error": "metadata_incomplete",
@@ -924,7 +925,9 @@ guide = "GUIDE.md"                 # required for every new version`}</CodeBlock
               the bundle is uploaded. A guide that breaks a rule is rejected
               with <Code>422 invalid_guide</Code>, and <Code>problems</Code>{' '}
               lists every problem at once. Versions published before the rule
-              are never re-checked.
+              are never re-checked, and an edit that leaves a stored guide
+              unchanged is not re-validated either, but an edit that adds or
+              changes a guide is checked the same way.
             </P>
           </div>
         </section>
