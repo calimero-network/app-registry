@@ -42,7 +42,7 @@ jest.mock('../../../api/lib/kv-client', () => ({
 const pushHandler = require('../../../api/v2/bundles/push');
 const listHandler = require('../../../api/v2/bundles/index');
 const { generateKeypair, signManifest } = require('./helpers/ed25519-helper');
-const { TEST_ICON } = require('./helpers/publishable');
+const { TEST_ICON, VALID_GUIDE } = require('./helpers/publishable');
 
 const PKG = 'com.example.signed-flow';
 
@@ -56,6 +56,7 @@ function manifest(appVersion) {
       description: 'A bundle used to exercise real signature verification.',
       category: 'developer-tools',
       icon: TEST_ICON,
+      guide: VALID_GUIDE,
     },
     wasm: { path: 'app.wasm', size: 100, hash: 'abc123' },
   };

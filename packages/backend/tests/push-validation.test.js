@@ -25,7 +25,7 @@ jest.mock('../../../api/lib/verify', () => ({
 
 // Import the handler
 const pushHandler = require('../../../api/v2/bundles/push');
-const { TEST_ICON } = require('./helpers/publishable');
+const { TEST_ICON, VALID_GUIDE } = require('./helpers/publishable');
 
 describe('Push Endpoint Validation', () => {
   let req;
@@ -86,6 +86,7 @@ describe('Push Endpoint Validation', () => {
           author: 'Test Author',
           category: 'developer-tools',
           icon: TEST_ICON,
+          guide: VALID_GUIDE,
         },
         wasm: { path: 'app.wasm', size: 100, hash: 'abc123' },
         signature: {

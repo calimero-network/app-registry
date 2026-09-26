@@ -18,6 +18,7 @@ const { BundleStorageKV } = require('./lib/bundle-storage-kv');
 const { createBundleSanitizers } = require('./lib/bundle-sanitize');
 const { buildBundleListing } = require('./lib/bundle-listing');
 const { validateBundleMetadata, CATEGORIES } = require('./lib/metadata-policy');
+const { guideRejection } = require('./lib/app-guide');
 const { kv } = require('./lib/kv-client');
 const {
   verifyManifest,
@@ -860,6 +861,9 @@ async function buildServer() {
         },
       };
     }
+
+    const rejected = guideRejection(bundleManifest);
+    if (rejected) throw rejected;
 
     // Server-stamped, never publisher-supplied: a declared size or release date
     // is unverifiable and drifts. Both are `_`-prefixed so `removeTransientFields`

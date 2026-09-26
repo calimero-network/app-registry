@@ -73,4 +73,21 @@ function validateGuide(guide) {
   return problems;
 }
 
-module.exports = { validateGuide };
+function rejection(problems) {
+  if (problems.length === 0) return null;
+  return {
+    statusCode: 422,
+    body: {
+      error: 'invalid_guide',
+      message: `This bundle's guide does not follow the registry's guide format:\n  - ${problems.join('\n  - ')}`,
+      problems,
+    },
+  };
+}
+
+/** Push: every new version must carry a valid guide. */
+function guideRejection(manifest) {
+  return rejection(validateGuide(manifest?.metadata?.guide));
+}
+
+module.exports = { validateGuide, guideRejection };
