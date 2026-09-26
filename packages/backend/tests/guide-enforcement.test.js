@@ -62,6 +62,9 @@ jest.mock('../../../api/lib/verify', () => ({
 
 const pushHandler = require('../../../api/v2/bundles/push');
 const pushFileHandler = require('../../../api/v2/bundles/push-file');
+const listHandler = require('../../../api/v2/bundles/index');
+const versionHandler = require('../../../api/v2/bundles/[package]/[version]');
+const artifactHandler = require('../../../api/artifacts/[package]/[version]/[filename]');
 const { buildServer } = require('../src/server');
 const { TEST_ICON, VALID_GUIDE } = require('./helpers/publishable');
 
@@ -220,5 +223,107 @@ describe.each(Object.entries(pushRoutes))('%s', (_route, push) => {
   test('publishes a version with a valid guide', async () => {
     const { statusCode } = await push(manifest({ guide: VALID_GUIDE }));
     expect(statusCode).toBe(201);
+  });
+});
+
+describe('versions stored before the guide rule', () => {
+  const LEGACY = 'com.example.legacy';
+  const legacyManifest = () => ({
+    ...manifest({ name: 'Legacy', author: 'alice' }),
+    package: LEGACY,
+  });
+
+  beforeEach(() => {
+    setFor('bundles:all').add(LEGACY);
+    setFor(`bundle-versions:${LEGACY}`).add('1.0.0');
+    store.set(
+      `bundle:${LEGACY}/1.0.0`,
+      JSON.stringify({
+        json: legacyManifest(),
+        created_at: '2026-01-01T00:00:00.000Z',
+      })
+    );
+    store.set(
+      `binary:${LEGACY}/1.0.0`,
+      Buffer.from('legacy-mpk').toString('hex')
+    );
+  });
+
+  test('still appear in the listing', async () => {
+    const { statusCode, body } = await callVercel(listHandler, {
+      method: 'GET',
+      query: {},
+      headers: {},
+    });
+    expect(statusCode).toBe(200);
+    expect(body.map(b => b.package)).toContain(LEGACY);
+  });
+
+  test('still download', async () => {
+    const { statusCode, body } = await callVercel(artifactHandler, {
+      method: 'GET',
+      query: { package: LEGACY, version: '1.0.0', filename: 'legacy.mpk' },
+      url: `/api/artifacts/${LEGACY}/1.0.0/legacy.mpk`,
+      headers: {},
+    });
+    expect(statusCode).toBe(200);
+    expect(body.toString()).toBe('legacy-mpk');
+  });
+
+  const patchRoutes = {
+    'Vercel PATCH': m =>
+      callVercel(versionHandler, {
+        method: 'PATCH',
+        query: { package: LEGACY, version: '1.0.0' },
+        headers: {},
+        body: m,
+      }),
+    'Fastify PATCH': m =>
+      callFastify({
+        method: 'PATCH',
+        url: `/api/v2/bundles/${LEGACY}/1.0.0`,
+        payload: m,
+      }),
+  };
+
+  describe.each(Object.entries(patchRoutes))('%s', (_route, patch) => {
+    test('edits metadata without adding a guide', async () => {
+      const edit = legacyManifest();
+      edit.metadata.name = 'Renamed';
+      expect((await patch(edit)).statusCode).toBe(200);
+    });
+
+    test('keeps an unchanged stored guide even if it breaks the rule', async () => {
+      const stored = legacyManifest();
+      stored.metadata.guide = '## Overview only';
+      store.set(
+        `bundle:${LEGACY}/1.0.0`,
+        JSON.stringify({ json: stored, created_at: '2026-01-01T00:00:00Z' })
+      );
+      const edit = legacyManifest();
+      edit.metadata.guide = '## Overview only';
+      edit.metadata.name = 'Renamed';
+      expect((await patch(edit)).statusCode).toBe(200);
+    });
+
+    test('rejects a guide the edit introduces when it breaks the rule', async () => {
+      const edit = legacyManifest();
+      edit.metadata.guide = VALID_GUIDE.replace('## Overview\n', '');
+      expect(await patch(edit)).toEqual({
+        statusCode: 422,
+        body: {
+          error: 'invalid_guide',
+          message:
+            "This bundle's guide does not follow the registry's guide format:\n  - metadata.guide: missing section '## Overview'",
+          problems: ["metadata.guide: missing section '## Overview'"],
+        },
+      });
+    });
+
+    test('accepts a valid guide the edit introduces', async () => {
+      const edit = legacyManifest();
+      edit.metadata.guide = VALID_GUIDE;
+      expect((await patch(edit)).statusCode).toBe(200);
+    });
   });
 });

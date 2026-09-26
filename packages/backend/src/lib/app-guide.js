@@ -90,4 +90,14 @@ function guideRejection(manifest) {
   return rejection(validateGuide(manifest?.metadata?.guide));
 }
 
-module.exports = { validateGuide, guideRejection };
+/**
+ * Edit: only a guide the edit changes is checked, so a stored version is never
+ * re-validated.
+ */
+function editedGuideRejection(incoming, existing) {
+  const guide = incoming?.metadata?.guide;
+  if (guide === undefined || guide === existing?.metadata?.guide) return null;
+  return rejection(validateGuide(guide));
+}
+
+module.exports = { validateGuide, guideRejection, editedGuideRejection };

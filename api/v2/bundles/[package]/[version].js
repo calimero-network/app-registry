@@ -11,6 +11,9 @@ const {
   validateBundleMetadata,
 } = require('@calimero-network/registry-backend/src/lib/metadata-policy');
 const {
+  editedGuideRejection,
+} = require('@calimero-network/registry-backend/src/lib/app-guide');
+const {
   validateBundleManifest,
 } = require('@calimero-network/registry-backend/src/lib/v2-utils');
 const {
@@ -149,6 +152,9 @@ async function handlePatch(req, res, pkg, version) {
       message: 'wasm (path, hash, size) cannot be changed via PATCH',
     });
   }
+
+  const rejected = editedGuideRejection(body, existing);
+  if (rejected) return res.status(rejected.statusCode).json(rejected.body);
 
   // PATCH edits metadata on an ALREADY PUBLISHED version, so this is by
   // definition not a new package: warn, never block. Blocking here would stop

@@ -18,7 +18,7 @@ const { BundleStorageKV } = require('./lib/bundle-storage-kv');
 const { createBundleSanitizers } = require('./lib/bundle-sanitize');
 const { buildBundleListing } = require('./lib/bundle-listing');
 const { validateBundleMetadata, CATEGORIES } = require('./lib/metadata-policy');
-const { guideRejection } = require('./lib/app-guide');
+const { guideRejection, editedGuideRejection } = require('./lib/app-guide');
 const { kv } = require('./lib/kv-client');
 const {
   verifyManifest,
@@ -485,6 +485,9 @@ async function buildServer() {
           message: 'Request body must be a JSON manifest object',
         });
       }
+
+      const rejected = editedGuideRejection(incoming, existing);
+      if (rejected) return reply.code(rejected.statusCode).send(rejected.body);
 
       // 2. Verify that the incoming manifest is signed and signature is valid
       const sig = normalizeSignature(incoming?.signature);
