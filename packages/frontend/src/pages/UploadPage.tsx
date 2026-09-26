@@ -11,7 +11,7 @@ type UploadErrorLike = {
     data?: {
       error?: string;
       message?: string;
-      /** metadata_incomplete lists every gap at once, so show them all. */
+      /** metadata_incomplete and invalid_guide list every gap at once, so show them all. */
       problems?: string[];
       categories?: string[];
     };
@@ -76,6 +76,14 @@ export default function UploadPage() {
           problems.length
             ? 'This bundle is missing metadata the registry requires of a new package.'
             : (responseMessage ?? 'Metadata is incomplete.')
+        );
+      } else if (code === 'invalid_guide') {
+        const problems = uploadErr?.response?.data?.problems ?? [];
+        setProblems(problems);
+        setError(
+          problems.length
+            ? "This bundle's guide does not follow the registry's guide format."
+            : (responseMessage ?? 'The guide is invalid.')
         );
       } else if (code === 'version_not_allowed') {
         clearSelectedFile();
