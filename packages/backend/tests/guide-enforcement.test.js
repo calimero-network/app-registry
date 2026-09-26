@@ -326,4 +326,23 @@ describe('versions stored before the guide rule', () => {
       expect((await patch(edit)).statusCode).toBe(200);
     });
   });
+
+  const ownershipMockByRoute = {
+    'Vercel PATCH': require('../../../api/lib/verify').isAllowedOwner,
+    'Fastify PATCH': require('../src/lib/verify').isAllowedOwner,
+  };
+
+  describe.each(Object.entries(patchRoutes))(
+    '%s: unauthorized caller carrying an invalid guide',
+    (route, patch) => {
+      test('gets the auth error, not 422', async () => {
+        ownershipMockByRoute[route].mockReturnValueOnce(false);
+        const edit = legacyManifest();
+        edit.metadata.guide = VALID_GUIDE.replace('## Overview\n', '');
+        const { statusCode, body } = await patch(edit);
+        expect(statusCode).toBe(403);
+        expect(body.error).toBe('not_owner');
+      });
+    }
+  );
 });

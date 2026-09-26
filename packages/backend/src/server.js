@@ -486,9 +486,6 @@ async function buildServer() {
         });
       }
 
-      const rejected = editedGuideRejection(incoming, existing);
-      if (rejected) return reply.code(rejected.statusCode).send(rejected.body);
-
       // 2. Verify that the incoming manifest is signed and signature is valid
       const sig = normalizeSignature(incoming?.signature);
       if (!sig) {
@@ -544,6 +541,9 @@ async function buildServer() {
           }
         }
       }
+
+      const rejected = editedGuideRejection(incoming, existing);
+      if (rejected) return reply.code(rejected.statusCode).send(rejected.body);
 
       // 5. Merge: preserve immutable artifact fields from stored manifest,
       //    update only mutable fields from the incoming manifest.
