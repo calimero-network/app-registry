@@ -320,13 +320,23 @@ describe('contract the desktop app depends on', () => {
 describe('metadata.guide', () => {
   // Guides can be up to 16 KB; listings return many packages at once, so the
   // strip lives in buildBundleListing while single-version reads keep it.
-  test('the browse listing omits it on both endpoints', async () => {
-    const vercel = await callVercel({});
-    const fastify = await callFastify('');
+  describe.each([
+    ['browse', {}, ''],
+    ['one package', { package: PKG }, `?package=${PKG}`],
+    [
+      'every version',
+      { package: PKG, all_versions: 'true' },
+      `?package=${PKG}&all_versions=true`,
+    ],
+  ])('the %s listing', (_name, query, qs) => {
+    test('omits it on both endpoints', async () => {
+      const vercel = await callVercel(query);
+      const fastify = await callFastify(qs);
 
-    const entry = r => r.body.find(b => b.package === PKG);
-    expect(entry(vercel).metadata).not.toHaveProperty('guide');
-    expect(entry(fastify).metadata).not.toHaveProperty('guide');
+      for (const bundle of [...vercel.body, ...fastify.body]) {
+        expect(bundle.metadata).not.toHaveProperty('guide');
+      }
+    });
   });
 
   test('a single-version list read keeps it on both endpoints', async () => {
