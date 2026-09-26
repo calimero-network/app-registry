@@ -37,6 +37,23 @@ async function publishRejectedWith(data: object) {
 }
 
 describe('UploadPage rejection messages', () => {
+  it('lists every metadata problem', async () => {
+    await publishRejectedWith({
+      error: 'metadata_incomplete',
+      message: 'unused when problems are listed',
+      problems: ['metadata.description: required'],
+    });
+
+    expect(
+      await screen.findByText(
+        'This bundle is missing metadata the registry requires of a new package.'
+      )
+    ).toBeTruthy();
+    expect(
+      screen.getAllByRole('listitem').map(item => item.textContent)
+    ).toEqual(['metadata.description: required']);
+  });
+
   it('lists every guide problem', async () => {
     await publishRejectedWith({
       error: 'invalid_guide',
