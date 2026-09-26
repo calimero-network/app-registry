@@ -346,3 +346,69 @@ describe('versions stored before the guide rule', () => {
     }
   );
 });
+
+describe('a version stored with a valid guide', () => {
+  const GUIDED = 'com.example.guided-stored';
+  const storedManifest = () => ({
+    ...manifest({ name: 'Guided', author: 'alice', guide: VALID_GUIDE }),
+    package: GUIDED,
+  });
+
+  beforeEach(() => {
+    setFor('bundles:all').add(GUIDED);
+    setFor(`bundle-versions:${GUIDED}`).add('1.0.0');
+    store.set(
+      `bundle:${GUIDED}/1.0.0`,
+      JSON.stringify({
+        json: storedManifest(),
+        created_at: '2026-01-01T00:00:00.000Z',
+      })
+    );
+    store.set(
+      `binary:${GUIDED}/1.0.0`,
+      Buffer.from('guided-mpk').toString('hex')
+    );
+  });
+
+  const patchRoutes = {
+    'Vercel PATCH': m =>
+      callVercel(versionHandler, {
+        method: 'PATCH',
+        query: { package: GUIDED, version: '1.0.0' },
+        headers: {},
+        body: m,
+      }),
+    'Fastify PATCH': m =>
+      callFastify({
+        method: 'PATCH',
+        url: `/api/v2/bundles/${GUIDED}/1.0.0`,
+        payload: m,
+      }),
+  };
+
+  describe.each(Object.entries(patchRoutes))('%s', (_route, patch) => {
+    test('rejects an edit whose metadata omits the stored guide', async () => {
+      const edit = storedManifest();
+      delete edit.metadata.guide;
+      expect(await patch(edit)).toEqual({
+        statusCode: 422,
+        body: MISSING_GUIDE,
+      });
+      const stillStored = JSON.parse(store.get(`bundle:${GUIDED}/1.0.0`));
+      expect(stillStored.json.metadata.guide).toBe(VALID_GUIDE);
+    });
+  });
+
+  test('Fastify PATCH: a body with no metadata field at all keeps the stored guide', async () => {
+    const edit = storedManifest();
+    delete edit.metadata;
+    const { statusCode } = await callFastify({
+      method: 'PATCH',
+      url: `/api/v2/bundles/${GUIDED}/1.0.0`,
+      payload: edit,
+    });
+    expect(statusCode).toBe(200);
+    const stillStored = JSON.parse(store.get(`bundle:${GUIDED}/1.0.0`));
+    expect(stillStored.json.metadata.guide).toBe(VALID_GUIDE);
+  });
+});
