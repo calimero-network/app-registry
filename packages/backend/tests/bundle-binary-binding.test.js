@@ -100,6 +100,17 @@ describe('assertBinaryMatchesManifest', () => {
     ).resolves.toBeUndefined();
   });
 
+  test('accepts metadata the publish route stamped after signing', async () => {
+    const signed = manifestFor(WASM);
+    const stamped = {
+      ...signed,
+      metadata: { ...signed.metadata, author: 'alice', _ownerEmail: 'a@x.io' },
+    };
+    await expect(
+      assertBinaryMatchesManifest(bundleOf(signed, WASM), stamped)
+    ).resolves.toBeUndefined();
+  });
+
   test('rejects wasm that does not hash to the signed value', async () => {
     const manifest = manifestFor(WASM);
     await expect(

@@ -83,9 +83,16 @@ async function assertBinaryMatchesManifest(buffer, manifest) {
   } catch {
     throw new Error('Bundle manifest.json is not valid JSON');
   }
-  const sameContent =
-    canonicalizeJSON(removeTransientFields(innerManifest)) ===
-    canonicalizeJSON(removeTransientFields(manifest));
+  // `metadata` is left out: the publish routes stamp author and owner into it
+  // after the signature is checked, and the node reads display metadata from
+  // the archive anyway. Everything that decides what runs is compared, and the
+  // artifact hashes below bind the bytes.
+  const comparable = m => {
+    const out = removeTransientFields(m);
+    delete out.metadata;
+    return canonicalizeJSON(out);
+  };
+  const sameContent = comparable(innerManifest) === comparable(manifest);
   const sameSignature =
     innerManifest?.signature?.signature === manifest?.signature?.signature;
   if (!sameContent || !sameSignature) {
