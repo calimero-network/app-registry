@@ -6,6 +6,7 @@
 
 const { kv } = require('./kv-client');
 const blob = require('./blob-store');
+const { assertBinaryMatchesManifest } = require('./bundle-binary');
 const semver = require('semver');
 
 /**
@@ -165,15 +166,32 @@ class BundleStorageKV {
       }
     }
 
+    const bundleKey = `bundle:${key}`;
+    const alreadyExists = () =>
+      new Error(
+        `Bundle ${manifest.package}@${manifest.appVersion} already exists. First-come-first-serve policy.`
+      );
+
     // Upload the binary to GCS BEFORE writing the manifest, so a manifest can
     // never exist in Redis without its blob in the bucket. If the upload throws,
-    // we bail out here and nothing is written. (Re-uploading the same
-    // package@version is idempotent — identical, immutable bytes to the same key.)
+    // we bail out here and nothing is written.
+    //
+    // `_binary` is not covered by the signature, so it is first bound to the
+    // manifest through the artifact hashes the signature does cover.
     if (_binary) {
-      await blob.putBinary(key, Buffer.from(_binary, 'hex'));
+      const bytes = Buffer.from(_binary, 'hex');
+      await assertBinaryMatchesManifest(bytes, manifestJson);
+      try {
+        await blob.putBinary(key, bytes, { overwrite });
+      } catch (err) {
+        if (!blob.isPreconditionFailed(err)) throw err;
+        // The object exists: a published version (setNX below refuses it), or
+        // what a push that died between these two writes left behind. Either
+        // way only the very same bytes may go on; anything else is refused.
+        const existing = await blob.getBinary(key);
+        if (!existing || !existing.equals(bytes)) throw alreadyExists();
+      }
     }
-
-    const bundleKey = `bundle:${key}`;
 
     if (overwrite) {
       // Direct set - will overwrite
@@ -186,9 +204,7 @@ class BundleStorageKV {
       // Handle both boolean (node-redis v4+) and integer (legacy) return types
       if (!wasSet || wasSet === 0) {
         // Key already exists - first-come-first-serve policy
-        throw new Error(
-          `Bundle ${manifest.package}@${manifest.appVersion} already exists. First-come-first-serve policy.`
-        );
+        throw alreadyExists();
       }
     }
 

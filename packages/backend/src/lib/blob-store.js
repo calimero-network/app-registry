@@ -60,11 +60,25 @@ const objectKey = pkgVersionKey => `${prefix()}/${pkgVersionKey}.mpk`;
 const isNotFound = err =>
   err?.code === 404 || err?.code === '404' || err?.status === 404;
 
-async function putBinary(pkgVersionKey, buffer) {
+/**
+ * Write a bundle's bytes. Create-only unless `overwrite`: the bucket itself
+ * refuses to replace an existing object (`ifGenerationMatch: 0`), so no
+ * check-then-write race in a caller can swap the bytes of a published version.
+ * A refused write throws with `code === 412`.
+ */
+async function putBinary(pkgVersionKey, buffer, { overwrite = false } = {}) {
   await getBucket()
     .file(objectKey(pkgVersionKey))
-    .save(buffer, { contentType: 'application/gzip', resumable: false });
+    .save(buffer, {
+      contentType: 'application/gzip',
+      resumable: false,
+      ...(overwrite ? {} : { preconditionOpts: { ifGenerationMatch: 0 } }),
+    });
 }
+
+/** True when a GCS error is a failed write precondition (object exists). */
+const isPreconditionFailed = err =>
+  err?.code === 412 || err?.code === '412' || err?.status === 412;
 
 async function getBinary(pkgVersionKey) {
   // returns Buffer | null
@@ -102,6 +116,7 @@ module.exports = {
   putBinary,
   getBinary,
   deleteBinary,
+  isPreconditionFailed,
   objectKey,
   _resetForTests,
 };

@@ -157,6 +157,11 @@ async function handlePatch(req, res, pkg, version) {
   // or swap in a placeholder icon after the fact.
   const policy = validateBundleMetadata(body, { isNewPackage: false });
 
+  // PATCH edits a manifest, never the published bytes: `storeBundleManifest`
+  // with overwrite would otherwise replace the stored bundle with any
+  // `_binary` the body carries.
+  delete body._binary;
+
   try {
     await store.storeBundleManifest(body, true);
     return res.status(200).json({
