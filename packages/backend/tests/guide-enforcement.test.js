@@ -206,6 +206,20 @@ describe.each(Object.entries(pushRoutes))('%s', (_route, push) => {
     });
   });
 
+  test('rejects a null guide the same as a missing one', async () => {
+    expect(await push(manifest({ guide: null }))).toEqual({
+      statusCode: 422,
+      body: MISSING_GUIDE,
+    });
+  });
+
+  test('rejects a non-string guide with the specific problem', async () => {
+    const { statusCode, body } = await push(manifest({ guide: 42 }));
+    expect(statusCode).toBe(422);
+    expect(body.error).toBe('invalid_guide');
+    expect(body.problems).toEqual(['metadata.guide: must be a string']);
+  });
+
   test('lists every guide problem', async () => {
     const guide = VALID_GUIDE.replace('## Overview\n', '').replace(
       '### Increment the counter\n',
