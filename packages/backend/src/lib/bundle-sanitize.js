@@ -134,6 +134,8 @@ function createBundleSanitizers(kv, review) {
       const hadAdminVerified = !!meta._adminVerified;
       delete meta._ownerEmail;
       delete meta._adminVerified;
+      // Guides are large; the detail endpoints and the signed .mpk carry them.
+      delete meta.guide;
       return {
         bundle,
         packageName,

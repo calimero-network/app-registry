@@ -70,12 +70,25 @@ jest.mock('../../../api/lib/kv-client', () => ({
   isDevelopment: true,
   isProduction: false,
 }));
+// The Vercel version-detail handler opens its own Redis client when
+// REDIS_URL is set, so it needs to be routed at the same in-memory store.
+jest.mock('redis', () => ({
+  createClient: () => ({
+    on() {},
+    connect: async () => {},
+    get: async k => mockKv.get(k),
+  }),
+}));
+process.env.REDIS_URL = 'redis://bundle-listing-parity-test';
 
 const vercelHandler = require('../../../api/v2/bundles/index');
+const detailHandler = require('../../../api/v2/bundles/[package]/[version]');
+const packageDetailHandler = require('../../../api/v2/packages/[package]/index');
 const { buildServer } = require('../src/server');
 
 const PKG = 'com.example.app';
 const VERSIONS = ['1.0.0', '1.2.0', '1.10.0'];
+const GUIDE = '## Overview\nA guided app.';
 
 function seed() {
   store.clear();
@@ -91,7 +104,7 @@ function seed() {
         json: {
           package: PKG,
           appVersion: version,
-          metadata: { author: 'alice' },
+          metadata: { author: 'alice', guide: GUIDE },
           signature: { pubkey: 'pk-alice' },
         },
         created_at: '2026-01-01T00:00:00.000Z',
@@ -138,6 +151,30 @@ async function callVercel(query) {
   return res;
 }
 
+/** Invoke a Vercel-style handler other than the listing one. */
+async function callVercelHandler(handler, query) {
+  const res = {
+    statusCode: null,
+    body: undefined,
+    status(c) {
+      this.statusCode = c;
+      return this;
+    },
+    json(p) {
+      this.body = p;
+      return this;
+    },
+    end() {
+      return this;
+    },
+    setHeader() {
+      return this;
+    },
+  };
+  await handler({ method: 'GET', query, headers: {} }, res);
+  return res;
+}
+
 let server;
 
 beforeAll(async () => {
@@ -145,6 +182,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  delete process.env.REDIS_URL;
   if (server) await server.close();
 });
 
@@ -276,6 +314,56 @@ describe('contract the desktop app depends on', () => {
       const installable = res.body.filter(b => b.yanked !== true);
       expect(installable.map(b => b.appVersion)).toEqual(['1.10.0', '1.0.0']);
     }
+  });
+});
+
+describe('metadata.guide', () => {
+  // Guides can be up to 16 KB; listings return many packages at once, so the
+  // strip lives in buildBundleListing while single-version reads keep it.
+  describe.each([
+    ['browse', {}, ''],
+    ['one package', { package: PKG }, `?package=${PKG}`],
+    [
+      'every version',
+      { package: PKG, all_versions: 'true' },
+      `?package=${PKG}&all_versions=true`,
+    ],
+  ])('the %s listing', (_name, query, qs) => {
+    test('omits it on both endpoints', async () => {
+      const vercel = await callVercel(query);
+      const fastify = await callFastify(qs);
+
+      for (const bundle of [...vercel.body, ...fastify.body]) {
+        expect(bundle.metadata).not.toHaveProperty('guide');
+      }
+    });
+  });
+
+  test('a single-version list read keeps it on both endpoints', async () => {
+    const vercel = await callVercel({ package: PKG, version: '1.0.0' });
+    const fastify = await callFastify(`?package=${PKG}&version=1.0.0`);
+
+    expect(vercel.body[0].metadata.guide).toBe(GUIDE);
+    expect(fastify.body[0].metadata.guide).toBe(GUIDE);
+  });
+
+  test('the version detail route keeps it on both endpoints', async () => {
+    const vercel = await callVercelHandler(detailHandler, {
+      package: PKG,
+      version: '1.0.0',
+    });
+    const fastify = await callFastify(`/${PKG}/1.0.0`);
+
+    expect(vercel.body.metadata.guide).toBe(GUIDE);
+    expect(fastify.body.metadata.guide).toBe(GUIDE);
+  });
+
+  test('the package detail route keeps it', async () => {
+    const vercel = await callVercelHandler(packageDetailHandler, {
+      package: PKG,
+      version: '1.0.0',
+    });
+    expect(vercel.body.metadata.guide).toBe(GUIDE);
   });
 });
 
