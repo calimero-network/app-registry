@@ -34,6 +34,9 @@ const { isBot } = require('#api-lib/admin-storage');
 const {
   autolinkBotPackage,
 } = require('@calimero-network/registry-shared/bot-autolink');
+const {
+  stripServerMetadata,
+} = require('@calimero-network/registry-shared/server-metadata');
 
 // Disable Vercel's default body parser so we can handle multipart ourselves
 module.exports.config = {
@@ -181,23 +184,28 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // Resolve user from session cookie or bearer token
+    // Publishing needs an account (session cookie or bearer token): author
+    // and owner are taken from it, never from the manifest. resolveUser, not
+    // requireAuth, because bot accounts may publish.
     const user = await resolveUser(req);
+    if (!user?.email) {
+      return res.status(401).json({
+        error: 'unauthorized',
+        message:
+          'Login required or provide an API token (Authorization: Bearer <token>)',
+      });
+    }
 
     // Look up username so we never store emails as the public author
-    let displayAuthor = null;
-    let ownerEmail = null;
-    if (user?.email) {
-      ownerEmail = user.email;
-      const profile = await getUserByEmail(user.email);
-      displayAuthor = profile?.username || user.email;
-    }
+    const ownerEmail = user.email;
+    const profile = await getUserByEmail(user.email);
+    const displayAuthor = profile?.username || user.email;
 
     const store = getStorage();
     const incomingKey = getPublicKeyFromManifest(bundleManifest);
     const versions = await store.getBundleVersions(bundleManifest.package);
 
-    bundleManifest.metadata = bundleManifest.metadata || {};
+    bundleManifest.metadata = stripServerMetadata(bundleManifest.metadata);
 
     if (versions.length > 0) {
       // Preserve author from oldest version (locked to first publisher)

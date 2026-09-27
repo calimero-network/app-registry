@@ -38,6 +38,10 @@ const {
   autolinkBotPackage,
 } = require('@calimero-network/registry-shared/bot-autolink');
 const {
+  stripServerMetadata,
+  keepServerMetadata,
+} = require('@calimero-network/registry-shared/server-metadata');
+const {
   manifestOwnedByUser,
   createPackagePermissions,
   NOT_OWNER_MESSAGE,
@@ -547,7 +551,7 @@ async function buildServer() {
       //    from the Google session at publish time and cannot be removed or
       //    changed via edit.
       const mergedMetadata = incoming.metadata
-        ? { ...incoming.metadata, author: existing.metadata?.author }
+        ? keepServerMetadata(incoming.metadata, existing.metadata)
         : existing.metadata;
       const updated = {
         ...existing,
@@ -771,6 +775,17 @@ async function buildServer() {
         },
       };
     }
+    // Author and owner come from the account, never from the manifest.
+    if (!userEmail) {
+      throw {
+        statusCode: 401,
+        body: {
+          error: 'unauthorized',
+          message:
+            'Login required or provide an API token (Authorization: Bearer <token>)',
+        },
+      };
+    }
     const incomingKey = getPublicKeyFromManifest(bundleManifest);
     const versions = await bundleStorage.getBundleVersions(
       bundleManifest.package
@@ -778,7 +793,7 @@ async function buildServer() {
     // Set or preserve author: only set from session when creating a new package; never overwrite on new version.
     // Author is locked from the oldest (first) version, not the latest.
     // We store: metadata.author = username (display), metadata._ownerEmail = email (ownership checks).
-    bundleManifest.metadata = bundleManifest.metadata || {};
+    bundleManifest.metadata = stripServerMetadata(bundleManifest.metadata);
     const displayAuthor = username || userEmail; // prefer username, fall back to email
     if (versions.length > 0) {
       const oldestVersion = versions[versions.length - 1];

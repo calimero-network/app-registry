@@ -24,6 +24,9 @@ const {
   NOT_OWNER_MESSAGE,
 } = require('#api-lib/auth-helpers');
 const { kv } = require('#api-lib/kv-client');
+const {
+  keepServerMetadata,
+} = require('@calimero-network/registry-shared/server-metadata');
 
 let storage;
 function getStorage() {
@@ -156,6 +159,10 @@ async function handlePatch(req, res, pkg, version) {
   // icon. It still matters, because PATCH is a way to *remove* a description
   // or swap in a placeholder icon after the fact.
   const policy = validateBundleMetadata(body, { isNewPackage: false });
+
+  // Author, owner and approval stay what the server recorded; an edit only
+  // changes what the publisher owns.
+  body.metadata = keepServerMetadata(body.metadata, existing.metadata);
 
   try {
     await store.storeBundleManifest(body, true);

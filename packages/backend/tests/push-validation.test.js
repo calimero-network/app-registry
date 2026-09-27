@@ -23,6 +23,14 @@ jest.mock('../../../api/lib/verify', () => ({
   normalizeSignature: jest.fn(sig => sig || null),
 }));
 
+// Publishing needs an account; who it is does not matter here.
+jest.mock('../../../api/lib/auth-helpers', () => ({
+  resolveUser: jest.fn().mockResolvedValue({ email: 'dev@example.com' }),
+}));
+jest.mock('../../../api/lib/user-storage', () => ({
+  getUserByEmail: jest.fn().mockResolvedValue({ username: 'dev' }),
+}));
+
 // Import the handler
 const pushHandler = require('../../../api/v2/bundles/push');
 const { TEST_ICON } = require('./helpers/publishable');

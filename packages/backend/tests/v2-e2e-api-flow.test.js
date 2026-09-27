@@ -88,7 +88,14 @@ async function call(handler, req) {
   return { statusCode: res.statusCode, body: res.body };
 }
 
-const push = body => call(pushHandler, { method: 'POST', body });
+const PUBLISHER = 'dev@example.com';
+const TOKEN = 'tok-dev';
+
+const push = (body, headers = { authorization: `Bearer ${TOKEN}` }) =>
+  call(pushHandler, { method: 'POST', body, headers });
+
+const stored = async version =>
+  JSON.parse(await mockKv.get(`bundle:${PKG}/${version}`)).json;
 
 let owner;
 
@@ -99,6 +106,12 @@ beforeAll(async () => {
 beforeEach(() => {
   store.clear();
   sets.clear();
+  store.set(`email2user:${PUBLISHER}`, 'id-dev');
+  store.set(
+    'user:id-dev',
+    JSON.stringify({ id: 'id-dev', email: PUBLISHER, username: 'dev' })
+  );
+  store.set(`apitoken:${TOKEN}`, JSON.stringify({ email: PUBLISHER }));
 });
 
 describe('publishing with a real signature', () => {
@@ -139,5 +152,37 @@ describe('publishing with a real signature', () => {
     const taken = await push(await signManifest(manifest('1.2.0'), intruder));
     expect(taken.statusCode).toBe(403);
     expect(taken.body.error).toBe('not_owner');
+  });
+});
+
+describe('author, owner and approval come from the account', () => {
+  test('a publish without an account is refused', async () => {
+    const pushed = await push(await signManifest(manifest('1.0.0'), owner), {});
+    expect(pushed.statusCode).toBe(401);
+    expect(store.has(`bundle:${PKG}/1.0.0`)).toBe(false);
+  });
+
+  test('server-only metadata in a signed manifest is replaced', async () => {
+    const m = manifest('1.0.0');
+    m.metadata = {
+      ...m.metadata,
+      author: 'calimero-network',
+      _ownerEmail: 'someone@calimero.network',
+      _adminVerified: true,
+    };
+    const pushed = await push(await signManifest(m, owner));
+    expect(pushed.statusCode).toBe(201);
+
+    const json = await stored('1.0.0');
+    expect(json.metadata.author).toBe('dev');
+    expect(json.metadata._ownerEmail).toBe(PUBLISHER);
+    expect(json.metadata._adminVerified).toBeUndefined();
+
+    const listed = await call(listHandler, {
+      method: 'GET',
+      query: { package: PKG },
+    });
+    expect(listed.body[0].verified).toBe(false);
+    expect(listed.body[0].publisherVerified).toBe(false);
   });
 });

@@ -24,6 +24,9 @@ const { getPkg2Org, setPkg2Org } = require('#api-lib/org-storage');
 const {
   autolinkBotPackage,
 } = require('@calimero-network/registry-shared/bot-autolink');
+const {
+  stripServerMetadata,
+} = require('@calimero-network/registry-shared/server-metadata');
 
 // Singleton storage instance
 let storage;
@@ -86,20 +89,25 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // Resolve user (Bearer token for CLI, session cookie for web) to get username
+    // Publishing needs an account (Bearer token for CLI, session cookie for
+    // web): author and owner are taken from it, never from the manifest.
+    // resolveUser, not requireAuth, because bot accounts may publish.
     const user = await resolveUser(req);
-    let displayAuthor = null;
-    let ownerEmail = null;
-    if (user?.email) {
-      ownerEmail = user.email;
-      const profile = await getUserByEmail(user.email);
-      displayAuthor = profile?.username || user.email;
+    if (!user?.email) {
+      return res.status(401).json({
+        error: 'unauthorized',
+        message:
+          'Login required or provide an API token (Authorization: Bearer <token>)',
+      });
     }
+    const ownerEmail = user.email;
+    const profile = await getUserByEmail(user.email);
+    const displayAuthor = profile?.username || user.email;
 
     // Ownership: same package must be published by the same key or by a key in owners[]
     const incomingKey = getPublicKeyFromManifest(bundleManifest);
     const versions = await store.getBundleVersions(bundleManifest.package);
-    bundleManifest.metadata = bundleManifest.metadata || {};
+    bundleManifest.metadata = stripServerMetadata(bundleManifest.metadata);
 
     if (versions.length > 0) {
       const latestVersion = versions[0];
