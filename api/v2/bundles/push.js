@@ -17,9 +17,10 @@ const {
   isAllowedOwner,
   normalizeSignature,
 } = require('#api-lib/verify');
-const { resolveUser, LOGIN_REQUIRED } = require('#api-lib/auth-helpers');
+const { resolveUser } = require('#api-lib/auth-helpers');
 const { getUserByEmail } = require('#api-lib/user-storage');
 const { isBot } = require('#api-lib/admin-storage');
+const { LOGIN_REQUIRED } = require('#api-lib/auth-helpers');
 const { getPkg2Org, setPkg2Org } = require('#api-lib/org-storage');
 const {
   autolinkBotPackage,
