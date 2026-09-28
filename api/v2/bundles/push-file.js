@@ -217,7 +217,12 @@ module.exports = async function handler(req, res) {
     // Look up username so we never store emails as the public author
     const ownerEmail = user.email;
     const profile = await getUserByEmail(user.email);
-    const displayAuthor = profile?.username || user.email;
+    // Privacy: never fall back to the email for the public `author` — it is
+    // rendered on cards, the detail page and /developers/<author>. A user with
+    // no username publishes with no public author (null); the email stays in
+    // `_ownerEmail` for ownership only. `author` is optional in the metadata
+    // policy, so null does not block the publish.
+    const displayAuthor = profile?.username || null;
 
     const store = getStorage();
 
@@ -280,8 +285,10 @@ module.exports = async function handler(req, res) {
         bundleManifest.metadata.author = existingAuthor;
         bundleManifest.metadata._ownerEmail =
           manifestOldest?.metadata?._ownerEmail || existingAuthor;
-      } else if (displayAuthor) {
-        bundleManifest.metadata.author = displayAuthor;
+      } else if (ownerEmail) {
+        // Public author is the username only; the email is kept privately in
+        // _ownerEmail for ownership checks and is never promoted to `author`.
+        if (displayAuthor) bundleManifest.metadata.author = displayAuthor;
         bundleManifest.metadata._ownerEmail = ownerEmail;
       }
 
@@ -316,9 +323,10 @@ module.exports = async function handler(req, res) {
           message: `New version (${incoming}) must be greater than latest (${latestVersion}).`,
         });
       }
-    } else if (displayAuthor) {
-      // New package — set author to username, store email privately
-      bundleManifest.metadata.author = displayAuthor;
+    } else if (ownerEmail) {
+      // New package — public author is the username (or nothing when the user
+      // has not set one); the email stays private in _ownerEmail.
+      if (displayAuthor) bundleManifest.metadata.author = displayAuthor;
       bundleManifest.metadata._ownerEmail = ownerEmail;
     }
 

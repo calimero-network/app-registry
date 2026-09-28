@@ -24,7 +24,7 @@ const {
 } = require('../lib/org-storage');
 const { verifySessionToken, verifyApiToken } = require('../lib/auth');
 const { getUserByEmail, getUserByUsername } = require('../lib/user-storage');
-const { isBlacklisted, isBot } = require('../lib/admin-storage');
+const { isBlacklisted, isBot, isAdmin } = require('../lib/admin-storage');
 const { BundleStorageKV } = require('../lib/bundle-storage-kv');
 const config = require('../config');
 
@@ -46,6 +46,22 @@ async function getSessionUser(request) {
   } catch {
     return null;
   }
+}
+
+/**
+ * Resolve the current user without gating — used by the public read routes that
+ * tailor what they expose (e.g. member emails) to who is asking, and must not
+ * 401 an anonymous caller. Returns { email } or null.
+ */
+async function resolveOptionalUser(request) {
+  const sessionUser = await getSessionUser(request);
+  if (sessionUser?.email) return { email: sessionUser.email };
+  const auth = request.headers?.['authorization'];
+  if (typeof auth === 'string' && auth.startsWith('Bearer ')) {
+    const tokenData = await verifyApiToken(auth.slice(7));
+    if (tokenData?.email) return { email: tokenData.email };
+  }
+  return null;
 }
 
 /**
@@ -174,7 +190,7 @@ async function countOrgOwners(orgId) {
 const SLUG_REGEX = /^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$/;
 
 async function orgRoutes(server) {
-  // GET /api/v2/orgs?member=<email> — list orgs the member belongs to (no auth)
+  // GET /api/v2/orgs?member=<email> — list orgs the member belongs to (auth: self or admin)
   // GET /api/v2/orgs?package=<name>  — get single org that owns a package (no auth)
   server.get('/api/v2/orgs', async (request, reply) => {
     const pkg = request.query?.package;
@@ -193,6 +209,21 @@ async function orgRoutes(server) {
       return reply.code(400).send({
         error: 'bad_request',
         message: 'Query member must be a valid email address',
+      });
+    }
+    // Privacy: this was an unauthenticated oracle for which orgs any email
+    // belongs to. Require auth and only let a caller look up their own email
+    // (case-insensitive), unless they are a site admin. Mirrors the Vercel
+    // handler.
+    const caller = await requireAuth(request, reply);
+    if (!caller) return;
+    if (
+      caller.email.toLowerCase() !== email.toLowerCase() &&
+      !(await isAdmin(caller.email))
+    ) {
+      return reply.code(403).send({
+        error: 'forbidden',
+        message: 'You may only look up organizations for your own account',
       });
     }
     const orgs = await getOrgsByMember(email);
@@ -523,12 +554,20 @@ async function orgRoutes(server) {
       });
     }
     const emails = await getOrgMembers(orgId);
+    // Privacy: member emails are personal data. Expose them only to a member of
+    // this org (any role) or a site admin; anonymous and outside callers get the
+    // public shape (username/role/verified/isBot). Mirrors the Vercel handler.
+    const caller = await resolveOptionalUser(request);
+    const canSeeEmail =
+      !!caller?.email &&
+      (!!(await getOrgMemberRole(orgId, caller.email)) ||
+        (await isAdmin(caller.email)));
     const members = await Promise.all(
       emails.map(async email => {
         const role = await getOrgMemberRole(orgId, email);
         const profile = await getUserByEmail(email);
         return {
-          email, // kept for internal auth checks (not displayed in UI)
+          ...(canSeeEmail ? { email } : {}),
           username: profile?.username ?? null,
           verified: profile?.verified ?? email.endsWith('@calimero.network'),
           role: role || 'member',

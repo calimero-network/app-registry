@@ -25,6 +25,9 @@ const {
   NOT_OWNER_MESSAGE,
 } = require('#api-lib/auth-helpers');
 const { kv } = require('#api-lib/kv-client');
+const {
+  createBundleSanitizers,
+} = require('@calimero-network/registry-backend/src/lib/bundle-sanitize');
 
 let storage;
 function getStorage() {
@@ -288,14 +291,12 @@ module.exports = async function handler(req, res) {
     });
   }
 
-  // Ensure bundle includes minRuntimeVersion (default for legacy bundles)
-  const normalizeBundle = bundle => {
-    if (!bundle || typeof bundle !== 'object') return bundle;
-    const v = bundle.min_runtime_version;
-    const min_runtime_version =
-      v != null && String(v).trim() ? String(v).trim() : '0.1.0';
-    return { ...bundle, min_runtime_version };
-  };
+  // Privacy: the raw manifest carries internal `_`-prefixed metadata
+  // (notably `metadata._ownerEmail`). Run it through the shared sanitizer —
+  // the same one the listing endpoint and the Fastify detail route use — so
+  // this response strips those fields, normalizes min_runtime_version and
+  // computes the verification signals in one place.
+  const { sanitizeBundle } = createBundleSanitizers(kv);
 
   try {
     const data = await readKv.get(`bundle:${pkg}/${version}`);
@@ -305,8 +306,9 @@ module.exports = async function handler(req, res) {
       `downloads:${(pkg || '').toLowerCase()}`
     );
     const downloads = downloadCount ? parseInt(downloadCount, 10) : 0;
+    const sanitized = await sanitizeBundle(raw, pkg);
     return res.status(200).json({
-      ...normalizeBundle(raw),
+      ...sanitized,
       downloads,
     });
   } catch (error) {

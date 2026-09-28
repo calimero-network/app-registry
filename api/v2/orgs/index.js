@@ -12,6 +12,7 @@ const {
   addOrgMember,
 } = require('#api-lib/org-storage');
 const { requireAuth } = require('#api-lib/auth-helpers');
+const { isAdmin } = require('#api-lib/admin-storage');
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const SLUG_REGEX = /^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$/;
@@ -47,6 +48,20 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({
         error: 'bad_request',
         message: 'Query member must be a valid email address',
+      });
+    }
+    // Privacy: this was an unauthenticated oracle for which orgs any email
+    // belongs to. Require auth and only let a caller look up their own email
+    // (case-insensitive), unless they are a site admin.
+    const caller = await requireAuth(req, res);
+    if (!caller) return;
+    if (
+      caller.email.toLowerCase() !== email.toLowerCase() &&
+      !(await isAdmin(caller.email))
+    ) {
+      return res.status(403).json({
+        error: 'forbidden',
+        message: 'You may only look up organizations for your own account',
       });
     }
     try {
