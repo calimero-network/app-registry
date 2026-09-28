@@ -6,6 +6,10 @@
 
 const { kv } = require('./kv-client');
 const blob = require('./blob-store');
+const {
+  verifyBundleBinary,
+  BundleIntegrityError,
+} = require('./bundle-integrity');
 const semver = require('semver');
 
 /**
@@ -175,15 +179,48 @@ class BundleStorageKV {
       }
     }
 
-    // Upload the binary to GCS BEFORE writing the manifest, so a manifest can
-    // never exist in Redis without its blob in the bucket. If the upload throws,
-    // we bail out here and nothing is written. (Re-uploading the same
-    // package@version is idempotent — identical, immutable bytes to the same key.)
-    if (_binary) {
-      await blob.putBinary(key, Buffer.from(_binary, 'hex'));
+    const bundleKey = `bundle:${key}`;
+    const alreadyExists = () =>
+      new Error(
+        `Bundle ${manifest.package}@${manifest.appVersion} already exists. First-come-first-serve policy.`
+      );
+
+    // The signature does not cover `_binary`, so a replayed public manifest
+    // can carry any bytes. Refuse any archive that is not exactly the bundle
+    // the manifest signed, before anything is written.
+    let binary = null;
+    if (_binary !== undefined && _binary !== null) {
+      if (typeof _binary !== 'string' || !/^([0-9a-fA-F]{2})+$/.test(_binary)) {
+        throw new BundleIntegrityError('Bundle binary must be a hex string');
+      }
+      binary = Buffer.from(_binary, 'hex');
+      await verifyBundleBinary(manifestJson, binary);
     }
 
-    const bundleKey = `bundle:${key}`;
+    // A published package@version is immutable. Check BEFORE touching the
+    // bucket: the blob used to be written first and the "already exists"
+    // refusal came after, so a refused re-push had already replaced the
+    // .mpk every node downloads. The GCS precondition below closes the race
+    // between this read and the write; this read also covers legacy bundles
+    // whose binary lives in Redis and so have no GCS object to collide with.
+    if (!overwrite && (await kv.get(bundleKey))) {
+      throw alreadyExists();
+    }
+
+    // Upload the binary BEFORE writing the manifest, so a manifest can never
+    // exist in Redis without its blob in the bucket. Without `overwrite` the
+    // upload only creates: GCS refuses it if the object already exists.
+    let createdGeneration = null;
+    if (binary) {
+      try {
+        createdGeneration = await blob.putBinary(key, binary, {
+          createOnly: !overwrite,
+        });
+      } catch (err) {
+        if (err?.code === 'blob_exists') throw alreadyExists();
+        throw err;
+      }
+    }
 
     if (overwrite) {
       // Direct set - will overwrite
@@ -195,10 +232,14 @@ class BundleStorageKV {
       // setNX returns boolean: true if key was set, false if key already exists
       // Handle both boolean (node-redis v4+) and integer (legacy) return types
       if (!wasSet || wasSet === 0) {
-        // Key already exists - first-come-first-serve policy
-        throw new Error(
-          `Bundle ${manifest.package}@${manifest.appVersion} already exists. First-come-first-serve policy.`
-        );
+        // Lost a race to a concurrent publish of the same version after our
+        // blob was created. Remove only the object generation WE created.
+        if (createdGeneration) {
+          await blob
+            .deleteBinary(key, { ifGeneration: createdGeneration })
+            .catch(() => {});
+        }
+        throw alreadyExists();
       }
     }
 
