@@ -16,6 +16,11 @@ const {
 } = require('@calimero-network/registry-backend/src/lib/bundle-storage-kv');
 const {
   validateBundleMetadata,
+  isValidPackageName,
+  isValidPackageVersion,
+  reservedPackagePrefix,
+  isStaffEmail,
+  PACKAGE_NAME_REGEX,
   CATEGORIES,
   stripReservedMetadata,
 } = require('@calimero-network/registry-backend/src/lib/metadata-policy');
@@ -34,7 +39,7 @@ const {
 } = require('@calimero-network/registry-backend/src/lib/bundle-integrity');
 const { resolveUser } = require('#api-lib/auth-helpers');
 const { getUserByEmail } = require('#api-lib/user-storage');
-const { isBot } = require('#api-lib/admin-storage');
+const { isBot, isAdmin } = require('#api-lib/admin-storage');
 const { LOGIN_REQUIRED } = require('#api-lib/auth-helpers');
 const {
   autolinkBotPackage,
@@ -174,6 +179,22 @@ module.exports = async function handler(req, res) {
       });
     }
 
+    // Validate the package id and version shape before anything is stored. A
+    // malformed id or a non-semver version otherwise reaches storage and breaks
+    // ordering/lookup downstream.
+    if (!isValidPackageName(bundleManifest.package)) {
+      return res.status(400).json({
+        error: 'invalid_package_name',
+        message: `Package id must be lowercase reverse-DNS (e.g. com.example.app) matching ${PACKAGE_NAME_REGEX}.`,
+      });
+    }
+    if (!isValidPackageVersion(bundleManifest.appVersion)) {
+      return res.status(400).json({
+        error: 'invalid_version',
+        message: `appVersion must be a valid semver version (got "${bundleManifest.appVersion}").`,
+      });
+    }
+
     // Require signature
     const sig = normalizeSignature(bundleManifest?.signature);
     if (!sig) {
@@ -209,6 +230,28 @@ module.exports = async function handler(req, res) {
     // server stamps its own below — otherwise a publisher grants themselves the
     // verified badge and a trusted-publisher owner email.
     stripReservedMetadata(bundleManifest);
+
+    // Reserve the Calimero package namespace for FIRST publishes only (see the
+    // same guard in push.js). Existing packages are governed by the ownership
+    // check below, so re-publishing a version is never blocked here; only
+    // CREATING a new `com.calimero.*` / `network.calimero.*` package requires a
+    // staff email, a site admin, or a registry-managed bot.
+    if (versions.length === 0) {
+      const reservedPrefix = reservedPackagePrefix(bundleManifest.package);
+      if (reservedPrefix) {
+        const email = user?.email;
+        const allowed =
+          isStaffEmail(email) ||
+          (!!email && (await isAdmin(email))) ||
+          (!!email && (await isBot(email)));
+        if (!allowed) {
+          return res.status(403).json({
+            error: 'reserved_prefix',
+            message: `The "${reservedPrefix}" package namespace is reserved for Calimero.`,
+          });
+        }
+      }
+    }
 
     if (versions.length > 0) {
       // Preserve author from oldest version (locked to first publisher)
