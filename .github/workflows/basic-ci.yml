@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: [main]
 
+# Least-privilege default: read-only GITHUB_TOKEN for every job.
+# Jobs that need more (the container push) elevate at the job level below.
+permissions:
+  contents: read
+
 jobs:
   test:
     name: Test & Quality
@@ -136,6 +141,10 @@ jobs:
     name: Build & Deploy
     runs-on: ubuntu-latest
     needs: [test, security]
+    # Needs to push the backend image to GHCR (only on push to main).
+    permissions:
+      contents: read
+      packages: write
     # Runs on PRs as well as pushes to main. On a PR the image is built but not
     # pushed (see `push:` below) — the Dockerfile used to be exercised only
     # after merge, so a break in it could only ever be discovered on main.

@@ -11,11 +11,12 @@ const {
   addOrgMember,
 } = require('#api-lib/org-storage');
 const {
+  resolveUser,
   requireOrgAdminOrOwner,
   requireOrgOwner,
 } = require('#api-lib/auth-helpers');
 const { getUserByEmail, getUserByUsername } = require('#api-lib/user-storage');
-const { isBot } = require('#api-lib/admin-storage');
+const { isBot, isAdmin } = require('#api-lib/admin-storage');
 
 function cors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -60,14 +61,24 @@ module.exports = async function handler(req, res) {
       // Redis round trips to draw its member table. The roles now come from
       // one `hGetAll` of the org's role hash, and the per-member profile and
       // bot reads go out together.
-      const [roleOf, profiles, botFlags] = await Promise.all([
+      const [roleOf, profiles, botFlags, caller] = await Promise.all([
         getOrgMemberRoles(orgId),
         Promise.all(emails.map(email => getUserByEmail(email))),
         Promise.all(emails.map(email => isBot(email))),
+        resolveUser(req),
       ]);
 
+      // Privacy: member emails are personal data and were previously returned
+      // to any unauthenticated caller. Expose them only to someone who belongs
+      // to this org (any role) or a site admin; everyone else gets the public
+      // shape (username/role/verified/isBot), which is all the UI needs to key
+      // its actions on.
+      const canSeeEmail =
+        !!caller?.email &&
+        (!!roleOf(caller.email) || (await isAdmin(caller.email)));
+
       const members = emails.map((email, i) => ({
-        email,
+        ...(canSeeEmail ? { email } : {}),
         username: profiles[i]?.username ?? null,
         verified: profiles[i]?.verified ?? email.endsWith('@calimero.network'),
         role: roleOf(email) || 'member',

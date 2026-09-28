@@ -53,6 +53,32 @@ describe('Bundle Storage Validation', () => {
     jest.clearAllMocks();
   });
 
+  describe('reserved metadata stripping (verified-badge forgery)', () => {
+    test('drops metadata._adminVerified before storing', async () => {
+      const bundle = {
+        version: '1.0',
+        package: 'com.example.test',
+        appVersion: '1.0.0',
+        metadata: {
+          author: 'alice',
+          _adminVerified: true, // forged: only the admin route may set this
+        },
+        wasm: { path: 'app.wasm', size: 100, hash: null },
+        migrations: [],
+      };
+
+      await storage.storeBundleManifest(bundle);
+
+      const stored = JSON.parse(
+        mockKVData.get('bundle:com.example.test/1.0.0')
+      );
+      expect(stored.json.metadata._adminVerified).toBeUndefined();
+      expect(stored.json.metadata.author).toBe('alice');
+      // Must not mutate the caller's object either.
+      expect(bundle.metadata._adminVerified).toBe(true);
+    });
+  });
+
   describe('interfaces field validation', () => {
     test('should reject non-array interfaces.exports', async () => {
       const bundle = {

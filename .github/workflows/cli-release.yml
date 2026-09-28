@@ -8,9 +8,17 @@ name: CLI Release
 on:
   workflow_dispatch: # Manual trigger only for testing
 
+# Least-privilege default for the workflow.
+permissions:
+  contents: read
+
 jobs:
   release-cli:
     runs-on: ubuntu-latest
+    # Needs contents:write to create the GitHub Release. npm publish uses
+    # NPM_TOKEN, not GITHUB_TOKEN, so no extra scope is required for it.
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout code
@@ -59,7 +67,11 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Create GitHub Release
-        uses: actions/create-release@v1
+        # actions/create-release is ARCHIVED/unmaintained. This workflow is
+        # workflow_dispatch-only (not part of normal CI); pinned to the v1
+        # commit SHA to remove the moving-tag supply-chain risk.
+        # TODO: migrate to a maintained release action (e.g. softprops/action-gh-release).
+        uses: actions/create-release@0cb9c9b65d5d1901c1f53e5e66eaf4afd303e70e # v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
