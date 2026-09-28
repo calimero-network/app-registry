@@ -9,6 +9,11 @@ const {
 } = require('@calimero-network/registry-backend/src/lib/bundle-storage-kv');
 const {
   validateBundleMetadata,
+  isValidPackageName,
+  isValidPackageVersion,
+  reservedPackagePrefix,
+  isStaffEmail,
+  PACKAGE_NAME_REGEX,
   CATEGORIES,
 } = require('@calimero-network/registry-backend/src/lib/metadata-policy');
 const {
@@ -19,7 +24,7 @@ const {
 } = require('#api-lib/verify');
 const { resolveUser } = require('#api-lib/auth-helpers');
 const { getUserByEmail } = require('#api-lib/user-storage');
-const { isBot } = require('#api-lib/admin-storage');
+const { isBot, isAdmin } = require('#api-lib/admin-storage');
 const { getPkg2Org, setPkg2Org } = require('#api-lib/org-storage');
 const {
   autolinkBotPackage,
@@ -67,6 +72,22 @@ module.exports = async function handler(req, res) {
       });
     }
 
+    // Validate the package id and version shape before anything is stored. A
+    // malformed id or a non-semver version otherwise reaches storage and breaks
+    // ordering/lookup downstream.
+    if (!isValidPackageName(bundleManifest.package)) {
+      return res.status(400).json({
+        error: 'invalid_package_name',
+        message: `Package id must be lowercase reverse-DNS (e.g. com.example.app) matching ${PACKAGE_NAME_REGEX}.`,
+      });
+    }
+    if (!isValidPackageVersion(bundleManifest.appVersion)) {
+      return res.status(400).json({
+        error: 'invalid_version',
+        message: `appVersion must be a valid semver version (got "${bundleManifest.appVersion}").`,
+      });
+    }
+
     // Require signature for all publishes
     const sig = normalizeSignature(bundleManifest?.signature);
     if (!sig) {
@@ -88,6 +109,7 @@ module.exports = async function handler(req, res) {
 
     // Resolve user (Bearer token for CLI, session cookie for web) to get username
     const user = await resolveUser(req);
+
     let displayAuthor = null;
     let ownerEmail = null;
     if (user?.email) {
@@ -100,6 +122,31 @@ module.exports = async function handler(req, res) {
     const incomingKey = getPublicKeyFromManifest(bundleManifest);
     const versions = await store.getBundleVersions(bundleManifest.package);
     bundleManifest.metadata = bundleManifest.metadata || {};
+
+    // Reserve the Calimero package namespace for FIRST publishes only. The
+    // prefix marks a first-party app and feeds the trusted-publisher shortcut,
+    // so a stranger must not be able to CREATE a new `com.calimero.*` /
+    // `network.calimero.*` package. Existing packages are governed by the owner
+    // check below, so re-publishing a version is unaffected — every current
+    // first-party package keeps releasing normally. The gate is on the
+    // authenticated user (staff email, site admin, or a registry-managed bot),
+    // never on a manifest field or the signing key.
+    if (versions.length === 0) {
+      const reservedPrefix = reservedPackagePrefix(bundleManifest.package);
+      if (reservedPrefix) {
+        const email = user?.email;
+        const allowed =
+          isStaffEmail(email) ||
+          (!!email && (await isAdmin(email))) ||
+          (!!email && (await isBot(email)));
+        if (!allowed) {
+          return res.status(403).json({
+            error: 'reserved_prefix',
+            message: `The "${reservedPrefix}" package namespace is reserved for Calimero.`,
+          });
+        }
+      }
+    }
 
     if (versions.length > 0) {
       const latestVersion = versions[0];

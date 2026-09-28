@@ -20,6 +20,10 @@ const {
   validateBundleMetadata,
   resolveCategory,
   iconProblems,
+  isValidPackageName,
+  isValidPackageVersion,
+  reservedPackagePrefix,
+  isStaffEmail,
 } = require('../src/lib/metadata-policy');
 
 /** A real, minimal PNG of the requested size — not a stub with a faked header. */
@@ -308,5 +312,87 @@ describe('every publish path enforces the policy', () => {
       f => !/validateBundleMetadata/.test(fs.readFileSync(f, 'utf8'))
     );
     expect(unguarded.map(f => path.relative(ROOT, f))).toEqual([]);
+  });
+});
+
+/**
+ * Package identity policy. The push routes previously accepted any string as a
+ * `package` id or `appVersion` and did not gate the Calimero namespace, so
+ * these lock in the shape rules and the reserved-prefix rule at the unit level.
+ */
+describe('package identity policy', () => {
+  describe('isValidPackageName', () => {
+    test.each([
+      'com.example.app',
+      'com.example.my-app',
+      'network.calimero.mero-chat',
+      'a.b',
+    ])('accepts %s', name => {
+      expect(isValidPackageName(name)).toBe(true);
+    });
+
+    test.each([
+      ['no dot', 'example'],
+      ['uppercase', 'Com.Example.App'],
+      ['leading hyphen segment', '-com.example.app'],
+      ['trailing dot', 'com.example.'],
+      ['space', 'com.example app'],
+      ['empty', ''],
+      ['non-string', 42],
+      ['underscore', 'com.example_app'],
+    ])('rejects %s', (_label, name) => {
+      expect(isValidPackageName(name)).toBe(false);
+    });
+  });
+
+  describe('isValidPackageVersion', () => {
+    test.each(['1.0.0', '2.1.3', '1.0.0-alpha', '1.0.0+build.1'])(
+      'accepts %s',
+      v => {
+        expect(isValidPackageVersion(v)).toBe(true);
+      }
+    );
+
+    test.each([
+      ['too few parts', '1.0'],
+      ['not a version', 'invalid'],
+      ['too many parts', '1.0.0.0'],
+      ['empty', ''],
+      ['non-string', 100],
+    ])('rejects %s', (_label, v) => {
+      expect(isValidPackageVersion(v)).toBe(false);
+    });
+  });
+
+  describe('reservedPackagePrefix', () => {
+    test('flags com.calimero. ids', () => {
+      expect(reservedPackagePrefix('com.calimero.mero-chat')).toBe(
+        'com.calimero.'
+      );
+    });
+    test('flags network.calimero. ids', () => {
+      expect(reservedPackagePrefix('network.calimero.mero-chat')).toBe(
+        'network.calimero.'
+      );
+    });
+    test('leaves an unrelated id alone', () => {
+      expect(reservedPackagePrefix('com.example.app')).toBeNull();
+    });
+    test('does not match a mere substring', () => {
+      expect(reservedPackagePrefix('com.notcalimero.app')).toBeNull();
+    });
+  });
+
+  describe('isStaffEmail', () => {
+    test('accepts a @calimero.network address', () => {
+      expect(isStaffEmail('fran@calimero.network')).toBe(true);
+    });
+    test('rejects any other domain', () => {
+      expect(isStaffEmail('someone@example.com')).toBe(false);
+    });
+    test('rejects null/undefined', () => {
+      expect(isStaffEmail(null)).toBe(false);
+      expect(isStaffEmail(undefined)).toBe(false);
+    });
   });
 });
