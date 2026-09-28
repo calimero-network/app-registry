@@ -13,6 +13,9 @@ const {
 } = require('#api-lib/org-storage');
 const { requireAuth } = require('#api-lib/auth-helpers');
 const { isAdmin } = require('#api-lib/admin-storage');
+const {
+  isReservedOrgSlug,
+} = require('@calimero-network/registry-shared/org-slugs');
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const SLUG_REGEX = /^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$/;
@@ -99,6 +102,12 @@ module.exports = async function handler(req, res) {
       });
     }
     try {
+      if (isReservedOrgSlug(slugNorm) && !(await isAdmin(user.email))) {
+        return res.status(403).json({
+          error: 'reserved_slug',
+          message: 'This organization slug is reserved',
+        });
+      }
       const existingId = await getOrgIdBySlug(slugNorm);
       if (existingId) {
         return res.status(409).json({

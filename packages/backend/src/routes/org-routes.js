@@ -25,6 +25,9 @@ const {
 const { verifySessionToken, verifyApiToken } = require('../lib/auth');
 const { getUserByEmail, getUserByUsername } = require('../lib/user-storage');
 const { isBlacklisted, isBot, isAdmin } = require('../lib/admin-storage');
+const {
+  isReservedOrgSlug,
+} = require('@calimero-network/registry-shared/org-slugs');
 const { BundleStorageKV } = require('../lib/bundle-storage-kv');
 const config = require('../config');
 
@@ -252,6 +255,12 @@ async function orgRoutes(server) {
         error: 'bad_request',
         message:
           'slug must be lowercase alphanumeric and hyphens (e.g. my-org)',
+      });
+    }
+    if (isReservedOrgSlug(slugNorm) && !(await isAdmin(user.email))) {
+      return reply.code(403).send({
+        error: 'reserved_slug',
+        message: 'This organization slug is reserved',
       });
     }
     const existingId = await getOrgIdBySlug(slugNorm);
