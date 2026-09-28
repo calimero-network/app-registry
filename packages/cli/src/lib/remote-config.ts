@@ -73,7 +73,18 @@ export class RemoteConfig {
           : {}),
       },
     };
-    fs.writeFileSync(this.configPath, JSON.stringify(configToSave, null, 2));
+    // SECURITY: this file holds the registry API key (a Bearer credential), so
+    // it must not be world-readable. `mode` only applies when the file is newly
+    // created, so chmod as well to tighten an existing file. chmod is best-effort
+    // (it throws on filesystems that do not support POSIX modes, e.g. Windows).
+    fs.writeFileSync(this.configPath, JSON.stringify(configToSave, null, 2), {
+      mode: 0o600,
+    });
+    try {
+      fs.chmodSync(this.configPath, 0o600);
+    } catch {
+      // Filesystem does not support POSIX modes; nothing more we can do.
+    }
   }
 
   /**
@@ -94,8 +105,39 @@ export class RemoteConfig {
    * Set registry URL
    */
   setRegistryUrl(url: string): void {
+    // SECURITY: the API key is sent as a Bearer token. Over plain http:// to a
+    // non-localhost host it travels in cleartext, so warn (loopback is fine for
+    // local dev). We warn rather than refuse so existing local setups keep
+    // working; the credential itself is never weakened.
+    if (RemoteConfig.isInsecureRemoteUrl(url)) {
+      console.warn(
+        '⚠️  Registry URL uses http:// on a non-local host. Your API key would ' +
+          'be sent in cleartext — prefer https:// for remote registries.'
+      );
+    }
     this.config.registry.url = url;
     this.saveConfig();
+  }
+
+  /**
+   * True when `url` is http:// to a host other than localhost/loopback, i.e. a
+   * Bearer token would traverse the network in cleartext.
+   */
+  static isInsecureRemoteUrl(url: string): boolean {
+    let parsed: URL;
+    try {
+      parsed = new URL(url);
+    } catch {
+      return false; // not a parseable URL; leave validation to the caller
+    }
+    if (parsed.protocol !== 'http:') return false;
+    const host = parsed.hostname.toLowerCase();
+    const isLocal =
+      host === 'localhost' ||
+      host === '127.0.0.1' ||
+      host === '::1' ||
+      host.endsWith('.localhost');
+    return !isLocal;
   }
 
   /**

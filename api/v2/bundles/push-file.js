@@ -104,10 +104,16 @@ function findManifest(dir) {
 }
 
 module.exports = async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*');
+  // SECURITY: never combine a reflected arbitrary origin with credentials.
+  // Reflecting req.headers.origin AND Access-Control-Allow-Credentials: true
+  // lets any site read this endpoint's authenticated responses with the
+  // victim's cookies. Publishing is either same-origin (the web uploader —
+  // cookies flow without CORS) or a CLI Bearer token (no Origin header, no CORS
+  // preflight), so cross-site credentialed access is never needed. Drop the
+  // credentials flag; the '*' allow-origin below is then safe.
+  res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST')
@@ -302,7 +308,7 @@ module.exports = async function handler(req, res) {
     console.error('push-file error:', err);
     return res
       .status(500)
-      .json({ error: 'internal_error', message: err?.message ?? String(err) });
+      .json({ error: 'internal_error', message: 'Internal error' });
   } finally {
     if (tempDir && fs.existsSync(tempDir)) {
       try {

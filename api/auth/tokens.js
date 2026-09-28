@@ -55,6 +55,6 @@ module.exports = async function handler(req, res) {
     console.error('GET /api/auth/tokens error:', e);
     return res
       .status(500)
-      .json({ error: 'internal', message: e?.message ?? String(e) });
+      .json({ error: 'internal', message: 'Internal error' });
   }
 };
