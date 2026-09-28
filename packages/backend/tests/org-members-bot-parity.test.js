@@ -58,6 +58,12 @@ function seed() {
   sets.set(`org:${ORG_ID}:members`, new Set([BOT, HUMAN]));
   hashes.set(`org:${ORG_ID}:roles`, { [BOT]: 'member', [HUMAN]: 'owner' });
   sets.set('bot:set', new Set([BOT]));
+  // Member emails are now gated behind auth, so this parity check calls as a
+  // member (HUMAN, the owner) to keep asserting the isBot flag keyed by email.
+  store.set(
+    'apitoken:tok-human',
+    JSON.stringify({ email: HUMAN, name: 'Alice' })
+  );
 }
 
 async function callVercel() {
@@ -80,7 +86,11 @@ async function callVercel() {
     },
   };
   await vercelHandler(
-    { method: 'GET', query: { orgId: ORG_ID }, headers: {} },
+    {
+      method: 'GET',
+      query: { orgId: ORG_ID },
+      headers: { authorization: 'Bearer tok-human' },
+    },
     res
   );
   return res.body;
@@ -102,6 +112,7 @@ async function callFastify() {
   const response = await server.inject({
     method: 'GET',
     url: `/api/v2/orgs/${ORG_ID}/members`,
+    headers: { authorization: 'Bearer tok-human' },
   });
   return JSON.parse(response.payload);
 }

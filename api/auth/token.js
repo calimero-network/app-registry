@@ -3,10 +3,7 @@
  */
 
 const { resolveUser } = require('#api-lib/auth-helpers');
-const { kv } = require('#api-lib/kv-client');
-
-const TOKEN_PREFIX = 'apitoken:';
-const USER_TOKENS_PREFIX = 'user_tokens:';
+const { apiTokens } = require('#api-lib/api-token-storage');
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -29,23 +26,17 @@ module.exports = async function handler(req, res) {
       ? req.body.label.trim() || 'CLI token'
       : 'CLI token';
 
-  const bytes = Buffer.alloc(32);
-  require('crypto').randomFillSync(bytes);
-  const token = bytes.toString('base64url');
-
-  const data = {
-    email: user.email,
-    name: user.name || user.email,
-    label,
-    createdAt: new Date().toISOString(),
-  };
-
   try {
-    await kv.set(TOKEN_PREFIX + token, JSON.stringify(data));
-    await kv.sAdd(USER_TOKENS_PREFIX + user.email, token);
-    return res
-      .status(201)
-      .json({ token, label: data.label, createdAt: data.createdAt });
+    // Stored hashed with a 90-day expiry; the raw token is only ever returned
+    // here, once. See shared/api-token-storage.js.
+    const created = await apiTokens.create(user.email, user.name, label);
+    return res.status(201).json({
+      token: created.token,
+      tokenId: created.tokenId,
+      label: created.label,
+      createdAt: created.createdAt,
+      expiresAt: created.expiresAt,
+    });
   } catch (e) {
     console.error('POST /api/auth/token error:', e);
     return res

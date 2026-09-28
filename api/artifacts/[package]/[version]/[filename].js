@@ -18,6 +18,23 @@ function getStorage() {
   return storage;
 }
 
+/**
+ * Drop internal `_`-prefixed metadata keys (e.g. `_ownerEmail`) from a manifest
+ * before it is returned to a client. The full bundle sanitizer is the canonical
+ * path, but this endpoint only echoes a manifest on a rare 409, so a targeted
+ * strip keeps the diagnostic dependency-free.
+ */
+function stripInternalMetadata(manifest) {
+  if (!manifest || typeof manifest !== 'object' || !manifest.metadata) {
+    return manifest;
+  }
+  const metadata = {};
+  for (const [key, value] of Object.entries(manifest.metadata)) {
+    if (!key.startsWith('_')) metadata[key] = value;
+  }
+  return { ...manifest, metadata };
+}
+
 module.exports = async function handler(req, res) {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -93,10 +110,13 @@ module.exports = async function handler(req, res) {
           message: `${pkg}@${version} not found`,
         });
       }
+      // Privacy: this diagnostic returns the stored manifest, which carries
+      // internal `_`-prefixed metadata (notably `metadata._ownerEmail`). Strip
+      // those before responding so the account email never leaks on this path.
       return res.status(409).json({
         error: 'binary_missing',
         message: `Manifest for ${pkg}@${version} exists but binary was never uploaded. Re-publish the bundle.`,
-        manifest,
+        manifest: stripInternalMetadata(manifest),
       });
     }
 

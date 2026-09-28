@@ -50,9 +50,9 @@
     "@eslint/js": "^10.0.1",
     "@semantic-release/commit-analyzer": "^13.0.1",
     "@semantic-release/exec": "^7.0.0",
-    "@semantic-release/github": "^12.0.9",
+    "@semantic-release/github": "^12.0.10",
     "@semantic-release/release-notes-generator": "14.1.1",
-    "@types/node": "^26.5.1",
+    "@types/node": "^26.6.2",
     "@types/tar": "^7.0.87",
     "@typescript-eslint/eslint-plugin": "^7.0.0",
     "@typescript-eslint/parser": "^8.63.0",
@@ -63,7 +63,7 @@
     "semantic-release": "^25.0.9",
     "tsup": "^8.0.0",
     "typescript": "^5.9.3",
-    "vitest": "^5.0.1"
+    "vitest": "^5.0.2"
   },
   "engines": {
     "node": ">=24.0.0"
