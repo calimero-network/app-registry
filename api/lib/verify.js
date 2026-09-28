@@ -7,7 +7,16 @@ const { multibase } = require('multibase');
 // Initialize ed25519 module
 async function initEd25519() {
   if (!ed25519) {
-    ed25519 = await import('@noble/ed25519');
+    try {
+      ed25519 = await import('@noble/ed25519');
+    } catch (cause) {
+      const err = new Error(
+        `Ed25519 verifier unavailable: ${cause?.message ?? cause}`
+      );
+      err.code = 'verifier_unavailable';
+      err.cause = cause;
+      throw err;
+    }
   }
   return ed25519;
 }
@@ -101,10 +110,11 @@ function verifyLog(...args) {
  * data must be the exact bytes that were signed (for mero-sign: 32-byte SHA-256 of canonical manifest).
  */
 async function verifySignature(publicKey, signature, data) {
+  // Outside the try: a verifier that cannot load must surface as an error,
+  // not as `false` ("Invalid signature").
+  const ed25519Module = await initEd25519();
+  verifyLog('initEd25519 OK');
   try {
-    const ed25519Module = await initEd25519();
-    verifyLog('initEd25519 OK');
-
     // Decode public key: try base64url first (mero-sign), then multibase, then base58
     let decodedPubKey;
     let pubKeyEncoding = 'base64url';

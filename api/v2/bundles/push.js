@@ -116,6 +116,8 @@ module.exports = async function handler(req, res) {
     try {
       await verifyManifest(bundleManifest);
     } catch (err) {
+      // The verifier failing to run is a server fault, not a bad signature.
+      if (err?.code === 'verifier_unavailable') throw err;
       return res.status(400).json({
         error: 'invalid_signature',
         message: err.message || 'Signature verification failed',

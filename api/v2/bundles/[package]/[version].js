@@ -113,6 +113,13 @@ async function handlePatch(req, res, pkg, version) {
   try {
     await verifyManifest(body);
   } catch (err) {
+    // The verifier failing to run is a server fault, not a bad signature.
+    if (err?.code === 'verifier_unavailable') {
+      return res.status(500).json({
+        error: 'verifier_unavailable',
+        message: 'Signature verification is temporarily unavailable',
+      });
+    }
     return res.status(400).json({
       error: 'invalid_signature',
       message: err.message || 'Signature verification failed',

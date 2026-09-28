@@ -191,6 +191,8 @@ async function verifyBundleBinary(manifest, buffer) {
   try {
     await verifyManifest(inner);
   } catch (err) {
+    // The verifier failing to run is a server fault (500), not a bad bundle.
+    if (err?.code === 'verifier_unavailable') throw err;
     throw new BundleIntegrityError(
       `Bundle manifest.json signature does not verify: ${err.message}`
     );
