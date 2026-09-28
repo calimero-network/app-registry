@@ -74,9 +74,21 @@ function isValidPackageName(pkg) {
   return typeof pkg === 'string' && PACKAGE_NAME_REGEX.test(pkg);
 }
 
-/** True when `version` is a valid semver string (uses the semver package). */
+/**
+ * True when `version` is valid semver in its CANONICAL form.
+ *
+ * ⚠️ Canonical, not merely parseable. A version string is used verbatim as a
+ * storage key AND as the tombstone key that blocks re-publishing a deleted
+ * release. `semver.valid` treats `v1.2.3` and `1.2.3+build` as valid but
+ * canonicalizes them to `1.2.3`, so accepting them would let a deleted `1.2.3`
+ * be re-published under a semver-equivalent spelling that misses the tombstone.
+ * Requiring `valid(v) === v` forces one canonical spelling per release, so the
+ * key, the tombstone and the check can never be aliased apart. Prerelease tags
+ * (`1.2.3-alpha`) are canonical and still accepted; a `v` prefix and `+build`
+ * metadata are not.
+ */
 function isValidPackageVersion(version) {
-  return typeof version === 'string' && semver.valid(version) !== null;
+  return typeof version === 'string' && semver.valid(version) === version;
 }
 
 /**
