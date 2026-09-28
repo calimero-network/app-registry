@@ -11,6 +11,7 @@ const {
   getOrgMemberRole,
   updateOrgMemberRole,
   removeOrgMember,
+  isOrgMember,
 } = require('#api-lib/org-storage');
 const { requireAuth, requireOrgOwner } = require('#api-lib/auth-helpers');
 
@@ -72,6 +73,16 @@ module.exports = async function handler(req, res) {
       });
     }
     try {
+      // SECURITY: updateOrgMemberRole writes a role for ANY address, even one
+      // absent from the members set — a "ghost admin" that requireOrgAdminOrOwner
+      // then honours although the member list never shows them. Refuse a role
+      // change for anyone who is not currently a member of the org.
+      if (!(await isOrgMember(orgId, memberEmail))) {
+        return res.status(404).json({
+          error: 'not_found',
+          message: 'User is not a member of this organization',
+        });
+      }
       const currentRole = await getOrgMemberRole(orgId, memberEmail);
       if (currentRole === 'owner' && role !== 'owner') {
         const ownerCount = await countOrgOwners(orgId);
@@ -96,8 +107,9 @@ module.exports = async function handler(req, res) {
     const user = await requireAuth(req, res);
     if (!user) return;
     const isSelf = user.email.toLowerCase() === memberEmail.toLowerCase();
+    let callerRole = null;
     if (!isSelf) {
-      const callerRole = await getOrgMemberRole(orgId, user.email);
+      callerRole = await getOrgMemberRole(orgId, user.email);
       if (callerRole !== 'admin' && callerRole !== 'owner') {
         return res.status(403).json({
           error: 'forbidden',
@@ -108,6 +120,21 @@ module.exports = async function handler(req, res) {
     }
     try {
       const targetRole = await getOrgMemberRole(orgId, memberEmail);
+      // SECURITY: an admin removing a privileged member could evict the org's
+      // owners (or fellow admins) and seize control — the last-owner guard alone
+      // does not stop it. Only an owner may remove an owner or admin; admins are
+      // limited to plain members. Self-removal stays allowed (last-owner guard
+      // below still applies).
+      if (
+        !isSelf &&
+        (targetRole === 'owner' || targetRole === 'admin') &&
+        callerRole !== 'owner'
+      ) {
+        return res.status(403).json({
+          error: 'forbidden',
+          message: 'Only an organization owner can remove an owner or admin',
+        });
+      }
       if (targetRole === 'owner') {
         const ownerCount = await countOrgOwners(orgId);
         if (ownerCount <= 1) {
