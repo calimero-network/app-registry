@@ -89,14 +89,16 @@ async function resolveUser(req) {
 /**
  * Require auth. Returns { email, name } or sends 401 and returns null.
  */
+const LOGIN_REQUIRED = Object.freeze({
+  error: 'unauthorized',
+  message:
+    'Login required or provide an API token (Authorization: Bearer <token>)',
+});
+
 async function requireAuth(req, res) {
   const user = await resolveUser(req);
   if (!user) {
-    res.status(401).json({
-      error: 'unauthorized',
-      message:
-        'Login required or provide an API token (Authorization: Bearer <token>)',
-    });
+    res.status(401).json(LOGIN_REQUIRED);
     return null;
   }
   // Bots may publish and nothing else. The publish endpoints call resolveUser
@@ -164,6 +166,7 @@ async function requireAdmin(req, res) {
 }
 
 module.exports = {
+  LOGIN_REQUIRED,
   resolveUser,
   requireAuth,
   requireOrgAdminOrOwner,
