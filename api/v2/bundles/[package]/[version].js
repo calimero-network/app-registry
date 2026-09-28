@@ -174,20 +174,8 @@ async function handlePatch(req, res, pkg, version) {
   // or swap in a placeholder icon after the fact.
   const policy = validateBundleMetadata(body, { isNewPackage: false });
 
-  // Top-level `_` keys are outside the signature, so anything the client puts
-  // there is unsigned and unauthenticated. PATCH edits metadata only: drop
-  // them all (above all `_binary`, which would replace the stored .mpk) and
-  // carry the server's own stamps over from the stored version.
-  const edited = {};
-  for (const [k, v] of Object.entries(body)) {
-    if (!k.startsWith('_')) edited[k] = v;
-  }
-  for (const [k, v] of Object.entries(existing)) {
-    if (k.startsWith('_') && k !== '_binary') edited[k] = v;
-  }
-
   try {
-    await store.storeBundleManifest(edited, true);
+    await store.storeBundleManifest(body, true);
     return res.status(200).json({
       message: 'Bundle metadata updated',
       package: pkg,

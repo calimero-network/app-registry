@@ -60,41 +60,10 @@ const objectKey = pkgVersionKey => `${prefix()}/${pkgVersionKey}.mpk`;
 const isNotFound = err =>
   err?.code === 404 || err?.code === '404' || err?.status === 404;
 
-/** Thrown by putBinary({createOnly}) when the object already exists. */
-class BlobExistsError extends Error {
-  constructor(key) {
-    super(`Blob ${key} already exists`);
-    this.name = 'BlobExistsError';
-    this.code = 'blob_exists';
-  }
-}
-
-/** GCS answers a failed `ifGenerationMatch` precondition with 412. */
-const isPreconditionFailed = err =>
-  err?.code === 412 || err?.code === '412' || err?.status === 412;
-
-/**
- * Write a bundle binary. Resolves with the new object's generation.
- *
- * With `createOnly`, the write carries `ifGenerationMatch: 0`, so GCS refuses
- * it atomically when an object is already there (BlobExistsError). Published
- * binaries are immutable; only an explicit overwrite may replace one.
- */
-async function putBinary(pkgVersionKey, buffer, { createOnly = false } = {}) {
-  const file = getBucket().file(objectKey(pkgVersionKey));
-  try {
-    await file.save(buffer, {
-      contentType: 'application/gzip',
-      resumable: false,
-      ...(createOnly ? { preconditionOpts: { ifGenerationMatch: 0 } } : {}),
-    });
-  } catch (err) {
-    if (createOnly && isPreconditionFailed(err)) {
-      throw new BlobExistsError(objectKey(pkgVersionKey));
-    }
-    throw err;
-  }
-  return file.metadata?.generation ?? null;
+async function putBinary(pkgVersionKey, buffer) {
+  await getBucket()
+    .file(objectKey(pkgVersionKey))
+    .save(buffer, { contentType: 'application/gzip', resumable: false });
 }
 
 async function getBinary(pkgVersionKey) {
@@ -113,18 +82,13 @@ async function getBinary(pkgVersionKey) {
   }
 }
 
-async function deleteBinary(pkgVersionKey, { ifGeneration } = {}) {
+async function deleteBinary(pkgVersionKey) {
   // Mirror getBinary: no bucket configured → nothing to delete (don't throw, so
   // callers like deleteBundleVersion can still clean up Redis + indexes).
   if (!bucketName()) return;
-  // `ifGeneration` deletes only that exact object version, so undoing our own
-  // write can never remove a blob someone else wrote in the meantime.
   await getBucket()
     .file(objectKey(pkgVersionKey))
-    .delete({
-      ignoreNotFound: true,
-      ...(ifGeneration ? { ifGenerationMatch: ifGeneration } : {}),
-    });
+    .delete({ ignoreNotFound: true });
 }
 
 /** Test hook: drop the cached client so a later call rebuilds from current env. */
@@ -135,7 +99,6 @@ function _resetForTests() {
 }
 
 module.exports = {
-  BlobExistsError,
   putBinary,
   getBinary,
   deleteBinary,
