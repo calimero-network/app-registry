@@ -9,6 +9,7 @@ const {
   setOrg,
   getOrgIdBySlug,
   getOrgMembers,
+  isOrgMember,
   addOrgMember,
   removeOrgMember,
   getOrgMemberRole,
@@ -364,6 +365,16 @@ async function orgRoutes(server) {
         message: 'role must be "admin", "member", or "owner"',
       });
     }
+    // SECURITY: updateOrgMemberRole writes a role for ANY address, even one
+    // absent from the members set — a "ghost admin" that the admin/owner checks
+    // then honour although the member list never shows them. Refuse a role change
+    // for anyone who is not currently a member of the org.
+    if (!(await isOrgMember(orgId, memberEmail))) {
+      return reply.code(404).send({
+        error: 'not_found',
+        message: 'User is not a member of this organization',
+      });
+    }
     const currentRole = await getOrgMemberRole(orgId, memberEmail);
     if (currentRole === 'owner' && role !== 'owner') {
       const ownerCount = await countOrgOwners(orgId);
@@ -394,9 +405,10 @@ async function orgRoutes(server) {
       const user = await requireAuth(request, reply);
       if (!user) return;
       const isSelf = user.email.toLowerCase() === memberEmail.toLowerCase();
+      let callerRole = null;
       if (!isSelf) {
-        const allowed = await isOrgAdminOrOwner(orgId, user.email);
-        if (!allowed) {
+        callerRole = await getOrgMemberRole(orgId, user.email);
+        if (callerRole !== 'admin' && callerRole !== 'owner') {
           return reply.code(403).send({
             error: 'forbidden',
             message:
@@ -405,6 +417,21 @@ async function orgRoutes(server) {
         }
       }
       const targetRole = await getOrgMemberRole(orgId, memberEmail);
+      // SECURITY: an admin removing a privileged member could evict the org's
+      // owners (or fellow admins) and seize control — the last-owner guard alone
+      // does not stop it. Only an owner may remove an owner or admin; admins are
+      // limited to plain members. Self-removal stays allowed (last-owner guard
+      // below still applies).
+      if (
+        !isSelf &&
+        (targetRole === 'owner' || targetRole === 'admin') &&
+        callerRole !== 'owner'
+      ) {
+        return reply.code(403).send({
+          error: 'forbidden',
+          message: 'Only an organization owner can remove an owner or admin',
+        });
+      }
       if (targetRole === 'owner') {
         const ownerCount = await countOrgOwners(orgId);
         if (ownerCount <= 1) {
@@ -466,6 +493,22 @@ async function orgRoutes(server) {
         error: 'forbidden',
         message: `You do not own package '${pkgName}'. Only the package author can link it to an organization`,
       });
+    }
+
+    // SECURITY: setPkg2Org overwrites the link unconditionally, so owning the
+    // manifest is NOT enough — a package already linked to another org would
+    // otherwise be yanked into the caller's org, silently stripping the real
+    // org's admins/owners of control. Refuse re-linking a package owned by a
+    // different org unless the caller also administers that current org.
+    const currentOrgId = await getPkg2Org(pkgName);
+    if (currentOrgId && currentOrgId !== orgId) {
+      const controlsCurrent = await isOrgAdminOrOwner(currentOrgId, user.email);
+      if (!controlsCurrent) {
+        return reply.code(409).send({
+          error: 'conflict',
+          message: `Package '${pkgName}' is already linked to another organization. Unlink it there first.`,
+        });
+      }
     }
 
     await setPkg2Org(pkgName, orgId);

@@ -7,6 +7,8 @@ const {
   getOrg,
   getPackagesByOrg,
   setPkg2Org,
+  getPkg2Org,
+  isOrgAdmin,
 } = require('#api-lib/org-storage');
 const { requireOrgAdminOrOwner } = require('#api-lib/auth-helpers');
 const {
@@ -102,6 +104,21 @@ module.exports = async function handler(req, res) {
           error: 'forbidden',
           message: `You do not own package '${pkgName}'. Only the package author can link it to an organization`,
         });
+      }
+      // SECURITY: setPkg2Org overwrites the link unconditionally, so owning the
+      // manifest is NOT enough — a package already linked to another org would
+      // otherwise be yanked into the caller's org, silently stripping the real
+      // org's admins/owners of control. Refuse re-linking a package owned by a
+      // different org unless the caller also administers that current org.
+      const currentOrgId = await getPkg2Org(pkgName);
+      if (currentOrgId && currentOrgId !== orgId) {
+        const controlsCurrent = await isOrgAdmin(currentOrgId, user.email);
+        if (!controlsCurrent) {
+          return res.status(409).json({
+            error: 'conflict',
+            message: `Package '${pkgName}' is already linked to another organization. Unlink it there first.`,
+          });
+        }
       }
       await setPkg2Org(pkgName, orgId);
       return res.status(204).end();
