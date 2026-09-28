@@ -29,11 +29,11 @@ export interface LocalConfigData {
 function defaultConfig(): LocalConfigData {
   return {
     server: {
-      // Reset used to say localhost here, but never reached the listener:
-      // `local start` sets the host on every run and defaults to 0.0.0.0,
-      // which is also what publicHost assumes, since a container reaching
-      // host.docker.internal cannot be served from loopback.
-      host: '0.0.0.0',
+      // Hardening: default to loopback so the dev server is not reachable from
+      // the LAN or a browsing website. Docker users who need container access
+      // opt in explicitly with `local start --host 0.0.0.0`; publicHost stays
+      // host.docker.internal for the URLs baked into manifests in that case.
+      host: '127.0.0.1',
       port: 8082,
       publicHost: 'host.docker.internal',
     },

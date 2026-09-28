@@ -9,7 +9,13 @@ const {
 } = require('@calimero-network/registry-backend/src/lib/bundle-storage-kv');
 const {
   validateBundleMetadata,
+  isValidPackageName,
+  isValidPackageVersion,
+  reservedPackagePrefix,
+  isStaffEmail,
+  PACKAGE_NAME_REGEX,
   CATEGORIES,
+  stripReservedMetadata,
 } = require('@calimero-network/registry-backend/src/lib/metadata-policy');
 const {
   verifyManifest,
@@ -17,9 +23,13 @@ const {
   isAllowedOwner,
   normalizeSignature,
 } = require('#api-lib/verify');
+const {
+  storeRefusal,
+} = require('@calimero-network/registry-backend/src/lib/bundle-integrity');
 const { resolveUser } = require('#api-lib/auth-helpers');
 const { getUserByEmail } = require('#api-lib/user-storage');
-const { isBot } = require('#api-lib/admin-storage');
+const { isBot, isAdmin } = require('#api-lib/admin-storage');
+const { LOGIN_REQUIRED } = require('#api-lib/auth-helpers');
 const { getPkg2Org, setPkg2Org } = require('#api-lib/org-storage');
 const {
   autolinkBotPackage,
@@ -46,6 +56,16 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
 
   try {
+    // A publish needs an account (Bearer token for CLI/cargo-mero, session
+    // cookie for web). The signature proves who BUILT the bundle, not who is
+    // sending it — a public signed manifest can be replayed by anyone — so an
+    // anonymous push is refused before anything else. Bots are accounts too
+    // and may publish, hence resolveUser rather than requireAuth.
+    const user = await resolveUser(req);
+    if (!user?.email) {
+      return res.status(401).json(LOGIN_REQUIRED);
+    }
+
     const store = getStorage();
     const bundleManifest = req.body;
 
@@ -64,6 +84,22 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({
         error: 'invalid_manifest',
         message: 'Missing required fields: package, appVersion',
+      });
+    }
+
+    // Validate the package id and version shape before anything is stored. A
+    // malformed id or a non-semver version otherwise reaches storage and breaks
+    // ordering/lookup downstream.
+    if (!isValidPackageName(bundleManifest.package)) {
+      return res.status(400).json({
+        error: 'invalid_package_name',
+        message: `Package id must be lowercase reverse-DNS (e.g. com.example.app) matching ${PACKAGE_NAME_REGEX}.`,
+      });
+    }
+    if (!isValidPackageVersion(bundleManifest.appVersion)) {
+      return res.status(400).json({
+        error: 'invalid_version',
+        message: `appVersion must be a valid semver version (got "${bundleManifest.appVersion}").`,
       });
     }
 
@@ -86,25 +122,63 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // Resolve user (Bearer token for CLI, session cookie for web) to get username
-    const user = await resolveUser(req);
-    let displayAuthor = null;
-    let ownerEmail = null;
-    if (user?.email) {
-      ownerEmail = user.email;
-      const profile = await getUserByEmail(user.email);
-      // Privacy: the public `author` is rendered on cards, the detail page and
-      // /developers/<author>. Never fall back to the email here — a user with no
-      // username publishes with no public author (null), while the email is kept
-      // privately in `_ownerEmail` for ownership checks. `author` is optional in
-      // the metadata policy, so a null author does not block the publish.
-      displayAuthor = profile?.username || null;
+    const ownerEmail = user.email;
+    const profile = await getUserByEmail(user.email);
+    // Privacy: the public `author` is rendered on cards, the detail page and
+    // /developers/<author>. Never fall back to the email here — a user with no
+    // username publishes with no public author (null), while the email is kept
+    // privately in `_ownerEmail` for ownership checks. `author` is optional in
+    // the metadata policy, so a null author does not block the publish.
+    const displayAuthor = profile?.username || null;
+
+    // A deleted name/version is retired, not free: refuse a republish rather
+    // than let it silently resurrect the old package's trust, assets and org
+    // link (replay-resurrection / name re-registration).
+    if (
+      await store.isRetired(bundleManifest.package, bundleManifest.appVersion)
+    ) {
+      return res.status(409).json({
+        error: 'name_retired',
+        message:
+          'This package name or version has been deleted and cannot be re-published.',
+      });
     }
 
     // Ownership: same package must be published by the same key or by a key in owners[]
     const incomingKey = getPublicKeyFromManifest(bundleManifest);
     const versions = await store.getBundleVersions(bundleManifest.package);
     bundleManifest.metadata = bundleManifest.metadata || {};
+
+    // The manifest is signed, so any `metadata._*` the publisher put in
+    // (_adminVerified, _ownerEmail) survived verification. Drop them before the
+    // server stamps its own below — otherwise a publisher grants themselves the
+    // verified badge and a trusted-publisher owner email.
+    stripReservedMetadata(bundleManifest);
+
+    // Reserve the Calimero package namespace for FIRST publishes only. The
+    // prefix marks a first-party app and feeds the trusted-publisher shortcut,
+    // so a stranger must not be able to CREATE a new `com.calimero.*` /
+    // `network.calimero.*` package. Existing packages are governed by the owner
+    // check below, so re-publishing a version is unaffected — every current
+    // first-party package keeps releasing normally. The gate is on the
+    // authenticated user (staff email, site admin, or a registry-managed bot),
+    // never on a manifest field or the signing key.
+    if (versions.length === 0) {
+      const reservedPrefix = reservedPackagePrefix(bundleManifest.package);
+      if (reservedPrefix) {
+        const email = user?.email;
+        const allowed =
+          isStaffEmail(email) ||
+          (!!email && (await isAdmin(email))) ||
+          (!!email && (await isBot(email)));
+        if (!allowed) {
+          return res.status(403).json({
+            error: 'reserved_prefix',
+            message: `The "${reservedPrefix}" package namespace is reserved for Calimero.`,
+          });
+        }
+      }
+    }
 
     if (versions.length > 0) {
       const latestVersion = versions[0];
@@ -188,6 +262,8 @@ module.exports = async function handler(req, res) {
       ...(policy.warnings.length ? { warnings: policy.warnings } : {}),
     });
   } catch (error) {
+    const refused = storeRefusal(error);
+    if (refused) return res.status(refused.status).json(refused.body);
     console.error('Push Error:', error);
     return res.status(500).json({
       error: 'internal_error',

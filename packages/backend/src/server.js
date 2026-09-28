@@ -17,7 +17,15 @@ const config = require('./config');
 const { BundleStorageKV } = require('./lib/bundle-storage-kv');
 const { createBundleSanitizers } = require('./lib/bundle-sanitize');
 const { buildBundleListing } = require('./lib/bundle-listing');
-const { validateBundleMetadata, CATEGORIES } = require('./lib/metadata-policy');
+const {
+  validateBundleMetadata,
+  isValidPackageName,
+  isValidPackageVersion,
+  reservedPackagePrefix,
+  isStaffEmail,
+  PACKAGE_NAME_REGEX,
+  CATEGORIES,
+} = require('./lib/metadata-policy');
 const { kv } = require('./lib/kv-client');
 const {
   verifyManifest,
@@ -742,6 +750,27 @@ async function buildServer() {
         },
       };
     }
+    // Validate the package id and version shape before anything is stored. A
+    // malformed id or a non-semver version otherwise reaches storage and breaks
+    // ordering/lookup downstream.
+    if (!isValidPackageName(bundleManifest.package)) {
+      throw {
+        statusCode: 400,
+        body: {
+          error: 'invalid_package_name',
+          message: `Package id must be lowercase reverse-DNS (e.g. com.example.app) matching ${PACKAGE_NAME_REGEX}.`,
+        },
+      };
+    }
+    if (!isValidPackageVersion(bundleManifest.appVersion)) {
+      throw {
+        statusCode: 400,
+        body: {
+          error: 'invalid_version',
+          message: `appVersion must be a valid semver version (got "${bundleManifest.appVersion}").`,
+        },
+      };
+    }
     const sig = normalizeSignature(bundleManifest?.signature);
     if (!sig) {
       throw {
@@ -775,6 +804,28 @@ async function buildServer() {
     const versions = await bundleStorage.getBundleVersions(
       bundleManifest.package
     );
+    // Reserve the Calimero package namespace for FIRST publishes only. Existing
+    // packages are governed by the owner check below, so re-publishing a version
+    // is never blocked here; only CREATING a new reserved-prefix package
+    // requires a staff email, a site admin, or a registry-managed bot.
+    if (versions.length === 0) {
+      const reservedPrefix = reservedPackagePrefix(bundleManifest.package);
+      if (reservedPrefix) {
+        const allowed =
+          isStaffEmail(userEmail) ||
+          (!!userEmail && (await isAdmin(userEmail))) ||
+          (!!userEmail && (await isBot(userEmail)));
+        if (!allowed) {
+          throw {
+            statusCode: 403,
+            body: {
+              error: 'reserved_prefix',
+              message: `The "${reservedPrefix}" package namespace is reserved for Calimero.`,
+            },
+          };
+        }
+      }
+    }
     // Set or preserve author: only set from session when creating a new package; never overwrite on new version.
     // Author is locked from the oldest (first) version, not the latest.
     // We store: metadata.author = username (display), metadata._ownerEmail = email (ownership checks).

@@ -1,58 +1,42 @@
 const jwt = require('jsonwebtoken');
 const { kv } = require('./kv-client');
+const {
+  createApiTokenStorage,
+} = require('@calimero-network/registry-shared/api-token-storage');
 
 const TOKEN_PREFIX = 'apitoken:';
 const USER_TOKENS_PREFIX = 'user_tokens:';
 
+// Same hardened storage the serverless API uses: new tokens hashed at rest with
+// a 90-day expiry, legacy plaintext/no-expiry tokens still resolved and never
+// invalidated. See shared/api-token-storage.js.
+const apiTokens = createApiTokenStorage(kv);
+
 /**
  * Create a new API token for the given user.
- * Token is a 32-byte base64url random value. Stored with no expiry.
+ * Stored hashed at rest with a 90-day expiry; the raw token is returned once.
  * @param {string} email
  * @param {string} name
  * @param {string} [label]
  * @param {string} [pubkey] - optional Solana pubkey for org list (member=pubkey)
- * @returns {Promise<{ token: string, email: string, name: string, label: string, createdAt: string, pubkey?: string }>}
+ * @returns {Promise<{ token: string, tokenId: string, email: string, name: string, label: string, createdAt: string, expiresAt: number, pubkey?: string }>}
  */
 async function createApiToken(email, name, label, pubkey) {
-  const bytes = new Uint8Array(32);
-  if (
-    typeof globalThis.crypto !== 'undefined' &&
-    globalThis.crypto.getRandomValues
-  ) {
-    globalThis.crypto.getRandomValues(bytes);
-  } else {
-    const NodeCrypto = require('crypto');
-    NodeCrypto.randomFillSync(bytes);
-  }
-  const token = Buffer.from(bytes).toString('base64url');
-  const data = {
-    email,
-    name: name || email,
-    label: label || 'CLI token',
-    createdAt: new Date().toISOString(),
-    ...(pubkey && typeof pubkey === 'string' && pubkey.trim()
+  const extra =
+    pubkey && typeof pubkey === 'string' && pubkey.trim()
       ? { pubkey: pubkey.trim() }
-      : {}),
-  };
-  await kv.set(TOKEN_PREFIX + token, JSON.stringify(data));
-  await kv.sAdd(USER_TOKENS_PREFIX + email, token);
-  return { token, ...data };
+      : {};
+  return apiTokens.create(email, name, label, extra);
 }
 
 /**
- * Verify an API token and return its data, or null if invalid.
+ * Verify an API token and return its data, or null if invalid/expired.
+ * Hashed lookup first, legacy plaintext key as fallback.
  * @param {string} token
  * @returns {Promise<{ email: string, name: string, label: string, createdAt: string } | null>}
  */
 async function verifyApiToken(token) {
-  if (!token || typeof token !== 'string' || !token.trim()) return null;
-  try {
-    const raw = await kv.get(TOKEN_PREFIX + token.trim());
-    if (!raw) return null;
-    return JSON.parse(typeof raw === 'string' ? raw : String(raw));
-  } catch {
-    return null;
-  }
+  return apiTokens.verify(token);
 }
 
 /**
@@ -75,6 +59,8 @@ async function listApiTokens(email) {
           tokenId: t.slice(0, 8),
           label: data.label,
           createdAt: data.createdAt,
+          expiresAt: data.expiresAt ?? null,
+          lastUsed: data.lastUsed ?? null,
         });
       } catch {
         // skip malformed
@@ -165,6 +151,9 @@ async function exchangeCodeForUser(code, redirectUri, clientId, clientSecret) {
     email: user.email,
     name: user.name || user.email,
     picture: user.picture,
+    // Email is the sole identity and admin criterion; the caller must reject an
+    // unverified address rather than trust an inbox the user may not control.
+    verified_email: user.verified_email === true,
   };
 }
 
