@@ -4,10 +4,10 @@ on:
     branches: [main]
     paths:
       - 'packages/frontend/**'
+# Least-privilege default: only the deploy job needs pages/id-token write,
+# so those scopes are set at the job level instead of workflow-wide.
 permissions:
   contents: read
-  pages: write
-  id-token: write
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -27,6 +27,11 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    # Only this job deploys to Pages, so it holds the elevated scopes.
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
