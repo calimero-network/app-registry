@@ -311,7 +311,13 @@ describe('a deleted name cannot be re-published (tombstone)', () => {
 
     const res = makeRes();
     await pushHandler(
-      { method: 'POST', body: publishableManifest(), headers: {} },
+      {
+        method: 'POST',
+        body: publishableManifest(),
+        // Publishing now requires an account; authenticate so the request
+        // reaches the tombstone check instead of the login gate.
+        headers: { 'x-test-user': OWNER },
+      },
       res
     );
     expect(res.statusCode).toBe(409);
@@ -336,7 +342,7 @@ describe('a deleted name cannot be re-published (tombstone)', () => {
       {
         method: 'POST',
         body: publishableManifest({ appVersion: '1.1.0' }),
-        headers: {},
+        headers: { 'x-test-user': OWNER },
       },
       res
     );
