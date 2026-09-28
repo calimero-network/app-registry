@@ -93,7 +93,12 @@ module.exports = async function handler(req, res) {
     if (user?.email) {
       ownerEmail = user.email;
       const profile = await getUserByEmail(user.email);
-      displayAuthor = profile?.username || user.email;
+      // Privacy: the public `author` is rendered on cards, the detail page and
+      // /developers/<author>. Never fall back to the email here — a user with no
+      // username publishes with no public author (null), while the email is kept
+      // privately in `_ownerEmail` for ownership checks. `author` is optional in
+      // the metadata policy, so a null author does not block the publish.
+      displayAuthor = profile?.username || null;
     }
 
     // Ownership: same package must be published by the same key or by a key in owners[]
@@ -125,13 +130,16 @@ module.exports = async function handler(req, res) {
         bundleManifest.metadata.author = existingAuthor;
         bundleManifest.metadata._ownerEmail =
           manifestOldest?.metadata?._ownerEmail || existingAuthor;
-      } else if (displayAuthor) {
-        bundleManifest.metadata.author = displayAuthor;
+      } else if (ownerEmail) {
+        // Public author is the username only; the email is kept privately in
+        // _ownerEmail for ownership checks and is never promoted to `author`.
+        if (displayAuthor) bundleManifest.metadata.author = displayAuthor;
         bundleManifest.metadata._ownerEmail = ownerEmail;
       }
-    } else if (displayAuthor) {
-      // New package — use username as public author, store email privately
-      bundleManifest.metadata.author = displayAuthor;
+    } else if (ownerEmail) {
+      // New package — public author is the username (or nothing when the user
+      // has not set one); the email stays private in _ownerEmail.
+      if (displayAuthor) bundleManifest.metadata.author = displayAuthor;
       bundleManifest.metadata._ownerEmail = ownerEmail;
     }
 

@@ -779,7 +779,11 @@ async function buildServer() {
     // Author is locked from the oldest (first) version, not the latest.
     // We store: metadata.author = username (display), metadata._ownerEmail = email (ownership checks).
     bundleManifest.metadata = bundleManifest.metadata || {};
-    const displayAuthor = username || userEmail; // prefer username, fall back to email
+    // Privacy: the public `author` must never be an email (it is rendered on
+    // cards, the detail page and /developers/<author>). A user with no username
+    // publishes with no public author (null); the email is kept privately in
+    // `_ownerEmail`. Mirrors the Vercel push handlers.
+    const displayAuthor = username || null;
     if (versions.length > 0) {
       const oldestVersion = versions[versions.length - 1];
       const latestVersion = versions[0];
@@ -795,9 +799,11 @@ async function buildServer() {
           bundleManifest.metadata._ownerEmail =
             manifestOldest.metadata._ownerEmail;
         }
-      } else if (displayAuthor) {
-        bundleManifest.metadata.author = displayAuthor;
-        if (userEmail) bundleManifest.metadata._ownerEmail = userEmail;
+      } else if (userEmail) {
+        // Public author is the username only; the email is kept privately in
+        // _ownerEmail and is never promoted to `author`.
+        if (displayAuthor) bundleManifest.metadata.author = displayAuthor;
+        bundleManifest.metadata._ownerEmail = userEmail;
       }
       const manifestLatest = await bundleStorage.getBundleManifest(
         bundleManifest.package,
@@ -835,9 +841,11 @@ async function buildServer() {
           },
         };
       }
-    } else if (displayAuthor) {
-      bundleManifest.metadata.author = displayAuthor;
-      if (userEmail) bundleManifest.metadata._ownerEmail = userEmail;
+    } else if (userEmail) {
+      // New package — public author is the username (or nothing); the email
+      // stays private in _ownerEmail for ownership checks.
+      if (displayAuthor) bundleManifest.metadata.author = displayAuthor;
+      bundleManifest.metadata._ownerEmail = userEmail;
     }
     // Metadata policy. Runs here, after ownership is settled, because this is
     // the one point all three upload paths share — CLI, API key and the web
