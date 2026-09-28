@@ -10,6 +10,7 @@ const {
 const {
   validateBundleMetadata,
   CATEGORIES,
+  stripReservedMetadata,
 } = require('@calimero-network/registry-backend/src/lib/metadata-policy');
 const {
   verifyManifest,
@@ -100,6 +101,12 @@ module.exports = async function handler(req, res) {
     const incomingKey = getPublicKeyFromManifest(bundleManifest);
     const versions = await store.getBundleVersions(bundleManifest.package);
     bundleManifest.metadata = bundleManifest.metadata || {};
+
+    // The manifest is signed, so any `metadata._*` the publisher put in
+    // (_adminVerified, _ownerEmail) survived verification. Drop them before the
+    // server stamps its own below — otherwise a publisher grants themselves the
+    // verified badge and a trusted-publisher owner email.
+    stripReservedMetadata(bundleManifest);
 
     if (versions.length > 0) {
       const latestVersion = versions[0];
