@@ -4,7 +4,7 @@
  */
 
 const jwt = require('jsonwebtoken');
-const { kv } = require('./kv-client');
+const { apiTokens } = require('./api-token-storage');
 const { getOrgMemberRole, getPkg2Org, isOrgAdmin } = require('./org-storage');
 const { isAdmin, isBlacklisted, isBot } = require('./admin-storage');
 const { getUserByEmail } = require('./user-storage');
@@ -24,8 +24,6 @@ const { canManagePackage } = createPackagePermissions({
   isAdmin,
 });
 
-const TOKEN_PREFIX = 'apitoken:';
-
 /**
  * Resolve current user from Bearer token or session cookie.
  * Returns { email, name, username } or null.
@@ -37,18 +35,18 @@ async function resolveUser(req) {
     const token = auth.slice(7).trim();
     if (token) {
       try {
-        const raw = await kv.get(TOKEN_PREFIX + token);
-        if (raw) {
-          const data = JSON.parse(typeof raw === 'string' ? raw : String(raw));
-          if (data?.email) {
-            if (await isBlacklisted(data.email)) return null;
-            const profile = await getUserByEmail(data.email);
-            return {
-              email: data.email,
-              name: data.name || data.email,
-              username: profile?.username ?? null,
-            };
-          }
+        // verify() looks up the hashed key first, then the legacy plaintext
+        // key, and rejects an expired (non-grandfathered) token — see
+        // shared/api-token-storage.js.
+        const data = await apiTokens.verify(token);
+        if (data?.email) {
+          if (await isBlacklisted(data.email)) return null;
+          const profile = await getUserByEmail(data.email);
+          return {
+            email: data.email,
+            name: data.name || data.email,
+            username: profile?.username ?? null,
+          };
         }
       } catch {
         /* fall through */

@@ -5,6 +5,11 @@ on:
     branches:
       - main
 
+# Least-privilege default: the detect-changes job only reads the repo.
+# The semantic-release job elevates its own scopes at the job level below.
+permissions:
+  contents: read
+
 jobs:
   detect-changes:
     runs-on: ubuntu-latest

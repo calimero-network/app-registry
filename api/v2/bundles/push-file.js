@@ -17,6 +17,7 @@ const {
 const {
   validateBundleMetadata,
   CATEGORIES,
+  stripReservedMetadata,
 } = require('@calimero-network/registry-backend/src/lib/metadata-policy');
 const {
   verifyManifest,
@@ -28,6 +29,9 @@ const {
   getPkg2Org,
   setPkg2Org,
 } = require('#api-lib/org-storage');
+const {
+  storeRefusal,
+} = require('@calimero-network/registry-backend/src/lib/bundle-integrity');
 const { resolveUser } = require('#api-lib/auth-helpers');
 const { getUserByEmail } = require('#api-lib/user-storage');
 const { isBot } = require('#api-lib/admin-storage');
@@ -200,6 +204,12 @@ module.exports = async function handler(req, res) {
 
     bundleManifest.metadata = bundleManifest.metadata || {};
 
+    // The manifest is signed, so any `metadata._*` the publisher put in
+    // (_adminVerified, _ownerEmail) survived verification. Drop them before the
+    // server stamps its own below — otherwise a publisher grants themselves the
+    // verified badge and a trusted-publisher owner email.
+    stripReservedMetadata(bundleManifest);
+
     if (versions.length > 0) {
       // Preserve author from oldest version (locked to first publisher)
       const oldestVersion = versions[versions.length - 1];
@@ -300,6 +310,8 @@ module.exports = async function handler(req, res) {
       ...(policy.warnings.length ? { warnings: policy.warnings } : {}),
     });
   } catch (err) {
+    const refused = storeRefusal(err);
+    if (refused) return res.status(refused.status).json(refused.body);
     console.error('push-file error:', err);
     return res
       .status(500)

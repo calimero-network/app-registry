@@ -9,6 +9,7 @@ const {
 } = require('@calimero-network/registry-backend/src/lib/bundle-storage-kv');
 const {
   validateBundleMetadata,
+  stripReservedMetadata,
 } = require('@calimero-network/registry-backend/src/lib/metadata-policy');
 const {
   validateBundleManifest,
@@ -150,6 +151,19 @@ async function handlePatch(req, res, pkg, version) {
     });
   }
 
+  // Server-owned metadata is not editable through PATCH. Drop every
+  // `metadata._*` the client sent (a signed body would otherwise let the owner
+  // set their own `_adminVerified` badge or rewrite `_ownerEmail`), then carry
+  // the stored owner email and locked author forward from the existing version.
+  stripReservedMetadata(body);
+  body.metadata = body.metadata || {};
+  if (existing.metadata && existing.metadata._ownerEmail !== undefined) {
+    body.metadata._ownerEmail = existing.metadata._ownerEmail;
+  }
+  if (existing.metadata && existing.metadata.author !== undefined) {
+    body.metadata.author = existing.metadata.author;
+  }
+
   // PATCH edits metadata on an ALREADY PUBLISHED version, so this is by
   // definition not a new package: warn, never block. Blocking here would stop
   // someone fixing the description of a bundle that is grandfathered on its
@@ -157,8 +171,20 @@ async function handlePatch(req, res, pkg, version) {
   // or swap in a placeholder icon after the fact.
   const policy = validateBundleMetadata(body, { isNewPackage: false });
 
+  // Top-level `_` keys are outside the signature, so anything the client puts
+  // there is unsigned and unauthenticated. PATCH edits metadata only: drop
+  // them all (above all `_binary`, which would replace the stored .mpk) and
+  // carry the server's own stamps over from the stored version.
+  const edited = {};
+  for (const [k, v] of Object.entries(body)) {
+    if (!k.startsWith('_')) edited[k] = v;
+  }
+  for (const [k, v] of Object.entries(existing)) {
+    if (k.startsWith('_') && k !== '_binary') edited[k] = v;
+  }
+
   try {
-    await store.storeBundleManifest(body, true);
+    await store.storeBundleManifest(edited, true);
     return res.status(200).json({
       message: 'Bundle metadata updated',
       package: pkg,
