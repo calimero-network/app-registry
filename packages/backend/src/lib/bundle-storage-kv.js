@@ -60,6 +60,16 @@ class BundleStorageKV {
     delete manifestJson._binary;
     delete manifestJson._overwrite;
 
+    // `_adminVerified` is written ONLY by the admin approve route, straight to
+    // KV — never through here. Any copy arriving on a publish or a PATCH is a
+    // forged "verified" badge riding inside a signed manifest, so it must never
+    // be persisted. This is the last line of defence; the push/patch handlers
+    // strip all `metadata._*` up front via stripReservedMetadata.
+    if (manifestJson.metadata && typeof manifestJson.metadata === 'object') {
+      manifestJson.metadata = { ...manifestJson.metadata };
+      delete manifestJson.metadata._adminVerified;
+    }
+
     const manifestData = {
       json: manifestJson,
       created_at: new Date().toISOString(),

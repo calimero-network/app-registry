@@ -9,6 +9,7 @@ const {
 } = require('@calimero-network/registry-backend/src/lib/bundle-storage-kv');
 const {
   validateBundleMetadata,
+  stripReservedMetadata,
 } = require('@calimero-network/registry-backend/src/lib/metadata-policy');
 const {
   validateBundleManifest,
@@ -148,6 +149,19 @@ async function handlePatch(req, res, pkg, version) {
       error: 'invalid_manifest',
       message: 'wasm (path, hash, size) cannot be changed via PATCH',
     });
+  }
+
+  // Server-owned metadata is not editable through PATCH. Drop every
+  // `metadata._*` the client sent (a signed body would otherwise let the owner
+  // set their own `_adminVerified` badge or rewrite `_ownerEmail`), then carry
+  // the stored owner email and locked author forward from the existing version.
+  stripReservedMetadata(body);
+  body.metadata = body.metadata || {};
+  if (existing.metadata && existing.metadata._ownerEmail !== undefined) {
+    body.metadata._ownerEmail = existing.metadata._ownerEmail;
+  }
+  if (existing.metadata && existing.metadata.author !== undefined) {
+    body.metadata.author = existing.metadata.author;
   }
 
   // PATCH edits metadata on an ALREADY PUBLISHED version, so this is by
