@@ -147,6 +147,15 @@ async function authRoutes(server, options) {
       return reply.redirect(loginErrorUrl(frontendUrl, 'oauth_failed'), 302);
     }
 
+    // Reject unless Google confirms the address belongs to this user; email is
+    // the sole identity and the admin criterion.
+    if (!user.verified_email) {
+      return reply.redirect(
+        loginErrorUrl(frontendUrl, 'email_unverified'),
+        302
+      );
+    }
+
     // Block blacklisted users
     if (await isBlacklisted(user.email)) {
       return reply.redirect(

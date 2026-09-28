@@ -16,7 +16,13 @@ const {
 } = require('@calimero-network/registry-backend/src/lib/bundle-storage-kv');
 const {
   validateBundleMetadata,
+  isValidPackageName,
+  isValidPackageVersion,
+  reservedPackagePrefix,
+  isStaffEmail,
+  PACKAGE_NAME_REGEX,
   CATEGORIES,
+  stripReservedMetadata,
 } = require('@calimero-network/registry-backend/src/lib/metadata-policy');
 const {
   verifyManifest,
@@ -28,9 +34,13 @@ const {
   getPkg2Org,
   setPkg2Org,
 } = require('#api-lib/org-storage');
+const {
+  storeRefusal,
+} = require('@calimero-network/registry-backend/src/lib/bundle-integrity');
 const { resolveUser } = require('#api-lib/auth-helpers');
 const { getUserByEmail } = require('#api-lib/user-storage');
-const { isBot } = require('#api-lib/admin-storage');
+const { isBot, isAdmin } = require('#api-lib/admin-storage');
+const { LOGIN_REQUIRED } = require('#api-lib/auth-helpers');
 const {
   autolinkBotPackage,
 } = require('@calimero-network/registry-shared/bot-autolink');
@@ -115,6 +125,13 @@ module.exports = async function handler(req, res) {
 
   let tempDir;
   try {
+    // A publish needs an account; see push.js. Checked before the upload is
+    // read so an anonymous caller cannot make the server buffer 100 MB.
+    const user = await resolveUser(req);
+    if (!user?.email) {
+      return res.status(401).json(LOGIN_REQUIRED);
+    }
+
     // Parse multipart
     let buffer, filename;
     try {
@@ -162,6 +179,22 @@ module.exports = async function handler(req, res) {
       });
     }
 
+    // Validate the package id and version shape before anything is stored. A
+    // malformed id or a non-semver version otherwise reaches storage and breaks
+    // ordering/lookup downstream.
+    if (!isValidPackageName(bundleManifest.package)) {
+      return res.status(400).json({
+        error: 'invalid_package_name',
+        message: `Package id must be lowercase reverse-DNS (e.g. com.example.app) matching ${PACKAGE_NAME_REGEX}.`,
+      });
+    }
+    if (!isValidPackageVersion(bundleManifest.appVersion)) {
+      return res.status(400).json({
+        error: 'invalid_version',
+        message: `appVersion must be a valid semver version (got "${bundleManifest.appVersion}").`,
+      });
+    }
+
     // Require signature
     const sig = normalizeSignature(bundleManifest?.signature);
     if (!sig) {
@@ -181,17 +214,10 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // Resolve user from session cookie or bearer token
-    const user = await resolveUser(req);
-
     // Look up username so we never store emails as the public author
-    let displayAuthor = null;
-    let ownerEmail = null;
-    if (user?.email) {
-      ownerEmail = user.email;
-      const profile = await getUserByEmail(user.email);
-      displayAuthor = profile?.username || user.email;
-    }
+    const ownerEmail = user.email;
+    const profile = await getUserByEmail(user.email);
+    const displayAuthor = profile?.username || user.email;
 
     const store = getStorage();
 
@@ -212,6 +238,34 @@ module.exports = async function handler(req, res) {
     const versions = await store.getBundleVersions(bundleManifest.package);
 
     bundleManifest.metadata = bundleManifest.metadata || {};
+
+    // The manifest is signed, so any `metadata._*` the publisher put in
+    // (_adminVerified, _ownerEmail) survived verification. Drop them before the
+    // server stamps its own below — otherwise a publisher grants themselves the
+    // verified badge and a trusted-publisher owner email.
+    stripReservedMetadata(bundleManifest);
+
+    // Reserve the Calimero package namespace for FIRST publishes only (see the
+    // same guard in push.js). Existing packages are governed by the ownership
+    // check below, so re-publishing a version is never blocked here; only
+    // CREATING a new `com.calimero.*` / `network.calimero.*` package requires a
+    // staff email, a site admin, or a registry-managed bot.
+    if (versions.length === 0) {
+      const reservedPrefix = reservedPackagePrefix(bundleManifest.package);
+      if (reservedPrefix) {
+        const email = user?.email;
+        const allowed =
+          isStaffEmail(email) ||
+          (!!email && (await isAdmin(email))) ||
+          (!!email && (await isBot(email)));
+        if (!allowed) {
+          return res.status(403).json({
+            error: 'reserved_prefix',
+            message: `The "${reservedPrefix}" package namespace is reserved for Calimero.`,
+          });
+        }
+      }
+    }
 
     if (versions.length > 0) {
       // Preserve author from oldest version (locked to first publisher)
@@ -313,6 +367,8 @@ module.exports = async function handler(req, res) {
       ...(policy.warnings.length ? { warnings: policy.warnings } : {}),
     });
   } catch (err) {
+    const refused = storeRefusal(err);
+    if (refused) return res.status(refused.status).json(refused.body);
     console.error('push-file error:', err);
     return res
       .status(500)

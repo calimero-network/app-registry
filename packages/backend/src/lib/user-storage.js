@@ -12,6 +12,13 @@ const USER_PREFIX = 'user:';
 const USERNAME_PREFIX = 'username:';
 const EMAIL2USER_PREFIX = 'email2user:';
 
+// Package ownership is by author === username, so a freed username lets a new
+// account re-claim a deleted user's name and inherit their packages. On delete
+// we write this sentinel to username:<name> instead of deleting the key, so the
+// name stays occupied and claimUsername refuses it. Not a valid userId, so
+// getUserByUsername resolves it to null (no user, no hijack).
+const USERNAME_TOMBSTONE = 'retired:deleted-user';
+
 // 2-50 chars: starts & ends with letter or number, may contain _ or - in between
 const USERNAME_REGEX = /^[a-z0-9]([a-z0-9_-]{0,48}[a-z0-9])?$/;
 
@@ -168,6 +175,13 @@ async function claimUsername(userId, username) {
     throw err;
   }
   const existingOwner = await kv.get(USERNAME_PREFIX + norm);
+  // A tombstoned name belongs to a deleted account and must never be re-claimed,
+  // otherwise the claimant inherits that account's packages (owned by username).
+  if (existingOwner && String(existingOwner) === USERNAME_TOMBSTONE) {
+    const err = new Error('This username is not available');
+    err.code = 'retired';
+    throw err;
+  }
   if (existingOwner && String(existingOwner) !== String(userId)) {
     const err = new Error('This username is already taken');
     err.code = 'taken';
@@ -193,11 +207,22 @@ async function claimUsername(userId, username) {
   return user;
 }
 
+/**
+ * Tombstone a username so it can never be re-claimed (see USERNAME_TOMBSTONE).
+ * Called on user delete instead of freeing the name.
+ */
+async function retireUsername(username) {
+  if (!username) return;
+  await kv.set(USERNAME_PREFIX + username.toLowerCase(), USERNAME_TOMBSTONE);
+}
+
 module.exports = {
   getOrCreateUser,
   getUserByEmail,
   getUserById,
   getUserByUsername,
   claimUsername,
+  retireUsername,
+  USERNAME_TOMBSTONE,
   USERNAME_REGEX,
 };

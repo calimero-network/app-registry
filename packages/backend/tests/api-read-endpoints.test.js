@@ -263,8 +263,12 @@ describe('listing sanitization', () => {
     expect(res.body[0].metadata._ownerEmail).toBeUndefined();
     expect(res.body[0].metadata._adminVerified).toBeUndefined();
     expect(res.body[0].metadata.author).toBe('alice');
-    // The private flag is still reflected in the public boolean.
-    expect(res.body[0].verified).toBe(true);
+    // ⚠️ SECURITY REGRESSION: `_adminVerified` in the manifest must NOT confer
+    // the badge. The manifest is publisher-signed, so honouring it let a
+    // publisher grant their own "verified". `verified` comes only from an admin
+    // decision on record; this package has none and its owner
+    // (alice@example.com) is not a trusted publisher, so it is NOT verified.
+    expect(res.body[0].verified).toBe(false);
   });
 
   test('a calimero.network owner is trusted, so the package is verified too', async () => {
