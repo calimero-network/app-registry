@@ -24,6 +24,7 @@ const {
 const { resolveUser } = require('#api-lib/auth-helpers');
 const { getUserByEmail } = require('#api-lib/user-storage');
 const { isBot } = require('#api-lib/admin-storage');
+const { LOGIN_REQUIRED } = require('#api-lib/auth-helpers');
 const { getPkg2Org, setPkg2Org } = require('#api-lib/org-storage');
 const {
   autolinkBotPackage,
@@ -50,6 +51,16 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
 
   try {
+    // A publish needs an account (Bearer token for CLI/cargo-mero, session
+    // cookie for web). The signature proves who BUILT the bundle, not who is
+    // sending it — a public signed manifest can be replayed by anyone — so an
+    // anonymous push is refused before anything else. Bots are accounts too
+    // and may publish, hence resolveUser rather than requireAuth.
+    const user = await resolveUser(req);
+    if (!user?.email) {
+      return res.status(401).json(LOGIN_REQUIRED);
+    }
+
     const store = getStorage();
     const bundleManifest = req.body;
 
@@ -90,15 +101,9 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // Resolve user (Bearer token for CLI, session cookie for web) to get username
-    const user = await resolveUser(req);
-    let displayAuthor = null;
-    let ownerEmail = null;
-    if (user?.email) {
-      ownerEmail = user.email;
-      const profile = await getUserByEmail(user.email);
-      displayAuthor = profile?.username || user.email;
-    }
+    const ownerEmail = user.email;
+    const profile = await getUserByEmail(user.email);
+    const displayAuthor = profile?.username || user.email;
 
     // Ownership: same package must be published by the same key or by a key in owners[]
     const incomingKey = getPublicKeyFromManifest(bundleManifest);

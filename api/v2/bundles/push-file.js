@@ -35,6 +35,7 @@ const {
 const { resolveUser } = require('#api-lib/auth-helpers');
 const { getUserByEmail } = require('#api-lib/user-storage');
 const { isBot } = require('#api-lib/admin-storage');
+const { LOGIN_REQUIRED } = require('#api-lib/auth-helpers');
 const {
   autolinkBotPackage,
 } = require('@calimero-network/registry-shared/bot-autolink');
@@ -119,6 +120,13 @@ module.exports = async function handler(req, res) {
 
   let tempDir;
   try {
+    // A publish needs an account; see push.js. Checked before the upload is
+    // read so an anonymous caller cannot make the server buffer 100 MB.
+    const user = await resolveUser(req);
+    if (!user?.email) {
+      return res.status(401).json(LOGIN_REQUIRED);
+    }
+
     // Parse multipart
     let buffer, filename;
     try {
@@ -185,17 +193,10 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // Resolve user from session cookie or bearer token
-    const user = await resolveUser(req);
-
     // Look up username so we never store emails as the public author
-    let displayAuthor = null;
-    let ownerEmail = null;
-    if (user?.email) {
-      ownerEmail = user.email;
-      const profile = await getUserByEmail(user.email);
-      displayAuthor = profile?.username || user.email;
-    }
+    const ownerEmail = user.email;
+    const profile = await getUserByEmail(user.email);
+    const displayAuthor = profile?.username || user.email;
 
     const store = getStorage();
     const incomingKey = getPublicKeyFromManifest(bundleManifest);

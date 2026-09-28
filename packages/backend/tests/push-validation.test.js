@@ -9,6 +9,7 @@ const mockKv = {
   setNX: jest.fn(),
   sAdd: jest.fn(),
   sMembers: jest.fn(),
+  sIsMember: jest.fn().mockResolvedValue(false),
 };
 
 jest.mock('../src/lib/kv-client', () => ({
@@ -21,6 +22,12 @@ jest.mock('../../../api/lib/verify', () => ({
   getPublicKeyFromManifest: jest.fn().mockReturnValue('mock-pubkey'),
   isAllowedOwner: jest.fn().mockReturnValue(true),
   normalizeSignature: jest.fn(sig => sig || null),
+}));
+
+// Every publish needs an account; these tests are about body validation.
+jest.mock('../../../api/lib/auth-helpers', () => ({
+  resolveUser: jest.fn().mockResolvedValue({ email: 'dev@example.com' }),
+  LOGIN_REQUIRED: { error: 'unauthorized', message: 'Login required' },
 }));
 
 // Import the handler
@@ -104,6 +111,17 @@ describe('Push Endpoint Validation', () => {
 
       expect(res.status).toHaveBeenCalledWith(201);
       expect(mockKv.setNX).toHaveBeenCalled();
+    });
+  });
+
+  describe('Authentication', () => {
+    test('should reject a push with no account', async () => {
+      const { resolveUser } = require('../../../api/lib/auth-helpers');
+      resolveUser.mockResolvedValueOnce(null);
+      req.body = { package: 'com.example.test', appVersion: '1.0.0' };
+      await pushHandler(req, res);
+      expect(res.status).toHaveBeenCalledWith(401);
+      expect(mockKv.setNX).not.toHaveBeenCalled();
     });
   });
 
