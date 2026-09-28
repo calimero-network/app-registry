@@ -48,7 +48,7 @@ module.exports = async function handler(req, res) {
     console.error('DELETE package getBundleVersions:', e);
     return res.status(500).json({
       error: 'internal_error',
-      message: e?.message ?? String(e),
+      message: 'Internal error',
     });
   }
 
@@ -67,7 +67,7 @@ module.exports = async function handler(req, res) {
     console.error('DELETE package getBundleManifest:', e);
     return res.status(500).json({
       error: 'internal_error',
-      message: e?.message ?? String(e),
+      message: 'Internal error',
     });
   }
 
@@ -85,7 +85,7 @@ module.exports = async function handler(req, res) {
     console.error('DELETE package error:', error);
     return res.status(500).json({
       error: 'internal_error',
-      message: error?.message ?? String(error),
+      message: 'Internal error',
     });
   }
 };

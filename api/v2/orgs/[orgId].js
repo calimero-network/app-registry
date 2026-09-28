@@ -14,6 +14,9 @@ const {
   requireOrgAdminOrOwner,
   requireOrgOwner,
 } = require('#api-lib/auth-helpers');
+const {
+  findUnsafeMetadataUrl,
+} = require('@calimero-network/registry-shared/metadata-urls');
 
 function cors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -63,8 +66,18 @@ module.exports = async function handler(req, res) {
     const { name, metadata } = req.body || {};
     const updates = {};
     if (typeof name === 'string') updates.name = name.trim();
-    if (metadata !== undefined && typeof metadata === 'object')
+    if (metadata !== undefined && typeof metadata === 'object') {
+      // SECURITY: the frontend renders website/github/twitter as raw links, so
+      // reject any non-http(s) scheme (javascript:, data:, …) before storing.
+      const badField = findUnsafeMetadataUrl(metadata);
+      if (badField) {
+        return res.status(400).json({
+          error: 'invalid_metadata',
+          message: `metadata.${badField} must be an http(s) URL`,
+        });
+      }
       updates.metadata = metadata;
+    }
     if (Object.keys(updates).length === 0) return res.status(200).json(org);
     try {
       const updated = { ...org, ...updates };

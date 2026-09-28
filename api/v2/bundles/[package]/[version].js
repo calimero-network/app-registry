@@ -127,7 +127,7 @@ async function handlePatch(req, res, pkg, version) {
     console.error('PATCH getBundleManifest:', e);
     return res.status(500).json({
       error: 'internal_error',
-      message: e?.message ?? String(e),
+      message: 'Internal error',
     });
   }
   if (!existing) {
@@ -198,7 +198,7 @@ async function handlePatch(req, res, pkg, version) {
     console.error('PATCH store Error:', error);
     return res.status(500).json({
       error: 'internal_error',
-      message: error?.message ?? String(error),
+      message: 'Internal error',
     });
   }
 }
@@ -244,7 +244,7 @@ module.exports = async function handler(req, res) {
       console.error('DELETE version getBundleManifest:', e);
       return res.status(500).json({
         error: 'internal_error',
-        message: e?.message ?? String(e),
+        message: 'Internal error',
       });
     }
 
@@ -271,7 +271,7 @@ module.exports = async function handler(req, res) {
       console.error('DELETE version error:', error);
       return res.status(500).json({
         error: 'internal_error',
-        message: error?.message ?? String(error),
+        message: 'Internal error',
       });
     }
   }
@@ -287,7 +287,7 @@ module.exports = async function handler(req, res) {
     console.error('KV init failed:', e);
     return res.status(500).json({
       error: 'kv_init_failed',
-      message: e?.message ?? String(e),
+      message: 'Internal error',
     });
   }
 
@@ -315,7 +315,7 @@ module.exports = async function handler(req, res) {
     console.error('Get Error:', error);
     return res.status(500).json({
       error: 'internal_error',
-      message: error?.message ?? String(error),
+      message: 'Internal error',
     });
   }
 };
