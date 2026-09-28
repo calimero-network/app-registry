@@ -15,6 +15,7 @@ const {
   isStaffEmail,
   PACKAGE_NAME_REGEX,
   CATEGORIES,
+  stripReservedMetadata,
 } = require('@calimero-network/registry-backend/src/lib/metadata-policy');
 const {
   verifyManifest,
@@ -22,9 +23,13 @@ const {
   isAllowedOwner,
   normalizeSignature,
 } = require('#api-lib/verify');
+const {
+  storeRefusal,
+} = require('@calimero-network/registry-backend/src/lib/bundle-integrity');
 const { resolveUser } = require('#api-lib/auth-helpers');
 const { getUserByEmail } = require('#api-lib/user-storage');
 const { isBot, isAdmin } = require('#api-lib/admin-storage');
+const { LOGIN_REQUIRED } = require('#api-lib/auth-helpers');
 const { getPkg2Org, setPkg2Org } = require('#api-lib/org-storage');
 const {
   autolinkBotPackage,
@@ -51,6 +56,16 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
 
   try {
+    // A publish needs an account (Bearer token for CLI/cargo-mero, session
+    // cookie for web). The signature proves who BUILT the bundle, not who is
+    // sending it — a public signed manifest can be replayed by anyone — so an
+    // anonymous push is refused before anything else. Bots are accounts too
+    // and may publish, hence resolveUser rather than requireAuth.
+    const user = await resolveUser(req);
+    if (!user?.email) {
+      return res.status(401).json(LOGIN_REQUIRED);
+    }
+
     const store = getStorage();
     const bundleManifest = req.body;
 
@@ -107,21 +122,20 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // Resolve user (Bearer token for CLI, session cookie for web) to get username
-    const user = await resolveUser(req);
-
-    let displayAuthor = null;
-    let ownerEmail = null;
-    if (user?.email) {
-      ownerEmail = user.email;
-      const profile = await getUserByEmail(user.email);
-      displayAuthor = profile?.username || user.email;
-    }
+    const ownerEmail = user.email;
+    const profile = await getUserByEmail(user.email);
+    const displayAuthor = profile?.username || user.email;
 
     // Ownership: same package must be published by the same key or by a key in owners[]
     const incomingKey = getPublicKeyFromManifest(bundleManifest);
     const versions = await store.getBundleVersions(bundleManifest.package);
     bundleManifest.metadata = bundleManifest.metadata || {};
+
+    // The manifest is signed, so any `metadata._*` the publisher put in
+    // (_adminVerified, _ownerEmail) survived verification. Drop them before the
+    // server stamps its own below — otherwise a publisher grants themselves the
+    // verified badge and a trusted-publisher owner email.
+    stripReservedMetadata(bundleManifest);
 
     // Reserve the Calimero package namespace for FIRST publishes only. The
     // prefix marks a first-party app and feeds the trusted-publisher shortcut,
@@ -227,6 +241,8 @@ module.exports = async function handler(req, res) {
       ...(policy.warnings.length ? { warnings: policy.warnings } : {}),
     });
   } catch (error) {
+    const refused = storeRefusal(error);
+    if (refused) return res.status(refused.status).json(refused.body);
     console.error('Push Error:', error);
     return res.status(500).json({
       error: 'internal_error',

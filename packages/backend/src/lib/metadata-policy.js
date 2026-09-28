@@ -348,6 +348,38 @@ function validateBundleMetadata(manifest, { isNewPackage } = {}) {
     : { errors: [], warnings: [...problems, ...advisories], category };
 }
 
+/**
+ * Remove reserved, server-owned fields from an INCOMING (publisher-supplied)
+ * manifest's metadata before the server stamps its own.
+ *
+ * ⚠️ EVERY `metadata._*` KEY IS SERVER-OWNED. A publisher signs the whole
+ * manifest, so `metadata._adminVerified` or `metadata._ownerEmail` inside a
+ * signed bundle verifies fine — and would then be trusted as if the server had
+ * written it: a self-granted "verified" badge, and a self-declared
+ * `@calimero.network` owner email that trips the trusted-publisher shortcut and
+ * skips review. The signature PROVES the publisher wrote these, which is exactly
+ * why they cannot be kept. `removeTransientFields` (lib/verify.js) only drops
+ * TOP-LEVEL `_` keys for the signature, so nested ones reach storage unless
+ * removed here.
+ *
+ * Top-level server fields (`_binary`, `_installSize`, `_publishedAt`,
+ * `_overwrite`) are handled in the push handlers and storeBundleManifest; this
+ * touches only the metadata object. Mutates in place and returns the manifest.
+ */
+function stripReservedMetadata(manifest) {
+  if (
+    !manifest ||
+    typeof manifest.metadata !== 'object' ||
+    manifest.metadata === null
+  ) {
+    return manifest;
+  }
+  for (const key of Object.keys(manifest.metadata)) {
+    if (key.startsWith('_')) delete manifest.metadata[key];
+  }
+  return manifest;
+}
+
 module.exports = {
   CATEGORIES,
   PLACEHOLDER_ICON_SHA256,
@@ -365,4 +397,5 @@ module.exports = {
   iconProblems,
   pngDimensions,
   decodeDataUri,
+  stripReservedMetadata,
 };

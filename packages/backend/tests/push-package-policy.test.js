@@ -69,7 +69,10 @@ describe('Push package identity policy', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockCurrentUser = null;
+    // Publishing now requires an authenticated account (the login gate runs
+    // before validation), so the default caller is a signed-in, non-staff user;
+    // individual tests override this where they need anonymous or staff.
+    mockCurrentUser = { email: 'stranger@example.com' };
     mockKv.get.mockResolvedValue(null);
     mockKv.setNX.mockResolvedValue(true);
     mockKv.sAdd.mockResolvedValue(1);
@@ -117,8 +120,15 @@ describe('Push package identity policy', () => {
   });
 
   describe('reserved Calimero prefix', () => {
-    test('rejects an anonymous publish of a com.calimero.* package', async () => {
+    test('an anonymous publish is refused by the login gate before anything else', async () => {
       mockCurrentUser = null;
+      req.body = makeManifest({ package: 'com.calimero.sneaky' });
+      await pushHandler(req, res);
+      expect(res.status).toHaveBeenCalledWith(401);
+    });
+
+    test('rejects a signed-in non-staff publish of a com.calimero.* package', async () => {
+      mockCurrentUser = { email: 'stranger@example.com' };
       req.body = makeManifest({ package: 'com.calimero.sneaky' });
       await pushHandler(req, res);
       expect(res.status).toHaveBeenCalledWith(403);

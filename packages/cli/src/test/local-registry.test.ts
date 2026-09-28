@@ -3,6 +3,7 @@ import { LocalConfig } from '../lib/local-config.js';
 import { LocalDataStore, AppSummary } from '../lib/local-storage.js';
 import { LocalArtifactServer } from '../lib/local-artifacts.js';
 import { LocalRegistryServer } from '../lib/local-server.js';
+import { localCommand } from '../commands/local.js';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
@@ -189,6 +190,95 @@ describe('Local Registry', () => {
       const restoredApps = server['dataStore'].getApps();
       expect(restoredApps).toHaveLength(1);
       expect(restoredApps[0].name).toBe('test');
+    });
+  });
+
+  describe('Security hardening', () => {
+    it('defaults the bind host to loopback (config)', () => {
+      // Fresh HOME so no saved config.json shadows the built-in default.
+      const homeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cal-home-'));
+      const prevHome = process.env.HOME;
+      process.env.HOME = homeDir;
+      try {
+        const fresh = new LocalConfig();
+        expect(fresh.getHost()).toBe('127.0.0.1');
+      } finally {
+        if (prevHome === undefined) delete process.env.HOME;
+        else process.env.HOME = prevHome;
+        fs.rmSync(homeDir, { recursive: true, force: true });
+      }
+    });
+
+    it('defaults the --host option to loopback (CLI)', () => {
+      const start = localCommand.commands.find(c => c.name() === 'start');
+      expect(start).toBeDefined();
+      const hostOption = start!.options.find(o => o.long === '--host');
+      expect(hostOption?.defaultValue).toBe('127.0.0.1');
+    });
+
+    it('rejects a path traversal in serveArtifact', async () => {
+      await expect(
+        artifactServer.serveArtifact('..', '..', 'etc-passwd')
+      ).rejects.toThrow(/escapes artifacts directory/);
+    });
+
+    describe('running server', () => {
+      const port = 18099;
+
+      beforeEach(async () => {
+        config.setHost('127.0.0.1');
+        await server.start(port);
+      });
+
+      afterEach(async () => {
+        await server.stop();
+      });
+
+      it('rejects a non-localhost Host header (anti DNS-rebinding)', async () => {
+        const app = server['server'];
+        const res = await app.inject({
+          method: 'GET',
+          url: '/healthz',
+          headers: { host: 'evil.example.com' },
+        });
+        expect(res.statusCode).toBe(403);
+      });
+
+      it('accepts a loopback Host header', async () => {
+        const app = server['server'];
+        const res = await app.inject({
+          method: 'GET',
+          url: '/healthz',
+          headers: { host: `127.0.0.1:${port}` },
+        });
+        expect(res.statusCode).toBe(200);
+      });
+
+      it('does not expose backup/restore/reset over GET', async () => {
+        const app = server['server'];
+        const headers = { host: `127.0.0.1:${port}` };
+
+        const backup = await app.inject({
+          method: 'GET',
+          url: '/local/backup',
+          headers,
+        });
+        expect(backup.statusCode).toBe(404);
+
+        const restore = await app.inject({
+          method: 'GET',
+          url: '/local/restore',
+          headers,
+        });
+        expect(restore.statusCode).toBe(404);
+
+        const reset = await app.inject({
+          method: 'GET',
+          url: '/local/reset',
+          headers,
+        });
+        expect(reset.statusCode).toBe(404);
+      });
     });
   });
 });

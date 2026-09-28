@@ -24,6 +24,7 @@ const {
   isValidPackageVersion,
   reservedPackagePrefix,
   isStaffEmail,
+  stripReservedMetadata,
 } = require('../src/lib/metadata-policy');
 
 /** A real, minimal PNG of the requested size — not a stub with a faked header. */
@@ -394,5 +395,35 @@ describe('package identity policy', () => {
       expect(isStaffEmail(null)).toBe(false);
       expect(isStaffEmail(undefined)).toBe(false);
     });
+  });
+});
+
+describe('stripReservedMetadata', () => {
+  it('removes every server-owned _*-prefixed key under metadata', () => {
+    const manifest = {
+      package: 'com.a.one',
+      appVersion: '1.0.0',
+      metadata: {
+        author: 'alice',
+        description: 'hi',
+        _adminVerified: true,
+        _ownerEmail: 'alice@calimero.network',
+        _somethingFuture: 'x',
+      },
+    };
+    stripReservedMetadata(manifest);
+    expect(manifest.metadata).toEqual({ author: 'alice', description: 'hi' });
+  });
+
+  it('leaves a manifest with no metadata untouched', () => {
+    const manifest = { package: 'com.a.one', appVersion: '1.0.0' };
+    expect(() => stripReservedMetadata(manifest)).not.toThrow();
+    expect(manifest.metadata).toBeUndefined();
+  });
+
+  it('tolerates null metadata and null manifest', () => {
+    const m = { metadata: null };
+    expect(() => stripReservedMetadata(m)).not.toThrow();
+    expect(() => stripReservedMetadata(null)).not.toThrow();
   });
 });
