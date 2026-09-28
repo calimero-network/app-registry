@@ -62,20 +62,31 @@ describe('Race Condition Prevention', () => {
       migrations: [],
     };
 
-    // First request succeeds
-    await storage.storeBundleManifest(bundle);
-    expect(kv.setNX).toHaveBeenCalled();
-
-    // Second concurrent request should fail
-    await expect(storage.storeBundleManifest(bundle)).rejects.toThrow(
-      'already exists'
-    );
+    // Two truly concurrent requests: both pass the pre-write existence read
+    // (neither has stored yet), so only the atomic setNX can tell them apart.
+    const results = await Promise.allSettled([
+      storage.storeBundleManifest(bundle),
+      storage.storeBundleManifest(bundle),
+    ]);
+    expect(results.filter(r => r.status === 'fulfilled')).toHaveLength(1);
+    const rejected = results.filter(r => r.status === 'rejected');
+    expect(rejected).toHaveLength(1);
+    expect(rejected[0].reason.message).toContain('already exists');
 
     // Verify setNX was called (atomic operation)
     const setNXCalls = kv.setNX.mock.calls.filter(call =>
       call[0].startsWith('bundle:')
     );
     expect(setNXCalls.length).toBe(2); // Both attempts called setNX
+
+    // A later sequential re-push is refused before setNX, by the existence
+    // read that also keeps it from touching the blob store.
+    await expect(storage.storeBundleManifest(bundle)).rejects.toThrow(
+      'already exists'
+    );
+    expect(
+      kv.setNX.mock.calls.filter(call => call[0].startsWith('bundle:'))
+    ).toHaveLength(2);
 
     // Verify only one bundle was stored
     const stored = await storage.getBundleManifest(

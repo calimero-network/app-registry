@@ -23,6 +23,9 @@ const {
   isAllowedOwner,
   normalizeSignature,
 } = require('#api-lib/verify');
+const {
+  storeRefusal,
+} = require('@calimero-network/registry-backend/src/lib/bundle-integrity');
 const { resolveUser } = require('#api-lib/auth-helpers');
 const { getUserByEmail } = require('#api-lib/user-storage');
 const { isBot, isAdmin } = require('#api-lib/admin-storage');
@@ -259,6 +262,8 @@ module.exports = async function handler(req, res) {
       ...(policy.warnings.length ? { warnings: policy.warnings } : {}),
     });
   } catch (error) {
+    const refused = storeRefusal(error);
+    if (refused) return res.status(refused.status).json(refused.body);
     console.error('Push Error:', error);
     return res.status(500).json({
       error: 'internal_error',
