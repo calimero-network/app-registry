@@ -347,19 +347,22 @@ describe('package identity policy', () => {
   });
 
   describe('isValidPackageVersion', () => {
-    test.each(['1.0.0', '2.1.3', '1.0.0-alpha', '1.0.0+build.1'])(
-      'accepts %s',
-      v => {
-        expect(isValidPackageVersion(v)).toBe(true);
-      }
-    );
+    test.each(['1.0.0', '2.1.3', '1.0.0-alpha', '0.0.41'])('accepts %s', v => {
+      expect(isValidPackageVersion(v)).toBe(true);
+    });
 
+    // ⚠️ Non-canonical spellings must be REJECTED so a per-version tombstone
+    // (which keys on the raw version string) cannot be evaded by re-publishing a
+    // deleted release under a semver-equivalent alias.
     test.each([
       ['too few parts', '1.0'],
       ['not a version', 'invalid'],
       ['too many parts', '1.0.0.0'],
       ['empty', ''],
       ['non-string', 100],
+      ['v-prefixed alias', 'v1.2.3'],
+      ['build-metadata alias', '1.2.3+evil'],
+      ['build metadata', '1.0.0+build.1'],
     ])('rejects %s', (_label, v) => {
       expect(isValidPackageVersion(v)).toBe(false);
     });
