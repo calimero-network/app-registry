@@ -22,6 +22,7 @@ const {
 const {
   assetVisibility,
 } = require('@calimero-network/registry-backend/src/lib/asset-visibility');
+const review = require('@calimero-network/registry-backend/src/lib/package-review');
 const {
   requireAuth,
   canManagePackage,
@@ -176,6 +177,19 @@ module.exports = async function handler(req, res) {
       return res
         .status(400)
         .json({ error: result.error, message: result.message });
+    }
+    // ⚠️ A NEW ASSET IS UNREVIEWED, EVEN ON AN APPROVED PACKAGE. A one-time
+    // approval must not become a licence to publish any image afterwards, so a
+    // fresh upload drops an explicit approval back to `pending` and the new
+    // asset stays private until an admin looks again. Trusted-publisher
+    // auto-approval (`auto`) is left untouched — it is a policy, not a decision
+    // about these bytes — so their uploads are not forced into the queue.
+    const rec = await review.getReview(pkg);
+    if (rec.state === 'approved' && !rec.auto) {
+      await review.setReview(pkg, {
+        state: 'pending',
+        reason: 'New asset uploaded; awaiting re-review.',
+      });
     }
     return res.status(201).json({
       asset: publicShape(pkg, result.asset),

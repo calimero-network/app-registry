@@ -53,6 +53,20 @@ module.exports = async function handler(req, res) {
         message: 'Query member must be a valid email address',
       });
     }
+    // Privacy: this was an unauthenticated oracle for which orgs any email
+    // belongs to. Require auth and only let a caller look up their own email
+    // (case-insensitive), unless they are a site admin.
+    const caller = await requireAuth(req, res);
+    if (!caller) return;
+    if (
+      caller.email.toLowerCase() !== email.toLowerCase() &&
+      !(await isAdmin(caller.email))
+    ) {
+      return res.status(403).json({
+        error: 'forbidden',
+        message: 'You may only look up organizations for your own account',
+      });
+    }
     try {
       const orgs = await getOrgsByMember(email);
       return res.status(200).json(orgs);

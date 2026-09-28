@@ -4,7 +4,7 @@
  */
 
 const jwt = require('jsonwebtoken');
-const { kv } = require('./kv-client');
+const { apiTokens } = require('./api-token-storage');
 const { getOrgMemberRole, getPkg2Org, isOrgAdmin } = require('./org-storage');
 const { isAdmin, isBlacklisted, isBot } = require('./admin-storage');
 const { getUserByEmail } = require('./user-storage');
@@ -24,8 +24,6 @@ const { canManagePackage } = createPackagePermissions({
   isAdmin,
 });
 
-const TOKEN_PREFIX = 'apitoken:';
-
 /**
  * Resolve current user from Bearer token or session cookie.
  * Returns { email, name, username } or null.
@@ -37,18 +35,18 @@ async function resolveUser(req) {
     const token = auth.slice(7).trim();
     if (token) {
       try {
-        const raw = await kv.get(TOKEN_PREFIX + token);
-        if (raw) {
-          const data = JSON.parse(typeof raw === 'string' ? raw : String(raw));
-          if (data?.email) {
-            if (await isBlacklisted(data.email)) return null;
-            const profile = await getUserByEmail(data.email);
-            return {
-              email: data.email,
-              name: data.name || data.email,
-              username: profile?.username ?? null,
-            };
-          }
+        // verify() looks up the hashed key first, then the legacy plaintext
+        // key, and rejects an expired (non-grandfathered) token — see
+        // shared/api-token-storage.js.
+        const data = await apiTokens.verify(token);
+        if (data?.email) {
+          if (await isBlacklisted(data.email)) return null;
+          const profile = await getUserByEmail(data.email);
+          return {
+            email: data.email,
+            name: data.name || data.email,
+            username: profile?.username ?? null,
+          };
         }
       } catch {
         /* fall through */
@@ -89,14 +87,16 @@ async function resolveUser(req) {
 /**
  * Require auth. Returns { email, name } or sends 401 and returns null.
  */
+const LOGIN_REQUIRED = Object.freeze({
+  error: 'unauthorized',
+  message:
+    'Login required or provide an API token (Authorization: Bearer <token>)',
+});
+
 async function requireAuth(req, res) {
   const user = await resolveUser(req);
   if (!user) {
-    res.status(401).json({
-      error: 'unauthorized',
-      message:
-        'Login required or provide an API token (Authorization: Bearer <token>)',
-    });
+    res.status(401).json(LOGIN_REQUIRED);
     return null;
   }
   // Bots may publish and nothing else. The publish endpoints call resolveUser
@@ -164,6 +164,7 @@ async function requireAdmin(req, res) {
 }
 
 module.exports = {
+  LOGIN_REQUIRED,
   resolveUser,
   requireAuth,
   requireOrgAdminOrOwner,

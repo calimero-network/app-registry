@@ -88,7 +88,9 @@ async function call(handler, req) {
   return { statusCode: res.statusCode, body: res.body };
 }
 
-const push = body => call(pushHandler, { method: 'POST', body });
+const PUBLISHER = 'dev@example.com';
+const push = (body, headers = { authorization: 'Bearer tok-dev' }) =>
+  call(pushHandler, { method: 'POST', body, headers });
 
 let owner;
 
@@ -99,9 +101,19 @@ beforeAll(async () => {
 beforeEach(() => {
   store.clear();
   sets.clear();
+  store.set('apitoken:tok-dev', JSON.stringify({ email: PUBLISHER }));
 });
 
 describe('publishing with a real signature', () => {
+  test('an anonymous push is refused, even with a valid signature', async () => {
+    // A public signed manifest can be replayed by anyone, so the signature
+    // alone must never be enough to publish.
+    const pushed = await push(await signManifest(manifest('1.0.0'), owner), {});
+    expect(pushed.statusCode).toBe(401);
+    expect(pushed.body.error).toBe('unauthorized');
+    expect(store.has(`bundle:${PKG}/1.0.0`)).toBe(false);
+  });
+
   test('a signed bundle publishes and is listed', async () => {
     const pushed = await push(await signManifest(manifest('1.0.0'), owner));
     expect(pushed.statusCode).toBe(201);

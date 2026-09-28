@@ -14,7 +14,9 @@ localCommand.addCommand(
   new Command('start')
     .description('Start local registry server')
     .option('-p, --port <port>', 'Port to run the server on', '8082')
-    .option('-h, --host <host>', 'Host to bind the server to', '0.0.0.0')
+    // Hardening: bind loopback by default so the dev server is not exposed to
+    // the LAN. Docker users can still opt in explicitly with --host 0.0.0.0.
+    .option('-h, --host <host>', 'Host to bind the server to', '127.0.0.1')
     .option(
       '--public-host <host>',
       'Public host exposed in manifest artifact URLs',

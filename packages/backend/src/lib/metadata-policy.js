@@ -32,6 +32,69 @@
  */
 
 const crypto = require('crypto');
+const semver = require('semver');
+
+/**
+ * Package identity policy: the `package` id and `appVersion` a bundle carries.
+ *
+ * WHY THIS EXISTS. The push routes only checked that these two fields were
+ * *present* — any string reached storage. That let a publish set the package id
+ * to something that is not a package id (an empty-ish token, spaces, mixed
+ * case) and `appVersion` to something semver cannot order, which then breaks the
+ * "new version must be greater than the latest" comparison downstream. These
+ * validators run beside the presence check so a malformed id or version is
+ * refused at the door, in one place both push paths share.
+ */
+
+/**
+ * Reverse-DNS style, lowercase, at least one dot: `com.example.app`. Matches
+ * how cargo-mero names bundles today. Hyphens are allowed only after the first
+ * label so the leading segment stays a bare TLD-like token.
+ */
+const PACKAGE_NAME_REGEX = /^[a-z0-9]+(\.[a-z0-9-]+)+$/;
+
+/**
+ * Package id prefixes reserved to Calimero staff.
+ *
+ * A `com.calimero.*` / `network.calimero.*` id is read as a first-party app in
+ * the launcher and by the trusted-publisher shortcut. Anyone may sign a bundle
+ * with any key, so the prefix must be gated on the AUTHENTICATED user's email
+ * domain, never on a manifest field the publisher controls.
+ */
+const RESERVED_PACKAGE_PREFIXES = Object.freeze([
+  'com.calimero.',
+  'network.calimero.',
+]);
+
+/** The email domain that identifies Calimero staff. */
+const STAFF_EMAIL_DOMAIN = '@calimero.network';
+
+/** True when `pkg` is a well-formed reverse-DNS package id. */
+function isValidPackageName(pkg) {
+  return typeof pkg === 'string' && PACKAGE_NAME_REGEX.test(pkg);
+}
+
+/** True when `version` is a valid semver string (uses the semver package). */
+function isValidPackageVersion(version) {
+  return typeof version === 'string' && semver.valid(version) !== null;
+}
+
+/**
+ * The reserved prefix `pkg` starts with (case-insensitive), or null. Returning
+ * the prefix rather than a boolean lets a caller name it in the error.
+ */
+function reservedPackagePrefix(pkg) {
+  if (typeof pkg !== 'string') return null;
+  const lower = pkg.toLowerCase();
+  return RESERVED_PACKAGE_PREFIXES.find(p => lower.startsWith(p)) || null;
+}
+
+/** True when `email` belongs to Calimero staff. */
+function isStaffEmail(email) {
+  return String(email || '')
+    .toLowerCase()
+    .endsWith(STAFF_EMAIL_DOMAIN);
+}
 
 /**
  * The controlled category vocabulary. Exactly one per app, Apple-style: a
@@ -285,14 +348,54 @@ function validateBundleMetadata(manifest, { isNewPackage } = {}) {
     : { errors: [], warnings: [...problems, ...advisories], category };
 }
 
+/**
+ * Remove reserved, server-owned fields from an INCOMING (publisher-supplied)
+ * manifest's metadata before the server stamps its own.
+ *
+ * ⚠️ EVERY `metadata._*` KEY IS SERVER-OWNED. A publisher signs the whole
+ * manifest, so `metadata._adminVerified` or `metadata._ownerEmail` inside a
+ * signed bundle verifies fine — and would then be trusted as if the server had
+ * written it: a self-granted "verified" badge, and a self-declared
+ * `@calimero.network` owner email that trips the trusted-publisher shortcut and
+ * skips review. The signature PROVES the publisher wrote these, which is exactly
+ * why they cannot be kept. `removeTransientFields` (lib/verify.js) only drops
+ * TOP-LEVEL `_` keys for the signature, so nested ones reach storage unless
+ * removed here.
+ *
+ * Top-level server fields (`_binary`, `_installSize`, `_publishedAt`,
+ * `_overwrite`) are handled in the push handlers and storeBundleManifest; this
+ * touches only the metadata object. Mutates in place and returns the manifest.
+ */
+function stripReservedMetadata(manifest) {
+  if (
+    !manifest ||
+    typeof manifest.metadata !== 'object' ||
+    manifest.metadata === null
+  ) {
+    return manifest;
+  }
+  for (const key of Object.keys(manifest.metadata)) {
+    if (key.startsWith('_')) delete manifest.metadata[key];
+  }
+  return manifest;
+}
+
 module.exports = {
   CATEGORIES,
   PLACEHOLDER_ICON_SHA256,
   MIN_ICON_DIM,
   MAX_ICON_BYTES,
+  PACKAGE_NAME_REGEX,
+  RESERVED_PACKAGE_PREFIXES,
+  STAFF_EMAIL_DOMAIN,
   validateBundleMetadata,
+  isValidPackageName,
+  isValidPackageVersion,
+  reservedPackagePrefix,
+  isStaffEmail,
   resolveCategory,
   iconProblems,
   pngDimensions,
   decodeDataUri,
+  stripReservedMetadata,
 };

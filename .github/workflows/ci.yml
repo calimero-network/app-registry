@@ -8,6 +8,11 @@ env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
+# Least-privilege default: read-only GITHUB_TOKEN for every job.
+# The build job elevates to packages:write at the job level below.
+permissions:
+  contents: read
+
 jobs:
   test:
     name: Test & Quality
@@ -78,7 +83,8 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Run Snyk security scan
-        uses: snyk/actions/node@master
+        # Pinned to a released tag instead of the moving @master ref (supply-chain).
+        uses: snyk/actions/node@v1.0.0
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
@@ -94,6 +100,10 @@ jobs:
     runs-on: ubuntu-latest
     needs: [test, security]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # Needs to push the backend image to GHCR.
+    permissions:
+      contents: read
+      packages: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v7

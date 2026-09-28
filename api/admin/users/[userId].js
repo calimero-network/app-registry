@@ -6,6 +6,7 @@
 const { requireAdmin } = require('#api-lib/auth-helpers');
 const { kv } = require('#api-lib/kv-client');
 const { refresh } = require('#api-lib/refresh-storage');
+const { retireUsername } = require('#api-lib/user-storage');
 const {
   addAdmin,
   removeAdmin,
@@ -13,6 +14,22 @@ const {
   unblacklistUser,
   setAdminVerified,
 } = require('#api-lib/admin-storage');
+
+const TOKEN_PREFIX = 'apitoken:';
+const USER_TOKENS_PREFIX = 'user_tokens:';
+
+// Blacklist blocks resolveUser via isBlacklisted, but a deleted profile does
+// not, so both paths must revoke API tokens explicitly. Deletes every
+// apitoken:<member> in the user's set (members are hashes for new tokens, raw
+// values for legacy ones) then the set itself.
+async function revokeAllApiTokens(email) {
+  if (!email) return;
+  const setKey = USER_TOKENS_PREFIX + email;
+  const members = await kv.sMembers(setKey);
+  const list = Array.isArray(members) ? members : [];
+  await Promise.all(list.map(m => kv.del(TOKEN_PREFIX + m)));
+  await kv.del(setKey);
+}
 
 module.exports = async function handler(req, res) {
   const admin = await requireAdmin(req, res);
@@ -44,10 +61,15 @@ module.exports = async function handler(req, res) {
     // End live sessions too: a refresh cookie outlives the profile otherwise,
     // and the refresh flow would keep renewing it.
     if (user.email) await refresh.revokeAllForEmail(user.email);
+    // Revoke API tokens too: otherwise a deleted user's Bearer tokens keep
+    // resolving (delete does not blacklist, so isBlacklisted would not stop them).
+    if (user.email) await revokeAllApiTokens(user.email);
     // Delete user profile + indexes
     await kv.del(`user:${userId}`);
     if (user.email) await kv.del(`email2user:${user.email.toLowerCase()}`);
-    if (user.username) await kv.del(`username:${user.username.toLowerCase()}`);
+    // Tombstone (not delete) the username so it cannot be re-claimed to hijack
+    // the deleted user's packages.
+    if (user.username) await retireUsername(user.username);
     return res.status(204).end();
   }
 
@@ -96,6 +118,9 @@ module.exports = async function handler(req, res) {
           });
         }
         await blacklistUser(email, reason, admin.email);
+        // isBlacklisted stops future resolveUser calls, but revoke the tokens
+        // outright so nothing depends on that check staying in place.
+        await revokeAllApiTokens(email);
         return res.status(200).json({ ok: true });
 
       case 'unblacklist':

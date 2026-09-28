@@ -6,7 +6,25 @@
 
 const { kv } = require('./kv-client');
 const blob = require('./blob-store');
+const {
+  verifyBundleBinary,
+  BundleIntegrityError,
+} = require('./bundle-integrity');
 const semver = require('semver');
+const { removeAllAssets } = require('./asset-store');
+const { deletePkg2Org } = require('./org-storage');
+const {
+  reviewKey,
+  legacyKey,
+  DECIDED_SET,
+} = require('@calimero-network/registry-shared/package-review');
+
+// Deleted names and versions are recorded here so a later publish is refused
+// rather than silently resurrecting the deleted package under its old trust,
+// assets and org link. One flat set, keyed by "<pkg>" for a whole-package
+// delete and "<pkg>/<version>" for a single-version delete, and consulted by
+// both publish routes before they store anything.
+const TOMBSTONE_SET = 'bundle-tombstones';
 
 /**
  * True if a bundle artifact path is NOT a safe, bundle-relative path: it is a
@@ -55,6 +73,16 @@ class BundleStorageKV {
     const _binary = manifestJson._binary;
     delete manifestJson._binary;
     delete manifestJson._overwrite;
+
+    // `_adminVerified` is written ONLY by the admin approve route, straight to
+    // KV — never through here. Any copy arriving on a publish or a PATCH is a
+    // forged "verified" badge riding inside a signed manifest, so it must never
+    // be persisted. This is the last line of defence; the push/patch handlers
+    // strip all `metadata._*` up front via stripReservedMetadata.
+    if (manifestJson.metadata && typeof manifestJson.metadata === 'object') {
+      manifestJson.metadata = { ...manifestJson.metadata };
+      delete manifestJson.metadata._adminVerified;
+    }
 
     const manifestData = {
       json: manifestJson,
@@ -165,15 +193,48 @@ class BundleStorageKV {
       }
     }
 
-    // Upload the binary to GCS BEFORE writing the manifest, so a manifest can
-    // never exist in Redis without its blob in the bucket. If the upload throws,
-    // we bail out here and nothing is written. (Re-uploading the same
-    // package@version is idempotent — identical, immutable bytes to the same key.)
-    if (_binary) {
-      await blob.putBinary(key, Buffer.from(_binary, 'hex'));
+    const bundleKey = `bundle:${key}`;
+    const alreadyExists = () =>
+      new Error(
+        `Bundle ${manifest.package}@${manifest.appVersion} already exists. First-come-first-serve policy.`
+      );
+
+    // The signature does not cover `_binary`, so a replayed public manifest
+    // can carry any bytes. Refuse any archive that is not exactly the bundle
+    // the manifest signed, before anything is written.
+    let binary = null;
+    if (_binary !== undefined && _binary !== null) {
+      if (typeof _binary !== 'string' || !/^([0-9a-fA-F]{2})+$/.test(_binary)) {
+        throw new BundleIntegrityError('Bundle binary must be a hex string');
+      }
+      binary = Buffer.from(_binary, 'hex');
+      await verifyBundleBinary(manifestJson, binary);
     }
 
-    const bundleKey = `bundle:${key}`;
+    // A published package@version is immutable. Check BEFORE touching the
+    // bucket: the blob used to be written first and the "already exists"
+    // refusal came after, so a refused re-push had already replaced the
+    // .mpk every node downloads. The GCS precondition below closes the race
+    // between this read and the write; this read also covers legacy bundles
+    // whose binary lives in Redis and so have no GCS object to collide with.
+    if (!overwrite && (await kv.get(bundleKey))) {
+      throw alreadyExists();
+    }
+
+    // Upload the binary BEFORE writing the manifest, so a manifest can never
+    // exist in Redis without its blob in the bucket. Without `overwrite` the
+    // upload only creates: GCS refuses it if the object already exists.
+    let createdGeneration = null;
+    if (binary) {
+      try {
+        createdGeneration = await blob.putBinary(key, binary, {
+          createOnly: !overwrite,
+        });
+      } catch (err) {
+        if (err?.code === 'blob_exists') throw alreadyExists();
+        throw err;
+      }
+    }
 
     if (overwrite) {
       // Direct set - will overwrite
@@ -185,10 +246,14 @@ class BundleStorageKV {
       // setNX returns boolean: true if key was set, false if key already exists
       // Handle both boolean (node-redis v4+) and integer (legacy) return types
       if (!wasSet || wasSet === 0) {
-        // Key already exists - first-come-first-serve policy
-        throw new Error(
-          `Bundle ${manifest.package}@${manifest.appVersion} already exists. First-come-first-serve policy.`
-        );
+        // Lost a race to a concurrent publish of the same version after our
+        // blob was created. Remove only the object generation WE created.
+        if (createdGeneration) {
+          await blob
+            .deleteBinary(key, { ifGeneration: createdGeneration })
+            .catch(() => {});
+        }
+        throw alreadyExists();
       }
     }
 
@@ -399,6 +464,33 @@ class BundleStorageKV {
   }
 
   /**
+   * Record a retired name/version so a later publish can be refused. Idempotent
+   * (set membership), so replaying a delete is harmless.
+   */
+  async tombstonePackage(pkg) {
+    await kv.sAdd(TOMBSTONE_SET, pkg);
+  }
+
+  async tombstoneVersion(pkg, version) {
+    await kv.sAdd(TOMBSTONE_SET, `${pkg}/${version}`);
+  }
+
+  /**
+   * True if a whole package name, or that specific version, has been deleted.
+   * The publish routes call this before storing so a deleted name cannot be
+   * re-registered and a deleted version cannot be replayed back into existence.
+   * `sIsMember` is optional-chained so a stripped-down test double that never
+   * tombstones simply reads as "not retired".
+   */
+  async isRetired(pkg, version = null) {
+    if (await kv.sIsMember?.(TOMBSTONE_SET, pkg)) return true;
+    if (version && (await kv.sIsMember?.(TOMBSTONE_SET, `${pkg}/${version}`))) {
+      return true;
+    }
+    return false;
+  }
+
+  /**
    * Delete a specific version of a bundle package.
    * Cleans up the manifest, binary, version index, interface indexes,
    * and the global package list if no versions remain.
@@ -429,22 +521,51 @@ class BundleStorageKV {
       }
     }
 
+    // Retire this exact version so a replay of the same bytes cannot silently
+    // resurrect it under the old package's trust. (A whole-package delete also
+    // retires the bare name — see deletePackage.)
+    await this.tombstoneVersion(pkg, version);
+
     // If no versions remain, remove package from global list and clean up version set
     const remaining = await kv.sMembers(`bundle-versions:${pkg}`);
     if (remaining.length === 0) {
       await kv.del(`bundle-versions:${pkg}`);
       await kv.sRem('bundles:all', pkg);
+      // Deleting the last version removes the package as effectively as a
+      // whole-package delete, so retire the bare name too — otherwise the name
+      // would be re-registerable and could inherit any review/org state that
+      // outlives it.
+      await this.tombstonePackage(pkg);
     }
   }
 
   /**
-   * Delete all versions of a bundle package.
+   * Delete all versions of a bundle package AND everything else keyed by it, so
+   * nothing the package owned outlives it and gets re-attached to a same-named
+   * republish. This is the one cleanup routine both delete paths (the
+   * user-facing route and the admin route) call, so the two cannot drift and
+   * leave one path leaking review state, assets or the org link.
    */
   async deletePackage(pkg) {
     const versions = await this.getBundleVersions(pkg);
     for (const version of versions) {
       await this.deleteBundleVersion(pkg, version);
     }
+
+    // Retire the name itself: a later publish of the same package is refused
+    // rather than inheriting this one's trust, assets and org link.
+    await this.tombstonePackage(pkg);
+
+    // Download counter, the review decision (with its legacy key and its
+    // membership in the decided set), user-uploaded assets, and the org link
+    // (which also de-indexes the package from the org's package set). Assets are
+    // best-effort so a bucket hiccup never blocks the Redis cleanup.
+    await kv.del(`downloads:${pkg.toLowerCase()}`);
+    await kv.del(reviewKey(pkg));
+    await kv.del(legacyKey(pkg));
+    await kv.sRem?.(DECIDED_SET, pkg);
+    await removeAllAssets(pkg).catch(() => {});
+    await deletePkg2Org(pkg);
   }
 }
 
