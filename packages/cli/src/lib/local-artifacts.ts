@@ -23,6 +23,21 @@ export class LocalArtifactServer {
     }
   }
 
+  /**
+   * Hardening: build a path under artifactsDir from untrusted segments (request
+   * params, or bundle-provided package/version/filename) and guarantee it stays
+   * inside artifactsDir. A `..` or absolute segment would otherwise let a
+   * request read or write outside the artifact store (path traversal).
+   */
+  private resolveArtifactPath(...segments: string[]): string {
+    const base = path.resolve(this.artifactsDir);
+    const resolved = path.resolve(base, ...segments);
+    if (resolved !== base && !resolved.startsWith(base + path.sep)) {
+      throw new Error('Invalid artifact path: escapes artifacts directory');
+    }
+    return resolved;
+  }
+
   // Copy artifact to local storage
   async copyArtifactToLocal(
     sourcePath: string,
@@ -34,14 +49,15 @@ export class LocalArtifactServer {
       throw new Error(`Source file not found: ${sourcePath}`);
     }
 
-    // Create app version directory
-    const appVersionDir = path.join(this.artifactsDir, appId, version);
+    // Hardening: contain the destination so a crafted package/version/filename
+    // cannot write outside the artifact store.
+    const targetPath = this.resolveArtifactPath(appId, version, filename);
+    const appVersionDir = path.dirname(targetPath);
     if (!fs.existsSync(appVersionDir)) {
       fs.mkdirSync(appVersionDir, { recursive: true });
     }
 
     // Copy file to local storage
-    const targetPath = path.join(appVersionDir, filename);
     fs.copyFileSync(sourcePath, targetPath);
 
     // Calculate file hash for tracking
@@ -57,7 +73,9 @@ export class LocalArtifactServer {
     version: string,
     filename: string
   ): Promise<Buffer> {
-    const artifactPath = path.join(this.artifactsDir, appId, version, filename);
+    // Hardening: contain the resolved path so a traversal in appId/version/
+    // filename cannot read files outside the artifact store.
+    const artifactPath = this.resolveArtifactPath(appId, version, filename);
 
     if (!fs.existsSync(artifactPath)) {
       throw new Error(`Artifact not found: ${artifactPath}`);
