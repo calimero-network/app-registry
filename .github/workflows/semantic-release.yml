@@ -34,6 +34,11 @@ jobs:
     needs: detect-changes
     runs-on: ubuntu-latest
     if: needs.detect-changes.outputs.cli-changed == 'true' || needs.detect-changes.outputs.backend-changed == 'true' || needs.detect-changes.outputs.frontend-changed == 'true' || needs.detect-changes.outputs.monorepo-changed == 'true'
+    # Gate the npm publish behind a protected environment. With required
+    # reviewers configured on the `npm-publish` environment, this job pauses for
+    # a human approval before it can publish @calimero-network/registry-cli, so
+    # a push to main can no longer silently ship the CLI to npm.
+    environment: npm-publish
     permissions:
       id-token: write # Required for OIDC/trusted publishers
       contents: write # Required for creating GitHub releases
