@@ -194,6 +194,20 @@ module.exports = async function handler(req, res) {
     }
 
     const store = getStorage();
+
+    // A deleted name/version is retired, not free: refuse a republish rather
+    // than let it silently resurrect the old package's trust, assets and org
+    // link (replay-resurrection / name re-registration).
+    if (
+      await store.isRetired(bundleManifest.package, bundleManifest.appVersion)
+    ) {
+      return res.status(409).json({
+        error: 'name_retired',
+        message:
+          'This package name or version has been deleted and cannot be re-published.',
+      });
+    }
+
     const incomingKey = getPublicKeyFromManifest(bundleManifest);
     const versions = await store.getBundleVersions(bundleManifest.package);
 

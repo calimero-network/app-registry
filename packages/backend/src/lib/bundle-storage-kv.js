@@ -7,6 +7,20 @@
 const { kv } = require('./kv-client');
 const blob = require('./blob-store');
 const semver = require('semver');
+const { removeAllAssets } = require('./asset-store');
+const { deletePkg2Org } = require('./org-storage');
+const {
+  reviewKey,
+  legacyKey,
+  DECIDED_SET,
+} = require('@calimero-network/registry-shared/package-review');
+
+// Deleted names and versions are recorded here so a later publish is refused
+// rather than silently resurrecting the deleted package under its old trust,
+// assets and org link. One flat set, keyed by "<pkg>" for a whole-package
+// delete and "<pkg>/<version>" for a single-version delete, and consulted by
+// both publish routes before they store anything.
+const TOMBSTONE_SET = 'bundle-tombstones';
 
 /**
  * True if a bundle artifact path is NOT a safe, bundle-relative path: it is a
@@ -399,6 +413,33 @@ class BundleStorageKV {
   }
 
   /**
+   * Record a retired name/version so a later publish can be refused. Idempotent
+   * (set membership), so replaying a delete is harmless.
+   */
+  async tombstonePackage(pkg) {
+    await kv.sAdd(TOMBSTONE_SET, pkg);
+  }
+
+  async tombstoneVersion(pkg, version) {
+    await kv.sAdd(TOMBSTONE_SET, `${pkg}/${version}`);
+  }
+
+  /**
+   * True if a whole package name, or that specific version, has been deleted.
+   * The publish routes call this before storing so a deleted name cannot be
+   * re-registered and a deleted version cannot be replayed back into existence.
+   * `sIsMember` is optional-chained so a stripped-down test double that never
+   * tombstones simply reads as "not retired".
+   */
+  async isRetired(pkg, version = null) {
+    if (await kv.sIsMember?.(TOMBSTONE_SET, pkg)) return true;
+    if (version && (await kv.sIsMember?.(TOMBSTONE_SET, `${pkg}/${version}`))) {
+      return true;
+    }
+    return false;
+  }
+
+  /**
    * Delete a specific version of a bundle package.
    * Cleans up the manifest, binary, version index, interface indexes,
    * and the global package list if no versions remain.
@@ -429,22 +470,51 @@ class BundleStorageKV {
       }
     }
 
+    // Retire this exact version so a replay of the same bytes cannot silently
+    // resurrect it under the old package's trust. (A whole-package delete also
+    // retires the bare name — see deletePackage.)
+    await this.tombstoneVersion(pkg, version);
+
     // If no versions remain, remove package from global list and clean up version set
     const remaining = await kv.sMembers(`bundle-versions:${pkg}`);
     if (remaining.length === 0) {
       await kv.del(`bundle-versions:${pkg}`);
       await kv.sRem('bundles:all', pkg);
+      // Deleting the last version removes the package as effectively as a
+      // whole-package delete, so retire the bare name too — otherwise the name
+      // would be re-registerable and could inherit any review/org state that
+      // outlives it.
+      await this.tombstonePackage(pkg);
     }
   }
 
   /**
-   * Delete all versions of a bundle package.
+   * Delete all versions of a bundle package AND everything else keyed by it, so
+   * nothing the package owned outlives it and gets re-attached to a same-named
+   * republish. This is the one cleanup routine both delete paths (the
+   * user-facing route and the admin route) call, so the two cannot drift and
+   * leave one path leaking review state, assets or the org link.
    */
   async deletePackage(pkg) {
     const versions = await this.getBundleVersions(pkg);
     for (const version of versions) {
       await this.deleteBundleVersion(pkg, version);
     }
+
+    // Retire the name itself: a later publish of the same package is refused
+    // rather than inheriting this one's trust, assets and org link.
+    await this.tombstonePackage(pkg);
+
+    // Download counter, the review decision (with its legacy key and its
+    // membership in the decided set), user-uploaded assets, and the org link
+    // (which also de-indexes the package from the org's package set). Assets are
+    // best-effort so a bucket hiccup never blocks the Redis cleanup.
+    await kv.del(`downloads:${pkg.toLowerCase()}`);
+    await kv.del(reviewKey(pkg));
+    await kv.del(legacyKey(pkg));
+    await kv.sRem?.(DECIDED_SET, pkg);
+    await removeAllAssets(pkg).catch(() => {});
+    await deletePkg2Org(pkg);
   }
 }
 
