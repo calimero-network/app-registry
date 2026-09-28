@@ -11,12 +11,25 @@ type UploadErrorLike = {
     data?: {
       error?: string;
       message?: string;
-      /** metadata_incomplete lists every gap at once, so show them all. */
       problems?: string[];
       categories?: string[];
     };
   };
   message?: string;
+};
+
+// Errors that list every problem at once, keyed by the code the backend sends.
+const PROBLEM_CODES: Record<string, { headline: string; fallback: string }> = {
+  metadata_incomplete: {
+    headline:
+      'This bundle is missing metadata the registry requires of a new package.',
+    fallback: 'Metadata is incomplete.',
+  },
+  invalid_guide: {
+    headline:
+      "This bundle's guide does not follow the registry's guide format.",
+    fallback: 'The guide is invalid.',
+  },
 };
 
 export default function UploadPage() {
@@ -67,15 +80,16 @@ export default function UploadPage() {
       const responseMessage = uploadErr?.response?.data?.message;
       const fallbackMessage = uploadErr?.message;
 
-      if (code === 'metadata_incomplete') {
+      const problemCode = code ? PROBLEM_CODES[code] : undefined;
+      if (problemCode) {
         // Every problem arrives at once; listing them beats a paragraph the
-        // publisher has to parse to find the four fields they must add.
+        // publisher has to parse to find what to fix.
         const problems = uploadErr?.response?.data?.problems ?? [];
         setProblems(problems);
         setError(
           problems.length
-            ? 'This bundle is missing metadata the registry requires of a new package.'
-            : (responseMessage ?? 'Metadata is incomplete.')
+            ? problemCode.headline
+            : (responseMessage ?? problemCode.fallback)
         );
       } else if (code === 'version_not_allowed') {
         clearSelectedFile();

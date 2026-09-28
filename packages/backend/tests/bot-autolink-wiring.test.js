@@ -49,7 +49,7 @@ jest.mock('../../../api/lib/verify', () => ({
 }));
 
 const pushHandler = require('../../../api/v2/bundles/push');
-const { TEST_ICON } = require('./helpers/publishable');
+const { TEST_ICON, VALID_GUIDE } = require('./helpers/publishable');
 
 const BOT = 'bot-merostudio@calimero.network';
 const HUMAN = 'xabi@calimero.network';
@@ -67,6 +67,7 @@ function manifest(pkg) {
       author: 'a',
       category: 'developer-tools',
       icon: TEST_ICON,
+      guide: VALID_GUIDE,
     },
     wasm: { path: 'app.wasm', size: 100, hash: 'abc123' },
     signature: {

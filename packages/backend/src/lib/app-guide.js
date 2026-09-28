@@ -73,4 +73,35 @@ function validateGuide(guide) {
   return problems;
 }
 
-module.exports = { validateGuide };
+function rejection(problems) {
+  if (problems.length === 0) return null;
+  return {
+    statusCode: 422,
+    body: {
+      error: 'invalid_guide',
+      message: `This bundle's guide does not follow the registry's guide format:\n  - ${problems.join('\n  - ')}`,
+      problems,
+    },
+  };
+}
+
+/** Push: every new version must carry a valid guide. */
+function guideRejection(manifest) {
+  return rejection(validateGuide(manifest?.metadata?.guide));
+}
+
+/**
+ * Edit: only a guide the edit changes is checked, so a stored version is
+ * never re-validated. A body with no metadata at all changes nothing (the
+ * caller keeps the stored metadata); omitting `guide` from a replacement
+ * metadata object is a removal, not a no-op, so it is checked like any other
+ * change.
+ */
+function editedGuideRejection(incoming, existing) {
+  if (!incoming?.metadata) return null;
+  const guide = incoming.metadata.guide;
+  if (guide === existing?.metadata?.guide) return null;
+  return rejection(validateGuide(guide));
+}
+
+module.exports = { validateGuide, guideRejection, editedGuideRejection };

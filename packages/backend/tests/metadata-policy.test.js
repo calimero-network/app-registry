@@ -295,7 +295,10 @@ describe('every publish path enforces the policy', () => {
     return out;
   }
 
-  it('validates in every module that stores a bundle manifest', () => {
+  it.each([
+    ['the metadata policy', /validateBundleMetadata/],
+    ['the guide format', /[gG]uideRejection\(/],
+  ])('checks %s in every module that stores a bundle manifest', (_, check) => {
     const writers = walk(path.join(ROOT, 'api'))
       .concat(walk(path.join(ROOT, 'packages/backend/src')))
       .filter(f => /\.storeBundleManifest\(/.test(fs.readFileSync(f, 'utf8')))
@@ -305,7 +308,7 @@ describe('every publish path enforces the policy', () => {
     expect(writers.length).toBeGreaterThanOrEqual(3); // push.js, push-file.js, server.js
 
     const unguarded = writers.filter(
-      f => !/validateBundleMetadata/.test(fs.readFileSync(f, 'utf8'))
+      f => !check.test(fs.readFileSync(f, 'utf8'))
     );
     expect(unguarded.map(f => path.relative(ROOT, f))).toEqual([]);
   });

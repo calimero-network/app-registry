@@ -19,6 +19,9 @@ const {
   CATEGORIES,
 } = require('@calimero-network/registry-backend/src/lib/metadata-policy');
 const {
+  guideRejection,
+} = require('@calimero-network/registry-backend/src/lib/app-guide');
+const {
   verifyManifest,
   getPublicKeyFromManifest,
   normalizeSignature,
@@ -268,6 +271,9 @@ module.exports = async function handler(req, res) {
         categories: CATEGORIES,
       });
     }
+
+    const rejected = guideRejection(bundleManifest);
+    if (rejected) return res.status(rejected.statusCode).json(rejected.body);
 
     // Server-stamped, never publisher-supplied. `_`-prefixed so
     // removeTransientFields drops them before signature verification.

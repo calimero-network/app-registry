@@ -18,6 +18,7 @@ const { BundleStorageKV } = require('./lib/bundle-storage-kv');
 const { createBundleSanitizers } = require('./lib/bundle-sanitize');
 const { buildBundleListing } = require('./lib/bundle-listing');
 const { validateBundleMetadata, CATEGORIES } = require('./lib/metadata-policy');
+const { guideRejection, editedGuideRejection } = require('./lib/app-guide');
 const { kv } = require('./lib/kv-client');
 const {
   verifyManifest,
@@ -541,6 +542,9 @@ async function buildServer() {
         }
       }
 
+      const rejected = editedGuideRejection(incoming, existing);
+      if (rejected) return reply.code(rejected.statusCode).send(rejected.body);
+
       // 5. Merge: preserve immutable artifact fields from stored manifest,
       //    update only mutable fields from the incoming manifest.
       //    author is always preserved from the existing manifest — it is set
@@ -860,6 +864,9 @@ async function buildServer() {
         },
       };
     }
+
+    const rejected = guideRejection(bundleManifest);
+    if (rejected) throw rejected;
 
     // Server-stamped, never publisher-supplied: a declared size or release date
     // is unverifiable and drifts. Both are `_`-prefixed so `removeTransientFields`
