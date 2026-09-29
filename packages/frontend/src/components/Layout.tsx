@@ -499,7 +499,7 @@ function SiteFooter() {
               style={{ filter: 'var(--logo-filter)' }}
             />
             <p className='mt-6 max-w-[34ch] text-[17px] font-light leading-relaxed text-neutral-500'>
-              Signed apps for Calimero, the open-source protocol for sovereign
+              Signed apps for Calimero — the open-source protocol for sovereign
               apps.{' '}
               <a
                 href='https://calimero.network'
