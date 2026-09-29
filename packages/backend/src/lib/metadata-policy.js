@@ -307,26 +307,26 @@ function hasControlOrSpace(s) {
   return false;
 }
 
-/** The manifest `links` a client may open. */
-const LINK_KEYS = Object.freeze(['frontend', 'github', 'docs']);
-
 /**
  * Every problem with a manifest's `links`, as sentences. Empty means good.
  *
- * ⚠️ NOT GRANDFATHERED, and enforced on PATCH too. These are opened by clients:
- * the admin dashboard and the desktop navigate a window to `links.frontend`, so
- * a `javascript:` or `data:` value is script in whatever origin opens it (the
- * node's admin dashboard, where the admin session lives). That is not missing
- * polish an existing package may owe — it is refused for everyone.
+ * Each present `links.*` value must be an absolute http(s) URL with a host and
+ * no whitespace or control characters; an empty value is allowed (the link is
+ * optional). Relative, protocol-relative, `javascript:`, `data:` and similar
+ * values are refused.
+ *
+ * ⚠️ NOT GRANDFATHERED, and enforced on PATCH too. Clients open these: the
+ * package page renders them as hrefs, and the admin dashboard and the desktop
+ * navigate a window to `links.frontend`. That is not missing polish an
+ * existing package may owe — it is refused for everyone.
  */
 function linkProblems(links) {
   if (links === undefined || links === null) return [];
   if (typeof links !== 'object' || Array.isArray(links)) {
-    return ['`links` must be an object of URLs.'];
+    return ['`links` must be an object of http(s) URLs.'];
   }
   const problems = [];
-  for (const key of LINK_KEYS) {
-    const value = links[key];
+  for (const [key, value] of Object.entries(links)) {
     if (value === undefined || value === null || value === '') continue;
     let ok = false;
     if (typeof value === 'string' && !hasControlOrSpace(value)) {
@@ -337,11 +337,7 @@ function linkProblems(links) {
         ok = false;
       }
     }
-    if (!ok) {
-      problems.push(
-        `\`links.${key}\` must be an absolute http(s) URL; got ${JSON.stringify(String(value).slice(0, 80))}.`
-      );
-    }
+    if (!ok) problems.push(`\`links.${key}\` must be an http(s) URL.`);
   }
   return problems;
 }
@@ -419,30 +415,6 @@ function validateBundleMetadata(manifest, { isNewPackage } = {}) {
 }
 
 /**
- * Problems with a manifest's `links` (frontend, github, docs, ...), as
- * sentences. Empty means good.
- *
- * Every `links.*` value is rendered as a clickable href on the package page,
- * so each one must be an absolute http(s) URL — the same rule org metadata
- * links follow (shared/metadata-urls.js). An empty value is allowed (the link
- * is optional). Unlike the completeness policy above this is never
- * grandfathered: it applies to new and existing packages alike.
- */
-function linkProblems(links) {
-  if (links === undefined || links === null) return [];
-  if (typeof links !== 'object' || Array.isArray(links)) {
-    return ['`links` must be an object of http(s) URLs.'];
-  }
-  const problems = [];
-  for (const [key, value] of Object.entries(links)) {
-    if (!isSafeHttpUrl(value)) {
-      problems.push(`\`links.${key}\` must be an http(s) URL.`);
-    }
-  }
-  return problems;
-}
-
-/**
  * A copy of `links` with every value that is not an http(s) URL removed, for
  * output. Anything stored before linkProblems() was enforced is dropped rather
  * than served. Returns the input unchanged when it is not an object.
@@ -509,6 +481,5 @@ module.exports = {
   pngDimensions,
   decodeDataUri,
   stripReservedMetadata,
-  linkProblems,
   safeLinks,
 };
