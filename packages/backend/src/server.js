@@ -831,6 +831,9 @@ async function buildServer() {
     // Author is locked from the oldest (first) version, not the latest.
     // We store: metadata.author = username (display), metadata._ownerEmail = email (ownership checks).
     bundleManifest.metadata = bundleManifest.metadata || {};
+    // `metadata.author` is display-only and server-derived; drop whatever the
+    // manifest carried. Mirrors the Vercel push handlers.
+    delete bundleManifest.metadata.author;
     // Privacy: the public `author` must never be an email (it is rendered on
     // cards, the detail page and /developers/<author>). A user with no username
     // publishes with no public author (null); the email is kept privately in

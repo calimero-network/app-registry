@@ -172,6 +172,9 @@ async function handlePatch(req, res, pkg, version) {
   }
   if (existing.metadata && existing.metadata.author !== undefined) {
     body.metadata.author = existing.metadata.author;
+  } else {
+    // No stored author: PATCH cannot introduce one either.
+    delete body.metadata.author;
   }
 
   // PATCH edits metadata on an ALREADY PUBLISHED version, so this is by

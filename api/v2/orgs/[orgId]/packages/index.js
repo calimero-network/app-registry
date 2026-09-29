@@ -1,6 +1,6 @@
 /**
  * GET  /api/v2/orgs/:orgId/packages — list packages linked to org (public)
- * POST /api/v2/orgs/:orgId/packages — link package to org (admin/owner; must be package author)
+ * POST /api/v2/orgs/:orgId/packages — link package to org (admin/owner; must own the package)
  */
 
 const {
@@ -10,22 +10,15 @@ const {
   getPkg2Org,
   isOrgAdmin,
 } = require('#api-lib/org-storage');
-const { requireOrgAdminOrOwner } = require('#api-lib/auth-helpers');
+const {
+  requireOrgAdminOrOwner,
+  manifestOwnedByUser,
+} = require('#api-lib/auth-helpers');
 const {
   BundleStorageKV,
 } = require('@calimero-network/registry-backend/src/lib/bundle-storage-kv');
 
 const bundleStorage = new BundleStorageKV();
-
-function manifestOwnedByUser(manifest, user) {
-  const author = manifest?.metadata?.author;
-  const ownerEmail = manifest?.metadata?._ownerEmail;
-
-  if (user?.username && author === user.username) return true;
-  if (user?.email && ownerEmail === user.email) return true;
-  if (user?.email && !user?.username && author === user.email) return true;
-  return false;
-}
 
 function cors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -102,7 +95,7 @@ module.exports = async function handler(req, res) {
       if (!manifestOwnedByUser(latestManifest, user)) {
         return res.status(403).json({
           error: 'forbidden',
-          message: `You do not own package '${pkgName}'. Only the package author can link it to an organization`,
+          message: `You do not own package '${pkgName}'. Only the package owner can link it to an organization`,
         });
       }
       // SECURITY: setPkg2Org overwrites the link unconditionally, so owning the
