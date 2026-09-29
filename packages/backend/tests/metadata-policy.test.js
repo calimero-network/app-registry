@@ -18,6 +18,7 @@ const {
   CATEGORIES,
   PLACEHOLDER_ICON_SHA256,
   validateBundleMetadata,
+  linkProblems,
   resolveCategory,
   iconProblems,
   isValidPackageName,
@@ -428,5 +429,48 @@ describe('stripReservedMetadata', () => {
     const m = { metadata: null };
     expect(() => stripReservedMetadata(m)).not.toThrow();
     expect(() => stripReservedMetadata(null)).not.toThrow();
+  });
+});
+
+describe('links', () => {
+  test('accepts absolute http(s) links', () => {
+    expect(
+      linkProblems({
+        frontend: 'https://app.example/',
+        github: 'http://github.com/org/repo',
+        docs: 'HTTPS://docs.example',
+      })
+    ).toEqual([]);
+    expect(linkProblems(undefined)).toEqual([]);
+    expect(linkProblems({ frontend: '' })).toEqual([]);
+  });
+
+  test.each([
+    ['javascript:alert(document.domain)//'],
+    ['JavaScript:alert(1)'],
+    ['data:text/html,<script>alert(1)</script>'],
+    [' https://leading-space.example'],
+    ['//protocol-relative.example'],
+    ['/relative/path'],
+    ['https://'],
+  ])('refuses %j as a link', value => {
+    expect(linkProblems({ frontend: value })).toHaveLength(1);
+  });
+
+  test('refuses a non-object links block', () => {
+    expect(linkProblems('https://x.example')).toHaveLength(1);
+  });
+
+  // Clients navigate a window to links.frontend, so a script URL is not
+  // "missing polish" to grandfather: it blocks existing packages too.
+  test('an unsafe link blocks an EXISTING package, not just a new one', () => {
+    const manifest = {
+      ...completeManifest(),
+      links: { frontend: 'javascript:alert(1)//' },
+    };
+    const existing = validateBundleMetadata(manifest, { isNewPackage: false });
+    expect(existing.errors).toHaveLength(1);
+    const fresh = validateBundleMetadata(manifest, { isNewPackage: true });
+    expect(fresh.errors).toHaveLength(1);
   });
 });

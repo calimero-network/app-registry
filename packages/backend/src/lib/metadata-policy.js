@@ -298,6 +298,54 @@ function resolveCategory(metadata) {
   return { value: null, source: null };
 }
 
+/** True when `s` holds whitespace or a control character (<= U+0020, U+007F). */
+function hasControlOrSpace(s) {
+  for (let i = 0; i < s.length; i++) {
+    const c = s.charCodeAt(i);
+    if (c <= 0x20 || c === 0x7f) return true;
+  }
+  return false;
+}
+
+/** The manifest `links` a client may open. */
+const LINK_KEYS = Object.freeze(['frontend', 'github', 'docs']);
+
+/**
+ * Every problem with a manifest's `links`, as sentences. Empty means good.
+ *
+ * ⚠️ NOT GRANDFATHERED, and enforced on PATCH too. These are opened by clients:
+ * the admin dashboard and the desktop navigate a window to `links.frontend`, so
+ * a `javascript:` or `data:` value is script in whatever origin opens it (the
+ * node's admin dashboard, where the admin session lives). That is not missing
+ * polish an existing package may owe — it is refused for everyone.
+ */
+function linkProblems(links) {
+  if (links === undefined || links === null) return [];
+  if (typeof links !== 'object' || Array.isArray(links)) {
+    return ['`links` must be an object of URLs.'];
+  }
+  const problems = [];
+  for (const key of LINK_KEYS) {
+    const value = links[key];
+    if (value === undefined || value === null || value === '') continue;
+    let ok = false;
+    if (typeof value === 'string' && !hasControlOrSpace(value)) {
+      try {
+        const { protocol, host } = new URL(value);
+        ok = (protocol === 'https:' || protocol === 'http:') && host !== '';
+      } catch {
+        ok = false;
+      }
+    }
+    if (!ok) {
+      problems.push(
+        `\`links.${key}\` must be an absolute http(s) URL; got ${JSON.stringify(String(value).slice(0, 80))}.`
+      );
+    }
+  }
+  return problems;
+}
+
 /**
  * Validate a bundle manifest against the publishing policy.
  *
@@ -358,9 +406,16 @@ function validateBundleMetadata(manifest, { isNewPackage } = {}) {
     advisories.push('`metadata.license` is not set (recommended).');
   }
 
+  // Unsafe links block every package, new or grandfathered — see linkProblems.
+  const linkErrors = linkProblems(manifest?.links);
+
   return isNewPackage
-    ? { errors: problems, warnings: advisories, category }
-    : { errors: [], warnings: [...problems, ...advisories], category };
+    ? { errors: [...problems, ...linkErrors], warnings: advisories, category }
+    : {
+        errors: linkErrors,
+        warnings: [...problems, ...advisories],
+        category,
+      };
 }
 
 /**
@@ -444,6 +499,7 @@ module.exports = {
   RESERVED_PACKAGE_PREFIXES,
   STAFF_EMAIL_DOMAIN,
   validateBundleMetadata,
+  linkProblems,
   isValidPackageName,
   isValidPackageVersion,
   reservedPackagePrefix,
