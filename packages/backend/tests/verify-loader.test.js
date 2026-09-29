@@ -1,6 +1,6 @@
 /**
  * A verifier that cannot load (e.g. an ESM-only @noble/ed25519 that require()
- * refuses on an older Node) is a server fault. It must surface as
+ * refuses under Vercel's function loader) is a server fault. It must surface as
  * `verifier_unavailable`, never be swallowed into "Invalid signature" — that
  * turned every publish into a 400 bundle_integrity with no hint of the cause.
  */

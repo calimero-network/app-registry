@@ -4,9 +4,10 @@ const crypto = require('crypto');
 const canonicalize = require('canonicalize');
 const { multibase } = require('multibase');
 
-// Load @noble/ed25519. It is ESM-only: require() works on Node >= 22.12 and
-// under Jest, but throws ERR_REQUIRE_ESM on older runtimes, and production
-// (Vercel) runs Node 22.x — so fall back to import() instead of failing.
+// Load @noble/ed25519. It is ESM-only: require() works under Jest and plain
+// Node 24, but Vercel's function loader (/opt/rust/nodejs.js) refuses it with
+// ERR_REQUIRE_ESM even on Node 24 — so fall back to import() instead of failing.
+// tests/no-require-esm.test.js keeps any other require() of an ES module out.
 async function initEd25519() {
   if (!ed25519) {
     try {
