@@ -295,6 +295,15 @@ function resolveCategory(metadata) {
   return { value: null, source: null };
 }
 
+/** True when `s` holds whitespace or a control character (<= U+0020, U+007F). */
+function hasControlOrSpace(s) {
+  for (let i = 0; i < s.length; i++) {
+    const c = s.charCodeAt(i);
+    if (c <= 0x20 || c === 0x7f) return true;
+  }
+  return false;
+}
+
 /** The manifest `links` a client may open. */
 const LINK_KEYS = Object.freeze(['frontend', 'github', 'docs']);
 
@@ -317,7 +326,7 @@ function linkProblems(links) {
     const value = links[key];
     if (value === undefined || value === null || value === '') continue;
     let ok = false;
-    if (typeof value === 'string' && !/[\u0000-\u0020\u007f]/.test(value)) {
+    if (typeof value === 'string' && !hasControlOrSpace(value)) {
       try {
         const { protocol, host } = new URL(value);
         ok = (protocol === 'https:' || protocol === 'http:') && host !== '';
