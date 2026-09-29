@@ -43,9 +43,10 @@ module.exports = async function handler(req, res) {
       if (idBySlug) org = await getOrg(String(idBySlug));
     }
   } catch (e) {
+    console.error('orgs route error:', e);
     return res
       .status(500)
-      .json({ error: 'internal', message: e?.message ?? String(e) });
+      .json({ error: 'internal_error', message: 'Internal error' });
   }
 
   if (!org) {
@@ -84,9 +85,10 @@ module.exports = async function handler(req, res) {
       await setOrg(updated);
       return res.status(200).json(updated);
     } catch (e) {
+      console.error('orgs route error:', e);
       return res
         .status(500)
-        .json({ error: 'internal', message: e?.message ?? String(e) });
+        .json({ error: 'internal_error', message: 'Internal error' });
     }
   }
 
@@ -97,9 +99,10 @@ module.exports = async function handler(req, res) {
       await deleteOrg(resolvedOrgId);
       return res.status(204).end();
     } catch (e) {
+      console.error('orgs route error:', e);
       return res
         .status(500)
-        .json({ error: 'internal', message: e?.message ?? String(e) });
+        .json({ error: 'internal_error', message: 'Internal error' });
     }
   }
 

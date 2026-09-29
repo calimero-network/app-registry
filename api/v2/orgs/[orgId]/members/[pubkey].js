@@ -52,9 +52,10 @@ module.exports = async function handler(req, res) {
   try {
     org = await getOrg(orgId);
   } catch (e) {
+    console.error('orgs route error:', e);
     return res
       .status(500)
-      .json({ error: 'internal', message: e?.message ?? String(e) });
+      .json({ error: 'internal_error', message: 'Internal error' });
   }
   if (!org) {
     return res
@@ -97,9 +98,10 @@ module.exports = async function handler(req, res) {
       await updateOrgMemberRole(orgId, memberEmail, role);
       return res.status(204).end();
     } catch (e) {
+      console.error('orgs route error:', e);
       return res
         .status(500)
-        .json({ error: 'internal', message: e?.message ?? String(e) });
+        .json({ error: 'internal_error', message: 'Internal error' });
     }
   }
 
@@ -148,9 +150,10 @@ module.exports = async function handler(req, res) {
       await removeOrgMember(orgId, memberEmail);
       return res.status(204).end();
     } catch (e) {
+      console.error('orgs route error:', e);
       return res
         .status(500)
-        .json({ error: 'internal', message: e?.message ?? String(e) });
+        .json({ error: 'internal_error', message: 'Internal error' });
     }
   }
 

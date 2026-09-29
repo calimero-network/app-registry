@@ -39,9 +39,10 @@ module.exports = async function handler(req, res) {
         const org = await getOrg(orgId);
         return res.status(200).json(org ?? null);
       } catch (e) {
+        console.error('orgs route error:', e);
         return res
           .status(500)
-          .json({ error: 'internal', message: e?.message ?? String(e) });
+          .json({ error: 'internal_error', message: 'Internal error' });
       }
     }
     const member = req.query?.member;
@@ -71,9 +72,10 @@ module.exports = async function handler(req, res) {
       const orgs = await getOrgsByMember(email);
       return res.status(200).json(orgs);
     } catch (e) {
+      console.error('orgs route error:', e);
       return res
         .status(500)
-        .json({ error: 'internal', message: e?.message ?? String(e) });
+        .json({ error: 'internal_error', message: 'Internal error' });
     }
   }
 
@@ -121,9 +123,10 @@ module.exports = async function handler(req, res) {
       await addOrgMember(orgId, user.email, 'owner');
       return res.status(201).json(org);
     } catch (e) {
+      console.error('orgs route error:', e);
       return res
         .status(500)
-        .json({ error: 'internal', message: e?.message ?? String(e) });
+        .json({ error: 'internal_error', message: 'Internal error' });
     }
   }
 

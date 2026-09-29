@@ -51,6 +51,6 @@ module.exports = async function handler(req, res) {
     console.error('admin/orgs GET error:', err);
     return res
       .status(500)
-      .json({ error: 'internal_error', message: err.message });
+      .json({ error: 'internal_error', message: 'Internal error' });
   }
 };
