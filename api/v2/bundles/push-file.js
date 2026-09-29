@@ -258,6 +258,12 @@ module.exports = async function handler(req, res) {
     // verified badge and a trusted-publisher owner email.
     stripReservedMetadata(bundleManifest);
 
+    // `metadata.author` is display-only and server-derived: it is stamped
+    // below from the publishing account's username (or inherited from the
+    // package's first version). Whatever the manifest carried is dropped so
+    // the stored author always names a registry account.
+    delete bundleManifest.metadata.author;
+
     // Reserve the Calimero package namespace for FIRST publishes only (see the
     // same guard in push.js). Existing packages are governed by the ownership
     // check below, so re-publishing a version is never blocked here; only

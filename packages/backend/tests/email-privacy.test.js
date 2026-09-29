@@ -258,4 +258,67 @@ describe('POST /api/v2/bundles/push never stores an email as author', () => {
     expect(stored.metadata.author).not.toBe(EMAIL);
     expect(stored.metadata.author ?? null).toBeNull();
   });
+
+  function pushBody(pkg, version, metadata) {
+    return {
+      version: '1.0',
+      package: pkg,
+      appVersion: version,
+      metadata: {
+        name: 'New App',
+        description: 'A brand new app used to exercise author handling.',
+        category: 'developer-tools',
+        icon: TEST_ICON,
+        ...metadata,
+      },
+      wasm: { path: 'app.wasm', size: 100, hash: 'abc123' },
+      signature: {
+        algorithm: 'ed25519',
+        publicKey: 'dGVzdC1wdWJrZXk',
+        signature: 'dGVzdC1zaWduYXR1cmU',
+      },
+    };
+  }
+
+  async function push(token, body) {
+    const res = makeRes();
+    await pushHandler(
+      { method: 'POST', headers: { authorization: `Bearer ${token}` }, body },
+      res
+    );
+    return res;
+  }
+
+  test('a manifest-supplied author is never stored for a user with no username', async () => {
+    store.set('apitoken:tok-push', JSON.stringify({ email: EMAIL }));
+
+    const res = await push(
+      'tok-push',
+      pushBody(PKG, VERSION, { author: 'someone' })
+    );
+    expect(res.statusCode).toBe(201);
+
+    const stored = JSON.parse(store.get(`bundle:${PKG}/${VERSION}`)).json;
+    expect(stored.metadata.author ?? null).toBeNull();
+    expect(stored.metadata._ownerEmail).toBe(EMAIL);
+  });
+
+  test('the stored author is the uploader username, not the manifest value', async () => {
+    const OWNER = 'withname@example.com';
+    store.set('apitoken:tok-named', JSON.stringify({ email: OWNER }));
+    store.set(`email2user:${OWNER}`, 'u-named');
+    store.set(
+      'user:u-named',
+      JSON.stringify({ id: 'u-named', email: OWNER, username: 'realname' })
+    );
+
+    const res = await push(
+      'tok-named',
+      pushBody(PKG, VERSION, { author: 'someone' })
+    );
+    expect(res.statusCode).toBe(201);
+
+    const stored = JSON.parse(store.get(`bundle:${PKG}/${VERSION}`)).json;
+    expect(stored.metadata.author).toBe('realname');
+  });
 });

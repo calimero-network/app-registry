@@ -10,18 +10,22 @@
  */
 
 /**
- * Author check. The manifest records the publisher as a username in
- * metadata.author with metadata._ownerEmail alongside it; legacy bundles put
- * the email in metadata.author instead.
+ * Ownership check. Only the server-stamped `metadata._ownerEmail` (the email
+ * of the authenticated account that published) confers ownership, compared
+ * case-insensitively against the account email.
+ *
+ * `metadata.author` is a display field and is never consulted here: it lives
+ * inside the publisher-signed manifest and, on older bundles, was stored as
+ * the publisher supplied it, so it identifies no account. Packages without an
+ * `_ownerEmail` are managed through their organization or by a site admin.
  */
 function manifestOwnedByUser(manifest, user) {
-  const author = manifest?.metadata?.author;
   const ownerEmail = manifest?.metadata?._ownerEmail;
-
-  if (user?.username && author === user.username) return true;
-  if (user?.email && ownerEmail === user.email) return true;
-  if (user?.email && !user?.username && author === user.email) return true;
-  return false;
+  const email = user?.email;
+  if (typeof ownerEmail !== 'string' || typeof email !== 'string') return false;
+  const a = ownerEmail.trim().toLowerCase();
+  const b = email.trim().toLowerCase();
+  return a !== '' && a === b;
 }
 
 /**
@@ -35,11 +39,11 @@ function manifestOwnedByUser(manifest, user) {
  */
 function createPackagePermissions({ getPkg2Org, isOrgManager, isAdmin }) {
   /**
-   * True when the user authored the package, administers the organization the
-   * package is linked to, or is a site admin.
+   * True when the user published the package (server-stamped owner email),
+   * administers the organization the package is linked to, or is a site admin.
    *
    * @param {string} packageName
-   * @param {object} manifest Any version's manifest; author is stable per package.
+   * @param {object} manifest The package manifest the caller is acting on.
    * @param {{ email?: string, username?: string | null }} user
    */
   async function canManagePackage(packageName, manifest, user) {
@@ -58,7 +62,7 @@ function createPackagePermissions({ getPkg2Org, isOrgManager, isAdmin }) {
 }
 
 const NOT_OWNER_MESSAGE =
-  'Only the package author, an admin or owner of the organization it belongs to, or a site admin can do this.';
+  'Only the package owner, an admin or owner of the organization it belongs to, or a site admin can do this.';
 
 module.exports = {
   manifestOwnedByUser,

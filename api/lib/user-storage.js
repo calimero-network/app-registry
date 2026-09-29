@@ -12,8 +12,9 @@ const USER_PREFIX = 'user:';
 const USERNAME_PREFIX = 'username:';
 const EMAIL2USER_PREFIX = 'email2user:';
 
-// Package ownership is by author === username, so a freed username lets a new
-// account re-claim a deleted user's name and inherit their packages. On delete
+// Usernames are the public author shown on packages and /developers/<name>,
+// so a freed username would let a new account re-claim a deleted user's name
+// and appear as the author of their packages. On delete
 // we write this sentinel to username:<name> instead of deleting the key, so the
 // name stays occupied and claimUsername refuses it. It is not a valid userId,
 // so getUserByUsername resolves it to null (no user, no hijack).

@@ -29,6 +29,9 @@ const { isBlacklisted, isBot, isAdmin } = require('../lib/admin-storage');
 const {
   isReservedOrgSlug,
 } = require('@calimero-network/registry-shared/org-slugs');
+const {
+  manifestOwnedByUser,
+} = require('@calimero-network/registry-shared/package-permissions');
 const { BundleStorageKV } = require('../lib/bundle-storage-kv');
 const config = require('../config');
 
@@ -132,16 +135,6 @@ async function requireAuth(request, reply) {
       'Login required or provide an API token (Authorization: Bearer <token>)',
   });
   return null;
-}
-
-function manifestOwnedByUser(manifest, user) {
-  const author = manifest?.metadata?.author;
-  const ownerEmail = manifest?.metadata?._ownerEmail;
-
-  if (user?.username && author === user.username) return true;
-  if (user?.email && ownerEmail === user.email) return true;
-  if (user?.email && !user?.username && author === user.email) return true;
-  return false;
 }
 
 /**
@@ -531,7 +524,7 @@ async function orgRoutes(server) {
     if (!manifestOwnedByUser(latestManifest, user)) {
       return reply.code(403).send({
         error: 'forbidden',
-        message: `You do not own package '${pkgName}'. Only the package author can link it to an organization`,
+        message: `You do not own package '${pkgName}'. Only the package owner can link it to an organization`,
       });
     }
 

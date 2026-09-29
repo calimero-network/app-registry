@@ -220,6 +220,46 @@ describe('#1 re-link steal: link package already owned by another org', () => {
   });
 });
 
+describe('linking requires the server-stamped owner, not the author name', () => {
+  // An account whose USERNAME equals the package's display author, but whose
+  // email is not the stamped _ownerEmail. The author string names nobody.
+  const NAMESAKE = { email: 'namesake@example.com', token: 'tok-namesake' };
+
+  beforeEach(() => {
+    reset();
+    seedApiToken(NAMESAKE);
+    store.set(`email2user:${NAMESAKE.email}`, 'u-namesake');
+    store.set(
+      'user:u-namesake',
+      JSON.stringify({
+        id: 'u-namesake',
+        email: NAMESAKE.email,
+        username: 'author-user',
+      })
+    );
+    setOrg('namesake-org');
+    setMembers('namesake-org', { [NAMESAKE.email]: 'owner' });
+  });
+
+  test('a username matching metadata.author cannot link the package', async () => {
+    const r = await postPackage('namesake-org', NAMESAKE, PKG);
+    expect(r.statusCode).toBe(403);
+    expect(store.has(`pkg2org:${PKG}`)).toBe(false);
+  });
+
+  test('the stamped owner can, with the email in any case', async () => {
+    const MIXED = { email: 'Author@Evil.IO', token: 'tok-author-mixed' };
+    seedApiToken(MIXED);
+    setMembers('namesake-org', {
+      [NAMESAKE.email]: 'owner',
+      [MIXED.email]: 'admin',
+    });
+    const r = await postPackage('namesake-org', MIXED, PKG);
+    expect(r.statusCode).toBe(204);
+    expect(store.get(`pkg2org:${PKG}`)).toBe('namesake-org');
+  });
+});
+
 describe('#2 removing owners/admins requires owner', () => {
   const ORG = 'acme';
   beforeEach(() => {
