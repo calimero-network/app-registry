@@ -291,6 +291,12 @@ async function authRoutes(server, options) {
         return reply
           .code(409)
           .send({ error: 'immutable', message: err.message });
+      if (code === 'retired')
+        return reply.code(409).send({ error: 'retired', message: err.message });
+      if (code === 'not_found')
+        return reply
+          .code(404)
+          .send({ error: 'not_found', message: err.message });
       server.log.error({ err }, 'POST /api/auth/username failed');
       return reply
         .code(500)

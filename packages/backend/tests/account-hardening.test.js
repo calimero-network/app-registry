@@ -18,6 +18,7 @@ const setFor = k => {
 const mockKv = {
   get: async k => (store.has(k) ? store.get(k) : null),
   set: async (k, v) => (store.set(k, v), 'OK'),
+  setNX: async (k, v) => (store.has(k) ? false : (store.set(k, v), true)),
   del: async k => {
     // Redis DEL removes any key type; the set index lives in `sets`.
     const hit = store.delete(k) || sets.delete(k);

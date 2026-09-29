@@ -7,7 +7,6 @@
 const {
   getOrg,
   setOrg,
-  getOrgIdBySlug,
   getOrgMembers,
   isOrgMember,
   addOrgMember,
@@ -17,6 +16,7 @@ const {
   isOrgOwner,
   isOrgAdminOrOwner,
   getOrgsByMember,
+  getOrgIdsByMember,
   getPkg2Org,
   setPkg2Org,
   deletePkg2Org,
@@ -25,13 +25,25 @@ const {
 } = require('../lib/org-storage');
 const { verifySessionToken, verifyApiToken } = require('../lib/auth');
 const { getUserByEmail, getUserByUsername } = require('../lib/user-storage');
-const { isBlacklisted, isBot, isAdmin } = require('../lib/admin-storage');
+const {
+  isBlacklisted,
+  isBot,
+  isAdmin,
+  setAdminVerified,
+} = require('../lib/admin-storage');
+const { kv } = require('../lib/kv-client');
 const {
   isReservedOrgSlug,
 } = require('@calimero-network/registry-shared/org-slugs');
 const {
   manifestOwnedByUser,
 } = require('@calimero-network/registry-shared/package-permissions');
+const {
+  validateOrgName,
+  validateOrgMetadata,
+  countOwnedOrgs,
+  MAX_OWNED_ORGS_PER_ACCOUNT,
+} = require('@calimero-network/registry-shared/org-validation');
 const { BundleStorageKV } = require('../lib/bundle-storage-kv');
 const config = require('../config');
 
@@ -185,6 +197,7 @@ async function countOrgOwners(orgId) {
 }
 
 const SLUG_REGEX = /^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$/;
+const MAX_SLUG_LENGTH = 64;
 
 async function orgRoutes(server) {
   // GET /api/v2/orgs?member=<email> — list orgs the member belongs to (auth: self or admin)
@@ -243,35 +256,57 @@ async function orgRoutes(server) {
         message: 'Body must include name and slug (strings)',
       });
     }
+    const nameError = validateOrgName(name);
+    if (nameError) {
+      return reply.code(400).send({ error: 'bad_request', message: nameError });
+    }
     const slugNorm = slug.toLowerCase().trim();
-    if (!SLUG_REGEX.test(slugNorm)) {
+    if (!SLUG_REGEX.test(slugNorm) || slugNorm.length > MAX_SLUG_LENGTH) {
       return reply.code(400).send({
         error: 'bad_request',
-        message:
-          'slug must be lowercase alphanumeric and hyphens (e.g. my-org)',
+        message: `slug must be lowercase alphanumeric and hyphens (e.g. my-org), at most ${MAX_SLUG_LENGTH} characters`,
       });
     }
-    if (isReservedOrgSlug(slugNorm) && !(await isAdmin(user.email))) {
+    const callerIsAdmin = await isAdmin(user.email);
+    if (isReservedOrgSlug(slugNorm) && !callerIsAdmin) {
       return reply.code(403).send({
         error: 'reserved_slug',
         message: 'This organization slug is reserved',
       });
     }
-    const existingId = await getOrgIdBySlug(slugNorm);
-    if (existingId) {
+    if (
+      !callerIsAdmin &&
+      (await countOwnedOrgs(
+        { getOrgIdsByMember, getOrgMemberRole },
+        user.email
+      )) >= MAX_OWNED_ORGS_PER_ACCOUNT
+    ) {
+      return reply.code(403).send({
+        error: 'org_limit',
+        message: `An account can own at most ${MAX_OWNED_ORGS_PER_ACCOUNT} organizations`,
+      });
+    }
+    const orgId = slugNorm;
+    // Reserve the slug atomically (mirrors api/v2/orgs/index.js).
+    const reserved = await kv.setNX(`org:by_slug:${slugNorm}`, orgId);
+    if (!reserved || (await getOrg(orgId))) {
       return reply.code(409).send({
         error: 'conflict',
         message: 'An organization with this slug already exists',
       });
     }
-    const orgId = slugNorm;
     const org = {
       id: orgId,
       name: name.trim(),
       slug: slugNorm,
     };
-    await setOrg(org);
-    await addOrgMember(orgId, user.email, 'owner');
+    try {
+      await setOrg(org);
+      await addOrgMember(orgId, user.email, 'owner');
+    } catch (e) {
+      await kv.del(`org:by_slug:${slugNorm}`);
+      throw e;
+    }
     return reply.code(201).send(org);
   });
 
@@ -301,9 +336,24 @@ async function orgRoutes(server) {
     if (!user) return;
     const { name, metadata } = request.body || {};
     const updates = {};
-    if (typeof name === 'string') updates.name = name.trim();
-    if (metadata !== undefined && typeof metadata === 'object')
-      updates.metadata = metadata;
+    if (name !== undefined) {
+      const nameError = validateOrgName(name);
+      if (nameError) {
+        return reply
+          .code(400)
+          .send({ error: 'bad_request', message: nameError });
+      }
+      updates.name = name.trim();
+    }
+    if (metadata !== undefined) {
+      const checked = validateOrgMetadata(metadata);
+      if (checked.error) {
+        return reply
+          .code(400)
+          .send({ error: 'invalid_metadata', message: checked.error });
+      }
+      updates.metadata = checked.value;
+    }
     if (Object.keys(updates).length === 0) {
       return reply.send(org);
     }
@@ -325,6 +375,7 @@ async function orgRoutes(server) {
     const user = await requireOrgOwner(request, reply, orgId);
     if (!user) return;
     await deleteOrg(orgId);
+    await setAdminVerified('org', orgId, false);
     return reply.code(204).send();
   });
 

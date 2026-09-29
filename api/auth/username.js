@@ -36,6 +36,10 @@ module.exports = async function handler(req, res) {
       return res.status(409).json({ error: 'taken', message: err.message });
     if (code === 'immutable')
       return res.status(409).json({ error: 'immutable', message: err.message });
+    if (code === 'retired')
+      return res.status(409).json({ error: 'retired', message: err.message });
+    if (code === 'not_found')
+      return res.status(404).json({ error: 'not_found', message: err.message });
     console.error('POST /api/auth/username failed:', err);
     return res
       .status(500)
