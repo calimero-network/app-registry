@@ -112,7 +112,7 @@ describe('API key transport in commands', () => {
     delete process.env.CALIMERO_REGISTRY_URL;
     fetchSpy = vi
       .spyOn(globalThis, 'fetch')
-      .mockResolvedValue(new Response('{}', { status: 200 }));
+      .mockResolvedValue(new globalThis.Response('{}', { status: 200 }));
     exitSpy = vi.spyOn(process, 'exit').mockImplementation(((code?: number) => {
       throw new Error(`process.exit(${code})`);
     }) as never);
@@ -175,9 +175,12 @@ describe('API key transport in commands', () => {
 
   it('org create still talks to an http://localhost registry', async () => {
     fetchSpy.mockResolvedValue(
-      new Response(JSON.stringify({ id: 'o', name: 'A', slug: 'a' }), {
-        status: 201,
-      })
+      new globalThis.Response(
+        JSON.stringify({ id: 'o', name: 'A', slug: 'a' }),
+        {
+          status: 201,
+        }
+      )
     );
     await program().parseAsync(
       ['--url', 'http://localhost:8082', 'org', 'create', '-n', 'A', '-s', 'a'],
