@@ -878,6 +878,7 @@ Note:
             process.env.CALIMERO_API_KEY ||
             remoteConfig.getApiKey();
 
+          RemoteConfig.assertApiKeyTransport(registryUrl, apiKey);
           await pushToRemote(mpkPath, manifest, registryUrl, apiKey);
         }
       } catch (error) {
@@ -978,6 +979,8 @@ Examples:
           options.apiKey ||
           process.env.CALIMERO_API_KEY ||
           remoteConfig.getApiKey();
+
+        RemoteConfig.assertApiKeyTransport(registryUrl, apiKey);
 
         const baseUrl = registryUrl.replace(/\/$/, '');
         const bundleUrl = `${baseUrl}/api/v2/bundles/${encodeURIComponent(pkg)}/${encodeURIComponent(version)}`;

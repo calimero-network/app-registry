@@ -13,6 +13,24 @@ export interface ServerStatus {
   artifactsCount: number;
 }
 
+/**
+ * True when `origin` is an http(s) origin whose host is loopback or one of the
+ * hosts this server is configured to answer on. `Origin: null` (sandboxed
+ * iframes, file://, some redirects) is never allowed.
+ */
+function isAllowedOrigin(origin: string, allowedHosts: Set<string>): boolean {
+  let parsed: URL;
+  try {
+    parsed = new URL(origin);
+  } catch {
+    return false;
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    return false;
+  }
+  return allowedHosts.has(parsed.hostname.toLowerCase());
+}
+
 export class LocalRegistryServer {
   private config: LocalConfig;
   private dataStore: LocalDataStore;
@@ -73,6 +91,61 @@ export class LocalRegistryServer {
           error: 'Forbidden',
           message: 'Invalid Host header',
         });
+      }
+    });
+
+    // Only same-origin or non-browser callers may use state-changing methods.
+    // A browser page on another site can still send "simple" cross-origin
+    // POSTs (no preflight), so check the browser-supplied Origin and
+    // Sec-Fetch-Site headers; the CLI and curl send neither.
+    const allowedOriginHosts = new Set<string>();
+    for (const name of allowedHosts) {
+      allowedOriginHosts.add(name.replace(/:\d+$/, ''));
+    }
+    this.server.addHook('onRequest', async (request, reply) => {
+      const method = request.method.toUpperCase();
+      if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') {
+        return;
+      }
+      const origin = request.headers.origin;
+      if (
+        origin !== undefined &&
+        !isAllowedOrigin(origin, allowedOriginHosts)
+      ) {
+        return reply.code(403).send({
+          statusCode: 403,
+          error: 'Forbidden',
+          message: 'Cross-origin request not allowed',
+        });
+      }
+      const fetchSite = request.headers['sec-fetch-site'];
+      if (
+        fetchSite !== undefined &&
+        fetchSite !== 'same-origin' &&
+        fetchSite !== 'none'
+      ) {
+        return reply.code(403).send({
+          statusCode: 403,
+          error: 'Forbidden',
+          message: 'Cross-site request not allowed',
+        });
+      }
+      // The /local/* management routes take JSON only. Requiring the JSON
+      // content type means a browser cannot reach them without a CORS
+      // preflight, which this server never answers.
+      const pathname = request.url.split('?')[0];
+      if (pathname.startsWith('/local/')) {
+        const contentType = String(request.headers['content-type'] ?? '')
+          .split(';')[0]
+          .trim()
+          .toLowerCase();
+        if (contentType !== 'application/json') {
+          return reply.code(415).send({
+            statusCode: 415,
+            error: 'Unsupported Media Type',
+            message: 'Content-Type must be application/json',
+          });
+        }
       }
     });
 
