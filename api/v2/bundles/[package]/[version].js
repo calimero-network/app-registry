@@ -1,7 +1,9 @@
 /**
  * V2 Bundle Manifest API
  * GET /api/v2/bundles/:package/:version
- * PATCH /api/v2/bundles/:package/:version - edit metadata (body = full manifest; ownership + signature checks)
+ * PATCH /api/v2/bundles/:package/:version - edit metadata (body = full manifest;
+ *   requires a logged-in user who can manage the package, plus a valid
+ *   signature from one of the version's owner keys)
  */
 
 const {
@@ -10,6 +12,7 @@ const {
 const {
   validateBundleMetadata,
   stripReservedMetadata,
+  linkProblems,
 } = require('@calimero-network/registry-backend/src/lib/metadata-policy');
 const {
   validateBundleManifest,
@@ -87,7 +90,25 @@ async function getKV() {
   return kvClient;
 }
 
+/** owners[] as a sorted list of strings, so order does not count as a change. */
+function ownerSet(manifest) {
+  const owners = Array.isArray(manifest?.owners) ? manifest.owners : [];
+  return owners.map(String).sort();
+}
+
+function sameOwners(a, b) {
+  const x = ownerSet(a);
+  const y = ownerSet(b);
+  return x.length === y.length && x.every((k, i) => k === y[i]);
+}
+
 async function handlePatch(req, res, pkg, version) {
+  // A signed manifest alone is not enough: every signed manifest of a version
+  // stays valid forever, so the edit also needs a logged-in account that may
+  // manage this package — the same rule as delete and yank.
+  const user = await requireAuth(req, res);
+  if (!user) return;
+
   const body = req.body;
   if (!body || typeof body !== 'object') {
     return res.status(400).json({
@@ -141,11 +162,35 @@ async function handlePatch(req, res, pkg, version) {
     return res.status(404).json({ error: 'not_found' });
   }
 
+  if (!(await canManagePackage(pkg, existing, user))) {
+    return res.status(403).json({
+      error: 'not_owner',
+      message: NOT_OWNER_MESSAGE,
+    });
+  }
+
   const incomingKey = getPublicKeyFromManifest(body);
   if (!isAllowedOwner(existing, incomingKey)) {
     return res.status(403).json({
       error: 'not_owner',
       message: 'Only the package owner can edit this version.',
+    });
+  }
+
+  // PATCH edits metadata; the version's owner keys are not metadata.
+  if (!sameOwners(body, existing)) {
+    return res.status(400).json({
+      error: 'invalid_manifest',
+      message: 'owners cannot be changed via PATCH',
+    });
+  }
+
+  const badLinks = linkProblems(body.links);
+  if (badLinks.length > 0) {
+    return res.status(400).json({
+      error: 'invalid_links',
+      message: badLinks.join(' '),
+      problems: badLinks,
     });
   }
 

@@ -33,6 +33,14 @@ jest.mock('../../../api/lib/verify', () => ({
   normalizeSignature: jest.fn(s => s || null),
 }));
 
+// PATCH needs a logged-in account that can manage the package; that rule has
+// its own suite (bundle-metadata-edit.test.js).
+jest.mock('../../../api/lib/auth-helpers', () => ({
+  requireAuth: jest.fn(async () => ({ email: 'owner@example.com' })),
+  canManagePackage: jest.fn(async () => true),
+  NOT_OWNER_MESSAGE: 'not owner',
+}));
+
 const blob = require('../src/lib/blob-store');
 const handler = require('../../../api/v2/bundles/[package]/[version]');
 

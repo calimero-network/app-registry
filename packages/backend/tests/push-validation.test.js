@@ -125,6 +125,60 @@ describe('Push Endpoint Validation', () => {
     });
   });
 
+  describe('Links', () => {
+    function bodyWithLinks(links) {
+      return {
+        version: '1.0',
+        package: 'com.example.links',
+        appVersion: '1.0.0',
+        metadata: {
+          name: 'Links App',
+          description: 'A test app used to exercise link validation on push.',
+          category: 'developer-tools',
+          icon: TEST_ICON,
+        },
+        links,
+        wasm: { path: 'app.wasm', size: 100, hash: 'abc123' },
+        signature: {
+          algorithm: 'ed25519',
+          publicKey: 'dGVzdC1wdWJrZXk',
+          signature: 'dGVzdC1zaWduYXR1cmU',
+        },
+      };
+    }
+
+    beforeEach(() => {
+      mockKv.get.mockResolvedValue(null);
+      mockKv.setNX.mockResolvedValue(true);
+      mockKv.sAdd.mockResolvedValue(1);
+      mockKv.sMembers.mockResolvedValue([]);
+    });
+
+    test.each([
+      ['javascript:', { github: 'javascript:alert(1)' }],
+      ['data:', { docs: 'data:text/html,<b>x</b>' }],
+      ['a bare string', { frontend: 'not a url' }],
+    ])('rejects a %s link with 400', async (_label, links) => {
+      req.body = bodyWithLinks(links);
+      await pushHandler(req, res);
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ error: 'invalid_links' })
+      );
+      expect(mockKv.setNX).not.toHaveBeenCalled();
+    });
+
+    test('accepts http(s) links', async () => {
+      req.body = bodyWithLinks({
+        frontend: 'https://app.example.com',
+        github: 'https://github.com/example/app',
+        docs: 'http://docs.example.com',
+      });
+      await pushHandler(req, res);
+      expect(res.status).toHaveBeenCalledWith(201);
+    });
+  });
+
   describe('Method Validation', () => {
     test('should reject non-POST methods', async () => {
       req.method = 'GET';

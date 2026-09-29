@@ -16,6 +16,7 @@ const {
   PACKAGE_NAME_REGEX,
   CATEGORIES,
   stripReservedMetadata,
+  linkProblems,
 } = require('@calimero-network/registry-backend/src/lib/metadata-policy');
 const {
   verifyManifest,
@@ -217,6 +218,15 @@ module.exports = async function handler(req, res) {
       // has not set one); the email stays private in _ownerEmail.
       if (displayAuthor) bundleManifest.metadata.author = displayAuthor;
       bundleManifest.metadata._ownerEmail = ownerEmail;
+    }
+
+    const badLinks = linkProblems(bundleManifest.links);
+    if (badLinks.length > 0) {
+      return res.status(400).json({
+        error: 'invalid_links',
+        message: badLinks.join(' '),
+        problems: badLinks,
+      });
     }
 
     // Never trust client-controlled _overwrite; only allow overwrite when server config enables it (e.g. migrations).

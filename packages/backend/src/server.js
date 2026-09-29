@@ -25,6 +25,7 @@ const {
   isStaffEmail,
   PACKAGE_NAME_REGEX,
   CATEGORIES,
+  linkProblems,
 } = require('./lib/metadata-policy');
 const { kv } = require('./lib/kv-client');
 const {
@@ -476,6 +477,17 @@ async function buildServer() {
         });
       }
 
+      // A logged-in account is required on top of the signature: every signed
+      // manifest of a version stays valid forever. Same rule as delete.
+      const sessionUser = await resolveAuthUser(request);
+      if (!sessionUser?.email) {
+        return reply.code(401).send({
+          error: 'unauthorized',
+          message: 'Login required to edit bundle metadata.',
+        });
+      }
+      if (await denyBot(sessionUser, reply)) return;
+
       // 1. Confirm the bundle exists
       const existing = await bundleStorage.getBundleManifest(pkg, version);
       if (!existing) {
@@ -511,8 +523,14 @@ async function buildServer() {
         });
       }
 
-      // 3. Check ownership: the signer must be allowed to publish to this package
-      const sessionUser = await getSessionUser(request);
+      // 3. Check ownership: the account must be able to manage the package,
+      //    and the signer must be allowed to publish to it.
+      if (!(await canManagePackage(pkg, existing, sessionUser))) {
+        return reply.code(403).send({
+          error: 'not_owner',
+          message: NOT_OWNER_MESSAGE,
+        });
+      }
       const incomingKey = getPublicKeyFromManifest(incoming);
       const allowed = await isAllowedToPublish(
         existing,
@@ -547,6 +565,28 @@ async function buildServer() {
             });
           }
         }
+      }
+
+      // PATCH edits metadata; the version's owner keys are not metadata.
+      const ownerSet = m =>
+        (Array.isArray(m?.owners) ? m.owners : []).map(String).sort();
+      if (
+        JSON.stringify(ownerSet(incoming)) !==
+        JSON.stringify(ownerSet(existing))
+      ) {
+        return reply.code(400).send({
+          error: 'invalid_manifest',
+          message: 'owners cannot be changed via PATCH',
+        });
+      }
+
+      const badLinks = linkProblems(incoming.links);
+      if (badLinks.length > 0) {
+        return reply.code(400).send({
+          error: 'invalid_links',
+          message: badLinks.join(' '),
+          problems: badLinks,
+        });
       }
 
       // 5. Merge: preserve immutable artifact fields from stored manifest,
@@ -897,6 +937,17 @@ async function buildServer() {
       // stays private in _ownerEmail for ownership checks.
       if (displayAuthor) bundleManifest.metadata.author = displayAuthor;
       bundleManifest.metadata._ownerEmail = userEmail;
+    }
+    const badLinks = linkProblems(bundleManifest.links);
+    if (badLinks.length > 0) {
+      throw {
+        statusCode: 400,
+        body: {
+          error: 'invalid_links',
+          message: badLinks.join(' '),
+          problems: badLinks,
+        },
+      };
     }
     // Metadata policy. Runs here, after ownership is settled, because this is
     // the one point all three upload paths share — CLI, API key and the web

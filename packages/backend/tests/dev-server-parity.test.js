@@ -143,3 +143,22 @@ describe('the auth rate limiter', () => {
     expect(JSON.parse(last.payload).error).toBe('too_many_requests');
   });
 });
+
+describe('PATCH /api/v2/bundles/:package/:version', () => {
+  // Same rule as the serverless handler: a signature alone does not
+  // authorise a metadata edit, a logged-in account is required first.
+  test('answers 401 without a login', async () => {
+    const res = await server.inject({
+      method: 'PATCH',
+      url: '/api/v2/bundles/com.example.nothing/1.0.0',
+      headers: { 'content-type': 'application/json' },
+      payload: JSON.stringify({
+        package: 'com.example.nothing',
+        appVersion: '1.0.0',
+        signature: { algorithm: 'ed25519', publicKey: 'k', signature: 's' },
+      }),
+    });
+    expect(res.statusCode).toBe(401);
+    expect(JSON.parse(res.payload).error).toBe('unauthorized');
+  });
+});
