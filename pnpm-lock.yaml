@@ -269,7 +269,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^5.0.2
-        version: 5.0.2(@types/node@26.6.3)(@vitest/ui@5.0.1)(jsdom@30.1.1)(vite@8.3.1)
+        version: 5.0.2(@types/node@26.6.3)(@vitest/ui@5.0.2)(jsdom@30.1.1)(vite@8.3.1)
 
   packages/frontend:
     dependencies:
@@ -341,8 +341,8 @@ importers:
         specifier: ^6.1.1
         version: 6.1.1(vite@8.3.1)
       '@vitest/ui':
-        specifier: ^5.0.1
-        version: 5.0.1(vitest@5.0.2)
+        specifier: ^5.0.2
+        version: 5.0.2(vitest@5.0.2)
       eslint:
         specifier: ^10.0.1
         version: 10.7.0
@@ -372,7 +372,7 @@ importers:
         version: 8.3.1(@types/node@26.6.3)(esbuild@0.27.2)
       vitest:
         specifier: ^5.0.2
-        version: 5.0.2(@types/node@26.6.3)(@vitest/ui@5.0.1)(jsdom@30.1.1)(vite@8.3.1)
+        version: 5.0.2(@types/node@26.6.3)(@vitest/ui@5.0.2)(jsdom@30.1.1)(vite@8.3.1)
 
   shared: {}
 
@@ -3257,7 +3257,7 @@ packages:
       dom-accessibility-api: 0.6.3
       picocolors: 1.1.1
       redent: 3.0.0
-      vitest: 5.0.2(@types/node@26.6.3)(@vitest/ui@5.0.1)(jsdom@30.1.1)(vite@8.3.1)
+      vitest: 5.0.2(@types/node@26.6.3)(@vitest/ui@5.0.2)(jsdom@30.1.1)(vite@8.3.1)
     dev: true
 
   /@testing-library/react@16.3.3(@testing-library/dom@10.4.2)(@types/react-dom@19.3.0)(@types/react@19.3.0)(react-dom@19.3.0)(react@19.3.0):
@@ -4349,8 +4349,8 @@ packages:
       vite: 8.3.1(@types/node@26.6.3)(esbuild@0.27.2)
     dev: true
 
-  /@vitest/pretty-format@5.0.1:
-    resolution: {integrity: sha512-6guWwj5d9bguuefTOvJoq387tfpkzSv554YdUEGzjJH2PnnmvzTLQ1UQSuAk5wBFVhf2CUmy/S/palOcb6dmpA==}
+  /@vitest/pretty-format@5.0.2:
+    resolution: {integrity: sha512-YHM+mQQ7N1ROHMugJ7P/M+fC/q1G4zs/iAMZZCvhHcY8WkwPQcXBHD+z18oz+808Cfa12K7jOr3XPQMcLIovjw==}
     dependencies:
       tinyrainbow: 3.1.1
     dev: true
@@ -4359,24 +4359,24 @@ packages:
     resolution: {integrity: sha512-Ijc7T1nT9efNb5LxvjaBrEqw3f/QwUv5EE0nKqZxgqsaV/FxAAZ8baGylA8X/Z2oS4Lp+K74Jr6dTJsDKxJDeg==}
     dev: true
 
-  /@vitest/ui@5.0.1(vitest@5.0.2):
-    resolution: {integrity: sha512-7PvQu/X9/pQoHYfNLAYL22qsD4/+sx2k7zpUA7XvjW0sc40r3/r0lGZ2fsEyOHMuO8Q1KjiO1QQVjJdnWUy/WQ==}
+  /@vitest/ui@5.0.2(vitest@5.0.2):
+    resolution: {integrity: sha512-FRGWhLK/S+aaAtty/5d+jTtY5l+9pGNcjz6IHbyUiP3VWs6a+zIgU4lc1SzWCR7H+OXgetAI06i/VpCWQmVorQ==}
     peerDependencies:
-      vitest: 5.0.1
+      vitest: 5.0.2
     dependencies:
-      '@vitest/utils': 5.0.1
+      '@vitest/utils': 5.0.2
       fflate: 0.8.3
       flatted: 3.4.4
       pathe: 2.0.3
       sirv: 3.0.2
       tinyrainbow: 3.1.1
-      vitest: 5.0.2(@types/node@26.6.3)(@vitest/ui@5.0.1)(jsdom@30.1.1)(vite@8.3.1)
+      vitest: 5.0.2(@types/node@26.6.3)(@vitest/ui@5.0.2)(jsdom@30.1.1)(vite@8.3.1)
     dev: true
 
-  /@vitest/utils@5.0.1:
-    resolution: {integrity: sha512-E9+yEA+jsfaoxZcUHFzEqUrQcoNh2EwrPT5efIqkUPUwD5Ua2Li9BRWaYeRwvzvdLgTSVrre8oKNeyrfg7KkdQ==}
+  /@vitest/utils@5.0.2:
+    resolution: {integrity: sha512-mgpUtxFhKeOKVaArBVHNJGdYHAeRh135o59l13uVmPUCS1OUtis5pBqXEgE25iqRgFqEBwXvJlkhknRsYnMeqg==}
     dependencies:
-      '@vitest/pretty-format': 5.0.1
+      '@vitest/pretty-format': 5.0.2
       convert-source-map: 2.0.0
       tinyrainbow: 3.1.1
     dev: true
@@ -10847,7 +10847,7 @@ packages:
       fsevents: 2.3.3
     dev: true
 
-  /vitest@5.0.2(@types/node@26.6.3)(@vitest/ui@5.0.1)(jsdom@30.1.1)(vite@8.3.1):
+  /vitest@5.0.2(@types/node@26.6.3)(@vitest/ui@5.0.2)(jsdom@30.1.1)(vite@8.3.1):
     resolution: {integrity: sha512-7MQrx9pDv5aHiUcovIb/70Ys3tgtkUVgCtledvKdCmEO+/1Dicq5ZqoSxOW034m03oqC+oHOKui2dM6qtMLoJg==}
     engines: {node: ^22.12.0 || ^24.0.0 || >=26.0.0}
     hasBin: true
@@ -10891,7 +10891,7 @@ packages:
       '@types/chai': 5.2.3
       '@types/node': 26.6.3
       '@vitest/mocker': 5.0.2(vite@8.3.1)
-      '@vitest/ui': 5.0.1(vitest@5.0.2)
+      '@vitest/ui': 5.0.2(vitest@5.0.2)
       chai: 6.2.2
       es-module-lexer: 2.3.2
       expect-type: 1.4.0
