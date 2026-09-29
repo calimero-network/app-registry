@@ -30,7 +30,7 @@ const {
   normalizeSignature,
 } = require('#api-lib/verify');
 const {
-  isAllowedToPublish,
+  resolvePublishPermission,
   getPkg2Org,
   setPkg2Org,
 } = require('#api-lib/org-storage');
@@ -257,6 +257,9 @@ module.exports = async function handler(req, res) {
     // server stamps its own below — otherwise a publisher grants themselves the
     // verified badge and a trusted-publisher owner email.
     stripReservedMetadata(bundleManifest);
+    // `_ownerKeys` is server-owned too (it decides who may publish next); only
+    // the ownership check below may set it.
+    delete bundleManifest._ownerKeys;
 
     // Reserve the Calimero package namespace for FIRST publishes only (see the
     // same guard in push.js). Existing packages are governed by the ownership
@@ -300,24 +303,26 @@ module.exports = async function handler(req, res) {
         bundleManifest.metadata._ownerEmail = ownerEmail;
       }
 
-      // Check ownership (key match or org membership)
+      // Check ownership (a package key, or an organization admin/owner)
       const manifestLatest = await store.getBundleManifest(
         bundleManifest.package,
         latestVersion
       );
-      const allowed = await isAllowedToPublish(
+      const permission = await resolvePublishPermission(
         manifestLatest,
         incomingKey,
         bundleManifest.package,
         user?.email
       );
-      if (!allowed) {
+      if (!permission.allowed) {
         return res.status(403).json({
           error: 'not_owner',
           message:
-            'Only the package owner or an organization member can publish new versions.',
+            'Only the package owner or an organization admin can publish new versions.',
         });
       }
+      // An organization publish keeps the package's existing key set.
+      if (permission.viaOrg) bundleManifest._ownerKeys = permission.ownerKeys;
 
       // New version must be greater than latest
       const incoming = bundleManifest.appVersion;

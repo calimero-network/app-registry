@@ -311,6 +311,50 @@ async function deleteOrg(orgId) {
 }
 
 /**
+ * Decide whether a new version of an existing package may be published.
+ *
+ * Two ways in:
+ * 1. Key: the signing key is one of the package's owner keys
+ *    (getOwnerKeys of the latest version). The new version's own signer /
+ *    owners[] then define the key set going forward, as before.
+ * 2. Organization: the package is linked to an org and the authenticated
+ *    account is an admin or owner of it (plain members publish with a package
+ *    key). The version is signed with the admin's own key, so the caller must
+ *    stamp `ownerKeys` onto it as `_ownerKeys`: the package's existing key set
+ *    is carried forward unchanged and the admin's key is not added to it. The
+ *    admin keeps publishing only while they hold the role.
+ *
+ * @param {object} latestManifest - latest stored version of the package
+ * @param {string} incomingKey - pubkey from the new bundle's signature
+ * @param {string} packageName
+ * @param {string} [authorEmail] - authenticated account (session/token)
+ * @returns {Promise<{allowed: boolean, viaOrg: boolean, ownerKeys: string[] | null}>}
+ */
+async function resolvePublishPermission(
+  latestManifest,
+  incomingKey,
+  packageName,
+  authorEmail
+) {
+  const { isAllowedOwner, getOwnerKeys } = require('./verify');
+  if (isAllowedOwner(latestManifest, incomingKey)) {
+    return { allowed: true, viaOrg: false, ownerKeys: null };
+  }
+  const denied = { allowed: false, viaOrg: false, ownerKeys: null };
+  if (!authorEmail) return denied;
+  const orgId = await getPkg2Org(packageName);
+  if (!orgId) return denied;
+  // Both the membership set and the role: a removed member has neither.
+  if (!(await isOrgMember(orgId, authorEmail))) return denied;
+  if (!(await isOrgAdminOrOwner(orgId, authorEmail))) return denied;
+  return {
+    allowed: true,
+    viaOrg: true,
+    ownerKeys: getOwnerKeys(latestManifest),
+  };
+}
+
+/**
  * Check if authorEmail can publish to package: either owner (pubkey match) or org member by email.
  * @param {object} existingManifest - current bundle manifest (for owner pubkey check)
  * @param {string} incomingKey - pubkey from bundle signature
@@ -354,4 +398,5 @@ module.exports = {
   getPackagesByOrg,
   deleteOrg,
   isAllowedToPublish,
+  resolvePublishPermission,
 };
