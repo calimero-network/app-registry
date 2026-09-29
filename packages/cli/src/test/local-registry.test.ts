@@ -279,6 +279,124 @@ describe('Local Registry', () => {
         });
         expect(reset.statusCode).toBe(404);
       });
+
+      it('rejects a mutating request with a foreign Origin', async () => {
+        const app = server['server'];
+        await server.seed();
+        expect(server['dataStore'].getAllBundles()).toHaveLength(1);
+        const res = await app.inject({
+          method: 'POST',
+          url: '/local/reset',
+          headers: {
+            host: `127.0.0.1:${port}`,
+            origin: 'https://evil.example.com',
+            'content-type': 'application/json',
+          },
+          payload: '{}',
+        });
+        expect(res.statusCode).toBe(403);
+        expect(server['dataStore'].getAllBundles()).toHaveLength(1);
+      });
+
+      it('rejects Origin: null on a mutating request', async () => {
+        const app = server['server'];
+        const res = await app.inject({
+          method: 'POST',
+          url: '/local/seed',
+          headers: {
+            host: `127.0.0.1:${port}`,
+            origin: 'null',
+            'content-type': 'application/json',
+          },
+          payload: '{}',
+        });
+        expect(res.statusCode).toBe(403);
+      });
+
+      it('rejects a cross-site Sec-Fetch-Site on a mutating request', async () => {
+        const app = server['server'];
+        for (const site of ['cross-site', 'same-site']) {
+          const res = await app.inject({
+            method: 'POST',
+            url: '/local/reset',
+            headers: {
+              host: `127.0.0.1:${port}`,
+              'sec-fetch-site': site,
+              'content-type': 'application/json',
+            },
+            payload: '{}',
+          });
+          expect(res.statusCode).toBe(403);
+        }
+      });
+
+      it('rejects a non-JSON body on /local/* mutating routes', async () => {
+        const app = server['server'];
+        await server.seed();
+        expect(server['dataStore'].getAllBundles()).toHaveLength(1);
+        for (const contentType of [
+          undefined,
+          'text/plain',
+          'application/x-www-form-urlencoded',
+          'multipart/form-data; boundary=x',
+        ]) {
+          const headers: Record<string, string> = {
+            host: `127.0.0.1:${port}`,
+          };
+          if (contentType) headers['content-type'] = contentType;
+          const res = await app.inject({
+            method: 'POST',
+            url: '/local/reset',
+            headers,
+            payload: contentType ? 'x' : undefined,
+          });
+          expect(res.statusCode).toBe(415);
+        }
+        expect(server['dataStore'].getAllBundles()).toHaveLength(1);
+      });
+
+      it('accepts a JSON request from a non-browser client or loopback origin', async () => {
+        const app = server['server'];
+        const seeded = await app.inject({
+          method: 'POST',
+          url: '/local/seed',
+          headers: {
+            host: `127.0.0.1:${port}`,
+            'content-type': 'application/json; charset=utf-8',
+          },
+          payload: '{}',
+        });
+        expect(seeded.statusCode).toBe(200);
+        expect(server['dataStore'].getAllBundles()).toHaveLength(1);
+
+        const reset = await app.inject({
+          method: 'POST',
+          url: '/local/reset',
+          headers: {
+            host: `localhost:${port}`,
+            origin: `http://localhost:${port}`,
+            'sec-fetch-site': 'same-origin',
+            'content-type': 'application/json',
+          },
+          payload: '{}',
+        });
+        expect(reset.statusCode).toBe(200);
+        expect(server['dataStore'].getAllBundles()).toHaveLength(0);
+      });
+
+      it('does not apply the Origin check to GET requests', async () => {
+        const app = server['server'];
+        const res = await app.inject({
+          method: 'GET',
+          url: '/healthz',
+          headers: {
+            host: `127.0.0.1:${port}`,
+            origin: 'https://evil.example.com',
+            'sec-fetch-site': 'cross-site',
+          },
+        });
+        expect(res.statusCode).toBe(200);
+      });
     });
   });
 });

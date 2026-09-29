@@ -131,13 +131,32 @@ export class RemoteConfig {
       return false; // not a parseable URL; leave validation to the caller
     }
     if (parsed.protocol !== 'http:') return false;
-    const host = parsed.hostname.toLowerCase();
+    // URL.hostname keeps the brackets on an IPv6 literal ("[::1]").
+    const host = parsed.hostname.toLowerCase().replace(/^\[(.*)\]$/, '$1');
     const isLocal =
       host === 'localhost' ||
       host === '127.0.0.1' ||
       host === '::1' ||
       host.endsWith('.localhost');
     return !isLocal;
+  }
+
+  /**
+   * Throws when an API key would be sent to `url` over plain http:// to a
+   * non-loopback host. Called wherever the effective registry URL (flag, env
+   * var or config file) is about to receive the Bearer key. https:// and
+   * http://localhost / 127.0.0.1 / [::1] are always allowed.
+   */
+  static assertApiKeyTransport(url: string, apiKey: string | undefined): void {
+    if (!apiKey) return;
+    if (RemoteConfig.isInsecureRemoteUrl(url)) {
+      throw new Error(
+        `Refusing to send the API key to ${url}: plain http:// is only ` +
+          'allowed for localhost / 127.0.0.1 / [::1]. Use an https:// ' +
+          'registry URL (check --url, CALIMERO_REGISTRY_URL and ' +
+          '`calimero-registry config get registry-url`).'
+      );
+    }
   }
 
   /**

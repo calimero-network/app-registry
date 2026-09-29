@@ -27,8 +27,12 @@ function getGlobalOpts(command: Command): {
   };
 }
 
-/** Returns the Authorization header for CLI write operations. Throws if no token configured. */
-function getAuthHeaders(): Record<string, string> {
+/**
+ * Returns the Authorization header for CLI write operations sent to `url`.
+ * Throws if no token is configured, or if `url` is plain http:// to a
+ * non-loopback host.
+ */
+function getAuthHeaders(url: string): Record<string, string> {
   const remoteConfig = new RemoteConfig();
   const apiKey = remoteConfig.getApiKey();
   if (!apiKey) {
@@ -38,6 +42,7 @@ function getAuthHeaders(): Record<string, string> {
         '  calimero-registry config set api-key <token>'
     );
   }
+  RemoteConfig.assertApiKeyTransport(url, apiKey);
   return { Authorization: `Bearer ${apiKey}` };
 }
 
@@ -81,9 +86,9 @@ export const orgCommand = new Command('org')
         const spinner = ora('Resolving identity...').start();
         let authHeaders: Record<string, string>;
         try {
-          authHeaders = getAuthHeaders();
+          authHeaders = getAuthHeaders(url);
         } catch (e) {
-          spinner.fail('API token required');
+          spinner.fail('Cannot use API token');
           console.error(chalk.red(e instanceof Error ? e.message : String(e)));
           process.exit(1);
         }
@@ -175,7 +180,7 @@ export const orgCommand = new Command('org')
           const { url, timeout } = getGlobalOpts(command);
           const spinner = ora('Creating organization...').start();
           try {
-            const authHeaders = getAuthHeaders();
+            const authHeaders = getAuthHeaders(url);
             const pathname = '/api/v2/orgs';
             const body = {
               name: options.name.trim(),
@@ -255,7 +260,7 @@ export const orgCommand = new Command('org')
           const { url, timeout } = getGlobalOpts(command);
           const spinner = ora('Updating organization...').start();
           try {
-            const authHeaders = getAuthHeaders();
+            const authHeaders = getAuthHeaders(url);
             const pathname = `/api/v2/orgs/${encodeURIComponent(orgId)}`;
             const body: Record<string, unknown> = {};
             if (options.name !== undefined) body.name = options.name;
@@ -326,7 +331,7 @@ export const orgCommand = new Command('org')
           }
           const spinner = ora('Deleting organization...').start();
           try {
-            const authHeaders = getAuthHeaders();
+            const authHeaders = getAuthHeaders(url);
             const pathname = `/api/v2/orgs/${encodeURIComponent(orgId)}`;
             const base = url.replace(/\/$/, '');
             const { data, status } = await fetchJson(`${base}${pathname}`, {
@@ -403,7 +408,7 @@ export const orgCommand = new Command('org')
               const { url, timeout } = getGlobalOpts(command);
               const spinner = ora('Adding member...').start();
               try {
-                const authHeaders = getAuthHeaders();
+                const authHeaders = getAuthHeaders(url);
                 const pathname = `/api/v2/orgs/${encodeURIComponent(orgId)}/members`;
                 const body = {
                   email: email.trim(),
@@ -451,7 +456,7 @@ export const orgCommand = new Command('org')
               const role = options.role === 'admin' ? 'admin' : 'member';
               const spinner = ora('Updating member role...').start();
               try {
-                const authHeaders = getAuthHeaders();
+                const authHeaders = getAuthHeaders(url);
                 const pathname = `/api/v2/orgs/${encodeURIComponent(orgId)}/members/${encodeURIComponent(email.trim())}`;
                 const body = { role };
                 const base = url.replace(/\/$/, '');
@@ -494,7 +499,7 @@ export const orgCommand = new Command('org')
               const { url, timeout } = getGlobalOpts(command);
               const spinner = ora('Removing member...').start();
               try {
-                const authHeaders = getAuthHeaders();
+                const authHeaders = getAuthHeaders(url);
                 const pathname = `/api/v2/orgs/${encodeURIComponent(orgId)}/members/${encodeURIComponent(email.trim())}`;
                 const base = url.replace(/\/$/, '');
                 const { data, status } = await fetchJson(`${base}${pathname}`, {
@@ -534,7 +539,7 @@ export const orgCommand = new Command('org')
               const { url, timeout } = getGlobalOpts(command);
               const spinner = ora('Linking package...').start();
               try {
-                const authHeaders = getAuthHeaders();
+                const authHeaders = getAuthHeaders(url);
                 const pathname = `/api/v2/orgs/${encodeURIComponent(orgId)}/packages`;
                 const body = { package: pkg.trim() };
                 const base = url.replace(/\/$/, '');
@@ -572,7 +577,7 @@ export const orgCommand = new Command('org')
               const { url, timeout } = getGlobalOpts(command);
               const spinner = ora('Unlinking package...').start();
               try {
-                const authHeaders = getAuthHeaders();
+                const authHeaders = getAuthHeaders(url);
                 const pathname = `/api/v2/orgs/${encodeURIComponent(orgId)}/packages/${encodeURIComponent(pkg.trim())}`;
                 const base = url.replace(/\/$/, '');
                 const { data, status } = await fetchJson(`${base}${pathname}`, {
