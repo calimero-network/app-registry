@@ -16,6 +16,7 @@ import {
   ShieldOff,
   CheckCircle,
   XCircle,
+  KeyRound,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
@@ -148,6 +149,7 @@ function UsersTab({
   setConfirmDelete: (v: string | null) => void;
 }) {
   const qc = useQueryClient();
+  const { user: me } = useAuth();
   const [search, setSearch] = useState('');
   const [blacklistReasons, setBlacklistReasons] = useState<
     Record<string, string>
@@ -263,7 +265,8 @@ function UsersTab({
                       mutate.mutate({ userId: u.id, action: 'unblacklist' })
                     }
                   />
-                ) : !u.email.endsWith('@calimero.network') ? (
+                ) : u.email.toLowerCase() !==
+                  (me?.email || '').toLowerCase() ? (
                   <div className='flex items-center gap-1'>
                     <input
                       type='text'
@@ -291,6 +294,14 @@ function UsersTab({
                     />
                   </div>
                 ) : null}
+                <ActionBtn
+                  label='Revoke tokens'
+                  icon={KeyRound}
+                  color='neutral'
+                  onClick={() =>
+                    mutate.mutate({ userId: u.id, action: 'revoke_tokens' })
+                  }
+                />
                 {confirmDelete === u.id ? (
                   <span className='flex items-center gap-1.5 text-[12.5px]'>
                     <span className='text-red-400'>Delete?</span>
