@@ -172,6 +172,8 @@ describe('POST /api/auth/token', () => {
     const res = await server.inject({
       method: 'POST',
       url: '/api/auth/token',
+      // Own address: the rate-limiter test above spends the default one.
+      remoteAddress: '10.20.30.40',
       headers: { authorization: `Bearer ${token}` },
       payload: { label: 'another' },
     });
