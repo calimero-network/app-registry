@@ -15,6 +15,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import type { MockInstance } from 'vitest';
 import axios from 'axios';
 
 const FLAG = 'app_registry_authenticated';
@@ -24,6 +25,7 @@ type Route = (url: string) => { status: number; data?: unknown };
 let route: Route;
 let calls: string[];
 let assign: ReturnType<typeof vi.fn>;
+let errorSpy: MockInstance;
 let api: typeof import('@/lib/api').api;
 
 function stubAdapter(config: { url?: string; baseURL?: string }) {
@@ -53,7 +55,7 @@ beforeEach(async () => {
     value: { pathname: '/apps', search: '', assign },
     writable: true,
   });
-  vi.spyOn(console, 'error').mockImplementation(() => {});
+  errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
   // Inherited by every instance created after this point.
   axios.defaults.adapter = stubAdapter as never;
@@ -186,13 +188,13 @@ describe('error logging', () => {
     });
 
     await expect(api.get('/auth/me')).rejects.toBeTruthy();
-    expect(console.error).not.toHaveBeenCalled();
+    expect(errorSpy).not.toHaveBeenCalled();
   });
 
   it('still logs other failed requests', async () => {
     route = () => ({ status: 500, data: { error: 'internal_error' } });
 
     await expect(api.get('/thing')).rejects.toBeTruthy();
-    expect(console.error).toHaveBeenCalledWith('API Error:', expect.anything());
+    expect(errorSpy).toHaveBeenCalledWith('API Error:', expect.anything());
   });
 });
