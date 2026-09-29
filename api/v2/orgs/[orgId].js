@@ -14,9 +14,11 @@ const {
   requireOrgAdminOrOwner,
   requireOrgOwner,
 } = require('#api-lib/auth-helpers');
+const { setAdminVerified } = require('#api-lib/admin-storage');
 const {
-  findUnsafeMetadataUrl,
-} = require('@calimero-network/registry-shared/metadata-urls');
+  validateOrgName,
+  validateOrgMetadata,
+} = require('@calimero-network/registry-shared/org-validation');
 
 function cors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -66,18 +68,25 @@ module.exports = async function handler(req, res) {
     if (!user) return;
     const { name, metadata } = req.body || {};
     const updates = {};
-    if (typeof name === 'string') updates.name = name.trim();
-    if (metadata !== undefined && typeof metadata === 'object') {
-      // SECURITY: the frontend renders website/github/twitter as raw links, so
-      // reject any non-http(s) scheme (javascript:, data:, …) before storing.
-      const badField = findUnsafeMetadataUrl(metadata);
-      if (badField) {
-        return res.status(400).json({
-          error: 'invalid_metadata',
-          message: `metadata.${badField} must be an http(s) URL`,
-        });
+    if (name !== undefined) {
+      const nameError = validateOrgName(name);
+      if (nameError) {
+        return res
+          .status(400)
+          .json({ error: 'bad_request', message: nameError });
       }
-      updates.metadata = metadata;
+      updates.name = name.trim();
+    }
+    if (metadata !== undefined) {
+      // Allowlisted keys, bounded lengths, http(s)-only links (the frontend
+      // renders website/github/twitter as raw hrefs), a valid email.
+      const checked = validateOrgMetadata(metadata);
+      if (checked.error) {
+        return res
+          .status(400)
+          .json({ error: 'invalid_metadata', message: checked.error });
+      }
+      updates.metadata = checked.value;
     }
     if (Object.keys(updates).length === 0) return res.status(200).json(org);
     try {
@@ -97,6 +106,9 @@ module.exports = async function handler(req, res) {
     if (!user) return;
     try {
       await deleteOrg(resolvedOrgId);
+      // The slug is free again once the org is gone; a new org created under
+      // it must not inherit the old one's admin verification.
+      await setAdminVerified('org', resolvedOrgId, false);
       return res.status(204).end();
     } catch (e) {
       console.error('orgs route error:', e);
