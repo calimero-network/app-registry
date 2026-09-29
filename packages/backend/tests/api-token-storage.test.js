@@ -135,6 +135,77 @@ describe('api token storage', () => {
     await expect(s.verify('bad')).resolves.toBeNull();
   });
 
+  describe('legacy fallback accepts only legacy records', () => {
+    it('does not resolve the stored key name of a new token', async () => {
+      const kv = makeKv();
+      const s = createApiTokenStorage(kv);
+      const { token } = await s.create(EMAIL, 'Dev', 'CLI');
+      const stored = hashToken(token);
+      expect(kv.store.has(`apitoken:${stored}`)).toBe(true);
+
+      expect(await s.verify(stored)).toBeNull();
+      // Its lastUsed must not have been touched by the refused lookup.
+      const rec = JSON.parse(kv.store.get(`apitoken:${stored}`));
+      expect(rec.lastUsed).toBeUndefined();
+    });
+
+    it('still resolves a new token presented raw', async () => {
+      const kv = makeKv();
+      const s = createApiTokenStorage(kv);
+      const { token } = await s.create(EMAIL, 'Dev', 'CLI');
+      const rec = await s.verify(token);
+      expect(rec).toMatchObject({ email: EMAIL, hashed: true });
+    });
+
+    it('still resolves a legacy base64url token stored under its raw value', async () => {
+      const kv = makeKv();
+      const s = createApiTokenStorage(kv);
+      const legacy = crypto.randomBytes(32).toString('base64url');
+      await kv.set(
+        `apitoken:${legacy}`,
+        JSON.stringify({ email: EMAIL, name: 'Dev', label: 'old' })
+      );
+      const rec = await s.verify(legacy, Date.now() + 3650 * DAY);
+      expect(rec.email).toBe(EMAIL);
+    });
+
+    it('refuses a raw-key record that carries an expiry or the hashed marker', async () => {
+      const kv = makeKv();
+      const s = createApiTokenStorage(kv);
+      await kv.set(
+        'apitoken:raw-with-expiry',
+        JSON.stringify({ email: EMAIL, expiresAt: Date.now() + DAY })
+      );
+      await kv.set(
+        'apitoken:raw-with-marker',
+        JSON.stringify({ email: EMAIL, hashed: true })
+      );
+      expect(await s.verify('raw-with-expiry')).toBeNull();
+      expect(await s.verify('raw-with-marker')).toBeNull();
+    });
+
+    it('rejects an expired new token', async () => {
+      const kv = makeKv();
+      const s = createApiTokenStorage(kv, { maxAgeSeconds: 60 });
+      const now = 1_000_000_000;
+      const { token } = await s.create(EMAIL, 'Dev', 'CLI', {}, now);
+      expect(await s.verify(token, now + 61 * 1000)).toBeNull();
+      expect(await s.verify(hashToken(token), now + 61 * 1000)).toBeNull();
+    });
+
+    it('an extra field cannot drop the expiry or the marker', async () => {
+      const kv = makeKv();
+      const s = createApiTokenStorage(kv);
+      const { token } = await s.create(EMAIL, 'Dev', 'CLI', {
+        expiresAt: undefined,
+        hashed: false,
+      });
+      const rec = JSON.parse(kv.store.get(`apitoken:${hashToken(token)}`));
+      expect(typeof rec.expiresAt).toBe('number');
+      expect(rec.hashed).toBe(true);
+    });
+  });
+
   it('default lifetime is 90 days', () => {
     const s = createApiTokenStorage(makeKv());
     expect(s.maxAgeSeconds).toBe(90 * 24 * 60 * 60);
