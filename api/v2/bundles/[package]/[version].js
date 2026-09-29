@@ -180,6 +180,15 @@ async function handlePatch(req, res, pkg, version) {
   // icon. It still matters, because PATCH is a way to *remove* a description
   // or swap in a placeholder icon after the fact.
   const policy = validateBundleMetadata(body, { isNewPackage: false });
+  // Only unsafe `links` block an existing package (see linkProblems): PATCH is
+  // otherwise a way to swap a published app's frontend link for a script URL.
+  if (policy.errors.length > 0) {
+    return res.status(400).json({
+      error: 'metadata_rejected',
+      message: `This metadata is not accepted:\n  - ${policy.errors.join('\n  - ')}`,
+      problems: policy.errors,
+    });
+  }
 
   // Top-level `_` keys are outside the signature, so anything the client puts
   // there is unsigned and unauthenticated. PATCH edits metadata only: drop
