@@ -41,9 +41,10 @@ module.exports = async function handler(req, res) {
   try {
     org = await getOrg(orgId);
   } catch (e) {
+    console.error('orgs route error:', e);
     return res
       .status(500)
-      .json({ error: 'internal', message: e?.message ?? String(e) });
+      .json({ error: 'internal_error', message: 'Internal error' });
   }
   if (!org) {
     return res
@@ -56,9 +57,10 @@ module.exports = async function handler(req, res) {
       const packages = await getPackagesByOrg(orgId);
       return res.status(200).json({ packages });
     } catch (e) {
+      console.error('orgs route error:', e);
       return res
         .status(500)
-        .json({ error: 'internal', message: e?.message ?? String(e) });
+        .json({ error: 'internal_error', message: 'Internal error' });
     }
   }
 
@@ -116,9 +118,10 @@ module.exports = async function handler(req, res) {
       await setPkg2Org(pkgName, orgId);
       return res.status(204).end();
     } catch (e) {
+      console.error('orgs route error:', e);
       return res
         .status(500)
-        .json({ error: 'internal', message: e?.message ?? String(e) });
+        .json({ error: 'internal_error', message: 'Internal error' });
     }
   }
 

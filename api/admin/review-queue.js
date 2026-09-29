@@ -166,8 +166,9 @@ module.exports = async function handler(req, res) {
     );
     return res.status(200).json({ queue, count: queue.length });
   } catch (err) {
+    console.error('admin/review-queue error:', err);
     return res
       .status(500)
-      .json({ error: 'queue_failed', message: err.message });
+      .json({ error: 'internal_error', message: 'Internal error' });
   }
 };

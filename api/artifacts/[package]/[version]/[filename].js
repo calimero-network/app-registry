@@ -152,8 +152,8 @@ module.exports = async function handler(req, res) {
   } catch (error) {
     console.error('Error serving artifact:', error);
     return res.status(500).json({
-      error: 'internal_server_error',
-      message: error.message || 'Failed to serve artifact',
+      error: 'internal_error',
+      message: 'Internal error',
     });
   }
 };

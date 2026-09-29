@@ -110,8 +110,9 @@ module.exports = async function handler(req, res) {
       },
     });
   } catch (err) {
+    console.error('package read error:', err);
     return res
       .status(500)
-      .json({ error: 'package_read_failed', message: err.message });
+      .json({ error: 'internal_error', message: 'Internal error' });
   }
 };
