@@ -206,8 +206,14 @@ api.interceptors.response.use(
           'Backend is not running. Start both backend and frontend: pnpm dev:all';
       }
     }
-    // eslint-disable-next-line no-console
-    console.error('API Error:', apiError || error.message);
+    // A 401 from the /auth/me session check is how an anonymous visitor is
+    // told "not signed in" — an expected answer, not an error to log.
+    const isSignedOutCheck =
+      status === 401 && /\/auth\/me(\?|$)/.test(requestUrl);
+    if (!isSignedOutCheck) {
+      // eslint-disable-next-line no-console
+      console.error('API Error:', apiError || error.message);
+    }
     return Promise.reject(error);
   }
 );
