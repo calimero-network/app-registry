@@ -3,7 +3,7 @@
  */
 
 const jwt = require('jsonwebtoken');
-const { kv } = require('#api-lib/kv-client');
+const { apiTokens } = require('#api-lib/api-token-storage');
 const { getUserById, getUserByEmail } = require('#api-lib/user-storage');
 const {
   parseCookies,
@@ -13,8 +13,6 @@ const {
   getAdminVerified,
   isBlacklisted,
 } = require('#api-lib/admin-storage');
-
-const TOKEN_PREFIX = 'apitoken:';
 
 function getBearerToken(req) {
   const auth = req.headers.authorization;
@@ -38,9 +36,11 @@ module.exports = async function handler(req, res) {
   const bearer = getBearerToken(req);
   if (bearer) {
     try {
-      const raw = await kv.get(TOKEN_PREFIX + bearer);
-      if (raw) {
-        const data = JSON.parse(typeof raw === 'string' ? raw : String(raw));
+      // Same lookup as resolveUser in api/lib/auth-helpers.js, so /me and
+      // every other endpoint agree on which tokens are valid (hashing, expiry,
+      // lastUsed) — see shared/api-token-storage.js.
+      const data = await apiTokens.verify(bearer);
+      if (data?.email) {
         if (await isBlacklisted(data.email)) {
           return res.status(403).json({
             error: 'account_suspended',
