@@ -4,16 +4,45 @@ const crypto = require('crypto');
 const canonicalize = require('canonicalize');
 const { multibase } = require('multibase');
 
-// Initialize ed25519 module (require in CJS so Jest works; dynamic import in ESM)
+// Load @noble/ed25519. It is ESM-only: require() works under Jest and plain
+// Node 24, but Vercel's function loader (/opt/rust/nodejs.js) refuses it with
+// ERR_REQUIRE_ESM even on Node 24 — so fall back to import() instead of failing.
+// tests/no-require-esm.test.js keeps any other require() of an ES module out.
 async function initEd25519() {
   if (!ed25519) {
-    if (typeof require !== 'undefined') {
-      ed25519 = require('@noble/ed25519');
-    } else {
-      ed25519 = await import('@noble/ed25519');
+    try {
+      ed25519 =
+        typeof require !== 'undefined'
+          ? require('@noble/ed25519')
+          : await import('@noble/ed25519');
+    } catch (err) {
+      if (
+        err?.code !== 'ERR_REQUIRE_ESM' &&
+        err?.code !== 'ERR_REQUIRE_ASYNC_MODULE'
+      ) {
+        throw verifierUnavailable(err);
+      }
+      try {
+        ed25519 = await import('@noble/ed25519');
+      } catch (importErr) {
+        throw verifierUnavailable(importErr);
+      }
     }
   }
   return ed25519;
+}
+
+/**
+ * The verifier itself could not run. This is a server fault, never a verdict
+ * on the signature, so it must not be reported as "Invalid signature".
+ */
+function verifierUnavailable(cause) {
+  const err = new Error(
+    `Ed25519 verifier unavailable: ${cause?.message ?? cause}`
+  );
+  err.code = 'verifier_unavailable';
+  err.cause = cause;
+  return err;
 }
 
 /**
@@ -105,10 +134,11 @@ function verifyLog(...args) {
  * data must be the exact bytes that were signed (for mero-sign: 32-byte SHA-256 of canonical manifest).
  */
 async function verifySignature(publicKey, signature, data) {
+  // Outside the try: a verifier that cannot load must surface as an error,
+  // not as `false` ("Invalid signature").
+  const ed25519Module = await initEd25519();
+  verifyLog('initEd25519 OK');
   try {
-    const ed25519Module = await initEd25519();
-    verifyLog('initEd25519 OK');
-
     // Decode public key: try base64url first (mero-sign), then multibase, then base58
     let decodedPubKey;
     let pubKeyEncoding = 'base64url';
@@ -174,7 +204,7 @@ async function verifySignature(publicKey, signature, data) {
     // @noble/ed25519 exports verify/verifyAsync at top level (no .ed25519)
     const verifyFn = ed25519Module.verifyAsync ?? ed25519Module.verify;
     if (typeof verifyFn !== 'function') {
-      throw new Error('Ed25519 verify not available');
+      throw verifierUnavailable(new Error('no verify/verifyAsync export'));
     }
     const ok = await verifyFn(
       new Uint8Array(decodedSig),
@@ -184,6 +214,7 @@ async function verifySignature(publicKey, signature, data) {
     verifyLog('verify result:', ok);
     return ok;
   } catch (error) {
+    if (error?.code === 'verifier_unavailable') throw error;
     // eslint-disable-next-line no-console
     console.error('Signature verification error:', error);
     if (VERIFY_DEBUG && error.stack) {
