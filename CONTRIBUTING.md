@@ -255,14 +255,12 @@ We have several CI/CD workflows:
 - Automated versioning and publishing
 - Change detection and release triggering
 - GitHub releases creation
+- The only workflow that publishes `@calimero-network/registry-cli` to npm.
+  The release job runs in the `npm-publish` environment, so it waits for an
+  approval from that environment's required reviewers, and it authenticates to
+  npm with OIDC trusted publishing rather than a stored token.
 
-#### 4. CLI Release (`cli-release.yml`)
-
-- Dedicated CLI package releases
-- NPM publishing
-- Docker image building (optional)
-
-#### 5. Deploy (`deploy.yml`)
+#### 4. Deploy (`deploy.yml`)
 
 - Production deployment
 - Docker image pushing
@@ -303,7 +301,6 @@ Releases are triggered by:
 
 - **Package-specific commits** - `feat(cli)`, `fix(lib)`, etc.
 - **Monorepo changes** - Root-level changes
-- **Manual triggers** - For testing and emergency releases
 
 ### Release Process
 
