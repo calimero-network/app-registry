@@ -33,6 +33,9 @@
 
 const crypto = require('crypto');
 const semver = require('semver');
+const {
+  isSafeHttpUrl,
+} = require('@calimero-network/registry-shared/metadata-urls');
 
 /**
  * Package identity policy: the `package` id and `appVersion` a bundle carries.
@@ -361,6 +364,46 @@ function validateBundleMetadata(manifest, { isNewPackage } = {}) {
 }
 
 /**
+ * Problems with a manifest's `links` (frontend, github, docs, ...), as
+ * sentences. Empty means good.
+ *
+ * Every `links.*` value is rendered as a clickable href on the package page,
+ * so each one must be an absolute http(s) URL — the same rule org metadata
+ * links follow (shared/metadata-urls.js). An empty value is allowed (the link
+ * is optional). Unlike the completeness policy above this is never
+ * grandfathered: it applies to new and existing packages alike.
+ */
+function linkProblems(links) {
+  if (links === undefined || links === null) return [];
+  if (typeof links !== 'object' || Array.isArray(links)) {
+    return ['`links` must be an object of http(s) URLs.'];
+  }
+  const problems = [];
+  for (const [key, value] of Object.entries(links)) {
+    if (!isSafeHttpUrl(value)) {
+      problems.push(`\`links.${key}\` must be an http(s) URL.`);
+    }
+  }
+  return problems;
+}
+
+/**
+ * A copy of `links` with every value that is not an http(s) URL removed, for
+ * output. Anything stored before linkProblems() was enforced is dropped rather
+ * than served. Returns the input unchanged when it is not an object.
+ */
+function safeLinks(links) {
+  if (!links || typeof links !== 'object' || Array.isArray(links)) {
+    return links;
+  }
+  const out = {};
+  for (const [key, value] of Object.entries(links)) {
+    if (isSafeHttpUrl(value)) out[key] = value;
+  }
+  return out;
+}
+
+/**
  * Remove reserved, server-owned fields from an INCOMING (publisher-supplied)
  * manifest's metadata before the server stamps its own.
  *
@@ -410,4 +453,6 @@ module.exports = {
   pngDimensions,
   decodeDataUri,
   stripReservedMetadata,
+  linkProblems,
+  safeLinks,
 };

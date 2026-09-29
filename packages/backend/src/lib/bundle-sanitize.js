@@ -23,6 +23,8 @@
  *
  * @param {object} kv - KV client with async get(key)
  */
+const { safeLinks } = require('./metadata-policy');
+
 /**
  * Re-expose the server-stamped fields under public names.
  *
@@ -50,6 +52,15 @@ function exposeServerStamped(bundle) {
     _installSize: undefined,
     _publishedAt: undefined,
   };
+}
+
+/**
+ * `links` for output: only http(s) values survive. New publishes and edits are
+ * refused a non-http(s) link (metadata-policy linkProblems); this covers
+ * anything stored before that rule existed.
+ */
+function exposeLinks(bundle) {
+  return bundle.links === undefined ? {} : { links: safeLinks(bundle.links) };
 }
 
 function createBundleSanitizers(kv, review) {
@@ -115,6 +126,7 @@ function createBundleSanitizers(kv, review) {
       minRuntimeVersion,
       verified,
       publisherVerified,
+      ...exposeLinks(bundle),
       ...exposeServerStamped(bundle),
     };
   }
@@ -217,6 +229,7 @@ function createBundleSanitizers(kv, review) {
           minRuntimeVersion,
           verified,
           publisherVerified,
+          ...exposeLinks(bundle),
           ...exposeServerStamped(bundle),
         };
       }
