@@ -24,6 +24,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 0 # Full history for change detection
+          persist-credentials: false
 
       - name: Detect package changes
         id: detect
@@ -59,7 +60,7 @@ jobs:
           token: false # Disable NPM_AUTH_TOKEN to allow OIDC trusted publishing
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v6
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -76,11 +77,12 @@ jobs:
           cd packages/cli
           echo "🚀 CLI Release"
           echo "📦 Package: @calimero-network/registry-cli"
-          echo "🎯 Release type: ${{ needs.detect-changes.outputs.release-type }}"
+          echo "🎯 Release type: $RELEASE_TYPE"
           npx semantic-release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_ENV: production
+          RELEASE_TYPE: ${{ needs.detect-changes.outputs.release-type }}
 
       # Backend Release (DRY RUN)
       - name: Release Backend (DRY RUN)
@@ -89,7 +91,7 @@ jobs:
           cd packages/backend
           echo "🚀 Backend Release DRY RUN"
           echo "📦 Package: @calimero-network/registry-backend"
-          echo "🎯 Release type: ${{ needs.detect-changes.outputs.release-type }}"
+          echo "🎯 Release type: $RELEASE_TYPE"
           echo "🏷️  Would create tag: backend-v*"
           echo "📝 Would create GitHub release"
           echo "📊 Changes detected since last Backend release"
@@ -97,6 +99,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_ENV: production
+          RELEASE_TYPE: ${{ needs.detect-changes.outputs.release-type }}
 
       # Frontend Release (DRY RUN)
       - name: Release Frontend (DRY RUN)
@@ -105,7 +108,7 @@ jobs:
           cd packages/frontend
           echo "🚀 Frontend Release DRY RUN"
           echo "📦 Package: @calimero-network/registry-frontend"
-          echo "🎯 Release type: ${{ needs.detect-changes.outputs.release-type }}"
+          echo "🎯 Release type: $RELEASE_TYPE"
           echo "🏷️  Would create tag: frontend-v*"
           echo "📝 Would create GitHub release"
           echo "📊 Changes detected since last Frontend release"
@@ -113,19 +116,22 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_ENV: production
+          RELEASE_TYPE: ${{ needs.detect-changes.outputs.release-type }}
 
       # Monorepo-wide Release
       - name: Release All Packages
         if: needs.detect-changes.outputs.monorepo-changed == 'true'
         run: |
           echo "🚀 Monorepo-wide Release"
-          echo "🎯 Release type: ${{ needs.detect-changes.outputs.release-type }}"
+          echo "🎯 Release type: $RELEASE_TYPE"
           echo "📦 Releasing all packages with coordinated versioning"
           echo "📊 Monorepo-wide changes detected"
           # Release the CLI package
-          if [ "${{ needs.detect-changes.outputs.cli-changed }}" == "true" ]; then
+          if [ "$CLI_CHANGED" == "true" ]; then
             cd packages/cli && npx semantic-release
           fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_ENV: production
+          RELEASE_TYPE: ${{ needs.detect-changes.outputs.release-type }}
+          CLI_CHANGED: ${{ needs.detect-changes.outputs.cli-changed }}

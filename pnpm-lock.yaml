@@ -209,12 +209,6 @@ importers:
       fastify:
         specifier: ^5.12.5
         version: 5.12.5
-      ipfs-http-client:
-        specifier: ^60.0.1
-        version: 60.0.1
-      node-fetch:
-        specifier: ^3.3.2
-        version: 3.3.2
       ora:
         specifier: ^9.4.1
         version: 9.4.1
