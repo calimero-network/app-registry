@@ -17,6 +17,7 @@ const config = require('./config');
 const { BundleStorageKV } = require('./lib/bundle-storage-kv');
 const { createBundleSanitizers } = require('./lib/bundle-sanitize');
 const { buildBundleListing } = require('./lib/bundle-listing');
+const { stampOwnerEmail } = require('./lib/package-owner');
 const {
   validateBundleMetadata,
   isValidPackageName,
@@ -845,17 +846,21 @@ async function buildServer() {
       const existingAuthor = manifestOldest?.metadata?.author;
       if (existingAuthor) {
         bundleManifest.metadata.author = existingAuthor;
-        // Preserve _ownerEmail from oldest manifest if present
-        if (manifestOldest?.metadata?._ownerEmail) {
-          bundleManifest.metadata._ownerEmail =
-            manifestOldest.metadata._ownerEmail;
-        }
       } else if (userEmail) {
-        // Public author is the username only; the email is kept privately in
-        // _ownerEmail and is never promoted to `author`.
+        // Public author is the username only; the email is never promoted to
+        // `author`.
         if (displayAuthor) bundleManifest.metadata.author = displayAuthor;
-        bundleManifest.metadata._ownerEmail = userEmail;
       }
+      // Ownership (_ownerEmail) is inherited from the existing versions, never
+      // taken from the account pushing this version. Mirrors the Vercel push
+      // handlers.
+      await stampOwnerEmail({
+        store: bundleStorage,
+        manifest: bundleManifest,
+        versions,
+        publisherEmail: userEmail,
+        known: { [oldestVersion]: manifestOldest },
+      });
       const manifestLatest = await bundleStorage.getBundleManifest(
         bundleManifest.package,
         latestVersion
