@@ -40,9 +40,9 @@ export function ShowcaseCard({ app }: { app: AppSummary }) {
     <Link
       to={`/apps/${encodeURIComponent(app.id)}`}
       data-testid='showcase-card'
-      className='group flex flex-col overflow-hidden rounded-2xl border border-line bg-ink/[0.02] transition-colors duration-150 hover:border-line-strong'
+      className='group flex flex-col overflow-hidden border border-line bg-[var(--surface)] transition-colors duration-150 hover:border-brand-600/50'
     >
-      <div className='relative h-44 overflow-hidden bg-ink/[0.03]'>
+      <div className='relative h-48 overflow-hidden border-b border-line bg-ink/[0.03]'>
         {shot ? (
           <img
             src={shot.url}
@@ -65,11 +65,13 @@ export function ShowcaseCard({ app }: { app: AppSummary }) {
         )}
       </div>
 
-      <div className='flex flex-1 flex-col gap-1 p-4'>
-        <h3 className='text-[14px] font-medium text-neutral-100'>{app.name}</h3>
+      <div className='flex flex-1 flex-col gap-2 p-5'>
+        <h3 className='text-[19px] font-bold text-neutral-100 transition-colors group-hover:text-brand-600'>
+          {app.name}
+        </h3>
         {app.description && (
           <p
-            className='text-[12.5px] font-light leading-relaxed text-neutral-400'
+            className='text-[14.5px] font-light leading-relaxed text-neutral-400'
             style={{
               display: '-webkit-box',
               WebkitLineClamp: 2,

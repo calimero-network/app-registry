@@ -6,15 +6,27 @@
 const {
   getOrg,
   setOrg,
-  getOrgIdBySlug,
   getOrgsByMember,
+  getOrgIdsByMember,
+  getOrgMemberRole,
   getPkg2Org,
   addOrgMember,
 } = require('#api-lib/org-storage');
+const { kv } = require('#api-lib/kv-client');
 const { requireAuth } = require('#api-lib/auth-helpers');
+const { isAdmin } = require('#api-lib/admin-storage');
+const {
+  isReservedOrgSlug,
+} = require('@calimero-network/registry-shared/org-slugs');
+const {
+  validateOrgName,
+  countOwnedOrgs,
+  MAX_OWNED_ORGS_PER_ACCOUNT,
+} = require('@calimero-network/registry-shared/org-validation');
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const SLUG_REGEX = /^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$/;
+const MAX_SLUG_LENGTH = 64;
 
 function cors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -35,9 +47,10 @@ module.exports = async function handler(req, res) {
         const org = await getOrg(orgId);
         return res.status(200).json(org ?? null);
       } catch (e) {
+        console.error('orgs route error:', e);
         return res
           .status(500)
-          .json({ error: 'internal', message: e?.message ?? String(e) });
+          .json({ error: 'internal_error', message: 'Internal error' });
       }
     }
     const member = req.query?.member;
@@ -49,13 +62,28 @@ module.exports = async function handler(req, res) {
         message: 'Query member must be a valid email address',
       });
     }
+    // Privacy: this was an unauthenticated oracle for which orgs any email
+    // belongs to. Require auth and only let a caller look up their own email
+    // (case-insensitive), unless they are a site admin.
+    const caller = await requireAuth(req, res);
+    if (!caller) return;
+    if (
+      caller.email.toLowerCase() !== email.toLowerCase() &&
+      !(await isAdmin(caller.email))
+    ) {
+      return res.status(403).json({
+        error: 'forbidden',
+        message: 'You may only look up organizations for your own account',
+      });
+    }
     try {
       const orgs = await getOrgsByMember(email);
       return res.status(200).json(orgs);
     } catch (e) {
+      console.error('orgs route error:', e);
       return res
         .status(500)
-        .json({ error: 'internal', message: e?.message ?? String(e) });
+        .json({ error: 'internal_error', message: 'Internal error' });
     }
   }
 
@@ -75,31 +103,62 @@ module.exports = async function handler(req, res) {
         message: 'Body must include name and slug (strings)',
       });
     }
+    const nameError = validateOrgName(name);
+    if (nameError) {
+      return res.status(400).json({ error: 'bad_request', message: nameError });
+    }
     const slugNorm = slug.toLowerCase().trim();
-    if (!SLUG_REGEX.test(slugNorm)) {
+    if (!SLUG_REGEX.test(slugNorm) || slugNorm.length > MAX_SLUG_LENGTH) {
       return res.status(400).json({
         error: 'bad_request',
-        message:
-          'slug must be lowercase alphanumeric and hyphens (e.g. my-org)',
+        message: `slug must be lowercase alphanumeric and hyphens (e.g. my-org), at most ${MAX_SLUG_LENGTH} characters`,
       });
     }
     try {
-      const existingId = await getOrgIdBySlug(slugNorm);
-      if (existingId) {
+      const callerIsAdmin = await isAdmin(user.email);
+      if (isReservedOrgSlug(slugNorm) && !callerIsAdmin) {
+        return res.status(403).json({
+          error: 'reserved_slug',
+          message: 'This organization slug is reserved',
+        });
+      }
+      if (
+        !callerIsAdmin &&
+        (await countOwnedOrgs(
+          { getOrgIdsByMember, getOrgMemberRole },
+          user.email
+        )) >= MAX_OWNED_ORGS_PER_ACCOUNT
+      ) {
+        return res.status(403).json({
+          error: 'org_limit',
+          message: `An account can own at most ${MAX_OWNED_ORGS_PER_ACCOUNT} organizations`,
+        });
+      }
+      const orgId = slugNorm;
+      // Reserve the slug atomically: a check-then-set let two concurrent
+      // creates of the same slug both succeed, the second overwriting the
+      // first org's document.
+      const reserved = await kv.setNX(`org:by_slug:${slugNorm}`, orgId);
+      if (!reserved || (await getOrg(orgId))) {
         return res.status(409).json({
           error: 'conflict',
           message: 'An organization with this slug already exists',
         });
       }
-      const orgId = slugNorm;
       const org = { id: orgId, name: name.trim(), slug: slugNorm };
-      await setOrg(org);
-      await addOrgMember(orgId, user.email, 'owner');
+      try {
+        await setOrg(org);
+        await addOrgMember(orgId, user.email, 'owner');
+      } catch (e) {
+        await kv.del(`org:by_slug:${slugNorm}`);
+        throw e;
+      }
       return res.status(201).json(org);
     } catch (e) {
+      console.error('orgs route error:', e);
       return res
         .status(500)
-        .json({ error: 'internal', message: e?.message ?? String(e) });
+        .json({ error: 'internal_error', message: 'Internal error' });
     }
   }
 

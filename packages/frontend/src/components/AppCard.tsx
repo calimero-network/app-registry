@@ -41,10 +41,10 @@ export function AppCard({
       data-testid='app-card'
       data-package={app.package_name}
       className={cn(
-        'group flex gap-4 rounded-xl border border-line bg-ink/[0.02]',
-        'transition-colors duration-150 hover:border-line-strong hover:bg-ink/[0.04]',
+        'group flex gap-4 border border-line bg-[var(--surface)]',
+        'transition-colors duration-150 hover:border-brand-600/50',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600/60',
-        large ? 'p-4' : 'p-3'
+        large ? 'p-5' : 'p-3.5'
       )}
     >
       <AppIcon
@@ -58,8 +58,8 @@ export function AppCard({
         <div className='flex items-center gap-1.5'>
           <h3
             className={cn(
-              'truncate font-medium text-neutral-100',
-              large ? 'text-[14px]' : 'text-[13px]'
+              'truncate font-bold text-neutral-100 transition-colors group-hover:text-brand-600',
+              large ? 'text-[19px]' : 'text-[16px]'
             )}
           >
             {app.name}
@@ -70,14 +70,14 @@ export function AppCard({
             about the PACKAGE — the name is a display string anyone can pick,
             while `com.calimero.…` is the thing that gets installed — so the
             mark belongs here as well as on the author below. */}
-        <p className='mt-0.5 flex items-center gap-1 truncate font-mono text-[11px] text-neutral-500'>
+        <p className='mt-0.5 flex items-center gap-1 truncate font-mono text-[12.5px] text-neutral-500'>
           <span className='truncate'>{app.package_name}</span>
           {app.verified && <VerifiedMark label='Verified package' />}
         </p>
 
         {app.description && (
           <p
-            className='mt-1 text-[12.5px] font-light leading-relaxed text-neutral-400'
+            className='mt-1 text-[14.5px] font-light leading-relaxed text-neutral-400'
             style={{
               display: '-webkit-box',
               WebkitLineClamp: large ? 2 : 1,
@@ -89,7 +89,7 @@ export function AppCard({
           </p>
         )}
 
-        <div className='mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11.5px] text-neutral-500'>
+        <div className='mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[13px] text-neutral-500'>
           <span className='inline-flex min-w-0 items-center gap-1'>
             <span className='truncate text-neutral-400'>
               {app.developer?.display_name || app.developer_pubkey}
@@ -120,7 +120,7 @@ export function AppCard({
         </div>
 
         {category && (
-          <span className='mt-2 inline-block rounded-md border border-line bg-ink/[0.03] px-1.5 py-0.5 text-[10.5px] text-neutral-400'>
+          <span className='mt-3 inline-block border border-line-strong px-2 py-1 text-[11.5px] font-bold uppercase leading-none tracking-[0.15em] text-neutral-400'>
             {category}
           </span>
         )}

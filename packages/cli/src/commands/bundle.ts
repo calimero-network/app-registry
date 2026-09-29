@@ -673,12 +673,15 @@ Note:
   - Priority: flag > environment variable > config file > default
 `
     )
-    .action(async (bundleFile, options) => {
+    .action(async (bundleFile, options, command: Command) => {
+      // The root program also defines --url, and commander hands a flag the
+      // root knows to the root, so read it from the merged options.
+      const urlFlag: string | undefined = command.optsWithGlobals().url;
       let mpkPath: string;
       let tempMpk: string | null = null;
       try {
         // Warn if remote-only options are used without --remote
-        if (!options.remote && (options.url || options.apiKey)) {
+        if (!options.remote && (urlFlag || options.apiKey)) {
           console.warn(
             '⚠️  Warning: --url and --api-key are only used with --remote flag'
           );
@@ -870,7 +873,7 @@ Note:
           // Get values from config file, with flag/environment variable overrides
           const remoteConfig = new RemoteConfig();
           const registryUrl =
-            options.url ||
+            urlFlag ||
             process.env.CALIMERO_REGISTRY_URL ||
             remoteConfig.getRegistryUrl();
           const apiKey =
@@ -878,6 +881,7 @@ Note:
             process.env.CALIMERO_API_KEY ||
             remoteConfig.getApiKey();
 
+          RemoteConfig.assertApiKeyTransport(registryUrl, apiKey);
           await pushToRemote(mpkPath, manifest, registryUrl, apiKey);
         }
       } catch (error) {
@@ -960,7 +964,9 @@ Examples:
   $ calimero-registry bundle edit com.calimero.myapp 1.0.0 --remote --url https://apps.calimero.network --manifest signed-manifest.json
 `
     )
-    .action(async (pkg, version, options) => {
+    .action(async (pkg, version, options, command: Command) => {
+      // See push: a root-level --url lands in the merged options.
+      const urlFlag: string | undefined = command.optsWithGlobals().url;
       try {
         if (!options.remote) {
           console.error(
@@ -971,13 +977,15 @@ Examples:
 
         const remoteConfig = new RemoteConfig();
         const registryUrl =
-          options.url ||
+          urlFlag ||
           process.env.CALIMERO_REGISTRY_URL ||
           remoteConfig.getRegistryUrl();
         const apiKey =
           options.apiKey ||
           process.env.CALIMERO_API_KEY ||
           remoteConfig.getApiKey();
+
+        RemoteConfig.assertApiKeyTransport(registryUrl, apiKey);
 
         const baseUrl = registryUrl.replace(/\/$/, '');
         const bundleUrl = `${baseUrl}/api/v2/bundles/${encodeURIComponent(pkg)}/${encodeURIComponent(version)}`;

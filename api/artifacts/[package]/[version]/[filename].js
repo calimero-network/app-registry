@@ -18,6 +18,23 @@ function getStorage() {
   return storage;
 }
 
+/**
+ * Drop internal `_`-prefixed metadata keys (e.g. `_ownerEmail`) from a manifest
+ * before it is returned to a client. The full bundle sanitizer is the canonical
+ * path, but this endpoint only echoes a manifest on a rare 409, so a targeted
+ * strip keeps the diagnostic dependency-free.
+ */
+function stripInternalMetadata(manifest) {
+  if (!manifest || typeof manifest !== 'object' || !manifest.metadata) {
+    return manifest;
+  }
+  const metadata = {};
+  for (const [key, value] of Object.entries(manifest.metadata)) {
+    if (!key.startsWith('_')) metadata[key] = value;
+  }
+  return { ...manifest, metadata };
+}
+
 module.exports = async function handler(req, res) {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -48,7 +65,7 @@ module.exports = async function handler(req, res) {
     // Match both /api/artifacts/... and /artifacts/... patterns
     // Also handle cases where the URL might be the rewritten path
     const match = urlPath.match(
-      /\/(?:api\/)?artifacts\/([^\/]+)\/([^\/]+)\/([^\/]+)/
+      /\/(?:api\/)?artifacts\/([^/]+)\/([^/]+)\/([^/]+)/
     );
     if (match) {
       // Only use parsed values if query params are missing or invalid
@@ -93,10 +110,13 @@ module.exports = async function handler(req, res) {
           message: `${pkg}@${version} not found`,
         });
       }
+      // Privacy: this diagnostic returns the stored manifest, which carries
+      // internal `_`-prefixed metadata (notably `metadata._ownerEmail`). Strip
+      // those before responding so the account email never leaks on this path.
       return res.status(409).json({
         error: 'binary_missing',
         message: `Manifest for ${pkg}@${version} exists but binary was never uploaded. Re-publish the bundle.`,
-        manifest,
+        manifest: stripInternalMetadata(manifest),
       });
     }
 
@@ -114,17 +134,26 @@ module.exports = async function handler(req, res) {
     // Set appropriate headers
     res.setHeader('Content-Type', 'application/gzip'); // MPK is a Gzip compressed tarball
     res.setHeader('Content-Length', binary.length);
+    // SECURITY: `filename` comes from the URL. A raw quote or control char would
+    // break out of the quoted header value (header injection). Strip anything
+    // that is not a safe filename char, and fall back to a fixed pattern if
+    // nothing usable remains.
+    const safeFilename =
+      String(filename || '')
+        .replace(/[^A-Za-z0-9._-]/g, '')
+        .slice(0, 128) ||
+      `${pkg}-${version}.mpk`.replace(/[^A-Za-z0-9._-]/g, '');
     res.setHeader(
       'Content-Disposition',
-      `attachment; filename="${filename || `${pkg}-${version}.mpk`}"`
+      `attachment; filename="${safeFilename}"`
     );
 
     return res.status(200).send(binary);
   } catch (error) {
     console.error('Error serving artifact:', error);
     return res.status(500).json({
-      error: 'internal_server_error',
-      message: error.message || 'Failed to serve artifact',
+      error: 'internal_error',
+      message: 'Internal error',
     });
   }
 };

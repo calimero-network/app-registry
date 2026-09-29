@@ -1,29 +1,24 @@
 /**
  * GET  /api/v2/orgs/:orgId/packages — list packages linked to org (public)
- * POST /api/v2/orgs/:orgId/packages — link package to org (admin/owner; must be package author)
+ * POST /api/v2/orgs/:orgId/packages — link package to org (admin/owner; must own the package)
  */
 
 const {
   getOrg,
   getPackagesByOrg,
   setPkg2Org,
+  getPkg2Org,
+  isOrgAdmin,
 } = require('#api-lib/org-storage');
-const { requireOrgAdminOrOwner } = require('#api-lib/auth-helpers');
+const {
+  requireOrgAdminOrOwner,
+  manifestOwnedByUser,
+} = require('#api-lib/auth-helpers');
 const {
   BundleStorageKV,
 } = require('@calimero-network/registry-backend/src/lib/bundle-storage-kv');
 
 const bundleStorage = new BundleStorageKV();
-
-function manifestOwnedByUser(manifest, user) {
-  const author = manifest?.metadata?.author;
-  const ownerEmail = manifest?.metadata?._ownerEmail;
-
-  if (user?.username && author === user.username) return true;
-  if (user?.email && ownerEmail === user.email) return true;
-  if (user?.email && !user?.username && author === user.email) return true;
-  return false;
-}
 
 function cors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -46,9 +41,10 @@ module.exports = async function handler(req, res) {
   try {
     org = await getOrg(orgId);
   } catch (e) {
+    console.error('orgs route error:', e);
     return res
       .status(500)
-      .json({ error: 'internal', message: e?.message ?? String(e) });
+      .json({ error: 'internal_error', message: 'Internal error' });
   }
   if (!org) {
     return res
@@ -61,9 +57,10 @@ module.exports = async function handler(req, res) {
       const packages = await getPackagesByOrg(orgId);
       return res.status(200).json({ packages });
     } catch (e) {
+      console.error('orgs route error:', e);
       return res
         .status(500)
-        .json({ error: 'internal', message: e?.message ?? String(e) });
+        .json({ error: 'internal_error', message: 'Internal error' });
     }
   }
 
@@ -100,15 +97,31 @@ module.exports = async function handler(req, res) {
       if (!manifestOwnedByUser(latestManifest, user)) {
         return res.status(403).json({
           error: 'forbidden',
-          message: `You do not own package '${pkgName}'. Only the package author can link it to an organization`,
+          message: `You do not own package '${pkgName}'. Only the package owner can link it to an organization`,
         });
+      }
+      // SECURITY: setPkg2Org overwrites the link unconditionally, so owning the
+      // manifest is NOT enough — a package already linked to another org would
+      // otherwise be yanked into the caller's org, silently stripping the real
+      // org's admins/owners of control. Refuse re-linking a package owned by a
+      // different org unless the caller also administers that current org.
+      const currentOrgId = await getPkg2Org(pkgName);
+      if (currentOrgId && currentOrgId !== orgId) {
+        const controlsCurrent = await isOrgAdmin(currentOrgId, user.email);
+        if (!controlsCurrent) {
+          return res.status(409).json({
+            error: 'conflict',
+            message: `Package '${pkgName}' is already linked to another organization. Unlink it there first.`,
+          });
+        }
       }
       await setPkg2Org(pkgName, orgId);
       return res.status(204).end();
     } catch (e) {
+      console.error('orgs route error:', e);
       return res
         .status(500)
-        .json({ error: 'internal', message: e?.message ?? String(e) });
+        .json({ error: 'internal_error', message: 'Internal error' });
     }
   }
 

@@ -111,19 +111,26 @@ export default {
         },
       },
       fontFamily: {
-        sans: ['Inter', 'DM Sans', 'system-ui', '-apple-system', 'sans-serif'],
-        // DM Sans was already being fetched by the font import and then never
-        // used — it sat behind Inter in the `sans` stack, so it only ever
-        // applied if Inter failed to load. It is a display face here instead:
-        // the one place that wants a different voice from the body copy.
-        display: ['DM Sans', 'Inter', 'system-ui', 'sans-serif'],
+        // Power Grotesk everywhere, as on calimero.network. `display` is kept
+        // as a name so its call sites resolve, and is the same face.
+        sans: ['Power Grotesk', 'arial', 'helvetica', 'sans-serif'],
+        display: ['Power Grotesk', 'arial', 'helvetica', 'sans-serif'],
         mono: ['JetBrains Mono', 'Fira Code', 'monospace'],
       },
+      // Square, like everything on calimero.network. Every named radius is 0;
+      // `full` stays round for the few things that are circles by nature (a
+      // spinner, a status dot, a blurred light).
       borderRadius: {
-        sm: '6px',
-        md: '8px',
-        lg: '12px',
-        xl: '16px',
+        none: '0',
+        xs: '0',
+        sm: '0',
+        DEFAULT: '0',
+        md: '0',
+        lg: '0',
+        xl: '0',
+        '2xl': '0',
+        '3xl': '0',
+        '4xl': '0',
       },
       fontSize: {
         '2xs': ['0.65rem', { lineHeight: '1rem' }],

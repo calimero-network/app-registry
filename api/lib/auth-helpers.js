@@ -4,7 +4,7 @@
  */
 
 const jwt = require('jsonwebtoken');
-const { kv } = require('./kv-client');
+const { apiTokens } = require('./api-token-storage');
 const { getOrgMemberRole, getPkg2Org, isOrgAdmin } = require('./org-storage');
 const { isAdmin, isBlacklisted, isBot } = require('./admin-storage');
 const { getUserByEmail } = require('./user-storage');
@@ -24,7 +24,37 @@ const { canManagePackage } = createPackagePermissions({
   isAdmin,
 });
 
-const TOKEN_PREFIX = 'apitoken:';
+/**
+ * Resolve the current user from the session cookie alone, ignoring any Bearer
+ * token. For actions that must come from an interactive login rather than a
+ * stored credential. Returns { id, email, name, username } or null.
+ */
+async function resolveSessionUser(req) {
+  const sessionSecret = process.env.SESSION_SECRET;
+  if (!sessionSecret) return null;
+  const cookieName = process.env.AUTH_COOKIE_NAME || 'app_registry_session';
+  const cookies = parseCookies(req.headers?.cookie);
+  const token = cookies[cookieName];
+  if (!token) return null;
+  try {
+    const payload = jwt.verify(token, sessionSecret, {
+      algorithms: ['HS256'],
+    });
+    if (payload?.email) {
+      if (await isBlacklisted(payload.email)) return null;
+      const profile = await getUserByEmail(payload.email);
+      return {
+        id: payload.sub,
+        email: payload.email,
+        name: payload.name,
+        username: profile?.username ?? null,
+      };
+    }
+  } catch {
+    /* fall through */
+  }
+  return null;
+}
 
 /**
  * Resolve current user from Bearer token or session cookie.
@@ -37,43 +67,16 @@ async function resolveUser(req) {
     const token = auth.slice(7).trim();
     if (token) {
       try {
-        const raw = await kv.get(TOKEN_PREFIX + token);
-        if (raw) {
-          const data = JSON.parse(typeof raw === 'string' ? raw : String(raw));
-          if (data?.email) {
-            if (await isBlacklisted(data.email)) return null;
-            const profile = await getUserByEmail(data.email);
-            return {
-              email: data.email,
-              name: data.name || data.email,
-              username: profile?.username ?? null,
-            };
-          }
-        }
-      } catch {
-        /* fall through */
-      }
-    }
-  }
-
-  // Try session cookie
-  const sessionSecret = process.env.SESSION_SECRET;
-  if (sessionSecret) {
-    const cookieName = process.env.AUTH_COOKIE_NAME || 'app_registry_session';
-    const cookies = parseCookies(req.headers?.cookie);
-    const token = cookies[cookieName];
-    if (token) {
-      try {
-        const payload = jwt.verify(token, sessionSecret, {
-          algorithms: ['HS256'],
-        });
-        if (payload?.email) {
-          if (await isBlacklisted(payload.email)) return null;
-          const profile = await getUserByEmail(payload.email);
+        // verify() looks up the hashed key first, then the legacy plaintext
+        // key, and rejects an expired (non-grandfathered) token — see
+        // shared/api-token-storage.js.
+        const data = await apiTokens.verify(token);
+        if (data?.email) {
+          if (await isBlacklisted(data.email)) return null;
+          const profile = await getUserByEmail(data.email);
           return {
-            id: payload.sub,
-            email: payload.email,
-            name: payload.name,
+            email: data.email,
+            name: data.name || data.email,
             username: profile?.username ?? null,
           };
         }
@@ -83,31 +86,34 @@ async function resolveUser(req) {
     }
   }
 
-  return null;
+  return resolveSessionUser(req);
 }
 
 /**
  * Require auth. Returns { email, name } or sends 401 and returns null.
  */
+const LOGIN_REQUIRED = Object.freeze({
+  error: 'unauthorized',
+  message:
+    'Login required or provide an API token (Authorization: Bearer <token>)',
+});
+
+const BOT_FORBIDDEN = Object.freeze({
+  error: 'bot_forbidden',
+  message: 'Bot accounts may only publish packages and new versions of them',
+});
+
 async function requireAuth(req, res) {
   const user = await resolveUser(req);
   if (!user) {
-    res.status(401).json({
-      error: 'unauthorized',
-      message:
-        'Login required or provide an API token (Authorization: Bearer <token>)',
-    });
+    res.status(401).json(LOGIN_REQUIRED);
     return null;
   }
   // Bots may publish and nothing else. The publish endpoints call resolveUser
   // directly, so denying here confines them to exactly that surface, and any
   // future endpoint guarded by requireAuth excludes them by default.
   if (await isBot(user.email)) {
-    res.status(403).json({
-      error: 'bot_forbidden',
-      message:
-        'Bot accounts may only publish packages and new versions of them',
-    });
+    res.status(403).json(BOT_FORBIDDEN);
     return null;
   }
   return user;
@@ -164,7 +170,10 @@ async function requireAdmin(req, res) {
 }
 
 module.exports = {
+  LOGIN_REQUIRED,
+  BOT_FORBIDDEN,
   resolveUser,
+  resolveSessionUser,
   requireAuth,
   requireOrgAdminOrOwner,
   requireOrgOwner,

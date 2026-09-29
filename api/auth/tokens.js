@@ -35,10 +35,15 @@ module.exports = async function handler(req, res) {
               typeof raw === 'string' ? raw : String(raw)
             );
             tokens.push({
+              // For new tokens the set member IS the hash, so the first 8 hex
+              // are the tokenId; for legacy tokens it is the first 8 of the raw
+              // value, matching prior behavior.
               token: `${t.slice(0, 8)}…`,
               tokenId: t.slice(0, 8),
               label: data.label,
               createdAt: data.createdAt,
+              expiresAt: data.expiresAt ?? null,
+              lastUsed: data.lastUsed ?? null,
             });
           } catch {
             /* skip malformed */
@@ -55,6 +60,6 @@ module.exports = async function handler(req, res) {
     console.error('GET /api/auth/tokens error:', e);
     return res
       .status(500)
-      .json({ error: 'internal', message: e?.message ?? String(e) });
+      .json({ error: 'internal', message: 'Internal error' });
   }
 };

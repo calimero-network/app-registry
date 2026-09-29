@@ -1,286 +1,248 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap');
 
 @import 'tailwindcss';
 
 /* Tailwind v4 reads the v3-style theme/keyframes config from here. */
 @config '../tailwind.config.js';
 
+/* ---------------------------------------------------------------------------
+ * Power Grotesk, the calimero.network face.
+ *
+ * Self-hosted from /public/fonts, the same five files and the same paths the
+ * landing and Calimero Cloud load. Only the weights the landing ships: 200,
+ * 300, 400, 700 and 950, so a `font-medium` (500) resolves to 400 and a
+ * `font-semibold` (600) to 700 — the landing's own two-weight rhythm.
+ * ------------------------------------------------------------------------- */
+@font-face {
+  font-family: 'Power Grotesk';
+  src: url('/fonts/powerGrotesk/PowerGrotesk-Black.woff2') format('woff2');
+  font-weight: 950;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Power Grotesk';
+  src: url('/fonts/powerGrotesk/PowerGrotesk-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Power Grotesk';
+  src: url('/fonts/powerGrotesk/PowerGrotesk-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Power Grotesk';
+  src: url('/fonts/powerGrotesk/PowerGrotesk-Light.woff2') format('woff2');
+  font-weight: 300;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Power Grotesk';
+  src: url('/fonts/powerGrotesk/PowerGrotesk-UltraLight.woff2') format('woff2');
+  font-weight: 200;
+  font-display: swap;
+}
+
 @layer base {
+  /* ── Dark (default): the calimero.network palette ──
+     A charcoal ground (#131215), two surfaces a step above it (#1a191c,
+     #211f23), #282828 hairlines, near-white ink (#fcfcfc), a #8e8e8e
+     secondary and the brand lime with DARK ink on it. The same numbers the
+     landing and the Cloud console use.
+
+     Channel triplets, not hex: tailwind.config.js resolves the neutral scale
+     and the accent through these, so an opacity modifier
+     (`text-neutral-400/60`) still works — that is impossible against a
+     `#hex` held in a custom property. The scale is a TEXT ladder (100 is the
+     most prominent ink) with 900/950 doubling as the two grounds. */
   :root {
-    /* ── Dark (default) ──
-       Channel triplets, not hex: tailwind.config.js resolves the neutral
-       scale and the accent through these, so an opacity modifier
-       (`text-neutral-400/60`) still works — that is impossible against a
-       `#hex` held in a custom property. */
-    --n-950-rgb: 9 9 11;
-    --n-900-rgb: 24 24 27;
-    --n-800-rgb: 39 39 42;
-    --n-700-rgb: 63 63 70;
-    --n-600-rgb: 82 82 91;
-    --n-500-rgb: 113 113 122;
-    --n-400-rgb: 161 161 170;
-    --n-300-rgb: 212 212 216;
-    --n-200-rgb: 228 228 231;
-    --n-100-rgb: 244 244 245;
-    --ink-rgb: 255 255 255;
-    /* Separators. Translucent here on purpose: a hairline over a dark ground
-       should pick up whatever is behind it, and 7% white on #0d1117 is what
-       the `border-ink/[0.06]` these replaced already rendered as — dark mode
-       is unchanged by the swap. */
-    --line: #232a33;
-    --line-strong: #39424e;
+    --n-950-rgb: 19 18 21;
+    --n-900-rgb: 26 25 28;
+    --n-800-rgb: 40 40 40;
+    --n-700-rgb: 64 64 64;
+    --n-600-rgb: 112 112 112;
+    --n-500-rgb: 142 142 142;
+    --n-400-rgb: 184 184 184;
+    --n-300-rgb: 212 212 212;
+    --n-200-rgb: 234 234 234;
+    --n-100-rgb: 252 252 252;
+    --ink-rgb: 252 252 252;
+    /* Separators: the landing's border-low-contrast and border-mid-contrast.
+       Opaque, so a line reads the same over the ground and over a card. */
+    --line: #282828;
+    --line-strong: #404040;
     --accent-text-rgb: 165 255 17;
     --accent-text-hover-rgb: 184 255 74;
     /* ── WARNING AMBER ──
-       The same trap the lime fell into, in a different hue. Every warning in
-       this app is written with Tailwind's stock amber — `text-amber-400` on
-       `bg-amber-950/20`, 14 sites — and those steps are picked for a dark
-       ground. On paper the wash lands at #dad1cd and amber-400 on it measures
-       1.11:1: the "copy this token now, it will not be shown again" banner in
-       /orgs was invisible in light mode, which is the one message on the page
-       that must not be missed.
-
-       So amber resolves through tokens now, exactly like the neutral scale,
-       and all 14 call sites flip with the theme without being touched.
-
-       ⚠️ DARK MODE IS UNCHANGED BY CONSTRUCTION. These are the sRGB values
-       Tailwind 4.3.3's own oklch ambers already rendered to, so every shape
-       here keeps the colour it had; only the light overrides move.
-
-       Roles, because the steps are not interchangeable:
-         300/400/500  warning INK (text and icons)
-         800/900      hairline borders
-         900/950      the low-alpha background wash */
+       Every warning is written with Tailwind's stock amber steps
+       (`text-amber-400` on `bg-amber-950/20`), which resolve through these so
+       they flip with the theme. Roles: 300/400/500 are INK, 800/900 hairline
+       borders, 900/950 the low-alpha wash. Dark values are the sRGB of
+       Tailwind's own ambers; the light block inverts the ink steps. */
     --warn-300-rgb: 255 210 48;
     --warn-400-rgb: 255 185 0;
     --warn-500-rgb: 254 154 0;
     --warn-800-rgb: 151 60 0;
     --warn-900-rgb: 123 51 6;
     --warn-950-rgb: 70 25 1;
-    --app-bg: #0d1117;
-    --app-rail: #0d1117;
-    /* The Calimero wordmark ships dark; invert it for a dark ground. */
-    --logo-filter: brightness(0) invert(1);
-    /* Periwinkle, not the brand lime — see HomePage. */
-    --hero-wash: linear-gradient(160deg, #1b1f3a 0%, #141726 55%, #101321 100%);
+    /* The page ground and the chrome (header, drawer). One colour, as on
+       calimero.network: the header is set apart by a hairline, not a tint. */
+    --app-bg: #131215;
+    --app-rail: #131215;
+    /* The wordmark asset is white; dark mode shows it as it is. */
+    --logo-filter: none;
+    /* The hero panel: a charcoal surface lit by a faint lime bloom, the
+       landing's `layer-blur` rather than a coloured wash. */
+    --hero-wash: linear-gradient(160deg, #1d1c20 0%, #18171a 55%, #151417 100%);
     --hero-glow: radial-gradient(
       closest-side,
-      rgba(129, 140, 248, 0.28),
+      rgba(165, 255, 17, 0.12),
       transparent
     );
     --hero-glow-2: radial-gradient(
       closest-side,
-      rgba(167, 139, 250, 0.22),
+      rgba(109, 234, 173, 0.1),
       transparent
     );
 
     --color-brand-600: #a5ff11;
     --color-brand-100: #ecfc91;
-    --bg: #0d1117;
-    --surface: #161b22;
-    --surface-2: #1c2128;
-    /* ⚠️ ONE TOKEN FOR ONE CONCEPT. `--border` fed the component layer
-       (`.card`, `.input`) while `--line` fed the utilities, so a separator
-       could be fixed in one and left broken in the other — and a spec aimed
-       at a card passed while every swept border on the page was still
-       invisible. They are the same thing and now they are the same value. */
+    --bg: #131215;
+    --surface: #1a191c;
+    --surface-2: #211f23;
+    /* One token for one concept: `.card`/`.input` borders and every utility
+       separator are the same line. */
     --border: var(--line);
-    --text: #e6edf3;
-    --text-muted: #8b949e;
+    --text: #fcfcfc;
+    --text-muted: #8e8e8e;
     --accent: #a5ff11;
-    --accent-glow: rgba(165, 255, 17, 0.18);
+    --accent-glow: rgba(165, 255, 17, 0.35);
     --accent-dim: rgba(165, 255, 17, 0.08);
     /* ── THE HERO LAPTOP'S THREE GREENS ──
-
-       The hero draws a UI inside a screen filled with `--app-rail`, and it
-       used `--accent` for every green and `--app-rail` for the ink ON those
-       greens. Both assumptions hold only in dark mode:
-
-        - `--app-rail` is #0d1117 here, so "Install", the tick, the send arrow
-          and the text of your own chat bubbles were near-BLACK on lime. In
-          light mode that same token is #f2f2f3 — near-white on lime, ~1.4:1,
-          which is why the messages in the third scene could not be read.
-        - The lime is a fill colour, not an ink. At the opacities this graphic
-          leans on (0.10 selected row, 0.16 active channel, 0.22 card stroke)
-          it is invisible on paper, and as TEXT — the channel name, "installed
-          to your node" — it measures 1.2:1.
-
-       So the greens are split by ROLE rather than by theme:
-
-        - `--hero-accent`      a solid brand fill (icon tiles, the progress
-                               bar, the dock, your own bubble). Lime in both.
-        - `--hero-accent-soft` anything translucent, hairline or set as type.
-        - `--hero-on-accent`   ink drawn on top of a solid fill.
-
-       ⚠️ DARK MODE IS UNCHANGED BY THIS, BY CONSTRUCTION. Here `soft` IS the
-       lime and `on-accent` IS `--app-rail`, so every shape resolves to the
-       value it already had; only the light overrides move. */
+       Split by role, not by theme: `--hero-accent` is a solid fill (lime in
+       both), `--hero-accent-soft` anything translucent or set as type,
+       `--hero-on-accent` ink drawn on a fill. In dark mode `soft` IS the lime
+       and `on-accent` the laptop's near-black, which src/test pins. */
     --hero-accent: #a5ff11;
     --hero-accent-soft: #a5ff11;
     --hero-on-accent: #0d1117;
-    --success: #3fb950;
-    --warning: #d29922;
-    --error: #f85149;
+    --success: #5fd68a;
+    --warning: #f5b942;
+    --error: #ff6b6b;
     --shadow-card: none;
-    /* The focus ring. In dark mode the raw lime IS the ring; on a white page
-       it is ~1.4:1 against the ground and the box reads as unfocused, so
-       light mode rings in the accent ink instead. */
-    --focus-ring: rgba(165, 255, 17, 0.45);
-    --focus-halo: rgba(165, 255, 17, 0.1);
-    --radius: 10px;
-    --radius-sm: 6px;
-    --radius-lg: 14px;
+    /* The landing's button hover: a lime bloom, not a lift. */
+    --shadow-button: 0 0 20px 0 rgba(165, 255, 17, 0.45);
+    /* The focus ring. The raw lime in dark mode; the accent ink on paper. */
+    --focus-ring: rgba(165, 255, 17, 0.6);
+    --focus-halo: rgba(165, 255, 17, 0.12);
+    /* The page's vertical column lines (the landing's grid-line). */
+    --grid-line: rgba(252, 252, 252, 0.035);
+    /* Square. The landing has no rounded surface anywhere. */
+    --radius: 0;
+    --radius-sm: 0;
+    --radius-lg: 0;
+    --font-sans: 'Power Grotesk', arial, helvetica, sans-serif;
+    --font-mono:
+      'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo,
+      monospace;
+    /* Letter-spacing for the all-caps roles, from the landing's type scale. */
+    --tracking-eyebrow: 0.28em;
+    --tracking-label: 0.16em;
+    --tracking-button: 0.15em;
   }
 
-  /* ── Light ──
-     The palette every app in the `apps` monorepo already ships, from
-     `scripts/landing/template/landing.css`: ink #131215, dim #404040, faint
-     #8e8e8e, lines #e4e4e6 / #c8c8c8, grounds #fcfcfc / #ffffff / #f2f2f3,
-     accent ink #5f9400. Fourteen landing pages and this registry now describe
-     light mode with the same numbers.
-
-     ⚠️ WHAT CHANGED AND WHY IT LOOKED WASHED OUT: the scale used to be
-     GREEN-TINTED (`--n-600: 147 163 148`, a rail of #f5f8f1), copied from
-     mero-sheets. Every grey on the page carried a cast, the rail barely
-     separated from the content, and nothing read as clean white. These are
-     true neutrals; the green is now only the accent, which is where it means
-     something.
+  /* ── Light (opt-in) ──
+     The landing's charcoal and paper swapped, as Calimero Cloud does it: an
+     off-white ground (#f5f5f0), white cards, #dcdcd4 lines, charcoal ink.
 
      ⚠️ The neutral scale is INVERTED, not merely lightened: `text-neutral-100`
-     means "the most prominent text" everywhere in this app, so in light mode
-     it has to be the darkest ink, not the palest grey. Keeping the scale in
-     dark order here would render every heading in near-white on white.
+     means "the most prominent text" everywhere, so on paper it is the darkest
+     ink. 500 is the secondary body colour of the whole app (100+ uses) and
+     takes #6b6b70 (5:1) rather than the landing's #8e8e8e (2.9:1).
 
-     ⚠️ The accent flips too. #a5ff11 on white is roughly 1.4:1 — unreadable.
-     Accent TEXT becomes the landing pages' #5f9400; the raw lime stays
-     available as `brand-accent` for fills, where it is fine in both themes. */
+     ⚠️ The accent flips too. #a5ff11 on white is ~1.2:1 as TEXT, so accent
+     type becomes #487800 — measured at 4.5:1+ against the header by
+     e2e/registry.spec.ts, do not walk it closer to the lime. The raw lime
+     stays for fills (`brand-accent`), where the ink on it is dark. */
   :root[data-theme='light'] {
-    /* ⚠️ THIS SCALE IS A TEXT LADDER, NOT A SET OF SURFACES. 100-600 carry
-       365 of the 366 uses and every one of them is `text-*`; only 900/950 are
-       ever a background. So the steps are graded by READABILITY on paper, not
-       by even spacing: 500 alone is used 109 times, which makes it the
-       secondary body colour of the entire app, and the landing palette's
-       #8e8e8e sits at 2.9:1 there — fine for a marketing caption, not for a
-       hundred lines of running text. It takes #6b6b70 (5.1:1, the same weight
-       dark mode gives its own 500) and #8e8e8e moves down to 600, where the
-       uses actually are decorative. */
     --n-950-rgb: 255 255 255;
-    --n-900-rgb: 252 252 252;
-    --n-800-rgb: 242 242 243;
-    --n-700-rgb: 200 200 200;
-    --n-600-rgb: 142 142 142;
-    --n-500-rgb: 107 107 112;
+    --n-900-rgb: 250 250 247;
+    --n-800-rgb: 235 235 228;
+    --n-700-rgb: 200 200 194;
+    --n-600-rgb: 138 138 134;
+    --n-500-rgb: 102 102 106;
     --n-400-rgb: 64 64 64;
     --n-300-rgb: 45 44 48;
     --n-200-rgb: 30 29 33;
     --n-100-rgb: 19 18 21;
     --ink-rgb: 19 18 21;
-    /* Opaque, and the exact value the landing pages draw with. A translucent
-       line here is the bug this token exists to end. */
-    --line: #e4e4e6;
-    --line-strong: #c8c8c8;
-    /* ── ACCENT TEXT: AS CLOSE TO THE LIME AS TYPE CAN GET ──
-       #487800, up from #3f6a00: brighter and greener, and still clearing AA
-       for small text with room to spare — 4.74:1 against the rail, 5.29:1 on
-       a card.
-
-       ⚠️ DO NOT SHAVE THIS ANY CLOSER TO THE LIME. #4a7c00 is one step
-       further and measures 4.4968:1, which LOOKS like 4.5 rounded and is not:
-       the lockup spec in e2e/registry.spec.ts asserts a computed ratio and
-       fails on it. That spec is the reason this token is a measurement rather
-       than a preference — it has moved three times now and the markup never
-       changed once.
-
-       ⚠️ IT CANNOT BE THE LIME ITSELF, AND NO AMOUNT OF TASTE CHANGES THAT.
-       Measured, #a5ff11 as text is 1.11:1 on the rail, 1.21:1 on the page and
-       1.24:1 on a card — against 15.24:1 on the dark ground, which is the
-       whole reason it looks right in dark mode and vanishes here. So the one
-       green is honoured where it CAN be honoured — every fill, via
-       `brand-accent`, is now literally #a5ff11 in both themes — and accent
-       type in light mode goes as far toward it as legibility allows. Pushing
-       one step further (#548a00) drops to 3.74:1 and fails.
-
-       This token carries the rail's "APP REGISTRY" label, inline code, active
-       nav and ~60 links: all small, most bold, so AA here is 4.5:1, not the
-       3:1 that large text would allow. */
+    --line: #dcdcd4;
+    --line-strong: #b9b9b0;
     --accent-text-rgb: 72 120 0;
     --accent-text-hover-rgb: 56 94 0;
-    /* ── WARNING AMBER, INVERTED THE WAY THE NEUTRALS ARE ──
-       300-500 are the INK steps, so on paper they run darkest-to-lightest
-       (the mirror of dark mode, where 300 is the brightest). That keeps
-       `text-amber-400 hover:text-amber-300` reading as "goes stronger on
-       hover" in both themes rather than flipping direction.
-
-       800-950 stay bright, because they are only ever drawn at 20-50% alpha:
-       a DARK amber at 20% over white is the grey-brown mud that made the
-       banner unreadable, while a bright one gives the warm tint a warning
-       should have.
-
-       Measured against every ground these actually sit on — card #ffffff,
-       page #fcfcfc, rail #f2f2f3, and the washes the 900/950 steps paint —
-       the worst case is amber-500 on `bg-amber-500/10` at 4.75:1. All ten
-       text sites clear AA.
-
-       ⚠️ THE INK STEPS CANNOT BE BRIGHTENED MUCH FURTHER. #a15c00 is one
-       step up from the 500 here and measures 4.33:1 on that same pill, which
-       fails. */
+    /* Ink steps darkest-to-lightest (the mirror of dark mode); the wash steps
+       stay bright because they are only ever drawn at 10-50% alpha. */
     --warn-300-rgb: 124 74 2;
     --warn-400-rgb: 138 75 0;
     --warn-500-rgb: 154 91 0;
     --warn-800-rgb: 217 119 6;
     --warn-900-rgb: 224 148 0;
     --warn-950-rgb: 240 180 41;
-    /* Three steps, so the shell reads as a shell: chrome #f2f2f3, page
-       #fcfcfc, cards #ffffff. A white rail against a white page separated
-       only by a hairline is what made the old light mode look unfinished. */
-    --app-bg: #fcfcfc;
-    --app-rail: #f2f2f3;
-    /* Near-black rather than none: the asset's own ink is too light on paper. */
+    --app-bg: #f5f5f0;
+    --app-rail: #f5f5f0;
+    /* The white wordmark flattened to near-black ink. */
     --logo-filter: brightness(0) invert(0.08);
-    --hero-wash: linear-gradient(160deg, #eef0fb 0%, #f4f2fb 55%, #f7f6fc 100%);
+    --hero-wash: linear-gradient(160deg, #ffffff 0%, #fbfbf8 55%, #f6f6f1 100%);
     --hero-glow: radial-gradient(
       closest-side,
-      rgba(129, 140, 248, 0.22),
+      rgba(72, 120, 0, 0.1),
       transparent
     );
     --hero-glow-2: radial-gradient(
       closest-side,
-      rgba(167, 139, 250, 0.18),
+      rgba(42, 132, 119, 0.08),
       transparent
     );
 
-    --bg: #fcfcfc;
+    --bg: #f5f5f0;
     --surface: #ffffff;
-    --surface-2: #f2f2f3;
+    --surface-2: #ebebe4;
     --border: var(--line);
     --text: #131215;
-    --text-muted: #404040;
+    --text-muted: #5e5e5e;
     --accent: #a5ff11;
-    --accent-glow: rgba(95, 148, 0, 0.35);
-    --accent-dim: rgba(95, 148, 0, 0.09);
-    /* Solid fills keep the one lime — black ink on it is 15.94:1 on either
-       theme, the same rule the buttons follow. What cannot follow it is the
-       translucent and typeset green: #487800 is the accent ink this theme
-       already uses for ~60 links, and it is what makes the active channel,
-       the selected row and "installed to your node" visible on paper. */
+    --accent-glow: rgba(72, 120, 0, 0.4);
+    --accent-dim: rgba(72, 120, 0, 0.08);
     --hero-accent: #a5ff11;
     --hero-accent-soft: #487800;
     --hero-on-accent: #0d1117;
-    --shadow-card: 0 1px 2px rgba(19, 18, 21, 0.04);
-    --focus-ring: rgba(95, 148, 0, 0.65);
-    --focus-halo: rgba(95, 148, 0, 0.14);
+    --success: #1b7a3a;
+    --warning: #8a5a00;
+    --error: #c62828;
+    --shadow-card: none;
+    /* A lime bloom on white reads as a smudge; a hard ink offset reads as
+       the landing's line-art instead. */
+    --shadow-button: 3px 3px 0 0 #131215;
+    --focus-ring: rgba(72, 120, 0, 0.7);
+    --focus-halo: rgba(72, 120, 0, 0.14);
+    --grid-line: rgba(19, 18, 21, 0.05);
   }
 
   html {
-    font-family:
-      'DM Sans',
-      'Inter',
-      system-ui,
-      -apple-system,
-      sans-serif;
+    font-family: var(--font-sans);
+    color-scheme: dark;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     scroll-behavior: smooth;
+  }
+
+  :root[data-theme='light'] {
+    color-scheme: light;
   }
 
   /* v3's preflight set this; v4 leaves buttons at the browser default. */
@@ -297,9 +259,19 @@
   body {
     background: var(--bg);
     color: var(--text);
-    line-height: 1.6;
+    line-height: 1.55;
+    /* The landing sets its copy with a hair of positive tracking; an app UI
+       is denser, so half of it. */
+    letter-spacing: 0.015em;
     margin: 0;
     padding: 0;
+  }
+
+  code,
+  pre,
+  kbd,
+  .font-mono {
+    letter-spacing: 0;
   }
 
   #root {
@@ -309,8 +281,13 @@
   }
 
   ::selection {
-    background-color: var(--accent-glow);
-    color: #fff;
+    background-color: var(--accent);
+    color: #131215;
+  }
+
+  :focus-visible {
+    outline: 2px solid rgb(var(--accent-text-rgb));
+    outline-offset: 2px;
   }
 
   ::-webkit-scrollbar {
@@ -323,77 +300,70 @@
   }
 
   ::-webkit-scrollbar-thumb {
-    background: rgb(var(--ink-rgb) / 0.08);
-    border-radius: 3px;
+    background: rgb(var(--ink-rgb) / 0.12);
+    border-radius: 0;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: rgb(var(--ink-rgb) / 0.14);
+    background: rgb(var(--ink-rgb) / 0.22);
   }
 }
 
 @layer components {
-  /* ⚠️ This was `rgba(22, 27, 34, 0.6)` — a hardcoded dark panel. In light
-     mode that rendered dark ink on a dark card, which is why artifacts, tags,
-     signature and version were unreadable there. Every colour in this layer
-     now goes through a variable. */
+  /* A surface a step above the ground, one hairline around it, square. No
+     blur and no shadow: the landing is flat, and a card is told apart by its
+     line, which brightens on hover. */
   .card {
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: var(--radius);
-    /* A shadow only in light mode (`none` in dark, where it would be mud).
-       A white card on an off-white ground needs a second cue besides its
-       border, or a page of cards reads as one flat sheet. */
+    border-radius: 0;
     box-shadow: var(--shadow-card);
-    backdrop-filter: blur(12px);
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition:
+      border-color 0.2s ease,
+      background-color 0.2s ease;
   }
 
   .card:hover {
-    border-color: var(--accent-glow);
+    border-color: var(--line-strong);
   }
 
-  /* A floating menu — the profile dropdown, and anything else that opens over
-     the page. Same tokens as `.card`, because it is the same idea: a raised
-     surface with a line around it.
-
-     ⚠️ IT NEEDS ITS OWN SHADOW, NOT `shadow-xl`. Tailwind's shadow is a black
-     alpha, which is invisible against the dark ground and far too heavy on
-     paper; and a menu must not inherit `.card`'s `box-shadow: none` in dark
-     mode either, or it stops reading as raised above the page. So the shadow
-     here is explicit per theme. */
+  /* A floating menu. The landing's nav panel: the ground colour, one line,
+     and a deep soft shadow that is the only depth in the design. */
   .menu-panel {
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: var(--radius);
-    box-shadow: 0 12px 32px rgb(0 0 0 / 0.45);
+    border-radius: 0;
+    box-shadow: 0 24px 48px rgb(0 0 0 / 0.5);
   }
 
   :root[data-theme='light'] .menu-panel {
     box-shadow:
-      0 10px 28px rgb(19 18 21 / 0.12),
+      0 16px 40px rgb(19 18 21 / 0.12),
       0 2px 6px rgb(19 18 21 / 0.06);
   }
 
   .input {
-    @apply flex h-9 w-full px-3 py-2 text-[13px] font-light
+    @apply flex h-10 w-full px-3 py-2 text-[14px]
            placeholder:text-neutral-500
            focus-visible:outline-hidden
            disabled:cursor-not-allowed disabled:opacity-50;
     background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
+    border: 1px solid var(--line-strong);
+    border-radius: 0;
     color: var(--text);
-    transition: all 0.2s ease;
+    transition:
+      border-color 0.2s ease,
+      box-shadow 0.2s ease;
   }
 
   .input:focus-visible {
-    border-color: var(--focus-ring);
-    box-shadow: 0 0 0 2px var(--focus-halo);
+    border-color: rgb(var(--accent-text-rgb));
+    box-shadow: 0 0 0 1px rgb(var(--accent-text-rgb));
   }
 
   .nav-link {
-    @apply inline-flex items-center px-3 py-1.5 rounded-md text-[13px] font-normal transition-all duration-200;
+    @apply inline-flex items-center px-3 py-1.5 text-[13px] font-bold uppercase transition-all duration-200;
+    letter-spacing: var(--tracking-label);
   }
 
   .nav-link-active {
@@ -409,39 +379,67 @@
     background: rgb(var(--ink-rgb) / 0.04);
   }
 
+  /* A tag: square, a hairline, small tracked capitals — the landing's
+     label-s. The colour classes at each call site still apply on top. */
   .pill {
-    @apply inline-flex items-center text-[11px] font-medium px-2 py-0.5 rounded-full;
+    @apply inline-flex items-center px-2 py-0.5 text-[11px] font-bold uppercase;
+    border-radius: 0;
+    letter-spacing: 0.12em;
   }
 
+  /* The landing's eyebrow / label-s: all caps, widely tracked, secondary. */
   .section-heading {
-    @apply text-[11px] font-medium uppercase tracking-wider text-neutral-500;
+    @apply text-[12px] font-bold uppercase text-neutral-500;
+    letter-spacing: var(--tracking-label);
   }
 
-  .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 text-[13px] font-medium px-5 py-2.5 rounded-lg transition-all duration-200;
-    background: var(--accent);
-    /* Stays dark in both themes: the lime accent is bright either way, so
-       text on it is always near-black. */
-    color: #0a0a0a;
+  .eyebrow {
+    @apply text-[13px] font-normal uppercase text-brand-600;
+    letter-spacing: var(--tracking-eyebrow);
   }
 
-  .btn-primary:hover {
-    opacity: 0.9;
+  /* ── Buttons: square, all caps, tracked; lime with dark ink ── */
+  /* `.btn-cta` is the header's compact primary (Publish): the same button,
+     a size down, under its own name so the page's `.btn-primary` stays the
+     one a spec can find on a page. */
+  .btn-primary,
+  .btn-cta {
+    @apply inline-flex items-center justify-center gap-2 whitespace-nowrap px-6 py-3 text-[13px] font-bold uppercase transition-all duration-300;
+    letter-spacing: var(--tracking-button);
+    border: 1px solid transparent;
+    border-radius: 0;
+    background: #a5ff11;
+    /* Stays dark in both themes: the lime is bright either way. */
+    color: #131215;
+  }
+
+  .btn-cta {
+    padding: 0.625rem 1.25rem;
   }
 
   .btn-secondary {
-    @apply inline-flex items-center justify-center gap-2 text-[13px] font-normal px-5 py-2.5 rounded-lg transition-all duration-200;
-    background: var(--surface-2);
-    border: 1px solid var(--border);
-    color: var(--text);
+    @apply inline-flex items-center justify-center gap-2 whitespace-nowrap px-6 py-3 text-[13px] font-bold uppercase transition-all duration-300;
+    letter-spacing: var(--tracking-button);
+    border-radius: 0;
+    background: transparent;
+    border: 1px solid rgb(var(--accent-text-rgb));
+    color: rgb(var(--accent-text-rgb));
   }
 
   .btn-secondary:hover {
-    border-color: var(--accent-glow);
-    background: rgb(var(--ink-rgb) / 0.06);
+    background: #a5ff11;
+    border-color: #a5ff11;
+    color: #131215;
   }
 
-  /* The first stop was #ffffff, i.e. invisible on a light page. */
+  @media (hover: hover) and (pointer: fine) {
+    .btn-primary:hover,
+    .btn-cta:hover,
+    .btn-secondary:hover {
+      box-shadow: var(--shadow-button);
+    }
+  }
+
   .gradient-text {
     background: linear-gradient(
       135deg,
@@ -453,6 +451,94 @@
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
+
+  /* ── The page grid ──
+     calimero.network's center-grid as a container: a 1280px content column
+     on a wide screen, and the landing's fixed margins below it — 64px under
+     1320, 32px under 1024, 16px on a phone. */
+  .shell {
+    width: 100%;
+    max-width: calc(1280px + 2 * 64px);
+    margin-inline: auto;
+    padding-inline: 64px;
+  }
+
+  @media (width < 1024px) {
+    .shell {
+      padding-inline: 32px;
+    }
+  }
+
+  @media (width < 640px) {
+    .shell {
+      padding-inline: 16px;
+    }
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * The rules below are deliberately UNLAYERED. Tailwind v4 emits its utilities
+ * inside `@layer utilities`, and unlayered CSS beats every layer — so these
+ * are the few places the design overrides what individual call sites say
+ * (a page's `text-2xl font-semibold` h1 still comes out as the landing's
+ * uppercase black heading) without editing each page.
+ * ------------------------------------------------------------------------- */
+
+/*
+ * 80% on desktop, as calimero.network renders. Viewport units resolve before
+ * zoom, so anything sized to the screen uses 125vh under it (see Layout).
+ */
+@media (width >= 1100px) {
+  html {
+    zoom: 0.8;
+  }
+}
+
+/* Page titles: the landing's h1 — uppercase, weight 950, tight. */
+main h1 {
+  font-weight: 950;
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+  line-height: 1.05;
+  overflow-wrap: anywhere;
+}
+
+/* And the landing's size, whatever the page asked for — except the home
+   hero, which sets its own larger scale. */
+main h1:not(.hero-title) {
+  font-size: clamp(1.875rem, 1.4rem + 1.6vw, 3rem);
+}
+
+/* The page's vertical column lines, behind everything (Layout renders them). */
+.grid-lines {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+
+.grid-lines > .shell {
+  display: flex;
+  justify-content: space-between;
+  height: 100%;
+}
+
+.grid-lines i {
+  width: 1px;
+  background: var(--grid-line);
+}
+
+@media (width < 1024px) {
+  .grid-lines i:nth-child(even) {
+    display: none;
+  }
+}
+
+/* Line icons from the landing's set, inlined so they take currentColor. */
+.line-icon svg {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 @layer utilities {
@@ -815,4 +901,42 @@ html {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* The page frame fills the screen. Under the desktop zoom a full screen is
+   125vh, because viewport units resolve before zoom. */
+.app-frame {
+  min-height: 100vh;
+}
+
+@media (width >= 1100px) {
+  .app-frame {
+    min-height: 125vh;
+  }
+}
+
+/* The landing's 404 drawing: lime line-art, its white fills following the
+   ink so it reads on paper too. */
+.not-found-art svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+:root[data-theme='light'] .not-found-art [fill='#A5FF11'] {
+  fill: rgb(var(--accent-text-rgb));
+}
+
+:root[data-theme='light'] .not-found-art [stroke='#A5FF11'] {
+  stroke: rgb(var(--accent-text-rgb));
+}
+
+.not-found-art [fill='#FCFCFC'] {
+  fill: rgb(var(--n-100-rgb));
+}
+
+/* An identifier inside a title (a publisher's handle) keeps its spelling. */
+main h1 .font-mono {
+  text-transform: none;
+  font-weight: 500;
 }

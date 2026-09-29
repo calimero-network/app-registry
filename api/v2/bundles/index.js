@@ -155,7 +155,7 @@ module.exports = async function handler(req, res) {
     console.error('List Error:', error);
     return res.status(500).json({
       error: 'internal_error',
-      message: error?.message ?? String(error),
+      message: 'Internal error',
     });
   }
 };

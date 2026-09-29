@@ -13,12 +13,12 @@ import { useCallback, useEffect, useState } from 'react';
  * it, and the choice persisted in localStorage. Two Calimero products with
  * two different theme mechanisms is how palettes drift apart.
  *
- * ⚠️ LIGHT IS THE DEFAULT, AND `prefers-color-scheme` IS NOT CONSULTED.
- * It used to follow the OS, which means a visitor on a dark desktop never saw
- * the light design however it was described as the default — in practice
- * `prefers-color-scheme` resolves to light or dark for everyone, so honouring
- * it and having a default are the same decision made twice. A stored choice
- * still wins over everything; the toggle is the way to dark.
+ * ⚠️ DARK IS THE DEFAULT, AND `prefers-color-scheme` IS NOT CONSULTED.
+ * The registry wears calimero.network's charcoal, as Calimero Cloud does;
+ * light is an opt-in. Following the OS would silently restyle every visitor
+ * whose desktop is set to light, so the default is a decision, not a
+ * preference read. A stored choice still wins over everything; the toggle is
+ * the way to light.
  *
  * The palette itself lives in index.css. The important part there is that the
  * neutral scale is INVERTED rather than lightened — `text-neutral-100` means
@@ -39,13 +39,13 @@ export type ThemeMode = 'light' | 'dark';
  * and the light default would therefore have reached nobody but a brand-new
  * browser. The two cases are indistinguishable inside that key — a real
  * press and an automatic write look identical — so the key is abandoned
- * rather than migrated. Someone who genuinely wanted dark presses the toggle
+ * rather than migrated. Someone who genuinely wanted a theme presses the toggle
  * once more.
  */
 const STORAGE_KEY = 'registry:theme:choice';
 const LEGACY_KEY = 'registry:theme';
 
-export const DEFAULT_THEME: ThemeMode = 'light';
+export const DEFAULT_THEME: ThemeMode = 'dark';
 
 export function getStoredTheme(): ThemeMode {
   try {
@@ -111,7 +111,7 @@ export function ThemeToggle() {
       // `aria-label` and `title` still say which way it goes, because an icon
       // that toggles between a sun and a moon is ambiguous about whether it
       // shows the current state or the one it switches to.
-      className='inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line text-neutral-400 transition-colors duration-150 hover:bg-ink/[0.04] hover:text-neutral-200'
+      className='inline-flex h-10 w-10 flex-shrink-0 items-center justify-center border border-line-strong text-neutral-400 transition-colors duration-150 hover:border-brand-600 hover:text-brand-600'
     >
       {dark ? <SunIcon /> : <MoonIcon />}
     </button>

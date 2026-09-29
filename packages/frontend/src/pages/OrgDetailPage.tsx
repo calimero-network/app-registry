@@ -323,7 +323,7 @@ export default function OrgDetailPage() {
         <BackLink />
         <div className='text-center py-16'>
           <Building2 className='mx-auto h-8 w-8 text-neutral-600' />
-          <p className='mt-3 text-[13px] text-neutral-400'>
+          <p className='mt-3 text-[15px] text-neutral-400'>
             Organization not found.
           </p>
           <Link
@@ -357,10 +357,11 @@ export default function OrgDetailPage() {
           <Building2 className='w-4 h-4 text-neutral-400' />
         </div>
         <div>
+          <p className='eyebrow mb-3'>Organization</p>
           <h1 className='text-xl font-semibold text-neutral-100'>
             {org!.name}
           </h1>
-          <p className='text-[12px] text-neutral-500 font-mono'>
+          <p className='text-[14px] text-neutral-500 font-mono'>
             {org!.slug || org!.id}
           </p>
         </div>
@@ -371,10 +372,10 @@ export default function OrgDetailPage() {
         <div className='rounded-lg border border-brand-900/40 bg-brand-600/[0.04] px-4 py-3 flex gap-3 animate-fade-in'>
           <Users className='w-4 h-4 text-brand-500 flex-shrink-0 mt-0.5' />
           <div className='space-y-1'>
-            <p className='text-[13px] text-neutral-200 font-medium'>
+            <p className='text-[15px] text-neutral-200 font-medium'>
               You are a member of this organization
             </p>
-            <p className='text-[12px] text-neutral-400'>
+            <p className='text-[14px] text-neutral-400'>
               As a member you can publish new versions and edit metadata for any
               of the{' '}
               {packages.length > 0 ? (
@@ -401,12 +402,12 @@ export default function OrgDetailPage() {
             className='mb-4 rounded-xl border border-line bg-ink/[0.02] p-4 space-y-3'
             onSubmit={handleAddMember}
           >
-            <p className='text-[12px] font-medium text-neutral-300'>
+            <p className='text-[14px] font-medium text-neutral-300'>
               Add member
             </p>
             <div className='flex flex-wrap items-start gap-3'>
               <div className='flex-1 min-w-[220px]'>
-                <label className='block text-[11px] text-neutral-500 mb-1'>
+                <label className='block text-[12.5px] text-neutral-500 mb-1'>
                   Username
                 </label>
                 <input
@@ -426,13 +427,13 @@ export default function OrgDetailPage() {
                   }`}
                 />
                 {memberUsernameErr && (
-                  <p className='mt-1 text-[11px] text-red-400'>
+                  <p className='mt-1 text-[12.5px] text-red-400'>
                     {memberUsernameErr}
                   </p>
                 )}
               </div>
               <div className='w-36'>
-                <label className='block text-[11px] text-neutral-500 mb-1'>
+                <label className='block text-[12.5px] text-neutral-500 mb-1'>
                   Role
                 </label>
                 <select
@@ -440,7 +441,7 @@ export default function OrgDetailPage() {
                   onChange={e =>
                     setNewMemberRole(e.target.value as 'admin' | 'member')
                   }
-                  className='w-full rounded-md border border-line bg-ink/[0.03] px-4 py-2 text-[13px] text-neutral-200 focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-brand-600/50 focus-visible:border-brand-600/50 transition-all duration-200 cursor-pointer'
+                  className='w-full rounded-md border border-line bg-ink/[0.03] px-4 py-2 text-[15px] text-neutral-200 focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-brand-600/50 focus-visible:border-brand-600/50 transition-all duration-200 cursor-pointer'
                 >
                   <option value='member'>Member</option>
                   <option value='admin'>Admin</option>
@@ -451,14 +452,14 @@ export default function OrgDetailPage() {
               <button
                 type='submit'
                 disabled={addMemberMutation.isPending}
-                className='inline-flex items-center gap-1.5 rounded-lg bg-brand-accent hover:bg-brand-accent-hover disabled:opacity-50 disabled:cursor-not-allowed text-black px-4 py-2 text-[13px] font-medium transition-colors'
+                className='inline-flex items-center gap-1.5 rounded-lg bg-brand-accent hover:bg-brand-accent-hover disabled:opacity-50 disabled:cursor-not-allowed text-black px-4 py-2 text-[15px] font-medium transition-colors'
               >
                 <UserPlus className='w-3.5 h-3.5' />
                 {addMemberMutation.isPending ? 'Adding…' : 'Add member'}
               </button>
             </div>
             {addMemberMutation.isError && (
-              <p className='text-[12px] text-red-400'>
+              <p className='text-[14px] text-red-400'>
                 {getApiErrorMessage(addMemberMutation.error)}
               </p>
             )}
@@ -471,12 +472,12 @@ export default function OrgDetailPage() {
             <div className='h-10 bg-ink/[0.04] rounded' />
           </div>
         ) : members.length === 0 ? (
-          <div className='rounded-xl border border-line bg-ink/[0.02] p-4 text-[13px] text-neutral-500'>
+          <div className='rounded-xl border border-line bg-ink/[0.02] p-4 text-[15px] text-neutral-500'>
             No members listed.
           </div>
         ) : (
           <div className='rounded-xl border border-line bg-ink/[0.02] overflow-hidden'>
-            <table className='w-full text-[13px]'>
+            <table className='w-full text-[15px]'>
               <thead>
                 <tr className='border-b border-line bg-ink/[0.03]'>
                   <th className='text-left py-3 px-5 font-medium text-neutral-300'>
@@ -518,7 +519,7 @@ export default function OrgDetailPage() {
                             <BadgeCheck className='h-3.5 w-3.5 flex-shrink-0 text-emerald-400' />
                           )}
                           {isCurrentUserRow && (
-                            <span className='text-[10px] text-brand-600'>
+                            <span className='text-[11.5px] text-brand-600'>
                               (you)
                             </span>
                           )}
@@ -552,7 +553,7 @@ export default function OrgDetailPage() {
                         <td className='py-3 px-5 text-right'>
                           {isConfirming ? (
                             <span className='inline-flex items-center gap-2'>
-                              <span className='text-[11px] text-neutral-400'>
+                              <span className='text-[12.5px] text-neutral-400'>
                                 {isCurrentUserRow ? 'Leave?' : 'Remove?'}
                               </span>
                               <button
@@ -561,7 +562,7 @@ export default function OrgDetailPage() {
                                   removeMemberMutation.mutate(member.email)
                                 }
                                 disabled={isRemoving}
-                                className='text-[11px] font-medium text-red-400 hover:text-red-300 disabled:opacity-50 transition-colors'
+                                className='text-[12.5px] font-medium text-red-400 hover:text-red-300 disabled:opacity-50 transition-colors'
                               >
                                 {isRemoving
                                   ? isCurrentUserRow
@@ -572,7 +573,7 @@ export default function OrgDetailPage() {
                               <button
                                 type='button'
                                 onClick={() => setConfirmRemoveEmail(null)}
-                                className='text-[11px] text-neutral-500 hover:text-neutral-300 transition-colors'
+                                className='text-[12.5px] text-neutral-500 hover:text-neutral-300 transition-colors'
                               >
                                 Cancel
                               </button>
@@ -583,7 +584,7 @@ export default function OrgDetailPage() {
                               onClick={() =>
                                 setConfirmRemoveEmail(member.email)
                               }
-                              className='inline-flex items-center gap-1 text-[11px] text-neutral-500 hover:text-red-400 px-2 py-1 rounded transition-colors'
+                              className='inline-flex items-center gap-1 text-[12.5px] text-neutral-500 hover:text-red-400 px-2 py-1 rounded transition-colors'
                               title='Leave organization'
                             >
                               <Trash2 className='w-3.5 h-3.5' />
@@ -595,7 +596,7 @@ export default function OrgDetailPage() {
                               onClick={() =>
                                 setConfirmRemoveEmail(member.email)
                               }
-                              className='inline-flex items-center gap-1 text-[11px] text-neutral-500 hover:text-red-400 px-2 py-1 rounded transition-colors'
+                              className='inline-flex items-center gap-1 text-[12.5px] text-neutral-500 hover:text-red-400 px-2 py-1 rounded transition-colors'
                               title='Remove member'
                             >
                               <Trash2 className='w-3.5 h-3.5' />
@@ -625,11 +626,11 @@ export default function OrgDetailPage() {
             className='mb-4 rounded-xl border border-line bg-ink/[0.02] p-4 space-y-3'
             onSubmit={handleLinkPackage}
           >
-            <p className='text-[12px] font-medium text-neutral-300'>
+            <p className='text-[14px] font-medium text-neutral-300'>
               Link package
             </p>
             <div>
-              <label className='block text-[11px] text-neutral-500 mb-1'>
+              <label className='block text-[12.5px] text-neutral-500 mb-1'>
                 Package name
               </label>
               <div className='relative'>
@@ -657,22 +658,22 @@ export default function OrgDetailPage() {
                       : ''
                   }`}
                 />
-                <span className='absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-neutral-600 pointer-events-none'>
+                <span className='absolute right-3 top-1/2 -translate-y-1/2 text-[12.5px] text-neutral-600 pointer-events-none'>
                   {newPackageName.length}/{ORG_PACKAGE_NAME_MAX}
                 </span>
               </div>
-              <p className='mt-1 text-[11px] text-neutral-600'>
+              <p className='mt-1 text-[12.5px] text-neutral-600'>
                 Letters, numbers, dots, hyphens, underscores.
               </p>
               {pkgNameErr && (
-                <p className='mt-0.5 text-[12px] text-red-400'>{pkgNameErr}</p>
+                <p className='mt-0.5 text-[14px] text-red-400'>{pkgNameErr}</p>
               )}
             </div>
             <div className='flex items-center gap-2'>
               <button
                 type='submit'
                 disabled={checkingPackage || linkPackageMutation.isPending}
-                className='inline-flex items-center gap-1.5 rounded-lg bg-brand-accent hover:bg-brand-accent-hover disabled:opacity-50 disabled:cursor-not-allowed text-black px-4 py-2 text-[13px] font-medium transition-colors'
+                className='inline-flex items-center gap-1.5 rounded-lg bg-brand-accent hover:bg-brand-accent-hover disabled:opacity-50 disabled:cursor-not-allowed text-black px-4 py-2 text-[15px] font-medium transition-colors'
               >
                 <Link2 className='w-3.5 h-3.5' />
                 {checkingPackage
@@ -683,7 +684,7 @@ export default function OrgDetailPage() {
               </button>
             </div>
             {linkPackageMutation.isError && (
-              <p className='text-[12px] text-red-400'>
+              <p className='text-[14px] text-red-400'>
                 {getApiErrorMessage(linkPackageMutation.error)}
               </p>
             )}
@@ -696,7 +697,7 @@ export default function OrgDetailPage() {
             <div className='h-10 bg-ink/[0.04] rounded-xl' />
           </div>
         ) : packages.length === 0 ? (
-          <div className='rounded-xl border border-line bg-ink/[0.02] p-4 text-[13px] text-neutral-500'>
+          <div className='rounded-xl border border-line bg-ink/[0.02] p-4 text-[15px] text-neutral-500'>
             No packages linked to this org.
           </div>
         ) : (
@@ -713,7 +714,7 @@ export default function OrgDetailPage() {
                       to={`/apps/${encodeURIComponent(pkg)}`}
                       className='flex-1 min-w-0 flex items-center justify-between'
                     >
-                      <span className='text-[13px] font-mono text-neutral-300 truncate'>
+                      <span className='text-[15px] font-mono text-neutral-300 truncate'>
                         {pkg}
                       </span>
                       <ArrowUpRight className='w-3.5 h-3.5 text-neutral-500 group-hover:text-brand-600 flex-shrink-0 ml-2' />
@@ -723,21 +724,21 @@ export default function OrgDetailPage() {
                         {isConfirming ? (
                           <span className='inline-flex items-center gap-2'>
                             <AlertTriangle className='w-3.5 h-3.5 text-amber-500' />
-                            <span className='text-[11px] text-neutral-400'>
+                            <span className='text-[12.5px] text-neutral-400'>
                               Unlink?
                             </span>
                             <button
                               type='button'
                               onClick={() => unlinkPackageMutation.mutate(pkg)}
                               disabled={isUnlinking}
-                              className='text-[11px] font-medium text-red-400 hover:text-red-300 disabled:opacity-50 transition-colors'
+                              className='text-[12.5px] font-medium text-red-400 hover:text-red-300 disabled:opacity-50 transition-colors'
                             >
                               {isUnlinking ? 'Unlinking…' : 'Yes'}
                             </button>
                             <button
                               type='button'
                               onClick={() => setConfirmUnlinkPkg(null)}
-                              className='text-[11px] text-neutral-500 hover:text-neutral-300 transition-colors'
+                              className='text-[12.5px] text-neutral-500 hover:text-neutral-300 transition-colors'
                             >
                               Cancel
                             </button>
@@ -746,7 +747,7 @@ export default function OrgDetailPage() {
                           <button
                             type='button'
                             onClick={() => setConfirmUnlinkPkg(pkg)}
-                            className='inline-flex items-center gap-1 text-[11px] text-neutral-500 hover:text-red-400 px-2 py-1 rounded transition-colors'
+                            className='inline-flex items-center gap-1 text-[12.5px] text-neutral-500 hover:text-red-400 px-2 py-1 rounded transition-colors'
                             title='Unlink package'
                           >
                             <Unlink className='w-3.5 h-3.5' />
@@ -775,7 +776,7 @@ export default function OrgDetailPage() {
               <button
                 type='button'
                 onClick={handleOpenSettingsEdit}
-                className='text-[12px] text-neutral-500 hover:text-neutral-300 inline-flex items-center gap-1 transition-colors'
+                className='text-[14px] text-neutral-500 hover:text-neutral-300 inline-flex items-center gap-1 transition-colors'
               >
                 <Settings className='w-3 h-3' />
                 Edit
@@ -831,7 +832,7 @@ export default function OrgDetailPage() {
                 />
               </div>
               {updateOrgMutation.isError && (
-                <p className='text-[12px] text-red-400'>
+                <p className='text-[14px] text-red-400'>
                   {getApiErrorMessage(updateOrgMutation.error)}
                 </p>
               )}
@@ -840,7 +841,7 @@ export default function OrgDetailPage() {
                   type='button'
                   onClick={handleSaveSettings}
                   disabled={updateOrgMutation.isPending}
-                  className='inline-flex items-center gap-1.5 rounded-lg bg-brand-accent hover:bg-brand-accent-hover disabled:opacity-50 disabled:cursor-not-allowed text-black px-4 py-2 text-[13px] font-medium transition-colors'
+                  className='inline-flex items-center gap-1.5 rounded-lg bg-brand-accent hover:bg-brand-accent-hover disabled:opacity-50 disabled:cursor-not-allowed text-black px-4 py-2 text-[15px] font-medium transition-colors'
                 >
                   <Save className='w-3.5 h-3.5' />
                   {updateOrgMutation.isPending ? 'Saving…' : 'Save'}
@@ -848,7 +849,7 @@ export default function OrgDetailPage() {
                 <button
                   type='button'
                   onClick={() => setIsEditingSettings(false)}
-                  className='inline-flex items-center gap-1.5 text-[13px] text-neutral-400 hover:text-neutral-200 px-3 py-2 rounded-lg border border-line hover:border-neutral-600 transition-colors'
+                  className='inline-flex items-center gap-1.5 text-[15px] text-neutral-400 hover:text-neutral-200 px-3 py-2 rounded-lg border border-line hover:border-neutral-600 transition-colors'
                 >
                   <X className='w-3.5 h-3.5' />
                   Cancel
@@ -858,7 +859,7 @@ export default function OrgDetailPage() {
           ) : hasOrgInfo ? (
             <div className='card p-4 space-y-2'>
               {m.description && (
-                <p className='text-[13px] text-neutral-300 leading-relaxed mb-3'>
+                <p className='text-[15px] text-neutral-300 leading-relaxed mb-3'>
                   {m.description}
                 </p>
               )}
@@ -899,7 +900,7 @@ export default function OrgDetailPage() {
               )}
             </div>
           ) : (
-            <div className='rounded-xl border border-line bg-ink/[0.02] p-4 text-[13px] text-neutral-500'>
+            <div className='rounded-xl border border-line bg-ink/[0.02] p-4 text-[15px] text-neutral-500'>
               No info set.{' '}
               <button
                 type='button'
@@ -919,17 +920,17 @@ export default function OrgDetailPage() {
           <p className='section-heading mb-3 text-red-400/80'>Danger Zone</p>
           <div className='flex items-center justify-between gap-4'>
             <div>
-              <p className='text-[13px] text-neutral-300'>
+              <p className='text-[15px] text-neutral-300'>
                 Delete organization
               </p>
-              <p className='text-[12px] text-neutral-500'>
+              <p className='text-[14px] text-neutral-500'>
                 Permanently deletes{' '}
                 <span className='font-mono'>{org!.slug || org!.name}</span> and
                 all its members and package links. This cannot be undone.
               </p>
             </div>
             {confirmDeleteOrg ? (
-              <span className='flex items-center gap-2 text-[12px] flex-shrink-0'>
+              <span className='flex items-center gap-2 text-[14px] flex-shrink-0'>
                 <span className='text-red-400'>Are you sure?</span>
                 <button
                   type='button'
@@ -952,7 +953,7 @@ export default function OrgDetailPage() {
               <button
                 type='button'
                 onClick={() => setConfirmDeleteOrg(true)}
-                className='inline-flex items-center gap-1.5 text-[12px] text-red-500 hover:text-red-400 border border-red-900/50 hover:border-red-700/60 px-3 py-1.5 rounded-lg transition-all flex-shrink-0'
+                className='inline-flex items-center gap-1.5 text-[14px] text-red-500 hover:text-red-400 border border-red-900/50 hover:border-red-700/60 px-3 py-1.5 rounded-lg transition-all flex-shrink-0'
               >
                 <Trash2 className='w-3.5 h-3.5' />
                 Delete org
@@ -960,7 +961,7 @@ export default function OrgDetailPage() {
             )}
           </div>
           {deleteOrgMutation.isError && (
-            <p className='mt-2 text-[12px] text-red-400'>
+            <p className='mt-2 text-[14px] text-red-400'>
               {getApiErrorMessage(deleteOrgMutation.error)}
             </p>
           )}
@@ -974,7 +975,7 @@ function BackLink() {
   return (
     <Link
       to='/orgs'
-      className='inline-flex items-center gap-1 text-[12px] text-neutral-500 hover:text-neutral-300 transition-colors'
+      className='inline-flex items-center gap-1 text-[14px] text-neutral-500 hover:text-neutral-300 transition-colors'
     >
       <ArrowLeft className='w-3 h-3' />
       Back to Organizations
@@ -996,10 +997,12 @@ function SettingsField({
   multiline?: boolean;
 }) {
   const cls =
-    'w-full rounded-lg border border-line bg-ink/[0.06] px-3 py-2 text-[13px] text-neutral-200 placeholder:text-neutral-500 focus:border-brand-600 focus:outline-hidden focus:ring-1 focus:ring-brand-600 transition-colors';
+    'w-full rounded-lg border border-line bg-ink/[0.06] px-3 py-2 text-[15px] text-neutral-200 placeholder:text-neutral-500 focus:border-brand-600 focus:outline-hidden focus:ring-1 focus:ring-brand-600 transition-colors';
   return (
     <div>
-      <label className='block text-[11px] text-neutral-500 mb-1'>{label}</label>
+      <label className='block text-[12.5px] text-neutral-500 mb-1'>
+        {label}
+      </label>
       {multiline ? (
         <textarea
           value={value}
@@ -1033,9 +1036,9 @@ function OrgInfoRow({
   href?: string;
 }) {
   return (
-    <div className='flex items-center gap-2.5 text-[13px]'>
+    <div className='flex items-center gap-2.5 text-[15px]'>
       <Icon className='w-3.5 h-3.5 text-neutral-500 flex-shrink-0' />
-      <span className='text-neutral-500 w-20 flex-shrink-0 text-[12px]'>
+      <span className='text-neutral-500 w-20 flex-shrink-0 text-[14px]'>
         {label}
       </span>
       {href ? (

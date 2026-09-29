@@ -46,7 +46,11 @@ const STATES = ['pending', 'approved', 'declined'];
  * answer if the package later moved out of the organisation.
  */
 const TRUSTED_EMAIL_DOMAIN = '@calimero.network';
-const TRUSTED_ORG_SLUGS = ['calimero-network', 'calimero'];
+// ⚠️ ONLY SLUGS THAT EXIST, owned by the real team. A slug on this list that
+// no org holds yet is a grant waiting for whoever registers it first. New
+// slugs containing "calimero" are admin-only (`org-slugs.js`), but that is
+// defence in depth, not a reason to list a name nobody has claimed.
+const TRUSTED_ORG_SLUGS = ['calimero-network'];
 
 const reviewKey = pkg => `pkg-review:${pkg}`;
 const legacyKey = pkg => `admin_verified:package:${pkg}`;

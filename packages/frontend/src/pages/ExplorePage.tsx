@@ -10,20 +10,16 @@ import { CATEGORIES, type AppSummary } from '@/types/api';
 import { usePageMeta } from '@/lib/seo';
 
 /**
- * ⚠️ THE CARD COLUMN IS A HARD-CODED WIDTH PER BREAKPOINT, not a percentage.
+ * ⚠️ THE CARD WIDTH MUST NOT DEPEND ON HOW MANY RESULTS THERE ARE.
  *
- * Two separate things used to move it. The grid was `lg:grid-cols-2`, so one
- * result rendered at half width; that is gone. Then the scrollbar: filter
- * twenty apps down to one, the page stops scrolling, the bar disappears and
- * everything widens by ~15px (`scrollbar-gutter: stable` in index.css now
- * reserves it). A fixed px width closes the question for good — the cards are
- * the same size whether the filter returns one app or all of them.
- *
- * Every value clears the content box at its own breakpoint (viewport minus
- * the layout's 32-64px of padding, capped by `max-w-5xl` on <main>), so it
- * can never overflow.
+ * Two things used to move it: a grid that let a lone result stretch, and the
+ * scrollbar disappearing when a filter stops the page scrolling
+ * (`scrollbar-gutter: stable` in index.css now reserves it). The catalogue is
+ * the full content column, two fixed tracks on a desktop: a lone result
+ * takes one track, the same width it has in a full list.
  */
-const COLUMN = 'w-full sm:w-[560px] md:w-[688px] lg:w-[900px]';
+const COLUMN = 'w-full';
+const TRACKS = 'min-[1100px]:grid-cols-2';
 
 /**
  * Explore — every published app, searchable and filtered by category.
@@ -122,12 +118,12 @@ export default function ExplorePage() {
   if (error) {
     return (
       <div className='py-16 text-center'>
-        <p className='mb-4 text-[13px] text-neutral-400'>
+        <p className='mb-4 text-[15px] text-neutral-400'>
           Failed to load applications
         </p>
         <button
           onClick={() => window.location.reload()}
-          className='text-[13px] text-brand-600 transition-colors hover:text-brand-500'
+          className='text-[15px] text-brand-600 transition-colors hover:text-brand-500'
         >
           Try again
         </button>
@@ -137,9 +133,10 @@ export default function ExplorePage() {
 
   return (
     <div className='space-y-6'>
-      <header>
+      <header className='border-b border-line pb-6'>
+        <p className='eyebrow mb-3'>The catalogue</p>
         <h1 className='text-xl font-semibold text-neutral-100'>Explore</h1>
-        <p className='mt-1 text-[13px] font-light text-neutral-500'>
+        <p className='mt-3 text-[17px] font-light text-neutral-400'>
           Every application published to the registry.
         </p>
       </header>
@@ -149,13 +146,13 @@ export default function ExplorePage() {
           visible. Below it the rail is a drawer, so searching the registry
           from the page whose entire job is searching the registry took a
           menu press first — nothing on screen said search existed. */}
-      <div className='md:hidden'>
+      <div className='min-[1100px]:hidden'>
         <GlobalSearch testId='explore-search' />
       </div>
 
       {available.length > 0 && (
         <div
-          className='flex flex-wrap items-center gap-1.5'
+          className='flex flex-wrap items-center gap-2'
           role='group'
           aria-label='Filter by category'
         >
@@ -167,10 +164,10 @@ export default function ExplorePage() {
                 onClick={() => setCategory(c.id)}
                 aria-pressed={active}
                 data-testid={`category-${c.id}`}
-                className={`rounded-full border px-2.5 py-1 text-[12px] transition-colors duration-150 ${
+                className={`border px-3.5 py-2 text-[13px] font-bold uppercase tracking-[0.14em] transition-colors duration-150 ${
                   active
-                    ? 'border-brand-600/40 bg-brand-600/15 text-brand-500'
-                    : 'border-line bg-ink/[0.02] text-neutral-400 hover:border-line-strong hover:text-neutral-200'
+                    ? 'border-brand-600 bg-brand-600/10 text-brand-600'
+                    : 'border-line-strong text-neutral-400 hover:border-brand-600 hover:text-brand-600'
                 }`}
               >
                 {c.label}
@@ -190,10 +187,10 @@ export default function ExplorePage() {
             }}
             aria-pressed={includeUnverified}
             data-testid='toggle-unverified'
-            className={`rounded-full border px-2.5 py-1 text-[12px] transition-colors duration-150 ${
+            className={`border px-3.5 py-2 text-[13px] font-bold uppercase tracking-[0.14em] transition-colors duration-150 ${
               includeUnverified
-                ? 'border-brand-600/40 bg-brand-600/15 text-brand-500'
-                : 'border-line bg-ink/[0.02] text-neutral-400 hover:border-line-strong hover:text-neutral-200'
+                ? 'border-brand-600 bg-brand-600/10 text-brand-600'
+                : 'border-line-strong text-neutral-400 hover:border-brand-600 hover:text-brand-600'
             }`}
           >
             Include unverified
@@ -203,7 +200,7 @@ export default function ExplorePage() {
             <button
               onClick={clearAll}
               data-testid='clear-filters'
-              className='inline-flex items-center gap-1 rounded-full px-2 py-1 text-[12px] text-neutral-500 transition-colors hover:text-neutral-300'
+              className='inline-flex items-center gap-1 px-2 py-2 text-[13px] font-bold uppercase tracking-[0.14em] text-neutral-500 transition-colors hover:text-neutral-300'
             >
               <X className='h-3 w-3' aria-hidden='true' />
               Clear
@@ -212,7 +209,7 @@ export default function ExplorePage() {
         </div>
       )}
 
-      <p className='text-[12px] text-neutral-500' data-testid='result-count'>
+      <p className='text-[14px] text-neutral-500' data-testid='result-count'>
         {isLoading
           ? 'Loading…'
           : `${filtered.length} application${filtered.length === 1 ? '' : 's'}`}
@@ -228,11 +225,11 @@ export default function ExplorePage() {
       </p>
 
       {isLoading ? (
-        <div className={`grid gap-3 ${COLUMN}`}>
+        <div className={`grid gap-3 ${TRACKS} ${COLUMN}`}>
           {Array.from({ length: 6 }).map((_, i) => (
             <div
               key={i}
-              className='flex animate-pulse gap-4 rounded-xl border border-line p-4'
+              className='flex animate-pulse gap-4 border border-line p-4'
             >
               <div className='h-14 w-14 flex-shrink-0 rounded-xl bg-ink/[0.06]' />
               <div className='flex-1 space-y-2 pt-1'>
@@ -252,7 +249,7 @@ export default function ExplorePage() {
             className='mx-auto h-8 w-8 text-neutral-600'
             aria-hidden='true'
           />
-          <p className='mt-3 text-[13px] text-neutral-400'>
+          <p className='mt-3 text-[15px] text-neutral-400'>
             {query || category
               ? 'No apps match these filters.'
               : 'No applications published yet.'}
@@ -260,14 +257,14 @@ export default function ExplorePage() {
           {(query || category) && (
             <button
               onClick={clearAll}
-              className='mt-3 text-[13px] text-brand-600 transition-colors hover:text-brand-500'
+              className='mt-3 text-[15px] text-brand-600 transition-colors hover:text-brand-500'
             >
               Clear filters
             </button>
           )}
         </div>
       ) : (
-        <div className={`grid gap-3 ${COLUMN}`}>
+        <div className={`grid gap-3 ${TRACKS} ${COLUMN}`}>
           {filtered.map(app => (
             <AppCard key={app.id} app={app} />
           ))}

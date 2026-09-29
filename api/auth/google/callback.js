@@ -83,9 +83,19 @@ module.exports = async function handler(req, res) {
       email: profile.email,
       name: profile.name || profile.email,
       picture: profile.picture,
+      // Email is the sole identity and the admin criterion, so we must not
+      // trust an unverified address (someone could sign up to an inbox they do
+      // not control). Enforced below, after the try so the code is specific.
+      verified_email: profile.verified_email === true,
     };
   } catch {
     res.setHeader('Location', loginErrorUrl(frontendUrl, 'oauth_failed'));
+    return res.status(302).end();
+  }
+
+  // Reject unless Google confirms the address belongs to this user.
+  if (!user.verified_email) {
+    res.setHeader('Location', loginErrorUrl(frontendUrl, 'email_unverified'));
     return res.status(302).end();
   }
 

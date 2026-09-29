@@ -32,6 +32,84 @@
  */
 
 const crypto = require('crypto');
+const semver = require('semver');
+const {
+  isSafeHttpUrl,
+} = require('@calimero-network/registry-shared/metadata-urls');
+
+/**
+ * Package identity policy: the `package` id and `appVersion` a bundle carries.
+ *
+ * WHY THIS EXISTS. The push routes only checked that these two fields were
+ * *present* — any string reached storage. That let a publish set the package id
+ * to something that is not a package id (an empty-ish token, spaces, mixed
+ * case) and `appVersion` to something semver cannot order, which then breaks the
+ * "new version must be greater than the latest" comparison downstream. These
+ * validators run beside the presence check so a malformed id or version is
+ * refused at the door, in one place both push paths share.
+ */
+
+/**
+ * Reverse-DNS style, lowercase, at least one dot: `com.example.app`. Matches
+ * how cargo-mero names bundles today. Hyphens are allowed only after the first
+ * label so the leading segment stays a bare TLD-like token.
+ */
+const PACKAGE_NAME_REGEX = /^[a-z0-9]+(\.[a-z0-9-]+)+$/;
+
+/**
+ * Package id prefixes reserved to Calimero staff.
+ *
+ * A `com.calimero.*` / `network.calimero.*` id is read as a first-party app in
+ * the launcher and by the trusted-publisher shortcut. Anyone may sign a bundle
+ * with any key, so the prefix must be gated on the AUTHENTICATED user's email
+ * domain, never on a manifest field the publisher controls.
+ */
+const RESERVED_PACKAGE_PREFIXES = Object.freeze([
+  'com.calimero.',
+  'network.calimero.',
+]);
+
+/** The email domain that identifies Calimero staff. */
+const STAFF_EMAIL_DOMAIN = '@calimero.network';
+
+/** True when `pkg` is a well-formed reverse-DNS package id. */
+function isValidPackageName(pkg) {
+  return typeof pkg === 'string' && PACKAGE_NAME_REGEX.test(pkg);
+}
+
+/**
+ * True when `version` is valid semver in its CANONICAL form.
+ *
+ * ⚠️ Canonical, not merely parseable. A version string is used verbatim as a
+ * storage key AND as the tombstone key that blocks re-publishing a deleted
+ * release. `semver.valid` treats `v1.2.3` and `1.2.3+build` as valid but
+ * canonicalizes them to `1.2.3`, so accepting them would let a deleted `1.2.3`
+ * be re-published under a semver-equivalent spelling that misses the tombstone.
+ * Requiring `valid(v) === v` forces one canonical spelling per release, so the
+ * key, the tombstone and the check can never be aliased apart. Prerelease tags
+ * (`1.2.3-alpha`) are canonical and still accepted; a `v` prefix and `+build`
+ * metadata are not.
+ */
+function isValidPackageVersion(version) {
+  return typeof version === 'string' && semver.valid(version) === version;
+}
+
+/**
+ * The reserved prefix `pkg` starts with (case-insensitive), or null. Returning
+ * the prefix rather than a boolean lets a caller name it in the error.
+ */
+function reservedPackagePrefix(pkg) {
+  if (typeof pkg !== 'string') return null;
+  const lower = pkg.toLowerCase();
+  return RESERVED_PACKAGE_PREFIXES.find(p => lower.startsWith(p)) || null;
+}
+
+/** True when `email` belongs to Calimero staff. */
+function isStaffEmail(email) {
+  return String(email || '')
+    .toLowerCase()
+    .endsWith(STAFF_EMAIL_DOMAIN);
+}
 
 /**
  * The controlled category vocabulary. Exactly one per app, Apple-style: a
@@ -220,6 +298,54 @@ function resolveCategory(metadata) {
   return { value: null, source: null };
 }
 
+/** True when `s` holds whitespace or a control character (<= U+0020, U+007F). */
+function hasControlOrSpace(s) {
+  for (let i = 0; i < s.length; i++) {
+    const c = s.charCodeAt(i);
+    if (c <= 0x20 || c === 0x7f) return true;
+  }
+  return false;
+}
+
+/** The manifest `links` a client may open. */
+const LINK_KEYS = Object.freeze(['frontend', 'github', 'docs']);
+
+/**
+ * Every problem with a manifest's `links`, as sentences. Empty means good.
+ *
+ * ⚠️ NOT GRANDFATHERED, and enforced on PATCH too. These are opened by clients:
+ * the admin dashboard and the desktop navigate a window to `links.frontend`, so
+ * a `javascript:` or `data:` value is script in whatever origin opens it (the
+ * node's admin dashboard, where the admin session lives). That is not missing
+ * polish an existing package may owe — it is refused for everyone.
+ */
+function linkProblems(links) {
+  if (links === undefined || links === null) return [];
+  if (typeof links !== 'object' || Array.isArray(links)) {
+    return ['`links` must be an object of URLs.'];
+  }
+  const problems = [];
+  for (const key of LINK_KEYS) {
+    const value = links[key];
+    if (value === undefined || value === null || value === '') continue;
+    let ok = false;
+    if (typeof value === 'string' && !hasControlOrSpace(value)) {
+      try {
+        const { protocol, host } = new URL(value);
+        ok = (protocol === 'https:' || protocol === 'http:') && host !== '';
+      } catch {
+        ok = false;
+      }
+    }
+    if (!ok) {
+      problems.push(
+        `\`links.${key}\` must be an absolute http(s) URL; got ${JSON.stringify(String(value).slice(0, 80))}.`
+      );
+    }
+  }
+  return problems;
+}
+
 /**
  * Validate a bundle manifest against the publishing policy.
  *
@@ -280,9 +406,88 @@ function validateBundleMetadata(manifest, { isNewPackage } = {}) {
     advisories.push('`metadata.license` is not set (recommended).');
   }
 
+  // Unsafe links block every package, new or grandfathered — see linkProblems.
+  const linkErrors = linkProblems(manifest?.links);
+
   return isNewPackage
-    ? { errors: problems, warnings: advisories, category }
-    : { errors: [], warnings: [...problems, ...advisories], category };
+    ? { errors: [...problems, ...linkErrors], warnings: advisories, category }
+    : {
+        errors: linkErrors,
+        warnings: [...problems, ...advisories],
+        category,
+      };
+}
+
+/**
+ * Problems with a manifest's `links` (frontend, github, docs, ...), as
+ * sentences. Empty means good.
+ *
+ * Every `links.*` value is rendered as a clickable href on the package page,
+ * so each one must be an absolute http(s) URL — the same rule org metadata
+ * links follow (shared/metadata-urls.js). An empty value is allowed (the link
+ * is optional). Unlike the completeness policy above this is never
+ * grandfathered: it applies to new and existing packages alike.
+ */
+function linkProblems(links) {
+  if (links === undefined || links === null) return [];
+  if (typeof links !== 'object' || Array.isArray(links)) {
+    return ['`links` must be an object of http(s) URLs.'];
+  }
+  const problems = [];
+  for (const [key, value] of Object.entries(links)) {
+    if (!isSafeHttpUrl(value)) {
+      problems.push(`\`links.${key}\` must be an http(s) URL.`);
+    }
+  }
+  return problems;
+}
+
+/**
+ * A copy of `links` with every value that is not an http(s) URL removed, for
+ * output. Anything stored before linkProblems() was enforced is dropped rather
+ * than served. Returns the input unchanged when it is not an object.
+ */
+function safeLinks(links) {
+  if (!links || typeof links !== 'object' || Array.isArray(links)) {
+    return links;
+  }
+  const out = {};
+  for (const [key, value] of Object.entries(links)) {
+    if (isSafeHttpUrl(value)) out[key] = value;
+  }
+  return out;
+}
+
+/**
+ * Remove reserved, server-owned fields from an INCOMING (publisher-supplied)
+ * manifest's metadata before the server stamps its own.
+ *
+ * ⚠️ EVERY `metadata._*` KEY IS SERVER-OWNED. A publisher signs the whole
+ * manifest, so `metadata._adminVerified` or `metadata._ownerEmail` inside a
+ * signed bundle verifies fine — and would then be trusted as if the server had
+ * written it: a self-granted "verified" badge, and a self-declared
+ * `@calimero.network` owner email that trips the trusted-publisher shortcut and
+ * skips review. The signature PROVES the publisher wrote these, which is exactly
+ * why they cannot be kept. `removeTransientFields` (lib/verify.js) only drops
+ * TOP-LEVEL `_` keys for the signature, so nested ones reach storage unless
+ * removed here.
+ *
+ * Top-level server fields (`_binary`, `_installSize`, `_publishedAt`,
+ * `_overwrite`) are handled in the push handlers and storeBundleManifest; this
+ * touches only the metadata object. Mutates in place and returns the manifest.
+ */
+function stripReservedMetadata(manifest) {
+  if (
+    !manifest ||
+    typeof manifest.metadata !== 'object' ||
+    manifest.metadata === null
+  ) {
+    return manifest;
+  }
+  for (const key of Object.keys(manifest.metadata)) {
+    if (key.startsWith('_')) delete manifest.metadata[key];
+  }
+  return manifest;
 }
 
 module.exports = {
@@ -290,9 +495,20 @@ module.exports = {
   PLACEHOLDER_ICON_SHA256,
   MIN_ICON_DIM,
   MAX_ICON_BYTES,
+  PACKAGE_NAME_REGEX,
+  RESERVED_PACKAGE_PREFIXES,
+  STAFF_EMAIL_DOMAIN,
   validateBundleMetadata,
+  linkProblems,
+  isValidPackageName,
+  isValidPackageVersion,
+  reservedPackagePrefix,
+  isStaffEmail,
   resolveCategory,
   iconProblems,
   pngDimensions,
   decodeDataUri,
+  stripReservedMetadata,
+  linkProblems,
+  safeLinks,
 };

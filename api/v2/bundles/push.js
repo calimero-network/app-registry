@@ -9,18 +9,35 @@ const {
 } = require('@calimero-network/registry-backend/src/lib/bundle-storage-kv');
 const {
   validateBundleMetadata,
+  isValidPackageName,
+  isValidPackageVersion,
+  reservedPackagePrefix,
+  isStaffEmail,
+  PACKAGE_NAME_REGEX,
   CATEGORIES,
+  stripReservedMetadata,
+  linkProblems,
 } = require('@calimero-network/registry-backend/src/lib/metadata-policy');
 const {
   verifyManifest,
   getPublicKeyFromManifest,
-  isAllowedOwner,
   normalizeSignature,
 } = require('#api-lib/verify');
+const {
+  storeRefusal,
+} = require('@calimero-network/registry-backend/src/lib/bundle-integrity');
+const {
+  stampOwnerEmail,
+} = require('@calimero-network/registry-backend/src/lib/package-owner');
 const { resolveUser } = require('#api-lib/auth-helpers');
 const { getUserByEmail } = require('#api-lib/user-storage');
-const { isBot } = require('#api-lib/admin-storage');
-const { getPkg2Org, setPkg2Org } = require('#api-lib/org-storage');
+const { isBot, isAdmin } = require('#api-lib/admin-storage');
+const { LOGIN_REQUIRED } = require('#api-lib/auth-helpers');
+const {
+  getPkg2Org,
+  setPkg2Org,
+  resolvePublishPermission,
+} = require('#api-lib/org-storage');
 const {
   autolinkBotPackage,
 } = require('@calimero-network/registry-shared/bot-autolink');
@@ -46,6 +63,16 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
 
   try {
+    // A publish needs an account (Bearer token for CLI/cargo-mero, session
+    // cookie for web). The signature proves who BUILT the bundle, not who is
+    // sending it — a public signed manifest can be replayed by anyone — so an
+    // anonymous push is refused before anything else. Bots are accounts too
+    // and may publish, hence resolveUser rather than requireAuth.
+    const user = await resolveUser(req);
+    if (!user?.email) {
+      return res.status(401).json(LOGIN_REQUIRED);
+    }
+
     const store = getStorage();
     const bundleManifest = req.body;
 
@@ -67,6 +94,22 @@ module.exports = async function handler(req, res) {
       });
     }
 
+    // Validate the package id and version shape before anything is stored. A
+    // malformed id or a non-semver version otherwise reaches storage and breaks
+    // ordering/lookup downstream.
+    if (!isValidPackageName(bundleManifest.package)) {
+      return res.status(400).json({
+        error: 'invalid_package_name',
+        message: `Package id must be lowercase reverse-DNS (e.g. com.example.app) matching ${PACKAGE_NAME_REGEX}.`,
+      });
+    }
+    if (!isValidPackageVersion(bundleManifest.appVersion)) {
+      return res.status(400).json({
+        error: 'invalid_version',
+        message: `appVersion must be a valid semver version (got "${bundleManifest.appVersion}").`,
+      });
+    }
+
     // Require signature for all publishes
     const sig = normalizeSignature(bundleManifest?.signature);
     if (!sig) {
@@ -80,20 +123,34 @@ module.exports = async function handler(req, res) {
     try {
       await verifyManifest(bundleManifest);
     } catch (err) {
+      // The verifier failing to run is a server fault, not a bad signature.
+      if (err?.code === 'verifier_unavailable') throw err;
       return res.status(400).json({
         error: 'invalid_signature',
         message: err.message || 'Signature verification failed',
       });
     }
 
-    // Resolve user (Bearer token for CLI, session cookie for web) to get username
-    const user = await resolveUser(req);
-    let displayAuthor = null;
-    let ownerEmail = null;
-    if (user?.email) {
-      ownerEmail = user.email;
-      const profile = await getUserByEmail(user.email);
-      displayAuthor = profile?.username || user.email;
+    const ownerEmail = user.email;
+    const profile = await getUserByEmail(user.email);
+    // Privacy: the public `author` is rendered on cards, the detail page and
+    // /developers/<author>. Never fall back to the email here — a user with no
+    // username publishes with no public author (null), while the email is kept
+    // privately in `_ownerEmail` for ownership checks. `author` is optional in
+    // the metadata policy, so a null author does not block the publish.
+    const displayAuthor = profile?.username || null;
+
+    // A deleted name/version is retired, not free: refuse a republish rather
+    // than let it silently resurrect the old package's trust, assets and org
+    // link (replay-resurrection / name re-registration).
+    if (
+      await store.isRetired(bundleManifest.package, bundleManifest.appVersion)
+    ) {
+      return res.status(409).json({
+        error: 'name_retired',
+        message:
+          'This package name or version has been deleted and cannot be re-published.',
+      });
     }
 
     // Ownership: same package must be published by the same key or by a key in owners[]
@@ -101,19 +158,68 @@ module.exports = async function handler(req, res) {
     const versions = await store.getBundleVersions(bundleManifest.package);
     bundleManifest.metadata = bundleManifest.metadata || {};
 
+    // The manifest is signed, so any `metadata._*` the publisher put in
+    // (_adminVerified, _ownerEmail) survived verification. Drop them before the
+    // server stamps its own below — otherwise a publisher grants themselves the
+    // verified badge and a trusted-publisher owner email.
+    stripReservedMetadata(bundleManifest);
+    // `_ownerKeys` is server-owned too (it decides who may publish next); only
+    // the ownership check below may set it.
+    delete bundleManifest._ownerKeys;
+
+    // `metadata.author` is display-only and server-derived: it is stamped
+    // below from the publishing account's username (or inherited from the
+    // package's first version). Whatever the manifest carried is dropped so
+    // the stored author always names a registry account.
+    delete bundleManifest.metadata.author;
+
+    // Reserve the Calimero package namespace for FIRST publishes only. The
+    // prefix marks a first-party app and feeds the trusted-publisher shortcut,
+    // so a stranger must not be able to CREATE a new `com.calimero.*` /
+    // `network.calimero.*` package. Existing packages are governed by the owner
+    // check below, so re-publishing a version is unaffected — every current
+    // first-party package keeps releasing normally. The gate is on the
+    // authenticated user (staff email, site admin, or a registry-managed bot),
+    // never on a manifest field or the signing key.
+    if (versions.length === 0) {
+      const reservedPrefix = reservedPackagePrefix(bundleManifest.package);
+      if (reservedPrefix) {
+        const email = user?.email;
+        const allowed =
+          isStaffEmail(email) ||
+          (!!email && (await isAdmin(email))) ||
+          (!!email && (await isBot(email)));
+        if (!allowed) {
+          return res.status(403).json({
+            error: 'reserved_prefix',
+            message: `The "${reservedPrefix}" package namespace is reserved for Calimero.`,
+          });
+        }
+      }
+    }
+
     if (versions.length > 0) {
       const latestVersion = versions[0];
       const manifestLatest = await store.getBundleManifest(
         bundleManifest.package,
         latestVersion
       );
-      if (!isAllowedOwner(manifestLatest, incomingKey)) {
+      // A package key, or an admin/owner of the package's organization.
+      const permission = await resolvePublishPermission(
+        manifestLatest,
+        incomingKey,
+        bundleManifest.package,
+        user?.email
+      );
+      if (!permission.allowed) {
         return res.status(403).json({
           error: 'not_owner',
           message:
             'Package name is already registered to a different key; you are not the owner.',
         });
       }
+      // An organization publish keeps the package's existing key set.
+      if (permission.viaOrg) bundleManifest._ownerKeys = permission.ownerKeys;
       // Author is locked from the oldest (first) version, not the latest
       const oldestVersion = versions[versions.length - 1];
       const manifestOldest = await store.getBundleManifest(
@@ -123,16 +229,37 @@ module.exports = async function handler(req, res) {
       const existingAuthor = manifestOldest?.metadata?.author;
       if (existingAuthor) {
         bundleManifest.metadata.author = existingAuthor;
-        bundleManifest.metadata._ownerEmail =
-          manifestOldest?.metadata?._ownerEmail || existingAuthor;
-      } else if (displayAuthor) {
-        bundleManifest.metadata.author = displayAuthor;
-        bundleManifest.metadata._ownerEmail = ownerEmail;
+      } else if (ownerEmail) {
+        // Public author is the username only; the email is never promoted to
+        // `author`.
+        if (displayAuthor) bundleManifest.metadata.author = displayAuthor;
       }
-    } else if (displayAuthor) {
-      // New package — use username as public author, store email privately
-      bundleManifest.metadata.author = displayAuthor;
+      // Ownership (_ownerEmail) is inherited from the existing versions, never
+      // taken from the account pushing this version.
+      await stampOwnerEmail({
+        store,
+        manifest: bundleManifest,
+        versions,
+        publisherEmail: ownerEmail,
+        known: {
+          [latestVersion]: manifestLatest,
+          [oldestVersion]: manifestOldest,
+        },
+      });
+    } else if (ownerEmail) {
+      // New package — public author is the username (or nothing when the user
+      // has not set one); the email stays private in _ownerEmail.
+      if (displayAuthor) bundleManifest.metadata.author = displayAuthor;
       bundleManifest.metadata._ownerEmail = ownerEmail;
+    }
+
+    const badLinks = linkProblems(bundleManifest.links);
+    if (badLinks.length > 0) {
+      return res.status(400).json({
+        error: 'invalid_links',
+        message: badLinks.join(' '),
+        problems: badLinks,
+      });
     }
 
     // Never trust client-controlled _overwrite; only allow overwrite when server config enables it (e.g. migrations).
@@ -180,10 +307,12 @@ module.exports = async function handler(req, res) {
       ...(policy.warnings.length ? { warnings: policy.warnings } : {}),
     });
   } catch (error) {
+    const refused = storeRefusal(error);
+    if (refused) return res.status(refused.status).json(refused.body);
     console.error('Push Error:', error);
     return res.status(500).json({
       error: 'internal_error',
-      message: error?.message ?? String(error),
+      message: 'Internal error',
     });
   }
 };

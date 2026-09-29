@@ -23,6 +23,8 @@
  *
  * @param {object} kv - KV client with async get(key)
  */
+const { safeLinks } = require('./metadata-policy');
+
 /**
  * Re-expose the server-stamped fields under public names.
  *
@@ -52,6 +54,15 @@ function exposeServerStamped(bundle) {
   };
 }
 
+/**
+ * `links` for output: only http(s) values survive. New publishes and edits are
+ * refused a non-http(s) link (metadata-policy linkProblems); this covers
+ * anything stored before that rule existed.
+ */
+function exposeLinks(bundle) {
+  return bundle.links === undefined ? {} : { links: safeLinks(bundle.links) };
+}
+
 function createBundleSanitizers(kv, review) {
   // The sanitiser is constructed with a bare `kv` in four places, so the
   // review module is resolved here when it is not injected. Tests pass their
@@ -71,24 +82,21 @@ function createBundleSanitizers(kv, review) {
 
     const meta = bundle.metadata ? { ...bundle.metadata } : {};
     const ownerEmail = (meta._ownerEmail || '').toLowerCase();
-    const hadAdminVerified = !!meta._adminVerified;
     delete meta._ownerEmail;
     delete meta._adminVerified;
 
     const pkg = packageName || bundle.package;
 
-    // The package: an explicit decision, or the trusted-publisher default.
-    // `_adminVerified` is the stamp the admin route writes onto the manifest
-    // and the key is the same decision in KV.
+    // The package: an admin decision on record, nothing else.
     //
-    // ⚠️ A DECLINE MUST WIN OVER THE SHORTCUT. `getReview` is the one place
-    // that knows the order — explicit record, then legacy key, then trusted
-    // publisher — so this asks it rather than re-deriving "is it approved"
-    // from the parts and getting the precedence wrong.
-    let verified = hadAdminVerified;
-    if (!verified && pkg) {
-      verified = await review.isApproved(pkg);
-    }
+    // ⚠️ NEVER READ `_adminVerified` FROM THE MANIFEST. It rides inside the
+    // publisher-signed manifest, so trusting it let a publisher grant their own
+    // "verified" badge and it ignored an admin decline. `getReview` (via
+    // isApproved) is the single source: explicit record, then legacy key, then
+    // the trusted-publisher default, with a decline winning over all of them.
+    // The admin route still mirrors the decision onto the manifest for older
+    // consumers, but this must not depend on it.
+    const verified = pkg ? await review.isApproved(pkg) : false;
 
     // The publisher. Independent: a package by an unverified publisher can be
     // verified, and a verified publisher's new package is not.
@@ -118,6 +126,7 @@ function createBundleSanitizers(kv, review) {
       minRuntimeVersion,
       verified,
       publisherVerified,
+      ...exposeLinks(bundle),
       ...exposeServerStamped(bundle),
     };
   }
@@ -131,15 +140,15 @@ function createBundleSanitizers(kv, review) {
         raw != null && String(raw).trim() ? String(raw).trim() : '0.1.0';
       const meta = bundle.metadata ? { ...bundle.metadata } : {};
       const ownerEmail = (meta._ownerEmail || '').toLowerCase();
-      const hadAdminVerified = !!meta._adminVerified;
       delete meta._ownerEmail;
       delete meta._adminVerified;
+      // Guides are large; the detail endpoints and the signed .mpk carry them.
+      delete meta.guide;
       return {
         bundle,
         packageName,
         meta,
         ownerEmail,
-        hadAdminVerified,
         minRuntimeVersion,
       };
     });
@@ -196,20 +205,13 @@ function createBundleSanitizers(kv, review) {
     );
 
     return processed.map(
-      ({
-        bundle,
-        packageName,
-        meta,
-        ownerEmail,
-        hadAdminVerified,
-        minRuntimeVersion,
-      }) => {
+      ({ bundle, packageName, meta, ownerEmail, minRuntimeVersion }) => {
         const pkg = packageName || bundle.package;
-        // ⚠️ The same two rules as the single path, and they must stay the
-        // same two: bundle-listing-parity.test.js exists because these
-        // diverged once already.
-        let verified = hadAdminVerified;
-        if (!verified && pkgApprovedMap[pkg]) verified = true;
+        // ⚠️ The same rule as the single path, and it must stay the same:
+        // bundle-listing-parity.test.js exists because these diverged once
+        // already. `verified` is an admin decision on record only — never the
+        // publisher-signed `_adminVerified` flag.
+        const verified = !!pkgApprovedMap[pkg];
 
         let publisherVerified = ownerEmail.endsWith('@calimero.network');
         if (!publisherVerified && ownerEmail) {
@@ -227,6 +229,7 @@ function createBundleSanitizers(kv, review) {
           minRuntimeVersion,
           verified,
           publisherVerified,
+          ...exposeLinks(bundle),
           ...exposeServerStamped(bundle),
         };
       }

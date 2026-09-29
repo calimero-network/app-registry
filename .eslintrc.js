@@ -27,6 +27,11 @@ module.exports = {
         'no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
       },
     },
+    {
+      // Vercel functions log through stdout/stderr; there is no logger to route to.
+      files: ['api/**/*.js'],
+      rules: { 'no-console': 'off' },
+    },
   ],
   ignorePatterns: [
     '.github/workflows/*.yml',

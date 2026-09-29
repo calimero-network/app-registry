@@ -20,6 +20,7 @@ const {
 const {
   isAdmin,
   isBlacklisted,
+  isBot,
   getAdminVerified,
 } = require('../lib/admin-storage');
 
@@ -145,6 +146,15 @@ async function authRoutes(server, options) {
     } catch (err) {
       server.log.warn({ err }, 'Google OAuth exchange failed');
       return reply.redirect(loginErrorUrl(frontendUrl, 'oauth_failed'), 302);
+    }
+
+    // Reject unless Google confirms the address belongs to this user; email is
+    // the sole identity and the admin criterion.
+    if (!user.verified_email) {
+      return reply.redirect(
+        loginErrorUrl(frontendUrl, 'email_unverified'),
+        302
+      );
     }
 
     // Block blacklisted users
@@ -282,6 +292,12 @@ async function authRoutes(server, options) {
         return reply
           .code(409)
           .send({ error: 'immutable', message: err.message });
+      if (code === 'retired')
+        return reply.code(409).send({ error: 'retired', message: err.message });
+      if (code === 'not_found')
+        return reply
+          .code(404)
+          .send({ error: 'not_found', message: err.message });
       server.log.error({ err }, 'POST /api/auth/username failed');
       return reply
         .code(500)
@@ -388,13 +404,29 @@ async function authRoutes(server, options) {
     return reply.code(204).send();
   });
 
-  // POST /api/auth/token — create a new API token (requires session or existing Bearer token)
+  // POST /api/auth/token — create a new API token (session cookie required).
+  // An API token cannot mint further tokens, the same rule revoke follows, and
+  // bot accounts are refused as they are everywhere outside publishing.
   server.post('/api/auth/token', async (request, reply) => {
-    const user = await resolveUser(request, resolveOpts);
+    const sessionUser = await verifySessionToken(
+      request.cookies?.[cookieName],
+      sessionSecret
+    );
+    const user =
+      sessionUser?.email && !(await isBlacklisted(sessionUser.email))
+        ? sessionUser
+        : null;
     if (!user) {
       return reply.code(401).send({
         error: 'unauthorized',
-        message: 'Login required to create API tokens',
+        message: 'Session login required to create API tokens',
+      });
+    }
+    if (await isBot(user.email)) {
+      return reply.code(403).send({
+        error: 'bot_forbidden',
+        message:
+          'Bot accounts may only publish packages and new versions of them',
       });
     }
     const label =

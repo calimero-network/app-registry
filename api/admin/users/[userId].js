@@ -1,11 +1,12 @@
 /**
  * Admin user management.
  * DELETE /api/admin/users/:userId      — delete user
- * PATCH  /api/admin/users/:userId      — body: { action: 'verify'|'unverify'|'make_admin'|'remove_admin'|'blacklist'|'unblacklist', reason? }
+ * PATCH  /api/admin/users/:userId      — body: { action: 'verify'|'unverify'|'make_admin'|'remove_admin'|'blacklist'|'unblacklist'|'revoke_tokens', reason? }
  */
 const { requireAdmin } = require('#api-lib/auth-helpers');
 const { kv } = require('#api-lib/kv-client');
 const { refresh } = require('#api-lib/refresh-storage');
+const { retireUsername } = require('#api-lib/user-storage');
 const {
   addAdmin,
   removeAdmin,
@@ -13,6 +14,34 @@ const {
   unblacklistUser,
   setAdminVerified,
 } = require('#api-lib/admin-storage');
+
+const TOKEN_PREFIX = 'apitoken:';
+const USER_TOKENS_PREFIX = 'user_tokens:';
+
+// Blacklist blocks resolveUser via isBlacklisted, but a deleted profile does
+// not, so both paths must revoke API tokens explicitly. Deletes every
+// apitoken:<member> in the user's set (members are hashes for new tokens, raw
+// values for legacy ones) then the set itself.
+async function revokeAllApiTokens(email) {
+  if (!email) return;
+  const setKey = USER_TOKENS_PREFIX + email;
+  const members = await kv.sMembers(setKey);
+  const list = Array.isArray(members) ? members : [];
+  await Promise.all(list.map(m => kv.del(TOKEN_PREFIX + m)));
+  await kv.del(setKey);
+  return list.length;
+}
+
+// Ends every credential the account holds (API tokens and refresh sessions)
+// while leaving the profile, packages and memberships in place.
+async function revokeAllCredentials(email) {
+  const apiTokens = await revokeAllApiTokens(email);
+  const refreshTokens = await refresh.revokeAllForEmail(email);
+  return { apiTokens, refreshTokens };
+}
+
+const sameEmail = (a, b) =>
+  String(a || '').toLowerCase() === String(b || '').toLowerCase();
 
 module.exports = async function handler(req, res) {
   const admin = await requireAdmin(req, res);
@@ -44,10 +73,15 @@ module.exports = async function handler(req, res) {
     // End live sessions too: a refresh cookie outlives the profile otherwise,
     // and the refresh flow would keep renewing it.
     if (user.email) await refresh.revokeAllForEmail(user.email);
+    // Revoke API tokens too: otherwise a deleted user's Bearer tokens keep
+    // resolving (delete does not blacklist, so isBlacklisted would not stop them).
+    if (user.email) await revokeAllApiTokens(user.email);
     // Delete user profile + indexes
     await kv.del(`user:${userId}`);
     if (user.email) await kv.del(`email2user:${user.email.toLowerCase()}`);
-    if (user.username) await kv.del(`username:${user.username.toLowerCase()}`);
+    // Tombstone (not delete) the username so it cannot be re-claimed to hijack
+    // the deleted user's packages.
+    if (user.username) await retireUsername(user.username);
     return res.status(204).end();
   }
 
@@ -81,7 +115,8 @@ module.exports = async function handler(req, res) {
         if (email.endsWith('@calimero.network')) {
           return res.status(400).json({
             error: 'cannot_remove',
-            message: 'Cannot remove admin from @calimero.network accounts',
+            message:
+              'Cannot remove admin from @calimero.network accounts; suspend the account instead',
           });
         }
         await removeAdmin(email);
@@ -89,19 +124,31 @@ module.exports = async function handler(req, res) {
 
       case 'blacklist':
         if (!email) return res.status(400).json({ error: 'no_email' });
-        if (email.endsWith('@calimero.network')) {
+        // Any account can be suspended, including @calimero.network ones, so
+        // an admin granted by domain can be offboarded. Only self-suspension
+        // is refused, since it would lock the acting admin out.
+        if (sameEmail(email, admin.email)) {
           return res.status(400).json({
-            error: 'cannot_blacklist',
-            message: 'Cannot blacklist @calimero.network accounts',
+            error: 'cannot_blacklist_self',
+            message: 'Cannot blacklist your own account',
           });
         }
         await blacklistUser(email, reason, admin.email);
+        // isBlacklisted stops future resolveUser calls, but revoke the tokens
+        // and sessions outright so nothing depends on that check staying in place.
+        await revokeAllCredentials(email);
         return res.status(200).json({ ok: true });
 
       case 'unblacklist':
         if (!email) return res.status(400).json({ error: 'no_email' });
         await unblacklistUser(email);
         return res.status(200).json({ ok: true });
+
+      case 'revoke_tokens': {
+        if (!email) return res.status(400).json({ error: 'no_email' });
+        const revoked = await revokeAllCredentials(email);
+        return res.status(200).json({ ok: true, revoked });
+      }
 
       default:
         return res

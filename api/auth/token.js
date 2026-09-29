@@ -1,12 +1,14 @@
 /**
- * POST /api/auth/token — create a new API token (requires session cookie or Bearer token)
+ * POST /api/auth/token — create a new API token (session cookie required)
+ *
+ * Minting needs an interactive login: an API token cannot be used to create
+ * further tokens, the same rule revoke follows. Bot accounts are refused here
+ * as they are by requireAuth.
  */
 
-const { resolveUser } = require('#api-lib/auth-helpers');
-const { kv } = require('#api-lib/kv-client');
-
-const TOKEN_PREFIX = 'apitoken:';
-const USER_TOKENS_PREFIX = 'user_tokens:';
+const { resolveSessionUser, BOT_FORBIDDEN } = require('#api-lib/auth-helpers');
+const { isBot } = require('#api-lib/admin-storage');
+const { apiTokens } = require('#api-lib/api-token-storage');
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -16,12 +18,15 @@ module.exports = async function handler(req, res) {
   if (req.method !== 'POST')
     return res.status(405).json({ error: 'Method not allowed' });
 
-  const user = await resolveUser(req);
+  const user = await resolveSessionUser(req);
   if (!user) {
     return res.status(401).json({
       error: 'unauthorized',
-      message: 'Login required to create API tokens',
+      message: 'Session login required to create API tokens',
     });
+  }
+  if (await isBot(user.email)) {
+    return res.status(403).json(BOT_FORBIDDEN);
   }
 
   const label =
@@ -29,27 +34,21 @@ module.exports = async function handler(req, res) {
       ? req.body.label.trim() || 'CLI token'
       : 'CLI token';
 
-  const bytes = Buffer.alloc(32);
-  require('crypto').randomFillSync(bytes);
-  const token = bytes.toString('base64url');
-
-  const data = {
-    email: user.email,
-    name: user.name || user.email,
-    label,
-    createdAt: new Date().toISOString(),
-  };
-
   try {
-    await kv.set(TOKEN_PREFIX + token, JSON.stringify(data));
-    await kv.sAdd(USER_TOKENS_PREFIX + user.email, token);
-    return res
-      .status(201)
-      .json({ token, label: data.label, createdAt: data.createdAt });
+    // Stored hashed with a 90-day expiry; the raw token is only ever returned
+    // here, once. See shared/api-token-storage.js.
+    const created = await apiTokens.create(user.email, user.name, label);
+    return res.status(201).json({
+      token: created.token,
+      tokenId: created.tokenId,
+      label: created.label,
+      createdAt: created.createdAt,
+      expiresAt: created.expiresAt,
+    });
   } catch (e) {
     console.error('POST /api/auth/token error:', e);
     return res
       .status(500)
-      .json({ error: 'internal', message: e?.message ?? String(e) });
+      .json({ error: 'internal', message: 'Internal error' });
   }
 };

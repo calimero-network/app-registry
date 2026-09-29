@@ -1,7 +1,9 @@
 /**
  * V2 Bundle Manifest API
  * GET /api/v2/bundles/:package/:version
- * PATCH /api/v2/bundles/:package/:version - edit metadata (body = full manifest; ownership + signature checks)
+ * PATCH /api/v2/bundles/:package/:version - edit metadata (body = full manifest;
+ *   requires a logged-in user who can manage the package, plus a valid
+ *   signature from one of the version's owner keys)
  */
 
 const {
@@ -9,6 +11,8 @@ const {
 } = require('@calimero-network/registry-backend/src/lib/bundle-storage-kv');
 const {
   validateBundleMetadata,
+  stripReservedMetadata,
+  linkProblems,
 } = require('@calimero-network/registry-backend/src/lib/metadata-policy');
 const {
   validateBundleManifest,
@@ -24,6 +28,9 @@ const {
   NOT_OWNER_MESSAGE,
 } = require('#api-lib/auth-helpers');
 const { kv } = require('#api-lib/kv-client');
+const {
+  createBundleSanitizers,
+} = require('@calimero-network/registry-backend/src/lib/bundle-sanitize');
 
 let storage;
 function getStorage() {
@@ -83,7 +90,25 @@ async function getKV() {
   return kvClient;
 }
 
+/** owners[] as a sorted list of strings, so order does not count as a change. */
+function ownerSet(manifest) {
+  const owners = Array.isArray(manifest?.owners) ? manifest.owners : [];
+  return owners.map(String).sort();
+}
+
+function sameOwners(a, b) {
+  const x = ownerSet(a);
+  const y = ownerSet(b);
+  return x.length === y.length && x.every((k, i) => k === y[i]);
+}
+
 async function handlePatch(req, res, pkg, version) {
+  // A signed manifest alone is not enough: every signed manifest of a version
+  // stays valid forever, so the edit also needs a logged-in account that may
+  // manage this package — the same rule as delete and yank.
+  const user = await requireAuth(req, res);
+  if (!user) return;
+
   const body = req.body;
   if (!body || typeof body !== 'object') {
     return res.status(400).json({
@@ -109,6 +134,13 @@ async function handlePatch(req, res, pkg, version) {
   try {
     await verifyManifest(body);
   } catch (err) {
+    // The verifier failing to run is a server fault, not a bad signature.
+    if (err?.code === 'verifier_unavailable') {
+      return res.status(500).json({
+        error: 'verifier_unavailable',
+        message: 'Signature verification is temporarily unavailable',
+      });
+    }
     return res.status(400).json({
       error: 'invalid_signature',
       message: err.message || 'Signature verification failed',
@@ -123,11 +155,18 @@ async function handlePatch(req, res, pkg, version) {
     console.error('PATCH getBundleManifest:', e);
     return res.status(500).json({
       error: 'internal_error',
-      message: e?.message ?? String(e),
+      message: 'Internal error',
     });
   }
   if (!existing) {
     return res.status(404).json({ error: 'not_found' });
+  }
+
+  if (!(await canManagePackage(pkg, existing, user))) {
+    return res.status(403).json({
+      error: 'not_owner',
+      message: NOT_OWNER_MESSAGE,
+    });
   }
 
   const incomingKey = getPublicKeyFromManifest(body);
@@ -135,6 +174,23 @@ async function handlePatch(req, res, pkg, version) {
     return res.status(403).json({
       error: 'not_owner',
       message: 'Only the package owner can edit this version.',
+    });
+  }
+
+  // PATCH edits metadata; the version's owner keys are not metadata.
+  if (!sameOwners(body, existing)) {
+    return res.status(400).json({
+      error: 'invalid_manifest',
+      message: 'owners cannot be changed via PATCH',
+    });
+  }
+
+  const badLinks = linkProblems(body.links);
+  if (badLinks.length > 0) {
+    return res.status(400).json({
+      error: 'invalid_links',
+      message: badLinks.join(' '),
+      problems: badLinks,
     });
   }
 
@@ -150,15 +206,52 @@ async function handlePatch(req, res, pkg, version) {
     });
   }
 
+  // Server-owned metadata is not editable through PATCH. Drop every
+  // `metadata._*` the client sent (a signed body would otherwise let the owner
+  // set their own `_adminVerified` badge or rewrite `_ownerEmail`), then carry
+  // the stored owner email and locked author forward from the existing version.
+  stripReservedMetadata(body);
+  body.metadata = body.metadata || {};
+  if (existing.metadata && existing.metadata._ownerEmail !== undefined) {
+    body.metadata._ownerEmail = existing.metadata._ownerEmail;
+  }
+  if (existing.metadata && existing.metadata.author !== undefined) {
+    body.metadata.author = existing.metadata.author;
+  } else {
+    // No stored author: PATCH cannot introduce one either.
+    delete body.metadata.author;
+  }
+
   // PATCH edits metadata on an ALREADY PUBLISHED version, so this is by
   // definition not a new package: warn, never block. Blocking here would stop
   // someone fixing the description of a bundle that is grandfathered on its
   // icon. It still matters, because PATCH is a way to *remove* a description
   // or swap in a placeholder icon after the fact.
   const policy = validateBundleMetadata(body, { isNewPackage: false });
+  // Only unsafe `links` block an existing package (see linkProblems): PATCH is
+  // otherwise a way to swap a published app's frontend link for a script URL.
+  if (policy.errors.length > 0) {
+    return res.status(400).json({
+      error: 'metadata_rejected',
+      message: `This metadata is not accepted:\n  - ${policy.errors.join('\n  - ')}`,
+      problems: policy.errors,
+    });
+  }
+
+  // Top-level `_` keys are outside the signature, so anything the client puts
+  // there is unsigned and unauthenticated. PATCH edits metadata only: drop
+  // them all (above all `_binary`, which would replace the stored .mpk) and
+  // carry the server's own stamps over from the stored version.
+  const edited = {};
+  for (const [k, v] of Object.entries(body)) {
+    if (!k.startsWith('_')) edited[k] = v;
+  }
+  for (const [k, v] of Object.entries(existing)) {
+    if (k.startsWith('_') && k !== '_binary') edited[k] = v;
+  }
 
   try {
-    await store.storeBundleManifest(body, true);
+    await store.storeBundleManifest(edited, true);
     return res.status(200).json({
       message: 'Bundle metadata updated',
       package: pkg,
@@ -169,7 +262,7 @@ async function handlePatch(req, res, pkg, version) {
     console.error('PATCH store Error:', error);
     return res.status(500).json({
       error: 'internal_error',
-      message: error?.message ?? String(error),
+      message: 'Internal error',
     });
   }
 }
@@ -215,7 +308,7 @@ module.exports = async function handler(req, res) {
       console.error('DELETE version getBundleManifest:', e);
       return res.status(500).json({
         error: 'internal_error',
-        message: e?.message ?? String(e),
+        message: 'Internal error',
       });
     }
 
@@ -242,7 +335,7 @@ module.exports = async function handler(req, res) {
       console.error('DELETE version error:', error);
       return res.status(500).json({
         error: 'internal_error',
-        message: error?.message ?? String(error),
+        message: 'Internal error',
       });
     }
   }
@@ -258,18 +351,16 @@ module.exports = async function handler(req, res) {
     console.error('KV init failed:', e);
     return res.status(500).json({
       error: 'kv_init_failed',
-      message: e?.message ?? String(e),
+      message: 'Internal error',
     });
   }
 
-  // Ensure bundle includes minRuntimeVersion (default for legacy bundles)
-  const normalizeBundle = bundle => {
-    if (!bundle || typeof bundle !== 'object') return bundle;
-    const v = bundle.min_runtime_version;
-    const min_runtime_version =
-      v != null && String(v).trim() ? String(v).trim() : '0.1.0';
-    return { ...bundle, min_runtime_version };
-  };
+  // Privacy: the raw manifest carries internal `_`-prefixed metadata
+  // (notably `metadata._ownerEmail`). Run it through the shared sanitizer —
+  // the same one the listing endpoint and the Fastify detail route use — so
+  // this response strips those fields, normalizes min_runtime_version and
+  // computes the verification signals in one place.
+  const { sanitizeBundle } = createBundleSanitizers(kv);
 
   try {
     const data = await readKv.get(`bundle:${pkg}/${version}`);
@@ -279,15 +370,16 @@ module.exports = async function handler(req, res) {
       `downloads:${(pkg || '').toLowerCase()}`
     );
     const downloads = downloadCount ? parseInt(downloadCount, 10) : 0;
+    const sanitized = await sanitizeBundle(raw, pkg);
     return res.status(200).json({
-      ...normalizeBundle(raw),
+      ...sanitized,
       downloads,
     });
   } catch (error) {
     console.error('Get Error:', error);
     return res.status(500).json({
       error: 'internal_error',
-      message: error?.message ?? String(error),
+      message: 'Internal error',
     });
   }
 };

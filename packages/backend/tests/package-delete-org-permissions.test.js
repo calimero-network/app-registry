@@ -66,6 +66,7 @@ jest.mock('../src/lib/bundle-storage-kv', () => ({
 
 const {
   createPackagePermissions,
+  manifestOwnedByUser,
 } = require('@calimero-network/registry-shared/package-permissions');
 const { getPkg2Org, isOrgAdminOrOwner } = require('../src/lib/org-storage');
 const { isAdmin } = require('../src/lib/admin-storage');
@@ -89,6 +90,9 @@ const ORG_ADMIN = { email: 'admin@acme.io', username: 'admin-user' };
 const ORG_MEMBER = { email: 'member@acme.io', username: 'member-user' };
 const OUTSIDER = { email: 'nobody@example.com', username: 'nobody' };
 const SITE_ADMIN = { email: 'staff@calimero.network', username: 'staff' };
+// Holds the package's display author as a USERNAME but is not the account
+// that published it (_ownerEmail). metadata.author confers nothing.
+const NAMESAKE = { email: 'namesake@example.com', username: 'author-user' };
 
 const MANIFEST = {
   metadata: { author: 'author-user', _ownerEmail: 'author@acme.io' },
@@ -131,6 +135,7 @@ describe('canManagePackage', () => {
     ['a site admin', SITE_ADMIN, true],
     ['a plain org member', ORG_MEMBER, false],
     ['an unrelated user', OUTSIDER, false],
+    ['an account whose username equals the author', NAMESAKE, false],
   ])('%s -> %s', async (_label, user, expected) => {
     await expect(canManagePackage(PKG, MANIFEST, user)).resolves.toBe(expected);
   });
@@ -142,12 +147,48 @@ describe('canManagePackage', () => {
     );
   });
 
-  test('an unlinked package still falls back to author-only', async () => {
+  test('an unlinked package still falls back to owner-only', async () => {
     store.delete(`pkg2org:${PKG}`);
     await expect(canManagePackage(PKG, MANIFEST, ORG_OWNER)).resolves.toBe(
       false
     );
+    await expect(canManagePackage(PKG, MANIFEST, NAMESAKE)).resolves.toBe(
+      false
+    );
     await expect(canManagePackage(PKG, MANIFEST, AUTHOR)).resolves.toBe(true);
+  });
+
+  test('the owner email is compared case-insensitively', async () => {
+    store.delete(`pkg2org:${PKG}`);
+    await expect(
+      canManagePackage(PKG, MANIFEST, { email: 'Author@ACME.io' })
+    ).resolves.toBe(true);
+  });
+});
+
+describe('manifestOwnedByUser', () => {
+  test('never derives ownership from metadata.author', () => {
+    // Author as a username, and a legacy email author with no _ownerEmail.
+    expect(
+      manifestOwnedByUser(
+        { metadata: { author: 'someone' } },
+        { email: 'x@example.com', username: 'someone' }
+      )
+    ).toBe(false);
+    expect(
+      manifestOwnedByUser(
+        { metadata: { author: 'x@example.com' } },
+        { email: 'x@example.com', username: null }
+      )
+    ).toBe(false);
+  });
+
+  test('matches the stamped owner email only', () => {
+    const m = { metadata: { author: 'someone', _ownerEmail: 'o@example.com' } };
+    expect(manifestOwnedByUser(m, { email: 'O@Example.com' })).toBe(true);
+    expect(manifestOwnedByUser(m, { email: 'other@example.com' })).toBe(false);
+    expect(manifestOwnedByUser(m, { username: 'someone' })).toBe(false);
+    expect(manifestOwnedByUser(m, null)).toBe(false);
   });
 });
 
@@ -190,6 +231,13 @@ describe('DELETE /api/v2/bundles/:package', () => {
 
   test('a plain org member still cannot', async () => {
     const res = await callDelete(ORG_MEMBER);
+    expect(res.statusCode).toBe(403);
+    expect(res.body.error).toBe('not_owner');
+    expect(deleted).toEqual([]);
+  });
+
+  test('an account whose username equals the author cannot delete', async () => {
+    const res = await callDelete(NAMESAKE);
     expect(res.statusCode).toBe(403);
     expect(res.body.error).toBe('not_owner');
     expect(deleted).toEqual([]);

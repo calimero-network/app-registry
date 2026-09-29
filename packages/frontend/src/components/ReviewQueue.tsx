@@ -61,7 +61,7 @@ export function ReviewQueue() {
   });
 
   if (isLoading) {
-    return <p className='text-[13px] text-neutral-500'>Loading queue…</p>;
+    return <p className='text-[15px] text-neutral-500'>Loading queue…</p>;
   }
 
   if (!queue.length) {
@@ -71,10 +71,10 @@ export function ReviewQueue() {
         className='flex flex-col items-center gap-2 rounded-xl border border-dashed border-line-strong py-12'
       >
         <ImageOff className='h-5 w-5 text-neutral-500' aria-hidden='true' />
-        <p className='text-[13px] text-neutral-400'>
+        <p className='text-[15px] text-neutral-400'>
           Nothing waiting for review.
         </p>
-        <p className='text-[12px] text-neutral-500'>
+        <p className='text-[14px] text-neutral-500'>
           Packages appear here when someone uploads an image or video.
         </p>
       </div>
@@ -83,7 +83,7 @@ export function ReviewQueue() {
 
   return (
     <div className='space-y-4' data-testid='review-queue'>
-      <p className='text-[12px] text-neutral-500'>
+      <p className='text-[14px] text-neutral-500'>
         {queue.length} package{queue.length === 1 ? '' : 's'} waiting. Longest
         wait first.
       </p>
@@ -179,10 +179,10 @@ function ReviewCard({
     <div className='card p-4' data-testid='review-card'>
       <div className='mb-3 flex flex-wrap items-center justify-between gap-2'>
         <div className='min-w-0'>
-          <p className='truncate text-[14px] font-medium text-neutral-200'>
+          <p className='truncate text-[16px] font-medium text-neutral-200'>
             {item.metadata.name || item.package}
           </p>
-          <p className='truncate font-mono text-[12px] text-neutral-500'>
+          <p className='truncate font-mono text-[14px] text-neutral-500'>
             {item.package}
             {item.latestVersion ? ` · v${item.latestVersion}` : ''}
             {item.author ? ` · ${item.author}` : ''}
@@ -203,7 +203,7 @@ function ReviewCard({
       </div>
 
       {item.metadata.description && (
-        <p className='mb-3 text-[12.5px] font-light leading-relaxed text-neutral-400'>
+        <p className='mb-3 text-[14.5px] font-light leading-relaxed text-neutral-400'>
           {String(item.metadata.description)}
         </p>
       )}
@@ -254,7 +254,7 @@ function ReviewCard({
               </button>
             )}
             {a.alt && (
-              <p className='mt-1 max-w-[20rem] truncate text-[11px] text-neutral-500'>
+              <p className='mt-1 max-w-[20rem] truncate text-[12.5px] text-neutral-500'>
                 {a.alt}
               </p>
             )}
@@ -267,7 +267,7 @@ function ReviewCard({
           onClick={onApprove}
           disabled={busy}
           data-testid='review-approve'
-          className='inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/15 px-3 py-1.5 text-[12.5px] font-medium text-emerald-400 transition-colors hover:bg-emerald-500/25 disabled:opacity-50'
+          className='inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/15 px-3 py-1.5 text-[14.5px] font-medium text-emerald-400 transition-colors hover:bg-emerald-500/25 disabled:opacity-50'
         >
           <Check className='h-3.5 w-3.5' aria-hidden='true' />
           Approve
@@ -288,7 +288,7 @@ function ReviewCard({
           // leaves them with hidden images and no idea what to change.
           disabled={busy || !reason.trim()}
           data-testid='review-decline'
-          className='inline-flex items-center gap-1.5 rounded-lg bg-red-500/15 px-3 py-1.5 text-[12.5px] font-medium text-red-400 transition-colors hover:bg-red-500/25 disabled:opacity-40'
+          className='inline-flex items-center gap-1.5 rounded-lg bg-red-500/15 px-3 py-1.5 text-[14.5px] font-medium text-red-400 transition-colors hover:bg-red-500/25 disabled:opacity-40'
         >
           <X className='h-3.5 w-3.5' aria-hidden='true' />
           Decline
@@ -296,7 +296,7 @@ function ReviewCard({
       </div>
 
       {item.state === 'declined' && item.reason && (
-        <p className='mt-2 text-[12px] text-neutral-500'>
+        <p className='mt-2 text-[14px] text-neutral-500'>
           Previously declined: {item.reason}
         </p>
       )}

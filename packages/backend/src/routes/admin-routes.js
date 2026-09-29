@@ -24,8 +24,37 @@ const {
   getPackagesByOrg,
 } = require('../lib/org-storage');
 const { resolveUser } = require('../lib/resolve-user');
-const { getUserById, getUserByEmail } = require('../lib/user-storage');
+const {
+  getUserById,
+  getUserByEmail,
+  retireUsername,
+} = require('../lib/user-storage');
+const { refresh } = require('../lib/refresh-storage');
 const semver = require('semver');
+
+const TOKEN_PREFIX = 'apitoken:';
+const USER_TOKENS_PREFIX = 'user_tokens:';
+
+// Mirror of api/admin/users/[userId].js: a deleted or blacklisted user's Bearer
+// tokens must be revoked explicitly (delete does not blacklist, so isBlacklisted
+// would not stop them). Members are hashes for new tokens, raw values for legacy.
+async function revokeAllApiTokens(email) {
+  if (!email) return;
+  const setKey = USER_TOKENS_PREFIX + email;
+  const members = await kv.sMembers(setKey);
+  const list = Array.isArray(members) ? members : [];
+  await Promise.all(list.map(m => kv.del(TOKEN_PREFIX + m)));
+  await kv.del(setKey);
+  return list.length;
+}
+
+// Mirror of revokeAllCredentials in api/admin/users/[userId].js: every API
+// token and refresh session, with the profile left in place.
+async function revokeAllCredentials(email) {
+  const apiTokens = await revokeAllApiTokens(email);
+  const refreshTokens = await refresh.revokeAllForEmail(email);
+  return { apiTokens, refreshTokens };
+}
 
 async function adminRoutes(server, options) {
   const { sessionSecret, cookieName } = options.config.auth;
@@ -137,9 +166,13 @@ async function adminRoutes(server, options) {
     const user = JSON.parse(raw);
     if (user.email) await removeAdmin(user.email);
     await setAdminVerified('user', userId, false);
+    // Revoke API tokens so a deleted user's Bearer tokens stop resolving.
+    if (user.email) await revokeAllApiTokens(user.email);
     await kv.del(`user:${userId}`);
     if (user.email) await kv.del(`email2user:${user.email.toLowerCase()}`);
-    if (user.username) await kv.del(`username:${user.username.toLowerCase()}`);
+    // Tombstone (not delete) the username so it cannot be re-claimed to hijack
+    // the deleted user's packages.
+    if (user.username) await retireUsername(user.username);
     return reply.code(204).send();
   });
 
@@ -160,9 +193,13 @@ async function adminRoutes(server, options) {
     const email = user.email;
     if (
       !email &&
-      ['make_admin', 'remove_admin', 'blacklist', 'unblacklist'].includes(
-        action
-      )
+      [
+        'make_admin',
+        'remove_admin',
+        'blacklist',
+        'unblacklist',
+        'revoke_tokens',
+      ].includes(action)
     ) {
       return reply.code(400).send({ error: 'no_email' });
     }
@@ -186,21 +223,29 @@ async function adminRoutes(server, options) {
         if (email.endsWith('@calimero.network'))
           return reply.code(400).send({
             error: 'cannot_remove',
-            message: 'Cannot remove admin from @calimero.network accounts',
+            message:
+              'Cannot remove admin from @calimero.network accounts; suspend the account instead',
           });
         await removeAdmin(email);
         return { ok: true };
       case 'blacklist':
-        if (email.endsWith('@calimero.network'))
+        // Any account can be suspended, @calimero.network included; only
+        // self-suspension is refused.
+        if (email.toLowerCase() === String(admin.email || '').toLowerCase())
           return reply.code(400).send({
-            error: 'cannot_blacklist',
-            message: 'Cannot blacklist @calimero.network accounts',
+            error: 'cannot_blacklist_self',
+            message: 'Cannot blacklist your own account',
           });
         await blacklistUser(email, reason, admin.email);
+        // Revoke tokens and sessions outright so nothing relies on
+        // isBlacklisted staying in place.
+        await revokeAllCredentials(email);
         return { ok: true };
       case 'unblacklist':
         await unblacklistUser(email);
         return { ok: true };
+      case 'revoke_tokens':
+        return { ok: true, revoked: await revokeAllCredentials(email) };
       default:
         return reply.code(400).send({ error: 'bad_action' });
     }

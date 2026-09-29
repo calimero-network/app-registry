@@ -16,6 +16,7 @@ import {
   ShieldOff,
   CheckCircle,
   XCircle,
+  KeyRound,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
@@ -73,10 +74,11 @@ export default function AdminPage() {
       <div className='flex items-center gap-3 animate-fade-in'>
         <ShieldCheck className='w-5 h-5 text-brand-500' />
         <div>
+          <p className='eyebrow mb-3'>Moderation</p>
           <h1 className='text-xl font-semibold text-neutral-100'>
             Admin Panel
           </h1>
-          <p className='text-[12px] text-neutral-500 font-light'>
+          <p className='text-[14px] text-neutral-500 font-light'>
             Direct registry management
           </p>
         </div>
@@ -102,7 +104,7 @@ export default function AdminPage() {
               setConfirmDelete(null);
               setTab(key);
             }}
-            className={`flex items-center gap-1.5 px-3 py-2 text-[13px] border-b-2 -mb-px transition-colors ${
+            className={`flex items-center gap-1.5 px-3 py-2 text-[15px] border-b-2 -mb-px transition-colors ${
               tab === key
                 ? 'border-brand-600 text-brand-600'
                 : 'border-transparent text-neutral-500 hover:text-neutral-300'
@@ -147,6 +149,7 @@ function UsersTab({
   setConfirmDelete: (v: string | null) => void;
 }) {
   const qc = useQueryClient();
+  const { user: me } = useAuth();
   const [search, setSearch] = useState('');
   const [blacklistReasons, setBlacklistReasons] = useState<
     Record<string, string>
@@ -209,7 +212,7 @@ function UsersTab({
             >
               <div className='flex-1 min-w-0'>
                 <div className='flex items-center gap-1.5'>
-                  <span className='text-[13px] font-medium text-neutral-200 truncate'>
+                  <span className='text-[15px] font-medium text-neutral-200 truncate'>
                     {u.username ? `@${u.username}` : u.email}
                   </span>
                   {u.verified && (
@@ -222,7 +225,7 @@ function UsersTab({
                     <Ban className='h-3.5 w-3.5 text-red-400 flex-shrink-0' />
                   )}
                 </div>
-                <span className='text-[11px] text-neutral-500 font-mono'>
+                <span className='text-[12.5px] text-neutral-500 font-mono'>
                   {u.email}
                 </span>
               </div>
@@ -262,7 +265,8 @@ function UsersTab({
                       mutate.mutate({ userId: u.id, action: 'unblacklist' })
                     }
                   />
-                ) : !u.email.endsWith('@calimero.network') ? (
+                ) : u.email.toLowerCase() !==
+                  (me?.email || '').toLowerCase() ? (
                   <div className='flex items-center gap-1'>
                     <input
                       type='text'
@@ -274,7 +278,7 @@ function UsersTab({
                           [u.id]: e.target.value,
                         }))
                       }
-                      className='input text-[11px] py-1 px-2 h-7 w-28'
+                      className='input text-[12.5px] py-1 px-2 h-7 w-28'
                     />
                     <ActionBtn
                       label='Ban'
@@ -290,8 +294,16 @@ function UsersTab({
                     />
                   </div>
                 ) : null}
+                <ActionBtn
+                  label='Revoke tokens'
+                  icon={KeyRound}
+                  color='neutral'
+                  onClick={() =>
+                    mutate.mutate({ userId: u.id, action: 'revoke_tokens' })
+                  }
+                />
                 {confirmDelete === u.id ? (
-                  <span className='flex items-center gap-1.5 text-[11px]'>
+                  <span className='flex items-center gap-1.5 text-[12.5px]'>
                     <span className='text-red-400'>Delete?</span>
                     <button
                       onClick={() =>
@@ -320,7 +332,7 @@ function UsersTab({
             </div>
           ))}
           {!users.length && (
-            <p className='text-[13px] text-neutral-500 text-center py-8'>
+            <p className='text-[15px] text-neutral-500 text-center py-8'>
               No users found.
             </p>
           )}
@@ -390,14 +402,14 @@ function PackagesTab({
             >
               <div className='flex-1 min-w-0'>
                 <div className='flex items-center gap-1.5'>
-                  <span className='text-[13px] font-medium text-neutral-200 font-mono truncate'>
+                  <span className='text-[15px] font-medium text-neutral-200 font-mono truncate'>
                     {p.name}
                   </span>
                   {p.verified && (
                     <BadgeCheck className='h-3.5 w-3.5 text-emerald-400 flex-shrink-0' />
                   )}
                 </div>
-                <span className='text-[11px] text-neutral-500'>
+                <span className='text-[12.5px] text-neutral-500'>
                   {p.author} · v{p.latestVersion} · {p.versionCount} version
                   {p.versionCount !== 1 ? 's' : ''} · {p.downloads} downloads
                 </span>
@@ -415,7 +427,7 @@ function PackagesTab({
                   }
                 />
                 {confirmDelete === p.name ? (
-                  <span className='flex items-center gap-1.5 text-[11px]'>
+                  <span className='flex items-center gap-1.5 text-[12.5px]'>
                     <span className='text-red-400'>Delete all?</span>
                     <button
                       onClick={() =>
@@ -444,7 +456,7 @@ function PackagesTab({
             </div>
           ))}
           {!packages.length && (
-            <p className='text-[13px] text-neutral-500 text-center py-8'>
+            <p className='text-[15px] text-neutral-500 text-center py-8'>
               No packages found.
             </p>
           )}
@@ -517,14 +529,14 @@ function OrgsTab({
             >
               <div className='flex-1 min-w-0'>
                 <div className='flex items-center gap-1.5'>
-                  <span className='text-[13px] font-medium text-neutral-200 truncate'>
+                  <span className='text-[15px] font-medium text-neutral-200 truncate'>
                     {o.name}
                   </span>
                   {o.verified && (
                     <BadgeCheck className='h-3.5 w-3.5 text-emerald-400 flex-shrink-0' />
                   )}
                 </div>
-                <span className='text-[11px] text-neutral-500 font-mono'>
+                <span className='text-[12.5px] text-neutral-500 font-mono'>
                   {o.slug}
                 </span>
               </div>
@@ -541,7 +553,7 @@ function OrgsTab({
                   }
                 />
                 {confirmDelete === o.id ? (
-                  <span className='flex items-center gap-1.5 text-[11px]'>
+                  <span className='flex items-center gap-1.5 text-[12.5px]'>
                     <span className='text-red-400'>Delete?</span>
                     <button
                       onClick={() =>
@@ -570,7 +582,7 @@ function OrgsTab({
             </div>
           ))}
           {!orgs.length && (
-            <p className='text-[13px] text-neutral-500 text-center py-8'>
+            <p className='text-[15px] text-neutral-500 text-center py-8'>
               No orgs found.
             </p>
           )}
@@ -607,7 +619,7 @@ function ActionBtn({
     <button
       onClick={onClick}
       disabled={disabled}
-      className={`inline-flex items-center gap-1 text-[11px] border px-2 py-1 rounded-md transition-all disabled:opacity-30 disabled:cursor-not-allowed ${colors[color]}`}
+      className={`inline-flex items-center gap-1 text-[12.5px] border px-2 py-1 rounded-md transition-all disabled:opacity-30 disabled:cursor-not-allowed ${colors[color]}`}
     >
       <Icon className='w-3 h-3' />
       {label}

@@ -94,17 +94,18 @@ export default function UploadPage() {
     <div className='space-y-8'>
       {/* Header */}
       <div className='animate-fade-in'>
+        <p className='eyebrow mb-3'>Publish</p>
         <h1 className='text-xl font-semibold text-neutral-100'>
           Publish to the Registry
         </h1>
-        <p className='mt-1 text-[13px] text-neutral-500 font-light'>
+        <p className='mt-1 text-[15px] text-neutral-500 font-light'>
           {/* "step by step" went with the steps: the walkthrough that used to
               sit under this form is gone, and a subtitle promising numbered
               instructions that are not on the page is the kind of small lie
               that makes people scroll looking for them. */}
           Build, bundle, and publish your application.
         </p>
-        <p className='mt-2 text-[12px] text-neutral-400 font-light'>
+        <p className='mt-2 text-[14px] text-neutral-400 font-light'>
           Upload your application here or from{' '}
           <Link
             to='/my-packages'
@@ -123,11 +124,11 @@ export default function UploadPage() {
               from the walkthrough, left behind when the steps were removed —
               a numbered marker for a sequence that no longer exists. */}
           <Upload className='h-4 w-4 text-neutral-500' />
-          <h2 className='text-[14px] font-medium text-neutral-200'>
+          <h2 className='text-[16px] font-medium text-neutral-200'>
             Publish new package
           </h2>
         </div>
-        <p className='text-[13px] text-neutral-400 font-light mb-4'>
+        <p className='text-[15px] text-neutral-400 font-light mb-4'>
           Select a signed <code className='text-brand-600'>.mpk</code> bundle to
           publish to the registry. Your session (if logged in) will be used as
           the package author.
@@ -139,7 +140,7 @@ export default function UploadPage() {
                 ref={inputRef}
                 type='file'
                 accept='.mpk'
-                className='text-[13px] text-neutral-300 file:mr-3 file:py-2 file:px-3 file:rounded-md file:border-0 file:bg-brand-accent file:text-black file:font-medium file:cursor-pointer cursor-pointer'
+                className='text-[15px] text-neutral-300 file:mr-4 file:py-2.5 file:px-4 file:border-0 file:bg-brand-accent file:text-black file:text-[13px] file:font-bold file:uppercase file:tracking-[0.15em] file:cursor-pointer cursor-pointer'
                 onChange={async e => {
                   const selected = e.target.files?.[0];
                   setError(null);
@@ -170,19 +171,19 @@ export default function UploadPage() {
               </button>
             </div>
             {error && (
-              <p className='mt-3 text-[13px] text-red-400 font-light'>
+              <p className='mt-3 text-[15px] text-red-400 font-light'>
                 {error}
               </p>
             )}
             {problems.length > 0 && (
-              <ul className='mt-2 space-y-1 text-[12px] text-red-400/90 font-light list-disc list-inside'>
+              <ul className='mt-2 space-y-1 text-[14px] text-red-400/90 font-light list-disc list-inside'>
                 {problems.map(problem => (
                   <li key={problem}>{problem}</li>
                 ))}
               </ul>
             )}
             {success && (
-              <p className='mt-3 text-[13px] text-green-400 font-light'>
+              <p className='mt-3 text-[15px] text-green-400 font-light'>
                 Published <strong>{success.package}</strong>@{success.version}.{' '}
                 <Link
                   to='/apps'
@@ -201,7 +202,7 @@ export default function UploadPage() {
             )}
           </>
         ) : (
-          <p className='text-[13px] text-neutral-500 font-light'>
+          <p className='text-[15px] text-neutral-500 font-light'>
             <Link
               to={`/login?from=${encodeURIComponent(location.pathname)}`}
               className='text-brand-600 hover:text-brand-500 transition-colors'
@@ -223,7 +224,7 @@ export default function UploadPage() {
           than one set. */}
       <PublishArt />
 
-      <p className='text-[12.5px] font-light text-neutral-500'>
+      <p className='text-[14.5px] font-light text-neutral-500'>
         Building a bundle for the first time?{' '}
         <Link
           to='/docs'

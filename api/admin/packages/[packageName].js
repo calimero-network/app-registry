@@ -18,8 +18,11 @@ const { kv } = require('#api-lib/kv-client');
 const { setAdminVerified } = require('#api-lib/admin-storage');
 const review = require('#api-lib/package-review');
 const {
-  removeAllAssets,
-} = require('@calimero-network/registry-backend/src/lib/asset-store');
+  BundleStorageKV,
+} = require('@calimero-network/registry-backend/src/lib/bundle-storage-kv');
+
+let storage;
+const getStorage = () => (storage ??= new BundleStorageKV());
 
 module.exports = async function handler(req, res) {
   const admin = await requireAdmin(req, res);
@@ -32,20 +35,11 @@ module.exports = async function handler(req, res) {
       .json({ error: 'bad_request', message: 'packageName required' });
 
   if (req.method === 'DELETE') {
-    const versions = await kv.sMembers(`bundle-versions:${packageName}`);
-    for (const v of versions) {
-      await kv.del(`bundle:${packageName}/${v}`);
-    }
-    await kv.del(`bundle-versions:${packageName}`);
-    await kv.sRem('bundles:all', packageName);
-    await kv.del(`downloads:${packageName.toLowerCase()}`);
-    await setAdminVerified('package', packageName, false);
-    // ⚠️ THE IMAGES GO TOO. Deleting the package while its assets stay in the
-    // bucket is the `.mpk` orphan-blob leak repeated with user-uploaded
-    // pictures in it — and unlike a bundle, someone may have asked for these
-    // to be taken down.
-    await removeAllAssets(packageName).catch(() => {});
-    await review.setReview(packageName, { state: 'pending', by: admin.email });
+    // Both delete paths funnel through the one cleanup routine so they cannot
+    // drift: it removes every bundle/version, the download counter, the review
+    // decision, all assets and the org link, and tombstones the name so it
+    // cannot later be silently re-registered and inherit the old trust.
+    await getStorage().deletePackage(packageName);
     return res.status(204).end();
   }
 
@@ -54,12 +48,13 @@ module.exports = async function handler(req, res) {
 
     if (action === 'delete_version') {
       if (!version) return res.status(400).json({ error: 'version required' });
-      await kv.del(`bundle:${packageName}/${version}`);
-      await kv.sRem(`bundle-versions:${packageName}`, version);
-      // If no versions left, remove package entirely
+      // Shared per-version delete: clears manifest, binary, blob and interface
+      // indexes, drops the package from bundles:all when it empties, and
+      // tombstones "<pkg>/<version>" so that exact release cannot be replayed.
+      await getStorage().deleteBundleVersion(packageName, version);
+      // Preserve the counter cleanup the manual path did when a package empties.
       const remaining = await kv.sMembers(`bundle-versions:${packageName}`);
       if (!remaining.length) {
-        await kv.sRem('bundles:all', packageName);
         await kv.del(`downloads:${packageName.toLowerCase()}`);
       }
       return res.status(200).json({ ok: true });
@@ -78,7 +73,7 @@ module.exports = async function handler(req, res) {
     // The decision, with an audit trail. `_adminVerified` on the manifest is
     // kept in step so the `verified` badge and any consumer reading it agree
     // with the record.
-    async function stampManifest(on) {
+    const stampManifest = async on => {
       if (!latest) return;
       const raw = await kv.get(`bundle:${packageName}/${latest}`);
       if (!raw) return;
@@ -87,7 +82,7 @@ module.exports = async function handler(req, res) {
       if (on) stored.json.metadata._adminVerified = true;
       else delete stored.json.metadata._adminVerified;
       await kv.set(`bundle:${packageName}/${latest}`, JSON.stringify(stored));
-    }
+    };
 
     if (action === 'approve' || action === 'decline') {
       const state = action === 'approve' ? 'approved' : 'declined';

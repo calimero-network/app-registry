@@ -143,3 +143,41 @@ describe('the auth rate limiter', () => {
     expect(JSON.parse(last.payload).error).toBe('too_many_requests');
   });
 });
+
+describe('PATCH /api/v2/bundles/:package/:version', () => {
+  // Same rule as the serverless handler: a signature alone does not
+  // authorise a metadata edit, a logged-in account is required first.
+  test('answers 401 without a login', async () => {
+    const res = await server.inject({
+      method: 'PATCH',
+      url: '/api/v2/bundles/com.example.nothing/1.0.0',
+      headers: { 'content-type': 'application/json' },
+      payload: JSON.stringify({
+        package: 'com.example.nothing',
+        appVersion: '1.0.0',
+        signature: { algorithm: 'ed25519', publicKey: 'k', signature: 's' },
+      }),
+    });
+    expect(res.statusCode).toBe(401);
+    expect(JSON.parse(res.payload).error).toBe('unauthorized');
+  });
+});
+
+describe('POST /api/auth/token', () => {
+  // Mirrors api/auth/token.js: minting needs a session cookie, so an API token
+  // cannot be used to create further tokens.
+  test('refuses a Bearer API token as the credential', async () => {
+    const { createApiToken } = require('../src/lib/auth');
+    const { token } = await createApiToken('dev@example.com', 'Dev', 'cli');
+    const res = await server.inject({
+      method: 'POST',
+      url: '/api/auth/token',
+      // Own address: the rate-limiter test above spends the default one.
+      remoteAddress: '10.20.30.40',
+      headers: { authorization: `Bearer ${token}` },
+      payload: { label: 'another' },
+    });
+    expect(res.statusCode).toBe(401);
+    expect(JSON.parse(res.payload).message).toMatch(/Session login required/);
+  });
+});

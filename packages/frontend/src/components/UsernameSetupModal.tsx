@@ -48,18 +48,18 @@ export function UsernameSetupModal() {
         <h2 className='text-lg font-semibold text-neutral-100 mb-1'>
           Choose your username
         </h2>
-        <p className='text-[13px] text-neutral-400 mb-5'>
+        <p className='text-[15px] text-neutral-400 mb-5'>
           Pick a username to represent you on the registry. This cannot be
           changed later.
         </p>
 
         <form onSubmit={handleSubmit} className='space-y-4'>
           <div>
-            <label className='block text-[12px] text-neutral-400 mb-1.5'>
+            <label className='block text-[14px] text-neutral-400 mb-1.5'>
               Username
             </label>
             <div className='relative'>
-              <span className='absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500 text-[13px] select-none'>
+              <span className='absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500 text-[15px] select-none'>
                 @
               </span>
               <input
@@ -86,11 +86,11 @@ export function UsernameSetupModal() {
               />
             </div>
             {(validationError || serverError) && (
-              <p className='mt-1.5 text-[12px] text-red-400'>
+              <p className='mt-1.5 text-[14px] text-red-400'>
                 {validationError || serverError}
               </p>
             )}
-            <p className='mt-1.5 text-[11px] text-neutral-600'>
+            <p className='mt-1.5 text-[12.5px] text-neutral-600'>
               2–50 characters. Letters, numbers, underscores, hyphens. Cannot be
               changed.
             </p>

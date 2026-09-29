@@ -18,10 +18,11 @@ export default function MyPackagesPage() {
   return (
     <div className='space-y-8'>
       <div className='animate-fade-in'>
+        <p className='eyebrow mb-3'>Your account</p>
         <h1 className='text-xl font-semibold text-neutral-100 mb-2'>
           My packages
         </h1>
-        <p className='text-[13px] text-neutral-400 font-light'>
+        <p className='text-[15px] text-neutral-400 font-light'>
           Signed in as{' '}
           {user?.username
             ? `@${user.username}`
@@ -35,17 +36,17 @@ export default function MyPackagesPage() {
       <div className='card p-6'>
         <div className='flex items-center gap-2 mb-3'>
           <Upload className='w-4 h-4 text-brand-600' />
-          <h2 className='text-[14px] font-medium text-neutral-200'>
+          <h2 className='text-[16px] font-medium text-neutral-200'>
             Upload a new package
           </h2>
         </div>
-        <p className='text-[13px] text-neutral-400 font-light mb-4'>
+        <p className='text-[15px] text-neutral-400 font-light mb-4'>
           Upload your application from the frontend. New packages are published
           with your username as the public author so they appear here.
         </p>
         <Link
           to='/upload'
-          className='inline-flex items-center gap-2 text-[13px] text-brand-600 hover:text-brand-500'
+          className='inline-flex items-center gap-2 text-[15px] text-brand-600 hover:text-brand-500'
         >
           Upload application
           <ArrowRight className='w-3.5 h-3.5' />
@@ -58,18 +59,18 @@ export default function MyPackagesPage() {
         {!username?.trim() && !email?.trim() ? (
           <div className='card p-8 text-center'>
             <Package className='h-8 w-8 text-neutral-600 mx-auto mb-4' />
-            <p className='text-[13px] text-neutral-400 font-light'>
+            <p className='text-[15px] text-neutral-400 font-light'>
               Sign in to see packages you authored. Set{' '}
               <code className='text-brand-600'>metadata.author</code> to your
               username when publishing so they appear here.
             </p>
           </div>
         ) : isLoading ? (
-          <p className='text-[13px] text-neutral-500 font-light'>Loading…</p>
+          <p className='text-[15px] text-neutral-500 font-light'>Loading…</p>
         ) : packages.length === 0 ? (
           <div className='card p-8 text-center'>
             <Package className='h-8 w-8 text-neutral-600 mx-auto mb-4' />
-            <p className='text-[13px] text-neutral-400 font-light'>
+            <p className='text-[15px] text-neutral-400 font-light'>
               No packages yet. Publish a bundle with{' '}
               <code className='text-brand-600'>author</code> set to your
               username ({username ? `@${username}` : email}) to see them here.

@@ -9,6 +9,7 @@ const mockKv = {
   setNX: jest.fn(),
   sAdd: jest.fn(),
   sMembers: jest.fn(),
+  sIsMember: jest.fn().mockResolvedValue(false),
 };
 
 jest.mock('../src/lib/kv-client', () => ({
@@ -23,11 +24,15 @@ jest.mock('../../../api/lib/verify', () => ({
   normalizeSignature: jest.fn(sig => sig || null),
 }));
 
+// Every publish needs an account; these tests are about body validation.
+jest.mock('../../../api/lib/auth-helpers', () => ({
+  resolveUser: jest.fn().mockResolvedValue({ email: 'dev@example.com' }),
+  LOGIN_REQUIRED: { error: 'unauthorized', message: 'Login required' },
+}));
+
 // Import the handler
 const pushHandler = require('../../../api/v2/bundles/push');
-
-const TEST_ICON =
-  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAgAAAAIACAYAAAD0eNT6AAAG0klEQVR42u3WIQEAAAjAsPcvDSVwTKzA1asGAHhHBAAwAACAAQAADAAAYAAAAAMAABgAAMAAAAAGAAAwAACAAQAADAAAYAAAAAMAABgAAMAAAAAGAAAwAABgAAAAAwAAGAAAwAAAAAYAADAAAIABAAAMAABgAAAAAwAAGAAAwAAAAAYAADAAAIABAAAMAABgAADAAAAABgAAMAAAgAEAAAwAAGAAAAADAAAYAADAAAAABgAAMAAAgAEAAAwAAGAAAAADAAAYAADAAACAAQAADAAAYAAAAAMAABgAAMAAAAAGAAAwAACAAQAADAAAYAAAAAMAABgAAMAAAAAGAAAwAACAAQAAAwAAGAAAwAAAAAYAADAAAIABAAAMAABgAAAAAwAAGAAAwAAAAAYAADAAAIABAAAMAABgAAAAAwAAiAAABgAAMAAAgAEAAAwAAGAAAAADAAAYAADAAAAABgAAMAAAgAEAAAwAAGAAAAADAAAYAADAAAAABgAADAAAYAAAAAMAABgAAMAAAAAGAAAwAACAAQAADAAAYAAAAAMAABgAAMAAAAAGAAAwAACAAQAADAAAGAAAwAAAAAYAADAAAIABAAAMAABgAAAAAwAAGAAAwAAAAAYAADAAAIABAAAMAABgAAAAAwAAGAAAMAAAgAEAAAwAAGAAAAADAAAYAADAAAAABgAAMAAAgAEAAAwAAGAAAAADAAAYAADAAAAABgAAMAAAYAAAAAMAABgAAMAAAAAGAAAwAACAAQAADAAAYAAAAAMAABgAAMAAAAAGAAAwAACAAQAADAAAYAAAABEAwAAAAAYAADAAAIABAAAMAABgAAAAAwAAGAAAwAAAAAYAADAAAIABAAAMAABgAAAAAwAAGAAAwAAAgAEAAAwAAGAAAAADAAAYAADAAAAABgAAMAAAgAEAAAwAAGAAAAADAAAYAADAAAAABgAAMAAAgAEAAAMAABgAAMAAAAAGAAAwAACAAQAADAAAYAAAAAMAABgAAMAAAAAGAAAwAACAAQAADAAAYAAAAAMAAAYAADAAAIABAAAMAABgAAAAAwAAGAAAwAAAAAYAADAAAIABAAAMAABgAAAAAwAAGAAAwAAAAAYAAAwAAGAAAAADAAAYAADAAAAABgAAMAAAgAEAAAwAAGAAAAADAAAYAADAAAAABgAAMAAAgAEAAAwAACACABgAAMAAAAAGAAAwAACAAQAADAAAYAAAAAMAABgAAMAAAAAGAAAwAACAAQAADAAAYAAAAAMAABgAADAAAIABAAAMAABgAAAAAwAAGAAAwAAAAAYAADAAAIABAAAMAABgAAAAAwAAGAAAwAAAAAYAADAAAGAAAAADAAAYAADAAAAABgAAMAAAgAEAAAwAAGAAAAADAAAYAADAAAAABgAAMAAAgAEAAAwAAGAAAMAAAAAGAAAwAACAAQAADAAAYAAAAAMAABgAAMAAAAAGAAAwAACAAQAADAAAYAAAAAMAABgAAMAAAIABAAAMAABgAAAAAwAAGAAAwAAAAAYAADAAAIABAAAMAABgAAAAAwAAGAAAwAAAAAYAADAAAIABAABEAAADAAAYAADAAAAABgAAMAAAgAEAAAwAAGAAAAADAAAYAADAAAAABgAAMAAAgAEAAAwAAGAAAAADAAAGAAAwAACAAQAADAAAYAAAAAMAABgAAMAAAAAGAAAwAACAAQAADAAAYAAAAAMAABgAAMAAAAAGAAAMAABgAAAAAwAAGAAAwAAAAAYAADAAAIABAAAMAABgAAAAAwAAGAAAwAAAAAYAADAAAIABAAAMAAAYAADAAAAABgAAMAAAgAEAAAwAAGAAAAADAAAYAADAAAAABgAAMAAAgAEAAAwAAGAAAAADAAAYAAAwAACAAQAADAAAYAAAAAMAABgAAMAAAAAGAAAwAACAAQAADAAAYAAAAAMAABgAAMAAAAAGAAAwAACACABgAAAAAwAAGAAAwAAAAAYAADAAAIABAAAMAABgAAAAAwAAGAAAwAAAAAYAADAAAIABAAAMAABgAADAAAAABgAAMAAAgAEAAAwAAGAAAAADAAAYAADAAAAABgAAMAAAgAEAAAwAAGAAAAADAAAYAADAAACAAQAADAAAYAAAAAMAABgAAMAAAAAGAAAwAACAAQAADAAAYAAAAAMAABgAAMAAAAAGAAAwAACAAQAAAwAAGAAAwAAAAAYAADAAAIABAAAMAABgAAAAAwAAGAAAwAAAAAYAADAAAIABAAAMAABgAAAAAwAABgAAMAAAgAEAAAwAAGAAAAADAAAYAADAAAAABgAAMAAAgAEAAAwAAHBlAXZDO8XPH8TOAAAAAElFTkSuQmCC';
+const { TEST_ICON } = require('./helpers/publishable');
 
 describe('Push Endpoint Validation', () => {
   let req;
@@ -106,6 +111,71 @@ describe('Push Endpoint Validation', () => {
 
       expect(res.status).toHaveBeenCalledWith(201);
       expect(mockKv.setNX).toHaveBeenCalled();
+    });
+  });
+
+  describe('Authentication', () => {
+    test('should reject a push with no account', async () => {
+      const { resolveUser } = require('../../../api/lib/auth-helpers');
+      resolveUser.mockResolvedValueOnce(null);
+      req.body = { package: 'com.example.test', appVersion: '1.0.0' };
+      await pushHandler(req, res);
+      expect(res.status).toHaveBeenCalledWith(401);
+      expect(mockKv.setNX).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Links', () => {
+    function bodyWithLinks(links) {
+      return {
+        version: '1.0',
+        package: 'com.example.links',
+        appVersion: '1.0.0',
+        metadata: {
+          name: 'Links App',
+          description: 'A test app used to exercise link validation on push.',
+          category: 'developer-tools',
+          icon: TEST_ICON,
+        },
+        links,
+        wasm: { path: 'app.wasm', size: 100, hash: 'abc123' },
+        signature: {
+          algorithm: 'ed25519',
+          publicKey: 'dGVzdC1wdWJrZXk',
+          signature: 'dGVzdC1zaWduYXR1cmU',
+        },
+      };
+    }
+
+    beforeEach(() => {
+      mockKv.get.mockResolvedValue(null);
+      mockKv.setNX.mockResolvedValue(true);
+      mockKv.sAdd.mockResolvedValue(1);
+      mockKv.sMembers.mockResolvedValue([]);
+    });
+
+    test.each([
+      ['javascript:', { github: 'javascript:alert(1)' }],
+      ['data:', { docs: 'data:text/html,<b>x</b>' }],
+      ['a bare string', { frontend: 'not a url' }],
+    ])('rejects a %s link with 400', async (_label, links) => {
+      req.body = bodyWithLinks(links);
+      await pushHandler(req, res);
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ error: 'invalid_links' })
+      );
+      expect(mockKv.setNX).not.toHaveBeenCalled();
+    });
+
+    test('accepts http(s) links', async () => {
+      req.body = bodyWithLinks({
+        frontend: 'https://app.example.com',
+        github: 'https://github.com/example/app',
+        docs: 'http://docs.example.com',
+      });
+      await pushHandler(req, res);
+      expect(res.status).toHaveBeenCalledWith(201);
     });
   });
 

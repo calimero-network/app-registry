@@ -23,6 +23,7 @@ export default [
         Buffer: 'readonly',
         global: 'readonly',
         TextEncoder: 'readonly',
+        URL: 'readonly',
       },
     },
     plugins: {

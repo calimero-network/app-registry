@@ -12,6 +12,14 @@ const USER_PREFIX = 'user:';
 const USERNAME_PREFIX = 'username:';
 const EMAIL2USER_PREFIX = 'email2user:';
 
+// Usernames are the public author shown on packages and /developers/<name>,
+// so a freed username would let a new account re-claim a deleted user's name
+// and appear as the author of their packages. On delete
+// we write this sentinel to username:<name> instead of deleting the key, so the
+// name stays occupied and claimUsername refuses it. It is not a valid userId,
+// so getUserByUsername resolves it to null (no user, no hijack).
+const USERNAME_TOMBSTONE = 'retired:deleted-user';
+
 const USERNAME_REGEX = /^[a-z0-9]([a-z0-9_-]{0,48}[a-z0-9])?$/;
 
 const BLOCKED_TERMS = new Set([
@@ -137,30 +145,82 @@ async function claimUsername(userId, username) {
     err.code = 'blocked';
     throw err;
   }
-  const existingOwner = await kv.get(USERNAME_PREFIX + norm);
-  if (existingOwner && String(existingOwner) !== String(userId)) {
-    const err = new Error('This username is already taken');
-    err.code = 'taken';
-    throw err;
-  }
-  const raw = await kv.get(USER_PREFIX + String(userId));
-  if (!raw) {
+  const uid = String(userId);
+  const readProfile = async () => {
+    const raw = await kv.get(USER_PREFIX + uid);
+    return raw ? JSON.parse(typeof raw === 'string' ? raw : String(raw)) : null;
+  };
+  const user = await readProfile();
+  if (!user) {
     const err = new Error('User not found');
     err.code = 'not_found';
     throw err;
   }
-  const user = JSON.parse(typeof raw === 'string' ? raw : String(raw));
-  if (user.username) {
+  const immutable = () => {
     const err = new Error(
       'Username has already been set and cannot be changed'
     );
     err.code = 'immutable';
+    return err;
+  };
+  if (user.username) throw immutable();
+
+  // Reserve the index FIRST and atomically. A read-then-write here let two
+  // concurrent claims of the same name both pass the check and both succeed.
+  const indexKey = USERNAME_PREFIX + norm;
+  const reserved = await kv.setNX(indexKey, uid);
+  if (!reserved) {
+    const existingOwner = await kv.get(indexKey);
+    // A tombstoned name belongs to a deleted account and must never be
+    // re-claimed, otherwise the claimant inherits that account's packages
+    // (owned by username).
+    if (existingOwner && String(existingOwner) === USERNAME_TOMBSTONE) {
+      const err = new Error('This username is not available');
+      err.code = 'retired';
+      throw err;
+    }
+    // The index already points at this user (an earlier claim that stopped
+    // before the profile write): finish that claim instead of refusing it.
+    if (!existingOwner || String(existingOwner) !== uid) {
+      const err = new Error('This username is already taken');
+      err.code = 'taken';
+      throw err;
+    }
+  }
+
+  const release = async () => {
+    if (reserved) await kv.del(indexKey);
+  };
+  try {
+    // Re-read: a concurrent claim of a DIFFERENT name by the same user may
+    // have landed between the first read and the reservation.
+    const current = await readProfile();
+    if (!current) {
+      await release();
+      const err = new Error('User not found');
+      err.code = 'not_found';
+      throw err;
+    }
+    if (current.username && current.username !== norm) {
+      await release();
+      throw immutable();
+    }
+    current.username = norm;
+    await kv.set(USER_PREFIX + uid, JSON.stringify(current));
+    return current;
+  } catch (err) {
+    if (!err.code) await release();
     throw err;
   }
-  user.username = norm;
-  await kv.set(USER_PREFIX + String(userId), JSON.stringify(user));
-  await kv.set(USERNAME_PREFIX + norm, String(userId));
-  return user;
+}
+
+/**
+ * Tombstone a username so it can never be re-claimed (see USERNAME_TOMBSTONE).
+ * Called on user delete instead of freeing the name.
+ */
+async function retireUsername(username) {
+  if (!username) return;
+  await kv.set(USERNAME_PREFIX + username.toLowerCase(), USERNAME_TOMBSTONE);
 }
 
 module.exports = {
@@ -169,4 +229,6 @@ module.exports = {
   getUserByEmail,
   getUserByUsername,
   claimUsername,
+  retireUsername,
+  USERNAME_TOMBSTONE,
 };

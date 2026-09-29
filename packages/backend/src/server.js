@@ -17,7 +17,17 @@ const config = require('./config');
 const { BundleStorageKV } = require('./lib/bundle-storage-kv');
 const { createBundleSanitizers } = require('./lib/bundle-sanitize');
 const { buildBundleListing } = require('./lib/bundle-listing');
-const { validateBundleMetadata, CATEGORIES } = require('./lib/metadata-policy');
+const { stampOwnerEmail } = require('./lib/package-owner');
+const {
+  validateBundleMetadata,
+  isValidPackageName,
+  isValidPackageVersion,
+  reservedPackagePrefix,
+  isStaffEmail,
+  PACKAGE_NAME_REGEX,
+  CATEGORIES,
+  linkProblems,
+} = require('./lib/metadata-policy');
 const { kv } = require('./lib/kv-client');
 const {
   verifyManifest,
@@ -26,6 +36,7 @@ const {
 } = require('./lib/verify');
 const {
   isAllowedToPublish,
+  resolvePublishPermission,
   getPkg2Org,
   setPkg2Org,
   getOrgMemberRole,
@@ -468,6 +479,17 @@ async function buildServer() {
         });
       }
 
+      // A logged-in account is required on top of the signature: every signed
+      // manifest of a version stays valid forever. Same rule as delete.
+      const sessionUser = await resolveAuthUser(request);
+      if (!sessionUser?.email) {
+        return reply.code(401).send({
+          error: 'unauthorized',
+          message: 'Login required to edit bundle metadata.',
+        });
+      }
+      if (await denyBot(sessionUser, reply)) return;
+
       // 1. Confirm the bundle exists
       const existing = await bundleStorage.getBundleManifest(pkg, version);
       if (!existing) {
@@ -503,8 +525,14 @@ async function buildServer() {
         });
       }
 
-      // 3. Check ownership: the signer must be allowed to publish to this package
-      const sessionUser = await getSessionUser(request);
+      // 3. Check ownership: the account must be able to manage the package,
+      //    and the signer must be allowed to publish to it.
+      if (!(await canManagePackage(pkg, existing, sessionUser))) {
+        return reply.code(403).send({
+          error: 'not_owner',
+          message: NOT_OWNER_MESSAGE,
+        });
+      }
       const incomingKey = getPublicKeyFromManifest(incoming);
       const allowed = await isAllowedToPublish(
         existing,
@@ -539,6 +567,28 @@ async function buildServer() {
             });
           }
         }
+      }
+
+      // PATCH edits metadata; the version's owner keys are not metadata.
+      const ownerSet = m =>
+        (Array.isArray(m?.owners) ? m.owners : []).map(String).sort();
+      if (
+        JSON.stringify(ownerSet(incoming)) !==
+        JSON.stringify(ownerSet(existing))
+      ) {
+        return reply.code(400).send({
+          error: 'invalid_manifest',
+          message: 'owners cannot be changed via PATCH',
+        });
+      }
+
+      const badLinks = linkProblems(incoming.links);
+      if (badLinks.length > 0) {
+        return reply.code(400).send({
+          error: 'invalid_links',
+          message: badLinks.join(' '),
+          problems: badLinks,
+        });
       }
 
       // 5. Merge: preserve immutable artifact fields from stored manifest,
@@ -742,6 +792,27 @@ async function buildServer() {
         },
       };
     }
+    // Validate the package id and version shape before anything is stored. A
+    // malformed id or a non-semver version otherwise reaches storage and breaks
+    // ordering/lookup downstream.
+    if (!isValidPackageName(bundleManifest.package)) {
+      throw {
+        statusCode: 400,
+        body: {
+          error: 'invalid_package_name',
+          message: `Package id must be lowercase reverse-DNS (e.g. com.example.app) matching ${PACKAGE_NAME_REGEX}.`,
+        },
+      };
+    }
+    if (!isValidPackageVersion(bundleManifest.appVersion)) {
+      throw {
+        statusCode: 400,
+        body: {
+          error: 'invalid_version',
+          message: `appVersion must be a valid semver version (got "${bundleManifest.appVersion}").`,
+        },
+      };
+    }
     const sig = normalizeSignature(bundleManifest?.signature);
     if (!sig) {
       throw {
@@ -772,14 +843,46 @@ async function buildServer() {
       };
     }
     const incomingKey = getPublicKeyFromManifest(bundleManifest);
+    // `_ownerKeys` is server-owned (it decides who may publish next); only the
+    // ownership check below may set it.
+    delete bundleManifest._ownerKeys;
     const versions = await bundleStorage.getBundleVersions(
       bundleManifest.package
     );
+    // Reserve the Calimero package namespace for FIRST publishes only. Existing
+    // packages are governed by the owner check below, so re-publishing a version
+    // is never blocked here; only CREATING a new reserved-prefix package
+    // requires a staff email, a site admin, or a registry-managed bot.
+    if (versions.length === 0) {
+      const reservedPrefix = reservedPackagePrefix(bundleManifest.package);
+      if (reservedPrefix) {
+        const allowed =
+          isStaffEmail(userEmail) ||
+          (!!userEmail && (await isAdmin(userEmail))) ||
+          (!!userEmail && (await isBot(userEmail)));
+        if (!allowed) {
+          throw {
+            statusCode: 403,
+            body: {
+              error: 'reserved_prefix',
+              message: `The "${reservedPrefix}" package namespace is reserved for Calimero.`,
+            },
+          };
+        }
+      }
+    }
     // Set or preserve author: only set from session when creating a new package; never overwrite on new version.
     // Author is locked from the oldest (first) version, not the latest.
     // We store: metadata.author = username (display), metadata._ownerEmail = email (ownership checks).
     bundleManifest.metadata = bundleManifest.metadata || {};
-    const displayAuthor = username || userEmail; // prefer username, fall back to email
+    // `metadata.author` is display-only and server-derived; drop whatever the
+    // manifest carried. Mirrors the Vercel push handlers.
+    delete bundleManifest.metadata.author;
+    // Privacy: the public `author` must never be an email (it is rendered on
+    // cards, the detail page and /developers/<author>). A user with no username
+    // publishes with no public author (null); the email is kept privately in
+    // `_ownerEmail`. Mirrors the Vercel push handlers.
+    const displayAuthor = username || null;
     if (versions.length > 0) {
       const oldestVersion = versions[versions.length - 1];
       const latestVersion = versions[0];
@@ -790,35 +893,43 @@ async function buildServer() {
       const existingAuthor = manifestOldest?.metadata?.author;
       if (existingAuthor) {
         bundleManifest.metadata.author = existingAuthor;
-        // Preserve _ownerEmail from oldest manifest if present
-        if (manifestOldest?.metadata?._ownerEmail) {
-          bundleManifest.metadata._ownerEmail =
-            manifestOldest.metadata._ownerEmail;
-        }
-      } else if (displayAuthor) {
-        bundleManifest.metadata.author = displayAuthor;
-        if (userEmail) bundleManifest.metadata._ownerEmail = userEmail;
+      } else if (userEmail) {
+        // Public author is the username only; the email is never promoted to
+        // `author`.
+        if (displayAuthor) bundleManifest.metadata.author = displayAuthor;
       }
+      // Ownership (_ownerEmail) is inherited from the existing versions, never
+      // taken from the account pushing this version. Mirrors the Vercel push
+      // handlers.
+      await stampOwnerEmail({
+        store: bundleStorage,
+        manifest: bundleManifest,
+        versions,
+        publisherEmail: userEmail,
+        known: { [oldestVersion]: manifestOldest },
+      });
       const manifestLatest = await bundleStorage.getBundleManifest(
         bundleManifest.package,
         latestVersion
       );
-      const allowed = await isAllowedToPublish(
+      const permission = await resolvePublishPermission(
         manifestLatest,
         incomingKey,
         bundleManifest.package,
         userEmail
       );
-      if (!allowed) {
+      if (!permission.allowed) {
         throw {
           statusCode: 403,
           body: {
             error: 'not_owner',
             message:
-              'Only the package owner (signer or a key in manifest.owners) or an organization member can publish new versions.',
+              'Only the package owner (signer or a key in manifest.owners) or an organization admin can publish new versions.',
           },
         };
       }
+      // An organization publish keeps the package's existing key set.
+      if (permission.viaOrg) bundleManifest._ownerKeys = permission.ownerKeys;
       // Reject if new version is not greater than latest
       const latest = latestVersion;
       const incoming = bundleManifest.appVersion;
@@ -835,9 +946,22 @@ async function buildServer() {
           },
         };
       }
-    } else if (displayAuthor) {
-      bundleManifest.metadata.author = displayAuthor;
-      if (userEmail) bundleManifest.metadata._ownerEmail = userEmail;
+    } else if (userEmail) {
+      // New package — public author is the username (or nothing); the email
+      // stays private in _ownerEmail for ownership checks.
+      if (displayAuthor) bundleManifest.metadata.author = displayAuthor;
+      bundleManifest.metadata._ownerEmail = userEmail;
+    }
+    const badLinks = linkProblems(bundleManifest.links);
+    if (badLinks.length > 0) {
+      throw {
+        statusCode: 400,
+        body: {
+          error: 'invalid_links',
+          message: badLinks.join(' '),
+          problems: badLinks,
+        },
+      };
     }
     // Metadata policy. Runs here, after ownership is settled, because this is
     // the one point all three upload paths share — CLI, API key and the web

@@ -41,8 +41,8 @@ updates:
       # ⚠️ canonicalize 3+ IS ESM-ONLY, AND THIS REPO REQUIRES IT FROM CJS.
       #
       # v5 ships `"type": "module"` with an `import`-only export map, while
-      # `packages/backend/src/lib/verify.js`, `api/lib/verify.js` and
-      # `api/lib/signed-request.js` are CommonJS and do
+      # `packages/backend/src/lib/verify.js` and `api/lib/verify.js` are
+      # CommonJS and do
       # `const canonicalize = require('canonicalize')` at module load. The
       # bump (#287) fails as `Cannot find module 'canonicalize'` across six
       # backend suites.

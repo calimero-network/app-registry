@@ -93,7 +93,7 @@ export default function EditPackagePage() {
       <div className='space-y-6'>
         <BackLink appId={appId} />
         <div className='text-center py-16'>
-          <p className='text-[13px] text-red-400'>
+          <p className='text-[15px] text-red-400'>
             Failed to load manifest for {appId}@{version}.
           </p>
           <Link
@@ -111,23 +111,24 @@ export default function EditPackagePage() {
     <div className='space-y-6'>
       <BackLink appId={appId} />
       <div className='animate-fade-in'>
+        <p className='eyebrow mb-3'>Your package</p>
         <h1 className='text-xl font-semibold text-neutral-100'>
           Edit package metadata
         </h1>
-        <p className='text-[12px] text-neutral-500 font-mono mt-1'>
+        <p className='text-[14px] text-neutral-500 font-mono mt-1'>
           {appId} @ v{version}
         </p>
       </div>
 
       <form onSubmit={handleSubmit} className='card p-5 space-y-4'>
-        <p className='text-[13px] text-neutral-400 font-light'>
+        <p className='text-[15px] text-neutral-400 font-light'>
           Change name, description, author, or links. After saving, you will
           download <code className='text-brand-600'>manifest.json</code>. Sign
           it with mero-sign and run the CLI to publish the update.
         </p>
 
         <div>
-          <label className='block text-[11px] text-neutral-500 mb-1.5'>
+          <label className='block text-[12.5px] text-neutral-500 mb-1.5'>
             Display name
           </label>
           <input
@@ -139,7 +140,7 @@ export default function EditPackagePage() {
           />
         </div>
         <div>
-          <label className='block text-[11px] text-neutral-500 mb-1.5'>
+          <label className='block text-[12.5px] text-neutral-500 mb-1.5'>
             Description
           </label>
           <textarea
@@ -153,7 +154,7 @@ export default function EditPackagePage() {
           />
         </div>
         <div>
-          <label className='block text-[11px] text-neutral-500 mb-1.5'>
+          <label className='block text-[12.5px] text-neutral-500 mb-1.5'>
             Links (optional)
           </label>
           <div className='space-y-2'>
@@ -191,24 +192,24 @@ export default function EditPackagePage() {
 
       {submitted && (
         <div className='card p-5 space-y-3'>
-          <p className='text-[13px] font-medium text-neutral-200 flex items-center gap-2'>
+          <p className='text-[15px] font-medium text-neutral-200 flex items-center gap-2'>
             <Download className='w-4 h-4 text-green-500' />
             manifest.json downloaded
           </p>
-          <p className='text-[12px] text-neutral-400 font-light'>Next steps:</p>
-          <ol className='list-decimal list-inside space-y-2 text-[12px] text-neutral-300 font-mono bg-ink/[0.03] rounded-lg p-4'>
+          <p className='text-[14px] text-neutral-400 font-light'>Next steps:</p>
+          <ol className='list-decimal list-inside space-y-2 text-[14px] text-neutral-300 font-mono bg-ink/[0.03] rounded-lg p-4'>
             <li>Sign the file with mero-sign:</li>
           </ol>
-          <pre className='text-[11px] text-neutral-400 bg-neutral-950 rounded-md p-3 overflow-x-auto border border-line'>
+          <pre className='text-[12.5px] text-neutral-400 bg-neutral-950 rounded-md p-3 overflow-x-auto border border-line'>
             {`mero-sign sign manifest.json --key your-key.json`}
           </pre>
           <ol
             start={2}
-            className='list-decimal list-inside space-y-2 text-[12px] text-neutral-300 font-mono mt-3'
+            className='list-decimal list-inside space-y-2 text-[14px] text-neutral-300 font-mono mt-3'
           >
             <li>Publish the signed manifest with the CLI:</li>
           </ol>
-          <pre className='text-[11px] text-neutral-400 bg-neutral-950 rounded-md p-3 overflow-x-auto flex items-center gap-2 border border-line'>
+          <pre className='text-[12.5px] text-neutral-400 bg-neutral-950 rounded-md p-3 overflow-x-auto flex items-center gap-2 border border-line'>
             <Terminal className='w-3.5 h-3.5 flex-shrink-0 text-neutral-500' />
             {`calimero-registry bundle edit ${appId} ${version} --remote --manifest signed-manifest.json`}
           </pre>
@@ -222,7 +223,7 @@ function BackLink({ appId }: { appId: string }) {
   return (
     <Link
       to={`/apps/${appId}`}
-      className='inline-flex items-center gap-1 text-[12px] text-neutral-500 hover:text-neutral-300 transition-colors'
+      className='inline-flex items-center gap-1 text-[14px] text-neutral-500 hover:text-neutral-300 transition-colors'
     >
       <ArrowLeft className='w-3 h-3' />
       Back to app

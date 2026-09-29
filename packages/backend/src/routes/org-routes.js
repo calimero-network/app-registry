@@ -7,8 +7,8 @@
 const {
   getOrg,
   setOrg,
-  getOrgIdBySlug,
   getOrgMembers,
+  isOrgMember,
   addOrgMember,
   removeOrgMember,
   getOrgMemberRole,
@@ -16,6 +16,7 @@ const {
   isOrgOwner,
   isOrgAdminOrOwner,
   getOrgsByMember,
+  getOrgIdsByMember,
   getPkg2Org,
   setPkg2Org,
   deletePkg2Org,
@@ -24,7 +25,25 @@ const {
 } = require('../lib/org-storage');
 const { verifySessionToken, verifyApiToken } = require('../lib/auth');
 const { getUserByEmail, getUserByUsername } = require('../lib/user-storage');
-const { isBlacklisted, isBot } = require('../lib/admin-storage');
+const {
+  isBlacklisted,
+  isBot,
+  isAdmin,
+  setAdminVerified,
+} = require('../lib/admin-storage');
+const { kv } = require('../lib/kv-client');
+const {
+  isReservedOrgSlug,
+} = require('@calimero-network/registry-shared/org-slugs');
+const {
+  manifestOwnedByUser,
+} = require('@calimero-network/registry-shared/package-permissions');
+const {
+  validateOrgName,
+  validateOrgMetadata,
+  countOwnedOrgs,
+  MAX_OWNED_ORGS_PER_ACCOUNT,
+} = require('@calimero-network/registry-shared/org-validation');
 const { BundleStorageKV } = require('../lib/bundle-storage-kv');
 const config = require('../config');
 
@@ -46,6 +65,22 @@ async function getSessionUser(request) {
   } catch {
     return null;
   }
+}
+
+/**
+ * Resolve the current user without gating — used by the public read routes that
+ * tailor what they expose (e.g. member emails) to who is asking, and must not
+ * 401 an anonymous caller. Returns { email } or null.
+ */
+async function resolveOptionalUser(request) {
+  const sessionUser = await getSessionUser(request);
+  if (sessionUser?.email) return { email: sessionUser.email };
+  const auth = request.headers?.['authorization'];
+  if (typeof auth === 'string' && auth.startsWith('Bearer ')) {
+    const tokenData = await verifyApiToken(auth.slice(7));
+    if (tokenData?.email) return { email: tokenData.email };
+  }
+  return null;
 }
 
 /**
@@ -114,16 +149,6 @@ async function requireAuth(request, reply) {
   return null;
 }
 
-function manifestOwnedByUser(manifest, user) {
-  const author = manifest?.metadata?.author;
-  const ownerEmail = manifest?.metadata?._ownerEmail;
-
-  if (user?.username && author === user.username) return true;
-  if (user?.email && ownerEmail === user.email) return true;
-  if (user?.email && !user?.username && author === user.email) return true;
-  return false;
-}
-
 /**
  * Require that the caller is the owner of orgId.
  * Returns { email, name } or sends error and returns null.
@@ -172,9 +197,10 @@ async function countOrgOwners(orgId) {
 }
 
 const SLUG_REGEX = /^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$/;
+const MAX_SLUG_LENGTH = 64;
 
 async function orgRoutes(server) {
-  // GET /api/v2/orgs?member=<email> — list orgs the member belongs to (no auth)
+  // GET /api/v2/orgs?member=<email> — list orgs the member belongs to (auth: self or admin)
   // GET /api/v2/orgs?package=<name>  — get single org that owns a package (no auth)
   server.get('/api/v2/orgs', async (request, reply) => {
     const pkg = request.query?.package;
@@ -193,6 +219,21 @@ async function orgRoutes(server) {
       return reply.code(400).send({
         error: 'bad_request',
         message: 'Query member must be a valid email address',
+      });
+    }
+    // Privacy: this was an unauthenticated oracle for which orgs any email
+    // belongs to. Require auth and only let a caller look up their own email
+    // (case-insensitive), unless they are a site admin. Mirrors the Vercel
+    // handler.
+    const caller = await requireAuth(request, reply);
+    if (!caller) return;
+    if (
+      caller.email.toLowerCase() !== email.toLowerCase() &&
+      !(await isAdmin(caller.email))
+    ) {
+      return reply.code(403).send({
+        error: 'forbidden',
+        message: 'You may only look up organizations for your own account',
       });
     }
     const orgs = await getOrgsByMember(email);
@@ -215,29 +256,57 @@ async function orgRoutes(server) {
         message: 'Body must include name and slug (strings)',
       });
     }
+    const nameError = validateOrgName(name);
+    if (nameError) {
+      return reply.code(400).send({ error: 'bad_request', message: nameError });
+    }
     const slugNorm = slug.toLowerCase().trim();
-    if (!SLUG_REGEX.test(slugNorm)) {
+    if (!SLUG_REGEX.test(slugNorm) || slugNorm.length > MAX_SLUG_LENGTH) {
       return reply.code(400).send({
         error: 'bad_request',
-        message:
-          'slug must be lowercase alphanumeric and hyphens (e.g. my-org)',
+        message: `slug must be lowercase alphanumeric and hyphens (e.g. my-org), at most ${MAX_SLUG_LENGTH} characters`,
       });
     }
-    const existingId = await getOrgIdBySlug(slugNorm);
-    if (existingId) {
+    const callerIsAdmin = await isAdmin(user.email);
+    if (isReservedOrgSlug(slugNorm) && !callerIsAdmin) {
+      return reply.code(403).send({
+        error: 'reserved_slug',
+        message: 'This organization slug is reserved',
+      });
+    }
+    if (
+      !callerIsAdmin &&
+      (await countOwnedOrgs(
+        { getOrgIdsByMember, getOrgMemberRole },
+        user.email
+      )) >= MAX_OWNED_ORGS_PER_ACCOUNT
+    ) {
+      return reply.code(403).send({
+        error: 'org_limit',
+        message: `An account can own at most ${MAX_OWNED_ORGS_PER_ACCOUNT} organizations`,
+      });
+    }
+    const orgId = slugNorm;
+    // Reserve the slug atomically (mirrors api/v2/orgs/index.js).
+    const reserved = await kv.setNX(`org:by_slug:${slugNorm}`, orgId);
+    if (!reserved || (await getOrg(orgId))) {
       return reply.code(409).send({
         error: 'conflict',
         message: 'An organization with this slug already exists',
       });
     }
-    const orgId = slugNorm;
     const org = {
       id: orgId,
       name: name.trim(),
       slug: slugNorm,
     };
-    await setOrg(org);
-    await addOrgMember(orgId, user.email, 'owner');
+    try {
+      await setOrg(org);
+      await addOrgMember(orgId, user.email, 'owner');
+    } catch (e) {
+      await kv.del(`org:by_slug:${slugNorm}`);
+      throw e;
+    }
     return reply.code(201).send(org);
   });
 
@@ -267,9 +336,24 @@ async function orgRoutes(server) {
     if (!user) return;
     const { name, metadata } = request.body || {};
     const updates = {};
-    if (typeof name === 'string') updates.name = name.trim();
-    if (metadata !== undefined && typeof metadata === 'object')
-      updates.metadata = metadata;
+    if (name !== undefined) {
+      const nameError = validateOrgName(name);
+      if (nameError) {
+        return reply
+          .code(400)
+          .send({ error: 'bad_request', message: nameError });
+      }
+      updates.name = name.trim();
+    }
+    if (metadata !== undefined) {
+      const checked = validateOrgMetadata(metadata);
+      if (checked.error) {
+        return reply
+          .code(400)
+          .send({ error: 'invalid_metadata', message: checked.error });
+      }
+      updates.metadata = checked.value;
+    }
     if (Object.keys(updates).length === 0) {
       return reply.send(org);
     }
@@ -291,6 +375,7 @@ async function orgRoutes(server) {
     const user = await requireOrgOwner(request, reply, orgId);
     if (!user) return;
     await deleteOrg(orgId);
+    await setAdminVerified('org', orgId, false);
     return reply.code(204).send();
   });
 
@@ -364,6 +449,16 @@ async function orgRoutes(server) {
         message: 'role must be "admin", "member", or "owner"',
       });
     }
+    // SECURITY: updateOrgMemberRole writes a role for ANY address, even one
+    // absent from the members set — a "ghost admin" that the admin/owner checks
+    // then honour although the member list never shows them. Refuse a role change
+    // for anyone who is not currently a member of the org.
+    if (!(await isOrgMember(orgId, memberEmail))) {
+      return reply.code(404).send({
+        error: 'not_found',
+        message: 'User is not a member of this organization',
+      });
+    }
     const currentRole = await getOrgMemberRole(orgId, memberEmail);
     if (currentRole === 'owner' && role !== 'owner') {
       const ownerCount = await countOrgOwners(orgId);
@@ -394,9 +489,10 @@ async function orgRoutes(server) {
       const user = await requireAuth(request, reply);
       if (!user) return;
       const isSelf = user.email.toLowerCase() === memberEmail.toLowerCase();
+      let callerRole = null;
       if (!isSelf) {
-        const allowed = await isOrgAdminOrOwner(orgId, user.email);
-        if (!allowed) {
+        callerRole = await getOrgMemberRole(orgId, user.email);
+        if (callerRole !== 'admin' && callerRole !== 'owner') {
           return reply.code(403).send({
             error: 'forbidden',
             message:
@@ -405,6 +501,21 @@ async function orgRoutes(server) {
         }
       }
       const targetRole = await getOrgMemberRole(orgId, memberEmail);
+      // SECURITY: an admin removing a privileged member could evict the org's
+      // owners (or fellow admins) and seize control — the last-owner guard alone
+      // does not stop it. Only an owner may remove an owner or admin; admins are
+      // limited to plain members. Self-removal stays allowed (last-owner guard
+      // below still applies).
+      if (
+        !isSelf &&
+        (targetRole === 'owner' || targetRole === 'admin') &&
+        callerRole !== 'owner'
+      ) {
+        return reply.code(403).send({
+          error: 'forbidden',
+          message: 'Only an organization owner can remove an owner or admin',
+        });
+      }
       if (targetRole === 'owner') {
         const ownerCount = await countOrgOwners(orgId);
         if (ownerCount <= 1) {
@@ -464,8 +575,24 @@ async function orgRoutes(server) {
     if (!manifestOwnedByUser(latestManifest, user)) {
       return reply.code(403).send({
         error: 'forbidden',
-        message: `You do not own package '${pkgName}'. Only the package author can link it to an organization`,
+        message: `You do not own package '${pkgName}'. Only the package owner can link it to an organization`,
       });
+    }
+
+    // SECURITY: setPkg2Org overwrites the link unconditionally, so owning the
+    // manifest is NOT enough — a package already linked to another org would
+    // otherwise be yanked into the caller's org, silently stripping the real
+    // org's admins/owners of control. Refuse re-linking a package owned by a
+    // different org unless the caller also administers that current org.
+    const currentOrgId = await getPkg2Org(pkgName);
+    if (currentOrgId && currentOrgId !== orgId) {
+      const controlsCurrent = await isOrgAdminOrOwner(currentOrgId, user.email);
+      if (!controlsCurrent) {
+        return reply.code(409).send({
+          error: 'conflict',
+          message: `Package '${pkgName}' is already linked to another organization. Unlink it there first.`,
+        });
+      }
     }
 
     await setPkg2Org(pkgName, orgId);
@@ -523,12 +650,20 @@ async function orgRoutes(server) {
       });
     }
     const emails = await getOrgMembers(orgId);
+    // Privacy: member emails are personal data. Expose them only to a member of
+    // this org (any role) or a site admin; anonymous and outside callers get the
+    // public shape (username/role/verified/isBot). Mirrors the Vercel handler.
+    const caller = await resolveOptionalUser(request);
+    const canSeeEmail =
+      !!caller?.email &&
+      (!!(await getOrgMemberRole(orgId, caller.email)) ||
+        (await isAdmin(caller.email)));
     const members = await Promise.all(
       emails.map(async email => {
         const role = await getOrgMemberRole(orgId, email);
         const profile = await getUserByEmail(email);
         return {
-          email, // kept for internal auth checks (not displayed in UI)
+          ...(canSeeEmail ? { email } : {}),
           username: profile?.username ?? null,
           verified: profile?.verified ?? email.endsWith('@calimero.network'),
           role: role || 'member',

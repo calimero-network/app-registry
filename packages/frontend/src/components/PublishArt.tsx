@@ -14,23 +14,22 @@
  * query that can only reach declarative animation. Everything below animates
  * on the compositor and stops when the tab is hidden.
  *
- * ⚠️ The palette is the poster gallery's, not the page's. These are printed
- * colours on a fixed pastel ground — they do not swap with the theme, because
- * near-black type and marks on a chosen pastel is the only way the thing
- * stays legible in both.
+ * ⚠️ The palette is the poster gallery's, not the page's: calimero.network's
+ * charcoal panel with lime line-art and near-white type. It does not swap
+ * with the theme — on paper it reads as one of the landing's dark bands.
  */
 
-const INK = '#1c1f34';
-const MARK = '#4f5bd5';
+const INK = '#fcfcfc';
+const MARK = '#a5ff11';
 
 export function PublishArt() {
   return (
     <div
       data-testid='publish-art'
-      className='relative overflow-hidden rounded-2xl border border-line'
+      className='relative overflow-hidden border border-line'
       style={{
         background:
-          'linear-gradient(112deg, #e9ecfb 0%, #eef0fc 46%, #f5f2fb 100%)',
+          'linear-gradient(112deg, #1f1e22 0%, #19181b 46%, #141316 100%)',
       }}
     >
       {/*
@@ -55,8 +54,8 @@ export function PublishArt() {
         >
           <defs>
             <linearGradient id='pa-card' x1='0' y1='0' x2='0' y2='1'>
-              <stop offset='0%' stopColor='#ffffff' stopOpacity='0.95' />
-              <stop offset='100%' stopColor='#ffffff' stopOpacity='0.72' />
+              <stop offset='0%' stopColor='#2c2a30' stopOpacity='1' />
+              <stop offset='100%' stopColor='#222025' stopOpacity='1' />
             </linearGradient>
           </defs>
 
@@ -71,7 +70,6 @@ export function PublishArt() {
               y='128'
               width='132'
               height='104'
-              rx='14'
               fill='url(#pa-card)'
               stroke={MARK}
               strokeOpacity='0.35'
@@ -81,7 +79,6 @@ export function PublishArt() {
               y='152'
               width='64'
               height='8'
-              rx='4'
               fill={INK}
               opacity='0.5'
             />
@@ -90,7 +87,6 @@ export function PublishArt() {
               y='170'
               width='92'
               height='6'
-              rx='3'
               fill={INK}
               opacity='0.22'
             />
@@ -99,7 +95,6 @@ export function PublishArt() {
               y='184'
               width='74'
               height='6'
-              rx='3'
               fill={INK}
               opacity='0.18'
             />
@@ -116,7 +111,7 @@ export function PublishArt() {
               className='pa-tick'
               d='M195 208l5 5 9-10'
               fill='none'
-              stroke='#ffffff'
+              stroke='#131215'
               strokeWidth='2.4'
               strokeLinecap='round'
               strokeLinejoin='round'
@@ -153,7 +148,6 @@ export function PublishArt() {
               y='120'
               width='150'
               height='120'
-              rx='16'
               fill='url(#pa-card)'
               stroke={MARK}
               strokeOpacity='0.35'
@@ -166,7 +160,6 @@ export function PublishArt() {
                 y={146 + i * 28}
                 width='110'
                 height='18'
-                rx='6'
                 fill={MARK}
                 opacity='0.14'
               />
@@ -194,7 +187,7 @@ export function PublishArt() {
                 cx={cx}
                 cy={cy}
                 r='13'
-                fill='#ffffff'
+                fill='#1f1e22'
                 stroke={MARK}
                 strokeOpacity='0.45'
               />
@@ -205,13 +198,13 @@ export function PublishArt() {
 
       <div className='relative px-5 pb-5 pt-4 sm:absolute sm:inset-x-0 sm:bottom-0 sm:p-7'>
         <p
-          className='font-display text-[15px] font-bold leading-tight tracking-tight sm:text-[19px]'
+          className='text-[16px] font-bold uppercase leading-tight tracking-[0.12em] sm:text-[18px]'
           style={{ color: INK }}
         >
           Sign it, push it, and every node can verify it.
         </p>
         <p
-          className='mt-1 text-[12px] font-light leading-snug sm:text-[13px]'
+          className='mt-1 text-[14px] font-light leading-snug sm:text-[15px]'
           style={{ color: INK, opacity: 0.7 }}
         >
           A bundle is WASM plus a signed manifest. The registry checks the

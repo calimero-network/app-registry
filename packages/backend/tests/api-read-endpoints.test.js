@@ -29,6 +29,11 @@ const mockKv = {
   },
   sRem: async () => 0,
   sIsMember: async () => 0,
+  setNXEx: async (k, v) => {
+    if (store.has(k)) return false;
+    store.set(k, v);
+    return true;
+  },
   scanKeys: async () => [],
 };
 
@@ -47,6 +52,8 @@ const healthzHandler = require('../../../api/healthz');
 const statsHandler = require('../../../api/stats');
 const recordHandler = require('../../../api/v2/downloads/record');
 const listHandler = require('../../../api/v2/bundles/index');
+const orgHandler = require('../../../api/v2/orgs/[orgId]');
+const packageHandler = require('../../../api/v2/packages/[package]/index');
 
 function makeRes() {
   return {
@@ -141,17 +148,19 @@ describe('GET /api/stats', () => {
 });
 
 describe('POST /api/v2/downloads/record', () => {
-  test('increments the global and per-package counters', async () => {
+  const ONE = { 'com.a.one': { '1.0.0': { author: 'alice', pubkey: 'pk' } } };
+
+  function record(body, headers = {}) {
     const res = makeRes();
-    await recordHandler(
-      {
-        method: 'POST',
-        query: {},
-        headers: {},
-        body: { package: 'com.a.one' },
-      },
+    return recordHandler(
+      { method: 'POST', query: {}, headers, body },
       res
-    );
+    ).then(() => res);
+  }
+
+  test('increments the global and per-package counters', async () => {
+    seed(ONE);
+    const res = await record({ package: 'com.a.one' });
 
     expect(res.statusCode).toBe(200);
     expect(res.body).toEqual({ ok: true, package: 'com.a.one' });
@@ -162,30 +171,113 @@ describe('POST /api/v2/downloads/record', () => {
   test('canonicalises the package name to lowercase', async () => {
     // The listing endpoint reads downloads:<lowercase>, so a mixed-case write
     // here would silently strand the count.
-    const res = makeRes();
-    await recordHandler(
-      {
-        method: 'POST',
-        query: {},
-        headers: {},
-        body: { package: 'Com.A.One' },
-      },
-      res
-    );
+    seed(ONE);
+    const res = await record({ package: 'Com.A.One' });
 
     expect(res.body.package).toBe('com.a.one');
     expect(store.get('downloads:com.a.one')).toBe('1');
   });
 
   test('rejects a missing or malformed package name', async () => {
-    for (const body of [{}, { package: '' }, { package: 'bad name!' }]) {
-      const res = makeRes();
-      await recordHandler(
-        { method: 'POST', query: {}, headers: {}, body },
-        res
-      );
+    for (const body of [
+      {},
+      { package: '' },
+      { package: 'bad name!' },
+      { package: 'nodots' },
+      { package: `com.${'a'.repeat(300)}` },
+    ]) {
+      const res = await record(body);
       expect(res.statusCode).toBe(400);
       expect(res.body.error).toBe('invalid_request');
+    }
+    expect(store.size).toBe(0);
+  });
+
+  test('rejects a malformed version', async () => {
+    seed(ONE);
+    for (const version of ['v1', '1.0', 42, '01.0.0']) {
+      const res = await record({ package: 'com.a.one', version });
+      expect(res.statusCode).toBe(400);
+    }
+    expect(store.get('downloads:total')).toBeUndefined();
+  });
+
+  test('an unknown package is not counted and creates no key', async () => {
+    const res = await record({ package: 'com.never.published' });
+
+    expect(res.statusCode).toBe(404);
+    expect(store.has('downloads:com.never.published')).toBe(false);
+    expect(store.has('downloads:total')).toBe(false);
+  });
+
+  test('an unknown version of a known package is not counted', async () => {
+    seed(ONE);
+    const res = await record({ package: 'com.a.one', version: '9.9.9' });
+
+    expect(res.statusCode).toBe(404);
+    expect(store.get('downloads:com.a.one')).toBeUndefined();
+  });
+
+  test('counts a known version', async () => {
+    seed(ONE);
+    const res = await record({ package: 'com.a.one', version: '1.0.0' });
+
+    expect(res.statusCode).toBe(200);
+    expect(store.get('downloads:com.a.one')).toBe('1');
+  });
+
+  test('refuses an oversized body', async () => {
+    seed(ONE);
+    const res = await record(
+      { package: 'com.a.one' },
+      { 'content-length': '5000' }
+    );
+
+    expect(res.statusCode).toBe(413);
+    expect(store.get('downloads:total')).toBeUndefined();
+  });
+
+  test('counts one client once per package, but distinct clients separately', async () => {
+    seed(ONE);
+    const a = { 'x-forwarded-for': '203.0.113.1, 10.0.0.1' };
+    const b = { 'x-forwarded-for': '203.0.113.2' };
+
+    for (const headers of [a, a, a, b]) {
+      const res = await record({ package: 'com.a.one' }, headers);
+      // Repeats still succeed; they are just not counted again.
+      expect(res.statusCode).toBe(200);
+      expect(res.body).toEqual({ ok: true, package: 'com.a.one' });
+    }
+
+    expect(store.get('downloads:com.a.one')).toBe('2');
+    expect(store.get('downloads:total')).toBe('2');
+  });
+
+  test('falls back to x-real-ip and never stores the raw address', async () => {
+    seed(ONE);
+    await record({ package: 'com.a.one' }, { 'x-real-ip': '198.51.100.7' });
+    await record({ package: 'com.a.one' }, { 'x-real-ip': '198.51.100.7' });
+
+    expect(store.get('downloads:com.a.one')).toBe('1');
+    expect([...store.keys()].some(k => k.includes('198.51.100.7'))).toBe(false);
+  });
+
+  test('a storage failure answers a generic 500', async () => {
+    seed(ONE);
+    const spy = jest
+      .spyOn(mockKv, 'incr')
+      .mockRejectedValueOnce(new Error('WRONGTYPE Operation against a key'));
+    const err = jest.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      const res = await record({ package: 'com.a.one' });
+      expect(res.statusCode).toBe(500);
+      expect(res.body).toEqual({
+        error: 'internal_error',
+        message: 'Internal error',
+      });
+    } finally {
+      spy.mockRestore();
+      err.mockRestore();
     }
   });
 
@@ -196,16 +288,55 @@ describe('POST /api/v2/downloads/record', () => {
   });
 });
 
+describe('server errors do not expose internals', () => {
+  async function failingGet(handler, query) {
+    const spy = jest
+      .spyOn(mockKv, 'get')
+      .mockRejectedValue(
+        new Error('WRONGTYPE Operation against a key holding the wrong kind')
+      );
+    const err = jest.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      const res = makeRes();
+      await handler({ method: 'GET', query, headers: {} }, res);
+      return res;
+    } finally {
+      spy.mockRestore();
+      err.mockRestore();
+    }
+  }
+
+  test('GET /api/v2/orgs/:orgId', async () => {
+    const res = await failingGet(orgHandler, { orgId: 'foo:members' });
+    expect(res.statusCode).toBe(500);
+    expect(res.body).toEqual({
+      error: 'internal_error',
+      message: 'Internal error',
+    });
+  });
+
+  test('GET /api/v2/packages/:package', async () => {
+    seed({ 'com.a.one': { '1.0.0': { author: 'alice', pubkey: 'pk' } } });
+    const res = await failingGet(packageHandler, { package: 'com.a.one' });
+    expect(res.statusCode).toBe(500);
+    expect(res.body).toEqual({
+      error: 'internal_error',
+      message: 'Internal error',
+    });
+  });
+});
+
 describe('download counts surface in the listing', () => {
   test('a recorded download appears on the bundle', async () => {
     // End-to-end across two handlers and the canonical-casing rule above.
     seed({ 'com.a.one': { '1.0.0': { author: 'alice', pubkey: 'pk-alice' } } });
 
+    // Two distinct clients: one client is counted once per window.
     await recordHandler(
       {
         method: 'POST',
         query: {},
-        headers: {},
+        headers: { 'x-forwarded-for': '203.0.113.1' },
         body: { package: 'com.a.one' },
       },
       makeRes()
@@ -214,7 +345,7 @@ describe('download counts surface in the listing', () => {
       {
         method: 'POST',
         query: {},
-        headers: {},
+        headers: { 'x-forwarded-for': '203.0.113.2' },
         body: { package: 'com.a.one' },
       },
       makeRes()
@@ -263,8 +394,12 @@ describe('listing sanitization', () => {
     expect(res.body[0].metadata._ownerEmail).toBeUndefined();
     expect(res.body[0].metadata._adminVerified).toBeUndefined();
     expect(res.body[0].metadata.author).toBe('alice');
-    // The private flag is still reflected in the public boolean.
-    expect(res.body[0].verified).toBe(true);
+    // ⚠️ SECURITY REGRESSION: `_adminVerified` in the manifest must NOT confer
+    // the badge. The manifest is publisher-signed, so honouring it let a
+    // publisher grant their own "verified". `verified` comes only from an admin
+    // decision on record; this package has none and its owner
+    // (alice@example.com) is not a trusted publisher, so it is NOT verified.
+    expect(res.body[0].verified).toBe(false);
   });
 
   test('a calimero.network owner is trusted, so the package is verified too', async () => {

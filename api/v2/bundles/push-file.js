@@ -16,7 +16,14 @@ const {
 } = require('@calimero-network/registry-backend/src/lib/bundle-storage-kv');
 const {
   validateBundleMetadata,
+  isValidPackageName,
+  isValidPackageVersion,
+  reservedPackagePrefix,
+  isStaffEmail,
+  PACKAGE_NAME_REGEX,
   CATEGORIES,
+  stripReservedMetadata,
+  linkProblems,
 } = require('@calimero-network/registry-backend/src/lib/metadata-policy');
 const {
   verifyManifest,
@@ -24,13 +31,20 @@ const {
   normalizeSignature,
 } = require('#api-lib/verify');
 const {
-  isAllowedToPublish,
+  resolvePublishPermission,
   getPkg2Org,
   setPkg2Org,
 } = require('#api-lib/org-storage');
+const {
+  storeRefusal,
+} = require('@calimero-network/registry-backend/src/lib/bundle-integrity');
+const {
+  stampOwnerEmail,
+} = require('@calimero-network/registry-backend/src/lib/package-owner');
 const { resolveUser } = require('#api-lib/auth-helpers');
 const { getUserByEmail } = require('#api-lib/user-storage');
-const { isBot } = require('#api-lib/admin-storage');
+const { isBot, isAdmin } = require('#api-lib/admin-storage');
+const { LOGIN_REQUIRED } = require('#api-lib/auth-helpers');
 const {
   autolinkBotPackage,
 } = require('@calimero-network/registry-shared/bot-autolink');
@@ -60,7 +74,7 @@ function parseMultipart(req) {
         limits: { fileSize: 100 * 1024 * 1024 },
       });
     } catch (err) {
-      return reject(new Error('Invalid multipart request: ' + err.message));
+      return reject(new Error(`Invalid multipart request: ${err.message}`));
     }
 
     let found = false;
@@ -104,10 +118,16 @@ function findManifest(dir) {
 }
 
 module.exports = async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*');
+  // SECURITY: never combine a reflected arbitrary origin with credentials.
+  // Reflecting req.headers.origin AND Access-Control-Allow-Credentials: true
+  // lets any site read this endpoint's authenticated responses with the
+  // victim's cookies. Publishing is either same-origin (the web uploader —
+  // cookies flow without CORS) or a CLI Bearer token (no Origin header, no CORS
+  // preflight), so cross-site credentialed access is never needed. Drop the
+  // credentials flag; the '*' allow-origin below is then safe.
+  res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST')
@@ -115,6 +135,13 @@ module.exports = async function handler(req, res) {
 
   let tempDir;
   try {
+    // A publish needs an account; see push.js. Checked before the upload is
+    // read so an anonymous caller cannot make the server buffer 100 MB.
+    const user = await resolveUser(req);
+    if (!user?.email) {
+      return res.status(401).json(LOGIN_REQUIRED);
+    }
+
     // Parse multipart
     let buffer, filename;
     try {
@@ -162,6 +189,22 @@ module.exports = async function handler(req, res) {
       });
     }
 
+    // Validate the package id and version shape before anything is stored. A
+    // malformed id or a non-semver version otherwise reaches storage and breaks
+    // ordering/lookup downstream.
+    if (!isValidPackageName(bundleManifest.package)) {
+      return res.status(400).json({
+        error: 'invalid_package_name',
+        message: `Package id must be lowercase reverse-DNS (e.g. com.example.app) matching ${PACKAGE_NAME_REGEX}.`,
+      });
+    }
+    if (!isValidPackageVersion(bundleManifest.appVersion)) {
+      return res.status(400).json({
+        error: 'invalid_version',
+        message: `appVersion must be a valid semver version (got "${bundleManifest.appVersion}").`,
+      });
+    }
+
     // Require signature
     const sig = normalizeSignature(bundleManifest?.signature);
     if (!sig) {
@@ -175,29 +218,80 @@ module.exports = async function handler(req, res) {
     try {
       await verifyManifest(bundleManifest);
     } catch (err) {
+      // The verifier failing to run is a server fault, not a bad signature.
+      if (err?.code === 'verifier_unavailable') throw err;
       return res.status(400).json({
         error: 'invalid_signature',
         message: err.message || 'Signature verification failed',
       });
     }
 
-    // Resolve user from session cookie or bearer token
-    const user = await resolveUser(req);
-
     // Look up username so we never store emails as the public author
-    let displayAuthor = null;
-    let ownerEmail = null;
-    if (user?.email) {
-      ownerEmail = user.email;
-      const profile = await getUserByEmail(user.email);
-      displayAuthor = profile?.username || user.email;
-    }
+    const ownerEmail = user.email;
+    const profile = await getUserByEmail(user.email);
+    // Privacy: never fall back to the email for the public `author` — it is
+    // rendered on cards, the detail page and /developers/<author>. A user with
+    // no username publishes with no public author (null); the email stays in
+    // `_ownerEmail` for ownership only. `author` is optional in the metadata
+    // policy, so null does not block the publish.
+    const displayAuthor = profile?.username || null;
 
     const store = getStorage();
+
+    // A deleted name/version is retired, not free: refuse a republish rather
+    // than let it silently resurrect the old package's trust, assets and org
+    // link (replay-resurrection / name re-registration).
+    if (
+      await store.isRetired(bundleManifest.package, bundleManifest.appVersion)
+    ) {
+      return res.status(409).json({
+        error: 'name_retired',
+        message:
+          'This package name or version has been deleted and cannot be re-published.',
+      });
+    }
+
     const incomingKey = getPublicKeyFromManifest(bundleManifest);
     const versions = await store.getBundleVersions(bundleManifest.package);
 
     bundleManifest.metadata = bundleManifest.metadata || {};
+
+    // The manifest is signed, so any `metadata._*` the publisher put in
+    // (_adminVerified, _ownerEmail) survived verification. Drop them before the
+    // server stamps its own below — otherwise a publisher grants themselves the
+    // verified badge and a trusted-publisher owner email.
+    stripReservedMetadata(bundleManifest);
+    // `_ownerKeys` is server-owned too (it decides who may publish next); only
+    // the ownership check below may set it.
+    delete bundleManifest._ownerKeys;
+
+    // `metadata.author` is display-only and server-derived: it is stamped
+    // below from the publishing account's username (or inherited from the
+    // package's first version). Whatever the manifest carried is dropped so
+    // the stored author always names a registry account.
+    delete bundleManifest.metadata.author;
+
+    // Reserve the Calimero package namespace for FIRST publishes only (see the
+    // same guard in push.js). Existing packages are governed by the ownership
+    // check below, so re-publishing a version is never blocked here; only
+    // CREATING a new `com.calimero.*` / `network.calimero.*` package requires a
+    // staff email, a site admin, or a registry-managed bot.
+    if (versions.length === 0) {
+      const reservedPrefix = reservedPackagePrefix(bundleManifest.package);
+      if (reservedPrefix) {
+        const email = user?.email;
+        const allowed =
+          isStaffEmail(email) ||
+          (!!email && (await isAdmin(email))) ||
+          (!!email && (await isBot(email)));
+        if (!allowed) {
+          return res.status(403).json({
+            error: 'reserved_prefix',
+            message: `The "${reservedPrefix}" package namespace is reserved for Calimero.`,
+          });
+        }
+      }
+    }
 
     if (versions.length > 0) {
       // Preserve author from oldest version (locked to first publisher)
@@ -210,31 +304,41 @@ module.exports = async function handler(req, res) {
       const existingAuthor = manifestOldest?.metadata?.author;
       if (existingAuthor) {
         bundleManifest.metadata.author = existingAuthor;
-        bundleManifest.metadata._ownerEmail =
-          manifestOldest?.metadata?._ownerEmail || existingAuthor;
-      } else if (displayAuthor) {
-        bundleManifest.metadata.author = displayAuthor;
-        bundleManifest.metadata._ownerEmail = ownerEmail;
+      } else if (ownerEmail) {
+        // Public author is the username only; the email is never promoted to
+        // `author`.
+        if (displayAuthor) bundleManifest.metadata.author = displayAuthor;
       }
+      // Ownership (_ownerEmail) is inherited from the existing versions, never
+      // taken from the account pushing this version.
+      await stampOwnerEmail({
+        store,
+        manifest: bundleManifest,
+        versions,
+        publisherEmail: ownerEmail,
+        known: { [oldestVersion]: manifestOldest },
+      });
 
-      // Check ownership (key match or org membership)
+      // Check ownership (a package key, or an organization admin/owner)
       const manifestLatest = await store.getBundleManifest(
         bundleManifest.package,
         latestVersion
       );
-      const allowed = await isAllowedToPublish(
+      const permission = await resolvePublishPermission(
         manifestLatest,
         incomingKey,
         bundleManifest.package,
         user?.email
       );
-      if (!allowed) {
+      if (!permission.allowed) {
         return res.status(403).json({
           error: 'not_owner',
           message:
-            'Only the package owner or an organization member can publish new versions.',
+            'Only the package owner or an organization admin can publish new versions.',
         });
       }
+      // An organization publish keeps the package's existing key set.
+      if (permission.viaOrg) bundleManifest._ownerKeys = permission.ownerKeys;
 
       // New version must be greater than latest
       const incoming = bundleManifest.appVersion;
@@ -248,10 +352,20 @@ module.exports = async function handler(req, res) {
           message: `New version (${incoming}) must be greater than latest (${latestVersion}).`,
         });
       }
-    } else if (displayAuthor) {
-      // New package — set author to username, store email privately
-      bundleManifest.metadata.author = displayAuthor;
+    } else if (ownerEmail) {
+      // New package — public author is the username (or nothing when the user
+      // has not set one); the email stays private in _ownerEmail.
+      if (displayAuthor) bundleManifest.metadata.author = displayAuthor;
       bundleManifest.metadata._ownerEmail = ownerEmail;
+    }
+
+    const badLinks = linkProblems(bundleManifest.links);
+    if (badLinks.length > 0) {
+      return res.status(400).json({
+        error: 'invalid_links',
+        message: badLinks.join(' '),
+        problems: badLinks,
+      });
     }
 
     // Metadata policy. THIS IS THE PRODUCTION PATH: Vercel serves these
@@ -299,10 +413,12 @@ module.exports = async function handler(req, res) {
       ...(policy.warnings.length ? { warnings: policy.warnings } : {}),
     });
   } catch (err) {
+    const refused = storeRefusal(err);
+    if (refused) return res.status(refused.status).json(refused.body);
     console.error('push-file error:', err);
     return res
       .status(500)
-      .json({ error: 'internal_error', message: err?.message ?? String(err) });
+      .json({ error: 'internal_error', message: 'Internal error' });
   } finally {
     if (tempDir && fs.existsSync(tempDir)) {
       try {
