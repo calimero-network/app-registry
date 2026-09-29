@@ -176,3 +176,23 @@ describe('401 recovery', () => {
     expect(calls.filter(u => u.includes('/auth/refresh'))).toHaveLength(1);
   });
 });
+
+describe('error logging', () => {
+  it('does not log the anonymous "not signed in" answer from /auth/me', async () => {
+    scenario({
+      refreshStatus: 401,
+      refreshError: 'no_refresh_token',
+      failures: 99,
+    });
+
+    await expect(api.get('/auth/me')).rejects.toBeTruthy();
+    expect(console.error).not.toHaveBeenCalled();
+  });
+
+  it('still logs other failed requests', async () => {
+    route = () => ({ status: 500, data: { error: 'internal_error' } });
+
+    await expect(api.get('/thing')).rejects.toBeTruthy();
+    expect(console.error).toHaveBeenCalledWith('API Error:', expect.anything());
+  });
+});
