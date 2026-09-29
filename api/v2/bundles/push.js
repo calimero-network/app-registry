@@ -26,6 +26,9 @@ const {
 const {
   storeRefusal,
 } = require('@calimero-network/registry-backend/src/lib/bundle-integrity');
+const {
+  stampOwnerEmail,
+} = require('@calimero-network/registry-backend/src/lib/package-owner');
 const { resolveUser } = require('#api-lib/auth-helpers');
 const { getUserByEmail } = require('#api-lib/user-storage');
 const { isBot, isAdmin } = require('#api-lib/admin-storage');
@@ -204,14 +207,23 @@ module.exports = async function handler(req, res) {
       const existingAuthor = manifestOldest?.metadata?.author;
       if (existingAuthor) {
         bundleManifest.metadata.author = existingAuthor;
-        bundleManifest.metadata._ownerEmail =
-          manifestOldest?.metadata?._ownerEmail || existingAuthor;
       } else if (ownerEmail) {
-        // Public author is the username only; the email is kept privately in
-        // _ownerEmail for ownership checks and is never promoted to `author`.
+        // Public author is the username only; the email is never promoted to
+        // `author`.
         if (displayAuthor) bundleManifest.metadata.author = displayAuthor;
-        bundleManifest.metadata._ownerEmail = ownerEmail;
       }
+      // Ownership (_ownerEmail) is inherited from the existing versions, never
+      // taken from the account pushing this version.
+      await stampOwnerEmail({
+        store,
+        manifest: bundleManifest,
+        versions,
+        publisherEmail: ownerEmail,
+        known: {
+          [latestVersion]: manifestLatest,
+          [oldestVersion]: manifestOldest,
+        },
+      });
     } else if (ownerEmail) {
       // New package — public author is the username (or nothing when the user
       // has not set one); the email stays private in _ownerEmail.
