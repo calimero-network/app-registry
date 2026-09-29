@@ -10,7 +10,8 @@
  *    raw value.
  *  - LEGACY tokens were stored under the raw value (`apitoken:<token>`) with no
  *    expiry. verify() looks up the hashed key FIRST, then falls back to the raw
- *    key, so those tokens keep resolving untouched.
+ *    key, so those tokens keep resolving untouched. That fallback accepts only
+ *    records that are genuinely legacy: no expiresAt and no `hashed` marker.
  *  - NEW tokens carry an expiresAt and are rejected once past it. A record with
  *    NO expiresAt (every legacy token) is grandfathered and never expires — we
  *    must not invalidate credentials users already hold.
@@ -48,6 +49,19 @@ function readRecord(raw) {
   }
 }
 
+// A SHA-256 hex digest: the shape of every key create() writes. Legacy tokens
+// were 32-byte base64url values (43 chars), never 64 hex characters.
+const HASH_HEX_RE = /^[0-9a-f]{64}$/i;
+
+function isLegacyShaped(value) {
+  return !HASH_HEX_RE.test(value);
+}
+
+// Legacy records predate hashing and never carried an expiry or the marker.
+function isLegacyRecord(rec) {
+  return rec.hashed !== true && rec.expiresAt == null;
+}
+
 function createApiTokenStorage(
   kv,
   { maxAgeSeconds = DEFAULT_MAX_AGE_SECONDS } = {}
@@ -66,10 +80,13 @@ function createApiTokenStorage(
       name: name || email,
       label: (typeof label === 'string' && label.trim()) || 'CLI token',
       createdAt: new Date(now).toISOString(),
-      // Grandfathering hinges on this field's presence: only tokens that carry
-      // an expiresAt can expire.
-      expiresAt: now + maxAgeSeconds * 1000,
       ...extra,
+      // Grandfathering hinges on this field's presence: only tokens that carry
+      // an expiresAt can expire. Set after `extra` so it cannot be dropped.
+      expiresAt: now + maxAgeSeconds * 1000,
+      // Marks a record stored under the hashed key; the legacy raw-key lookup
+      // in verify() never accepts a record carrying it.
+      hashed: true,
     };
     // Store under the hash, and index the hash (not the raw token) so neither
     // the record key nor the user's set exposes a replayable value.
@@ -91,11 +108,15 @@ function createApiTokenStorage(
     // Hashed lookup is the common path for anything minted after this change.
     let key = TOKEN_PREFIX + hashToken(value);
     let rec = readRecord(await kv.get(key));
-    if (!rec) {
+    if (!rec && isLegacyShaped(value)) {
       // Fall back to the pre-hashing key so existing plaintext tokens still
       // work. This single fallback is what makes the change non-breaking.
       key = TOKEN_PREFIX + value;
       rec = readRecord(await kv.get(key));
+      // Only a genuine legacy record may resolve here: those were written
+      // before hashing, with no expiry and no hashed marker. Anything else
+      // under this key was minted by create() and must be presented raw.
+      if (rec && !isLegacyRecord(rec)) rec = null;
     }
     if (!rec || !rec.email) return null;
 
