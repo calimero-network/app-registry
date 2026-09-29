@@ -20,7 +20,6 @@ const {
 const {
   verifyManifest,
   getPublicKeyFromManifest,
-  isAllowedOwner,
   normalizeSignature,
 } = require('#api-lib/verify');
 const {
@@ -33,7 +32,11 @@ const { resolveUser } = require('#api-lib/auth-helpers');
 const { getUserByEmail } = require('#api-lib/user-storage');
 const { isBot, isAdmin } = require('#api-lib/admin-storage');
 const { LOGIN_REQUIRED } = require('#api-lib/auth-helpers');
-const { getPkg2Org, setPkg2Org } = require('#api-lib/org-storage');
+const {
+  getPkg2Org,
+  setPkg2Org,
+  resolvePublishPermission,
+} = require('#api-lib/org-storage');
 const {
   autolinkBotPackage,
 } = require('@calimero-network/registry-shared/bot-autolink');
@@ -159,6 +162,9 @@ module.exports = async function handler(req, res) {
     // server stamps its own below — otherwise a publisher grants themselves the
     // verified badge and a trusted-publisher owner email.
     stripReservedMetadata(bundleManifest);
+    // `_ownerKeys` is server-owned too (it decides who may publish next); only
+    // the ownership check below may set it.
+    delete bundleManifest._ownerKeys;
 
     // `metadata.author` is display-only and server-derived: it is stamped
     // below from the publishing account's username (or inherited from the
@@ -197,13 +203,22 @@ module.exports = async function handler(req, res) {
         bundleManifest.package,
         latestVersion
       );
-      if (!isAllowedOwner(manifestLatest, incomingKey)) {
+      // A package key, or an admin/owner of the package's organization.
+      const permission = await resolvePublishPermission(
+        manifestLatest,
+        incomingKey,
+        bundleManifest.package,
+        user?.email
+      );
+      if (!permission.allowed) {
         return res.status(403).json({
           error: 'not_owner',
           message:
             'Package name is already registered to a different key; you are not the owner.',
         });
       }
+      // An organization publish keeps the package's existing key set.
+      if (permission.viaOrg) bundleManifest._ownerKeys = permission.ownerKeys;
       // Author is locked from the oldest (first) version, not the latest
       const oldestVersion = versions[versions.length - 1];
       const manifestOldest = await store.getBundleManifest(

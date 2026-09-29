@@ -446,7 +446,7 @@ The whole `.mpk` rides along under a `_binary` field; `_`-prefixed keys are stri
     The registry would accept that publish; every node with the app installed would not see it.
     That is why the CI step above compares the signer directly and refuses a mismatch - deliberately stricter than the endpoint, because the endpoint's answer is not the one that matters on the other end.
 
-The browser upload endpoint, `POST /api/v2/bundles/push-file`, authorizes differently: it accepts **org membership** in place of a key match, and it rejects a version that is not greater than the latest published one.
+Both push endpoints also accept a version signed with another key when the publishing account is an **admin or owner** of the org linked to the package; the package's existing key set is kept as it was. The browser upload endpoint, `POST /api/v2/bundles/push-file`, additionally rejects a version that is not greater than the latest published one.
 `push` leaves version ordering to the caller, which is what `--bump` is for.
 
 ---

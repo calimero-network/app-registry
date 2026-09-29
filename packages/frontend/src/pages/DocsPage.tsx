@@ -972,11 +972,11 @@ cargo mero publish dist/com.example.my-app-1.2.4.mpk`}</CodeBlock>
               A signed <Code>.mpk</Code> can also be published without a token.
               Sign in, open <strong className='text-neutral-200'>Upload</strong>{' '}
               in the top nav, and drop the file in. The browser upload
-              authenticates with your session instead of an API key, and it
-              accepts{' '}
-              <strong className='text-neutral-200'>org membership</strong> in
-              place of a key match: if the package is linked to an org you
-              belong to, your own signing key is enough.
+              authenticates with your session instead of an API key. If the
+              package is linked to an org where you are an{' '}
+              <strong className='text-neutral-200'>admin or owner</strong>, your
+              own signing key is enough; the package&apos;s existing keys stay
+              as they were.
             </P>
             <Note>
               <Upload className='inline w-3.5 h-3.5 text-brand-600 mr-1 -mt-0.5' />

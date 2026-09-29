@@ -35,6 +35,7 @@ const {
 } = require('./lib/verify');
 const {
   isAllowedToPublish,
+  resolvePublishPermission,
   getPkg2Org,
   setPkg2Org,
   getOrgMemberRole,
@@ -802,6 +803,9 @@ async function buildServer() {
       };
     }
     const incomingKey = getPublicKeyFromManifest(bundleManifest);
+    // `_ownerKeys` is server-owned (it decides who may publish next); only the
+    // ownership check below may set it.
+    delete bundleManifest._ownerKeys;
     const versions = await bundleStorage.getBundleVersions(
       bundleManifest.package
     );
@@ -868,22 +872,24 @@ async function buildServer() {
         bundleManifest.package,
         latestVersion
       );
-      const allowed = await isAllowedToPublish(
+      const permission = await resolvePublishPermission(
         manifestLatest,
         incomingKey,
         bundleManifest.package,
         userEmail
       );
-      if (!allowed) {
+      if (!permission.allowed) {
         throw {
           statusCode: 403,
           body: {
             error: 'not_owner',
             message:
-              'Only the package owner (signer or a key in manifest.owners) or an organization member can publish new versions.',
+              'Only the package owner (signer or a key in manifest.owners) or an organization admin can publish new versions.',
           },
         };
       }
+      // An organization publish keeps the package's existing key set.
+      if (permission.viaOrg) bundleManifest._ownerKeys = permission.ownerKeys;
       // Reject if new version is not greater than latest
       const latest = latestVersion;
       const incoming = bundleManifest.appVersion;

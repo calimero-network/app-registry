@@ -223,20 +223,37 @@ function getPublicKeyFromManifest(manifest) {
 }
 
 /**
- * Check if an incoming key is allowed to publish or edit (ownership).
- * If manifest.owners is a non-empty array, any key in that array is allowed.
- * Otherwise, only the signer key of the manifest (first publisher) is allowed.
+ * The set of signing keys that may publish or edit after this manifest.
+ *
+ * - `_ownerKeys` (server-stamped, outside the signature) wins when present: a
+ *   version published by an organization admin with their own key carries the
+ *   package's existing key set forward here, so that publish does not change
+ *   who owns the package by key.
+ * - Otherwise a non-empty `owners[]` from the signed manifest.
+ * - Otherwise the manifest's own signer.
+ *
+ * @returns {string[]}
+ */
+function getOwnerKeys(manifest) {
+  const clean = list =>
+    Array.isArray(list)
+      ? list.filter(k => typeof k === 'string' && k.trim() !== '')
+      : [];
+  const stamped = clean(manifest?._ownerKeys);
+  if (stamped.length > 0) return stamped;
+  const owners = clean(manifest?.owners);
+  if (owners.length > 0) return owners;
+  const signer = getPublicKeyFromManifest(manifest);
+  return signer != null ? [signer] : [];
+}
+
+/**
+ * Check if an incoming key is allowed to publish or edit (ownership): the key
+ * must be in getOwnerKeys(existingManifest).
  */
 function isAllowedOwner(existingManifest, incomingKey) {
   if (incomingKey == null) return false;
-  const owners = existingManifest?.owners;
-  if (Array.isArray(owners) && owners.length > 0) {
-    return owners.some(
-      k => typeof k === 'string' && k.trim() !== '' && k === incomingKey
-    );
-  }
-  const ownerKey = getPublicKeyFromManifest(existingManifest);
-  return ownerKey != null && ownerKey === incomingKey;
+  return getOwnerKeys(existingManifest).includes(incomingKey);
 }
 
 /**
@@ -332,6 +349,7 @@ module.exports = {
   canonicalizeJSON,
   getPublicKeyFromManifest,
   isAllowedOwner,
+  getOwnerKeys,
   normalizeSignature,
   removeSignature: removeTransientFields, // Keep for backward compatibility
   removeTransientFields,
