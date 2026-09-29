@@ -1,7 +1,7 @@
 /**
  * Admin user management.
  * DELETE /api/admin/users/:userId      — delete user
- * PATCH  /api/admin/users/:userId      — body: { action: 'verify'|'unverify'|'make_admin'|'remove_admin'|'blacklist'|'unblacklist', reason? }
+ * PATCH  /api/admin/users/:userId      — body: { action: 'verify'|'unverify'|'make_admin'|'remove_admin'|'blacklist'|'unblacklist'|'revoke_tokens', reason? }
  */
 const { requireAdmin } = require('#api-lib/auth-helpers');
 const { kv } = require('#api-lib/kv-client');
@@ -29,7 +29,19 @@ async function revokeAllApiTokens(email) {
   const list = Array.isArray(members) ? members : [];
   await Promise.all(list.map(m => kv.del(TOKEN_PREFIX + m)));
   await kv.del(setKey);
+  return list.length;
 }
+
+// Ends every credential the account holds (API tokens and refresh sessions)
+// while leaving the profile, packages and memberships in place.
+async function revokeAllCredentials(email) {
+  const apiTokens = await revokeAllApiTokens(email);
+  const refreshTokens = await refresh.revokeAllForEmail(email);
+  return { apiTokens, refreshTokens };
+}
+
+const sameEmail = (a, b) =>
+  String(a || '').toLowerCase() === String(b || '').toLowerCase();
 
 module.exports = async function handler(req, res) {
   const admin = await requireAdmin(req, res);
@@ -103,7 +115,8 @@ module.exports = async function handler(req, res) {
         if (email.endsWith('@calimero.network')) {
           return res.status(400).json({
             error: 'cannot_remove',
-            message: 'Cannot remove admin from @calimero.network accounts',
+            message:
+              'Cannot remove admin from @calimero.network accounts; suspend the account instead',
           });
         }
         await removeAdmin(email);
@@ -111,22 +124,31 @@ module.exports = async function handler(req, res) {
 
       case 'blacklist':
         if (!email) return res.status(400).json({ error: 'no_email' });
-        if (email.endsWith('@calimero.network')) {
+        // Any account can be suspended, including @calimero.network ones, so
+        // an admin granted by domain can be offboarded. Only self-suspension
+        // is refused, since it would lock the acting admin out.
+        if (sameEmail(email, admin.email)) {
           return res.status(400).json({
-            error: 'cannot_blacklist',
-            message: 'Cannot blacklist @calimero.network accounts',
+            error: 'cannot_blacklist_self',
+            message: 'Cannot blacklist your own account',
           });
         }
         await blacklistUser(email, reason, admin.email);
         // isBlacklisted stops future resolveUser calls, but revoke the tokens
-        // outright so nothing depends on that check staying in place.
-        await revokeAllApiTokens(email);
+        // and sessions outright so nothing depends on that check staying in place.
+        await revokeAllCredentials(email);
         return res.status(200).json({ ok: true });
 
       case 'unblacklist':
         if (!email) return res.status(400).json({ error: 'no_email' });
         await unblacklistUser(email);
         return res.status(200).json({ ok: true });
+
+      case 'revoke_tokens': {
+        if (!email) return res.status(400).json({ error: 'no_email' });
+        const revoked = await revokeAllCredentials(email);
+        return res.status(200).json({ ok: true, revoked });
+      }
 
       default:
         return res

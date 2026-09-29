@@ -25,6 +25,38 @@ const { canManagePackage } = createPackagePermissions({
 });
 
 /**
+ * Resolve the current user from the session cookie alone, ignoring any Bearer
+ * token. For actions that must come from an interactive login rather than a
+ * stored credential. Returns { id, email, name, username } or null.
+ */
+async function resolveSessionUser(req) {
+  const sessionSecret = process.env.SESSION_SECRET;
+  if (!sessionSecret) return null;
+  const cookieName = process.env.AUTH_COOKIE_NAME || 'app_registry_session';
+  const cookies = parseCookies(req.headers?.cookie);
+  const token = cookies[cookieName];
+  if (!token) return null;
+  try {
+    const payload = jwt.verify(token, sessionSecret, {
+      algorithms: ['HS256'],
+    });
+    if (payload?.email) {
+      if (await isBlacklisted(payload.email)) return null;
+      const profile = await getUserByEmail(payload.email);
+      return {
+        id: payload.sub,
+        email: payload.email,
+        name: payload.name,
+        username: profile?.username ?? null,
+      };
+    }
+  } catch {
+    /* fall through */
+  }
+  return null;
+}
+
+/**
  * Resolve current user from Bearer token or session cookie.
  * Returns { email, name, username } or null.
  */
@@ -54,34 +86,7 @@ async function resolveUser(req) {
     }
   }
 
-  // Try session cookie
-  const sessionSecret = process.env.SESSION_SECRET;
-  if (sessionSecret) {
-    const cookieName = process.env.AUTH_COOKIE_NAME || 'app_registry_session';
-    const cookies = parseCookies(req.headers?.cookie);
-    const token = cookies[cookieName];
-    if (token) {
-      try {
-        const payload = jwt.verify(token, sessionSecret, {
-          algorithms: ['HS256'],
-        });
-        if (payload?.email) {
-          if (await isBlacklisted(payload.email)) return null;
-          const profile = await getUserByEmail(payload.email);
-          return {
-            id: payload.sub,
-            email: payload.email,
-            name: payload.name,
-            username: profile?.username ?? null,
-          };
-        }
-      } catch {
-        /* fall through */
-      }
-    }
-  }
-
-  return null;
+  return resolveSessionUser(req);
 }
 
 /**
@@ -91,6 +96,11 @@ const LOGIN_REQUIRED = Object.freeze({
   error: 'unauthorized',
   message:
     'Login required or provide an API token (Authorization: Bearer <token>)',
+});
+
+const BOT_FORBIDDEN = Object.freeze({
+  error: 'bot_forbidden',
+  message: 'Bot accounts may only publish packages and new versions of them',
 });
 
 async function requireAuth(req, res) {
@@ -103,11 +113,7 @@ async function requireAuth(req, res) {
   // directly, so denying here confines them to exactly that surface, and any
   // future endpoint guarded by requireAuth excludes them by default.
   if (await isBot(user.email)) {
-    res.status(403).json({
-      error: 'bot_forbidden',
-      message:
-        'Bot accounts may only publish packages and new versions of them',
-    });
+    res.status(403).json(BOT_FORBIDDEN);
     return null;
   }
   return user;
@@ -165,7 +171,9 @@ async function requireAdmin(req, res) {
 
 module.exports = {
   LOGIN_REQUIRED,
+  BOT_FORBIDDEN,
   resolveUser,
+  resolveSessionUser,
   requireAuth,
   requireOrgAdminOrOwner,
   requireOrgOwner,

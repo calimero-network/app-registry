@@ -1,8 +1,13 @@
 /**
- * POST /api/auth/token — create a new API token (requires session cookie or Bearer token)
+ * POST /api/auth/token — create a new API token (session cookie required)
+ *
+ * Minting needs an interactive login: an API token cannot be used to create
+ * further tokens, the same rule revoke follows. Bot accounts are refused here
+ * as they are by requireAuth.
  */
 
-const { resolveUser } = require('#api-lib/auth-helpers');
+const { resolveSessionUser, BOT_FORBIDDEN } = require('#api-lib/auth-helpers');
+const { isBot } = require('#api-lib/admin-storage');
 const { apiTokens } = require('#api-lib/api-token-storage');
 
 module.exports = async function handler(req, res) {
@@ -13,12 +18,15 @@ module.exports = async function handler(req, res) {
   if (req.method !== 'POST')
     return res.status(405).json({ error: 'Method not allowed' });
 
-  const user = await resolveUser(req);
+  const user = await resolveSessionUser(req);
   if (!user) {
     return res.status(401).json({
       error: 'unauthorized',
-      message: 'Login required to create API tokens',
+      message: 'Session login required to create API tokens',
     });
+  }
+  if (await isBot(user.email)) {
+    return res.status(403).json(BOT_FORBIDDEN);
   }
 
   const label =

@@ -53,6 +53,7 @@ const createTokenHandler = require('../../../api/auth/token');
 const deleteUserHandler = require('../../../api/admin/users/[userId]');
 const callbackHandler = require('../../../api/auth/google/callback');
 const { resolveUser } = require('../../../api/lib/auth-helpers');
+const { refresh } = require('../../../api/lib/refresh-storage');
 const { claimUsername } = require('../../../api/lib/user-storage');
 const {
   hashToken,
@@ -163,6 +164,58 @@ describe('token hashing + backward compatibility', () => {
   });
 });
 
+describe('minting API tokens requires a session', () => {
+  function mintReq(headers) {
+    return { method: 'POST', headers, body: { label: 'x' } };
+  }
+
+  it('refuses a Bearer API token as the credential for minting another', async () => {
+    const existing = 'existing-token';
+    store.set(
+      `apitoken:${hashToken(existing)}`,
+      JSON.stringify({
+        email: 'dev@example.com',
+        name: 'Dev',
+        expiresAt: Date.now() + 1e9,
+      })
+    );
+    setFor('user_tokens:dev@example.com').add(hashToken(existing));
+
+    const res = makeRes();
+    await createTokenHandler(
+      mintReq({ authorization: `Bearer ${existing}` }),
+      res
+    );
+    expect(res.statusCode).toBe(401);
+    // Nothing new was written for the account.
+    expect([...setFor('user_tokens:dev@example.com')]).toEqual([
+      hashToken(existing),
+    ]);
+  });
+
+  it('refuses a bot account even with a valid session', async () => {
+    setFor('bot:set').add('ci@example.com');
+    const res = makeRes();
+    await createTokenHandler(
+      mintReq({ cookie: sessionCookie('ci@example.com') }),
+      res
+    );
+    expect(res.statusCode).toBe(403);
+    expect(res.body.error).toBe('bot_forbidden');
+    expect([...setFor('user_tokens:ci@example.com')]).toEqual([]);
+  });
+
+  it('refuses a suspended account with a still-valid session', async () => {
+    setFor('blacklist:set').add('gone@example.com');
+    const res = makeRes();
+    await createTokenHandler(
+      mintReq({ cookie: sessionCookie('gone@example.com') }),
+      res
+    );
+    expect(res.statusCode).toBe(401);
+  });
+});
+
 describe('revocation on user delete', () => {
   function seedUserWithTokens() {
     store.set(
@@ -237,6 +290,86 @@ describe('revocation on user delete', () => {
     expect(store.has(`apitoken:${newHash}`)).toBe(false);
     expect(store.has('apitoken:legacyraw')).toBe(false);
     expect([...setFor('user_tokens:victim@example.com')]).toEqual([]);
+  });
+});
+
+describe('suspending and revoking any account', () => {
+  const STAFF = 'departed@calimero.network';
+  const ADMIN = 'admin@calimero.network';
+
+  async function seedStaff() {
+    store.set(
+      'user:S1',
+      JSON.stringify({ id: 'S1', email: STAFF, username: 'departed' })
+    );
+    store.set(`email2user:${STAFF}`, 'S1');
+    const apiHash = hashToken('staff-token');
+    store.set(
+      `apitoken:${apiHash}`,
+      JSON.stringify({ email: STAFF, expiresAt: Date.now() + 1e9 })
+    );
+    setFor(`user_tokens:${STAFF}`).add(apiHash);
+    const refreshToken = await refresh.issue(STAFF, 'S1');
+    return { apiHash, refreshToken };
+  }
+
+  function patch(action, asEmail = ADMIN) {
+    return {
+      method: 'PATCH',
+      query: { userId: 'S1' },
+      headers: { cookie: sessionCookie(asEmail) },
+      body: { action, reason: 'offboarded' },
+    };
+  }
+
+  it('blacklists a @calimero.network account and ends its credentials', async () => {
+    const { apiHash, refreshToken } = await seedStaff();
+    const res = makeRes();
+    await deleteUserHandler(patch('blacklist'), res);
+    expect(res.statusCode).toBe(200);
+    expect(setFor('blacklist:set').has(STAFF)).toBe(true);
+    expect(store.has(`apitoken:${apiHash}`)).toBe(false);
+    expect(await refresh.verify(refreshToken)).toBeNull();
+    // Neither a Bearer token nor a still-signed session resolves any more.
+    expect(
+      await resolveUser({ headers: { authorization: 'Bearer staff-token' } })
+    ).toBeNull();
+    expect(
+      await resolveUser({ headers: { cookie: sessionCookie(STAFF) } })
+    ).toBeNull();
+  });
+
+  it('refuses to blacklist the acting admin', async () => {
+    store.set(
+      'user:S1',
+      JSON.stringify({ id: 'S1', email: ADMIN, username: 'admin' })
+    );
+    const res = makeRes();
+    await deleteUserHandler(patch('blacklist'), res);
+    expect(res.statusCode).toBe(400);
+    expect(res.body.error).toBe('cannot_blacklist_self');
+    expect(setFor('blacklist:set').has(ADMIN)).toBe(false);
+  });
+
+  it('revoke_tokens ends API tokens and sessions but keeps the account', async () => {
+    const { apiHash, refreshToken } = await seedStaff();
+    const res = makeRes();
+    await deleteUserHandler(patch('revoke_tokens'), res);
+    expect(res.statusCode).toBe(200);
+    expect(res.body.revoked).toEqual({ apiTokens: 1, refreshTokens: 1 });
+    expect(store.has(`apitoken:${apiHash}`)).toBe(false);
+    expect([...setFor(`user_tokens:${STAFF}`)]).toEqual([]);
+    expect(await refresh.verify(refreshToken)).toBeNull();
+    // The profile stays and the account is not suspended.
+    expect(store.has('user:S1')).toBe(true);
+    expect(setFor('blacklist:set').has(STAFF)).toBe(false);
+  });
+
+  it('revoke_tokens is admin-only', async () => {
+    await seedStaff();
+    const res = makeRes();
+    await deleteUserHandler(patch('revoke_tokens', 'someone@example.com'), res);
+    expect(res.statusCode).toBe(403);
   });
 });
 
