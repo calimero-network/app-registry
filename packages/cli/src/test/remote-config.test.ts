@@ -192,6 +192,27 @@ describe('API key transport in commands', () => {
     );
   });
 
+  it('bundle edit sends its request to the --url registry', async () => {
+    await expect(
+      program().parseAsync(
+        [
+          'bundle',
+          'edit',
+          'com.example.app',
+          '1.0.0',
+          '--remote',
+          '--url',
+          'http://localhost:8082',
+        ],
+        { from: 'user' }
+      )
+    ).rejects.toThrow(/process\.exit\(1\)/);
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(String(fetchSpy.mock.calls[0][0])).toMatch(
+      /^http:\/\/localhost:8082\/api\/v2\/bundles\//
+    );
+  });
+
   it('bundle edit refuses an http:// registry', async () => {
     await expect(
       program().parseAsync(

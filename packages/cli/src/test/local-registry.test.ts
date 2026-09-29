@@ -283,6 +283,7 @@ describe('Local Registry', () => {
       it('rejects a mutating request with a foreign Origin', async () => {
         const app = server['server'];
         await server.seed();
+        expect(server['dataStore'].getAllBundles()).toHaveLength(1);
         const res = await app.inject({
           method: 'POST',
           url: '/local/reset',
@@ -294,7 +295,7 @@ describe('Local Registry', () => {
           payload: '{}',
         });
         expect(res.statusCode).toBe(403);
-        expect(server['dataStore'].getApps().length).toBeGreaterThan(0);
+        expect(server['dataStore'].getAllBundles()).toHaveLength(1);
       });
 
       it('rejects Origin: null on a mutating request', async () => {
@@ -332,6 +333,7 @@ describe('Local Registry', () => {
       it('rejects a non-JSON body on /local/* mutating routes', async () => {
         const app = server['server'];
         await server.seed();
+        expect(server['dataStore'].getAllBundles()).toHaveLength(1);
         for (const contentType of [
           undefined,
           'text/plain',
@@ -350,7 +352,7 @@ describe('Local Registry', () => {
           });
           expect(res.statusCode).toBe(415);
         }
-        expect(server['dataStore'].getApps().length).toBeGreaterThan(0);
+        expect(server['dataStore'].getAllBundles()).toHaveLength(1);
       });
 
       it('accepts a JSON request from a non-browser client or loopback origin', async () => {
@@ -365,6 +367,7 @@ describe('Local Registry', () => {
           payload: '{}',
         });
         expect(seeded.statusCode).toBe(200);
+        expect(server['dataStore'].getAllBundles()).toHaveLength(1);
 
         const reset = await app.inject({
           method: 'POST',
@@ -378,7 +381,7 @@ describe('Local Registry', () => {
           payload: '{}',
         });
         expect(reset.statusCode).toBe(200);
-        expect(server['dataStore'].getApps()).toHaveLength(0);
+        expect(server['dataStore'].getAllBundles()).toHaveLength(0);
       });
 
       it('does not apply the Origin check to GET requests', async () => {
