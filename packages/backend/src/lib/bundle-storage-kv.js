@@ -396,19 +396,12 @@ class BundleStorageKV {
    * instead — as the listing endpoints used to — serialises them, which on a
    * cross-region Redis (~85ms RTT) turned 50 packages into ~9.6s.
    *
-   * KNOWN GAP: `includeYanked` is currently only requested by the all-versions
-   * query, so the default per-package-latest listing never resolves yank
-   * status. A latest version that has been yanked (e.g. for a security issue)
-   * is therefore presented like any healthy release and is not filtered out.
-   * Enabling it for the browse listing is cheap — the lookups ride the same
-   * pipelined round trip — but it adds a field to the most-consumed endpoint's
-   * response, so it wants to be a deliberate API change rather than a
-   * side effect. Pinned in tests/bundle-listing-parity.test.js.
-   *
    * @param {object}  [opts]
    * @param {string}  [opts.package]      Restrict to a single package.
    * @param {boolean} [opts.allVersions]  Every version instead of just latest.
    * @param {boolean} [opts.includeYanked] Also resolve each version's yank flag.
+   * @param {boolean} [opts.skipYanked] Latest-only: pick the newest non-yanked version.
+   * @param {boolean} [opts.keepAllYanked] With skipYanked: keep fully yanked packages.
    * @returns {Promise<Array<{packageName: string, version: string, bundle: object, yanked?: boolean}>>}
    *          Ordered by package (as stored), then version descending. Versions
    *          whose manifest has since been deleted are dropped.
@@ -417,6 +410,8 @@ class BundleStorageKV {
     package: pkg = null,
     allVersions = false,
     includeYanked = false,
+    skipYanked = false,
+    keepAllYanked = false,
   } = {}) {
     // Round 1: the package index.
     const allPackages = await this.getAllBundles();
@@ -428,23 +423,50 @@ class BundleStorageKV {
       targets.map(p => this.getBundleVersions(p))
     );
 
+    const pickUnyanked = skipYanked && !allVersions;
+    const yankedSet = new Set();
+    if (pickUnyanked) {
+      const all = [];
+      targets.forEach((packageName, i) => {
+        for (const version of versionLists[i])
+          all.push(`${packageName}/${version}`);
+      });
+      const flags = await Promise.all(
+        all.map(key => kv.get(`bundle-yanked:${key}`))
+      );
+      all.forEach((key, i) => {
+        if (flags[i] === '1') yankedSet.add(key);
+      });
+    }
+
     const wanted = [];
     targets.forEach((packageName, i) => {
       // getBundleVersions already sorts descending, so [0] is the latest.
       const versions = versionLists[i];
       if (versions.length === 0) return;
-      for (const version of allVersions ? versions : [versions[0]]) {
-        wanted.push({ packageName, version });
+      if (allVersions) {
+        for (const version of versions) wanted.push({ packageName, version });
+        return;
       }
+      if (!pickUnyanked) {
+        wanted.push({ packageName, version: versions[0] });
+        return;
+      }
+      const version = versions.find(v => !yankedSet.has(`${packageName}/${v}`));
+      if (version) wanted.push({ packageName, version });
+      else if (keepAllYanked)
+        wanted.push({ packageName, version: versions[0] });
     });
     if (wanted.length === 0) return [];
+
+    const readYankFlags = includeYanked && !pickUnyanked;
 
     // Round 3: every manifest, plus every yank flag, in one pipelined flush.
     const [manifests, yankFlags] = await Promise.all([
       this.getBundleManifestsBatch(
         wanted.map(w => ({ package: w.packageName, version: w.version }))
       ),
-      includeYanked
+      readYankFlags
         ? Promise.all(
             wanted.map(w =>
               kv.get(`bundle-yanked:${w.packageName}/${w.version}`)
@@ -453,12 +475,17 @@ class BundleStorageKV {
         : Promise.resolve([]),
     ]);
 
+    const yankedAt = i =>
+      pickUnyanked
+        ? yankedSet.has(`${wanted[i].packageName}/${wanted[i].version}`)
+        : yankFlags[i] === '1';
+
     return wanted
       .map((w, i) => ({
         packageName: w.packageName,
         version: w.version,
         bundle: manifests[i],
-        ...(includeYanked ? { yanked: yankFlags[i] === '1' } : {}),
+        ...(includeYanked ? { yanked: yankedAt(i) } : {}),
       }))
       .filter(entry => entry.bundle);
   }

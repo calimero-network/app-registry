@@ -367,20 +367,112 @@ describe('metadata.guide', () => {
   });
 });
 
-describe('KNOWN GAP: yank status is absent from the browse listing', () => {
-  test('a yanked latest version is not flagged in the default listing', async () => {
-    // Pre-existing on both sides: the per-package-latest listing never resolves
-    // bundle-yanked:*, so a security-yanked latest release is presented exactly
-    // like a healthy one. Cheap to fix — the lookup rides the same pipelined
-    // round trip — but it changes the response shape of the most-consumed
-    // endpoint, so it needs to be a deliberate API decision.
+describe('a yanked version is never presented as latest', () => {
+  const entry = r => r.body.find(b => b.package === PKG);
+
+  test('the browse listing falls back to the newest unyanked version', async () => {
     store.set(`bundle-yanked:${PKG}/1.10.0`, '1');
 
     const vercel = await callVercel({});
     const fastify = await callFastify('');
 
-    const entry = r => r.body.find(b => b.package === PKG);
-    expect('yanked' in entry(vercel)).toBe(false);
-    expect('yanked' in entry(fastify)).toBe(false);
+    for (const res of [vercel, fastify]) {
+      expect(entry(res).appVersion).toBe('1.2.0');
+      expect(entry(res).yanked).toBe(false);
+    }
+  });
+
+  test('?package=X falls back too, so update checks skip it', async () => {
+    store.set(`bundle-yanked:${PKG}/1.10.0`, '1');
+    store.set(`bundle-yanked:${PKG}/1.2.0`, '1');
+
+    const vercel = await callVercel({ package: PKG });
+    const fastify = await callFastify(`?package=${PKG}`);
+
+    for (const res of [vercel, fastify]) {
+      expect(res.body.map(b => b.appVersion)).toEqual(['1.0.0']);
+    }
+  });
+
+  test('a package with every version yanked leaves the listing', async () => {
+    for (const v of ['1.10.0', '1.2.0', '1.0.0']) {
+      store.set(`bundle-yanked:${PKG}/${v}`, '1');
+    }
+
+    const vercel = await callVercel({});
+    const fastify = await callFastify('');
+    for (const res of [vercel, fastify]) {
+      expect(entry(res)).toBeUndefined();
+      expect(res.body.map(b => b.package)).toEqual(['com.example.other']);
+    }
+
+    const byPackage = await callVercel({ package: PKG });
+    expect(byPackage.body).toEqual([]);
+  });
+
+  test('an author listing keeps a fully yanked package, flagged', async () => {
+    for (const v of ['1.10.0', '1.2.0', '1.0.0']) {
+      store.set(`bundle-yanked:${PKG}/${v}`, '1');
+    }
+
+    const vercel = await callVercel({ author: 'alice' });
+    const fastify = await callFastify('?author=alice');
+    for (const res of [vercel, fastify]) {
+      expect(res.body).toHaveLength(1);
+      expect(res.body[0].appVersion).toBe('1.10.0');
+      expect(res.body[0].yanked).toBe(true);
+    }
+  });
+
+  test('the package read defaults to the newest unyanked version', async () => {
+    store.set(`bundle-yanked:${PKG}/1.10.0`, '1');
+    const res = await callVercelHandler(packageDetailHandler, {
+      package: PKG,
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.body.version).toBe('1.2.0');
+    expect(res.body.bundle.yanked).toBe(false);
+    expect(res.body.yankedVersions).toEqual(['1.10.0']);
+  });
+
+  test('every listing entry carries yanked', async () => {
+    const vercel = await callVercel({});
+    const fastify = await callFastify('');
+    for (const res of [vercel, fastify]) {
+      for (const bundle of res.body) expect(bundle.yanked).toBe(false);
+    }
+  });
+
+  test('a yanked version is still served when asked for explicitly', async () => {
+    store.set(`bundle-yanked:${PKG}/1.10.0`, '1');
+
+    const vercel = await callVercel({ package: PKG, version: '1.10.0' });
+    const fastify = await callFastify(`?package=${PKG}&version=1.10.0`);
+    for (const res of [vercel, fastify]) {
+      expect(res.body).toHaveLength(1);
+      expect(res.body[0].appVersion).toBe('1.10.0');
+      expect(res.body[0].yanked).toBe(true);
+    }
+
+    const detail = await callVercelHandler(detailHandler, {
+      package: PKG,
+      version: '1.10.0',
+    });
+    expect(detail.statusCode).toBe(200);
+    expect(detail.body.yanked).toBe(true);
+
+    const pinned = await callVercelHandler(packageDetailHandler, {
+      package: PKG,
+      version: '1.10.0',
+    });
+    expect(pinned.body.version).toBe('1.10.0');
+    expect(pinned.body.bundle.yanked).toBe(true);
+
+    const fastifyDetail = await server.inject({
+      method: 'GET',
+      url: `/api/v2/bundles/${PKG}/1.10.0`,
+    });
+    expect(fastifyDetail.statusCode).toBe(200);
+    expect(JSON.parse(fastifyDetail.payload).yanked).toBe(true);
   });
 });

@@ -1038,7 +1038,7 @@ calimero-registry bundle edit com.example.my-app 1.2.4 --remote \\
 # An unreachable registry must NOT read as "nothing published" — that would
 # reset the lineage and sign BELOW what is already out there.
 response=$(curl -fsS --retry 3 --max-time 30 \
-  "$CALIMERO_REGISTRY_URL/api/v2/bundles?package=$PACKAGE") || exit 1
+  "$CALIMERO_REGISTRY_URL/api/v2/bundles?package=$PACKAGE&all_versions=true") || exit 1
 jq -e 'type == "array"' >/dev/null <<<"$response" || exit 1
 
 version=$(jq -r '
@@ -1196,11 +1196,11 @@ jobs:
           esac
 
           # 404 says unpublished, not newer. A revert produces a version below
-          # the latest, and publishing cannot be undone. Without all_versions
-          # the listing has one entry, the latest, so .[0] is not an ordering
-          # assumption.
+          # the latest, and publishing cannot be undone. all_versions includes
+          # yanked releases, which the plain listing skips, and lists newest
+          # first.
           latest=$(curl -fsS --max-time 30 \\
-            "$CALIMERO_REGISTRY_URL/api/v2/bundles?package=$PACKAGE" \\
+            "$CALIMERO_REGISTRY_URL/api/v2/bundles?package=$PACKAGE&all_versions=true" \\
             | jq -er '.[0].appVersion // ""') || {
               echo "::error::could not read the published versions"; exit 1; }
 
@@ -1255,7 +1255,7 @@ jobs:
           # Separate "could not ask" from "nothing published": reading the
           # failure as an empty listing skips this very check.
           if ! listing=$(curl -fsS --retry 3 --max-time 30 \\
-              "$CALIMERO_REGISTRY_URL/api/v2/bundles?package=$PACKAGE"); then
+              "$CALIMERO_REGISTRY_URL/api/v2/bundles?package=$PACKAGE&all_versions=true"); then
             echo "::error::could not reach the registry to verify the signer"
             exit 1
           fi

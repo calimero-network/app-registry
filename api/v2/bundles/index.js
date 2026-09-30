@@ -99,12 +99,17 @@ module.exports = async function handler(req, res) {
     if (pkg && version) {
       const raw = await store.getBundleManifest(pkg, version);
       if (!raw) return res.status(404).json({ error: 'not_found' });
-      const downloadCount = await kv.get(
-        `downloads:${(pkg || '').toLowerCase()}`
-      );
+      const [downloadCount, yankFlag] = await Promise.all([
+        kv.get(`downloads:${(pkg || '').toLowerCase()}`),
+        kv.get(`bundle-yanked:${pkg}/${version}`),
+      ]);
       const downloads = downloadCount ? parseInt(downloadCount, 10) : 0;
       const sanitized = await sanitizeBundle(raw, pkg);
-      return sendCached(res, [{ ...sanitized, downloads }], { fresh });
+      return sendCached(
+        res,
+        [{ ...sanitized, yanked: yankFlag === '1', downloads }],
+        { fresh }
+      );
     }
 
     const { all_versions } = req.query || {};
@@ -138,7 +143,9 @@ module.exports = async function handler(req, res) {
     const entries = await store.listBundleManifests({
       package: pkg || null,
       allVersions: wantAllVersions,
-      includeYanked: wantAllVersions,
+      includeYanked: true,
+      skipYanked: true,
+      keepAllYanked: !!(developer || author),
     });
 
     // Filtering, sanitization, download counts and ordering are shared with

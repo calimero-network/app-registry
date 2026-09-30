@@ -103,7 +103,7 @@ async function listPackages() {
   const entries = await getStorage().listBundleManifests({
     package: null,
     allVersions: false,
-    includeYanked: false,
+    skipYanked: true,
   });
   const bundles = await buildBundleListing({ entries, kv });
 
