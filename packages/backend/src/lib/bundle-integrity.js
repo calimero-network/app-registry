@@ -41,6 +41,24 @@ class BundleIntegrityError extends Error {
   }
 }
 
+/**
+ * True if a bundle artifact path is NOT a safe, bundle-relative path: it is a
+ * non-string, empty, absolute, or contains a `.`/`..`/empty segment. Mirrors
+ * the CLI's assertSafeBundlePath (packages/cli/src/lib/services.ts); keep the
+ * two in sync.
+ */
+function isUnsafeBundlePath(p) {
+  if (typeof p !== 'string' || p.length === 0) return true;
+  const segments = p.split(/[\\/]/);
+  return (
+    p.startsWith('/') ||
+    /^[a-zA-Z]:/.test(p) ||
+    segments.includes('..') ||
+    segments.includes('.') ||
+    segments.includes('')
+  );
+}
+
 /** `./app.wasm` and `app.wasm` name the same archive member. */
 function normalizeEntryPath(p) {
   return String(p).replace(/^(\.\/)+/, '');
@@ -82,7 +100,19 @@ function readArchive(buffer) {
           )
         );
       }
-      if (entry.type === 'Directory') return entry.resume();
+      if (entry.type === 'Directory') {
+        const dir = normalizeEntryPath(entry.path).replace(/[\\/]+$/, '');
+        if (dir === '' || dir === '.') return entry.resume();
+        if (isUnsafeBundlePath(dir)) {
+          entry.resume();
+          return fail(
+            new BundleIntegrityError(
+              `Bundle entry "${entry.path}" is not a safe relative path`
+            )
+          );
+        }
+        return entry.resume();
+      }
       if (entry.type !== 'File' && entry.type !== 'OldFile') {
         entry.resume();
         return fail(
@@ -92,6 +122,14 @@ function readArchive(buffer) {
         );
       }
       const name = normalizeEntryPath(entry.path);
+      if (isUnsafeBundlePath(name)) {
+        entry.resume();
+        return fail(
+          new BundleIntegrityError(
+            `Bundle entry "${entry.path}" is not a safe relative path`
+          )
+        );
+      }
       if (files.has(name)) {
         entry.resume();
         return fail(
@@ -131,6 +169,11 @@ function referencedArtifacts(manifest) {
     if (art === undefined || art === null) return;
     if (typeof art !== 'object' || typeof art.path !== 'string' || !art.path) {
       throw new BundleIntegrityError(`Manifest ${label} has no path`);
+    }
+    if (isUnsafeBundlePath(normalizeEntryPath(art.path))) {
+      throw new BundleIntegrityError(
+        `Manifest ${label} path "${art.path}" is not a safe relative path`
+      );
     }
     if (typeof art.hash !== 'string' || !/^[0-9a-fA-F]{64}$/.test(art.hash)) {
       throw new BundleIntegrityError(
@@ -268,4 +311,10 @@ function storeRefusal(err) {
   return null;
 }
 
-module.exports = { verifyBundleBinary, BundleIntegrityError, storeRefusal };
+module.exports = {
+  verifyBundleBinary,
+  BundleIntegrityError,
+  storeRefusal,
+  isUnsafeBundlePath,
+  normalizeEntryPath,
+};
