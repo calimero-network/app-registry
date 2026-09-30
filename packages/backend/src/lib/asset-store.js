@@ -30,9 +30,10 @@
 
 const crypto = require('crypto');
 const { Storage } = require('@google-cloud/storage');
+const { storageVar } = require('@calimero-network/registry-shared/storage-env');
 const { kv } = require('./kv-client');
 
-const bucketName = () => process.env.GCS_BUCKET;
+const bucketName = () => storageVar('GCS_BUCKET');
 const assetPrefix = () => process.env.GCS_ASSET_PREFIX || 'assets';
 
 /** Redis key holding a package's ordered asset index. */
@@ -113,12 +114,12 @@ function getBucket() {
   if (_bucket && _bucketName === name) return _bucket;
 
   const options = {};
-  if (process.env.GCS_PROJECT_ID)
-    options.projectId = process.env.GCS_PROJECT_ID;
-  if (process.env.GCS_CLIENT_EMAIL && process.env.GCS_PRIVATE_KEY) {
+  if (storageVar('GCS_PROJECT_ID'))
+    options.projectId = storageVar('GCS_PROJECT_ID');
+  if (storageVar('GCS_CLIENT_EMAIL') && storageVar('GCS_PRIVATE_KEY')) {
     options.credentials = {
-      client_email: process.env.GCS_CLIENT_EMAIL,
-      private_key: process.env.GCS_PRIVATE_KEY.replace(/\\n/g, '\n'),
+      client_email: storageVar('GCS_CLIENT_EMAIL'),
+      private_key: storageVar('GCS_PRIVATE_KEY').replace(/\\n/g, '\n'),
     };
   }
   _storage = new Storage(options);

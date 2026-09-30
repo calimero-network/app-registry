@@ -29,6 +29,11 @@ const {
 } = require('#api-lib/auth-helpers');
 const { kv } = require('#api-lib/kv-client');
 const {
+  storageVar,
+  isStorageBlocked,
+  createUnavailableKv,
+} = require('@calimero-network/registry-shared/storage-env');
+const {
   createBundleSanitizers,
 } = require('@calimero-network/registry-backend/src/lib/bundle-sanitize');
 
@@ -43,11 +48,17 @@ let kvClient;
 async function getKV() {
   if (kvClient) return kvClient;
 
-  const isProduction = process.env.VERCEL === '1' || !!process.env.REDIS_URL;
+  if (isStorageBlocked()) {
+    kvClient = createUnavailableKv();
+    return kvClient;
+  }
 
-  if (isProduction && process.env.REDIS_URL) {
+  const redisUrl = storageVar('REDIS_URL');
+  const isProduction = process.env.VERCEL === '1' || !!redisUrl;
+
+  if (isProduction && redisUrl) {
     const { createClient } = require('redis');
-    const redisClient = createClient({ url: process.env.REDIS_URL });
+    const redisClient = createClient({ url: redisUrl });
     redisClient.on('error', err => console.error('Redis error:', err));
 
     kvClient = {
