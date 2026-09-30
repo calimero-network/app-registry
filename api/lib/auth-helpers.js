@@ -166,12 +166,26 @@ async function requireOrgOwner(req, res, orgId) {
   return user;
 }
 
+const SESSION_REQUIRED = Object.freeze({
+  error: 'unauthorized',
+  message:
+    'Admin actions require signing in on the registry website; API tokens are not accepted',
+});
+
 /**
- * Require admin. Returns user or sends 403 and returns null.
+ * Require a site admin signed in with a session cookie. API tokens are not
+ * accepted. Returns user or sends 401/403 and returns null.
  */
 async function requireAdmin(req, res) {
-  const user = await requireAuth(req, res);
-  if (!user) return null;
+  const user = await resolveSessionUser(req);
+  if (!user) {
+    res.status(401).json(SESSION_REQUIRED);
+    return null;
+  }
+  if (await isBot(user.email)) {
+    res.status(403).json(BOT_FORBIDDEN);
+    return null;
+  }
   const admin = await isAdmin(user.email);
   if (!admin) {
     res
@@ -187,6 +201,7 @@ module.exports = {
   BOT_FORBIDDEN,
   CROSS_ORIGIN_FORBIDDEN,
   rejectUnauthenticated,
+  SESSION_REQUIRED,
   resolveUser,
   resolveSessionUser,
   requireAuth,

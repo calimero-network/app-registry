@@ -6,9 +6,12 @@
 const { kv } = require('../lib/kv-client');
 const {
   isAdmin,
+  isBot,
   isBlacklisted,
   addAdmin,
   removeAdmin,
+  revokeAdmin,
+  listRevokedAdminEmails,
   blacklistUser,
   unblacklistUser,
   setAdminVerified,
@@ -23,7 +26,7 @@ const {
   getOrgMembers,
   getPackagesByOrg,
 } = require('../lib/org-storage');
-const { resolveUser } = require('../lib/resolve-user');
+const { resolveSessionUser } = require('../lib/resolve-user');
 const {
   getUserById,
   getUserByEmail,
@@ -61,11 +64,21 @@ async function adminRoutes(server, options) {
   const resolveOpts = { cookieName, sessionSecret };
 
   async function requireAdmin(request, reply) {
-    const user = await resolveUser(request, resolveOpts);
+    const user = await resolveSessionUser(request, resolveOpts);
     if (!user) {
-      reply
-        .code(401)
-        .send({ error: 'unauthorized', message: 'Login required' });
+      reply.code(401).send({
+        error: 'unauthorized',
+        message:
+          'Admin actions require signing in on the registry website; API tokens are not accepted',
+      });
+      return null;
+    }
+    if (await isBot(user.email)) {
+      reply.code(403).send({
+        error: 'bot_forbidden',
+        message:
+          'Bot accounts may only publish packages and new versions of them',
+      });
       return null;
     }
     if (!(await isAdmin(user.email))) {
@@ -79,7 +92,7 @@ async function adminRoutes(server, options) {
 
   // GET /api/admin/check
   server.get('/api/admin/check', async (request, reply) => {
-    const user = await resolveUser(request, resolveOpts);
+    const user = await resolveSessionUser(request, resolveOpts);
     if (!user) return reply.code(401).send({ error: 'unauthorized' });
     return { isAdmin: await isAdmin(user.email) };
   });
@@ -112,11 +125,13 @@ async function adminRoutes(server, options) {
     const admin = await requireAdmin(request, reply);
     if (!admin) return;
     const keys = await kv.scanKeys('user:*');
-    const [adminEmails, blacklistedEmails] = await Promise.all([
+    const [adminEmails, revokedEmails, blacklistedEmails] = await Promise.all([
       listAdminEmails(),
+      listRevokedAdminEmails(),
       listBlacklistedEmails(),
     ]);
     const adminSet = new Set(adminEmails.map(e => e.toLowerCase()));
+    const revokedSet = new Set(revokedEmails.map(e => e.toLowerCase()));
     const blacklistSet = new Set(blacklistedEmails.map(e => e.toLowerCase()));
     const users = [];
     for (const key of keys) {
@@ -143,7 +158,8 @@ async function adminRoutes(server, options) {
           verified: user.verified || adminVerified,
           adminVerified,
           isAdmin:
-            user.email.endsWith('@calimero.network') ||
+            (user.email.endsWith('@calimero.network') &&
+              !revokedSet.has(user.email.toLowerCase())) ||
             adminSet.has(user.email.toLowerCase()),
           isBlacklisted: blacklistSet.has(user.email.toLowerCase()),
           createdAt: user.createdAt || null,
@@ -220,13 +236,12 @@ async function adminRoutes(server, options) {
         await addAdmin(email);
         return { ok: true };
       case 'remove_admin':
-        if (email.endsWith('@calimero.network'))
+        if (email.toLowerCase() === String(admin.email || '').toLowerCase())
           return reply.code(400).send({
-            error: 'cannot_remove',
-            message:
-              'Cannot remove admin from @calimero.network accounts; suspend the account instead',
+            error: 'cannot_remove_self',
+            message: 'Cannot remove admin access from your own account',
           });
-        await removeAdmin(email);
+        await revokeAdmin(email);
         return { ok: true };
       case 'blacklist':
         // Any account can be suspended, @calimero.network included; only
