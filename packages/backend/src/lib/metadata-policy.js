@@ -94,14 +94,38 @@ function isValidPackageVersion(version) {
   return typeof version === 'string' && semver.valid(version) === version;
 }
 
+const RESERVED_LABEL_REGEX = /^(com|network)\.calimero(\.|$)/;
+
+function confusableSkeleton(label) {
+  return label
+    .replace(/[-_]/g, '')
+    .replace(/rn/g, 'm')
+    .replace(/0/g, 'o')
+    .replace(/[1i]/g, 'l')
+    .replace(/3/g, 'e')
+    .replace(/4/g, 'a');
+}
+
+const CALIMERO_SKELETON = confusableSkeleton('calimero');
+
 /**
- * The reserved prefix `pkg` starts with (case-insensitive), or null. Returning
+ * The reserved prefix `pkg` falls under (case-insensitive), or null. Returning
  * the prefix rather than a boolean lets a caller name it in the error.
  */
 function reservedPackagePrefix(pkg) {
   if (typeof pkg !== 'string') return null;
   const lower = pkg.toLowerCase();
-  return RESERVED_PACKAGE_PREFIXES.find(p => lower.startsWith(p)) || null;
+  const reserved = RESERVED_LABEL_REGEX.exec(lower);
+  if (reserved) return `${reserved[1]}.calimero.`;
+  const namespace = lower.split('.').slice(0, 2);
+  if (
+    namespace.some(label =>
+      confusableSkeleton(label).startsWith(CALIMERO_SKELETON)
+    )
+  ) {
+    return `${namespace.join('.')}.`;
+  }
+  return null;
 }
 
 /** True when `email` belongs to Calimero staff. */
