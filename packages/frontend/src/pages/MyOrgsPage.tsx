@@ -2,6 +2,8 @@ import { useState } from 'react';
 import axios from 'axios';
 import {
   getOrgsByMember,
+  getMyOrgInvitations,
+  respondToOrgInvitation,
   createOrg,
   createApiToken,
   listApiTokens,
@@ -30,6 +32,7 @@ import {
   ChevronUp,
   Terminal,
   AlertTriangle,
+  Mail,
 } from 'lucide-react';
 
 function getApiErrorMessage(error: unknown): string {
@@ -68,6 +71,26 @@ export default function MyOrgsPage() {
     queryKey: ['orgs-by-member', email],
     queryFn: () => getOrgsByMember(email || ''),
     enabled: !!email,
+  });
+
+  const { data: invitations = [] } = useQuery({
+    queryKey: ['my-org-invitations', email],
+    queryFn: getMyOrgInvitations,
+    enabled: !!email,
+  });
+
+  const respondMutation = useMutation({
+    mutationFn: ({
+      orgId,
+      action,
+    }: {
+      orgId: string;
+      action: 'accept' | 'decline';
+    }) => respondToOrgInvitation(orgId, action),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['my-org-invitations'] });
+      queryClient.invalidateQueries({ queryKey: ['orgs-by-member'] });
+    },
   });
 
   const { data: tokens = [], refetch: refetchTokens } = useQuery({
@@ -428,6 +451,75 @@ export default function MyOrgsPage() {
                 </p>
               )}
             </div>
+          )}
+        </div>
+      )}
+
+      {email && invitations.length > 0 && (
+        <div>
+          <h2 className='text-[16px] font-medium text-neutral-200 mb-3'>
+            <Mail className='w-3.5 h-3.5 inline mr-1.5' />
+            Invitations
+          </h2>
+          <ul className='space-y-2'>
+            {invitations.map(inv => {
+              const pending =
+                respondMutation.isPending &&
+                respondMutation.variables?.orgId === inv.org.id;
+              return (
+                <li
+                  key={inv.org.id}
+                  className='card flex flex-wrap items-center justify-between gap-3 px-4 py-3'
+                >
+                  <div>
+                    <span className='text-neutral-200 font-medium'>
+                      {inv.org.name}
+                    </span>
+                    <span className='text-neutral-500 text-sm ml-2 font-mono'>
+                      {inv.org.slug}
+                    </span>
+                    <p className='text-[13px] text-neutral-500'>
+                      {inv.invitedBy ? `@${inv.invitedBy}` : 'An admin'} invited
+                      you as {inv.role === 'admin' ? 'an admin' : 'a member'}
+                    </p>
+                  </div>
+                  <div className='flex items-center gap-2'>
+                    <button
+                      type='button'
+                      disabled={pending}
+                      onClick={() =>
+                        respondMutation.mutate({
+                          orgId: inv.org.id,
+                          action: 'accept',
+                        })
+                      }
+                      className='inline-flex items-center gap-1.5 rounded-lg bg-brand-accent hover:bg-brand-accent-hover disabled:opacity-50 text-black px-3 py-1.5 text-[14px] font-medium transition-colors'
+                    >
+                      <Check className='w-3.5 h-3.5' />
+                      Accept
+                    </button>
+                    <button
+                      type='button'
+                      disabled={pending}
+                      onClick={() =>
+                        respondMutation.mutate({
+                          orgId: inv.org.id,
+                          action: 'decline',
+                        })
+                      }
+                      className='text-[14px] text-neutral-500 hover:text-red-400 disabled:opacity-50 px-2 py-1.5 transition-colors'
+                    >
+                      Decline
+                    </button>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+          {respondMutation.isError && (
+            <p className='mt-2 text-red-400 text-[14px]'>
+              {getApiErrorMessage(respondMutation.error)}
+            </p>
           )}
         </div>
       )}

@@ -359,7 +359,7 @@ export const orgCommand = new Command('org')
   )
   .addCommand(
     new Command('members')
-      .description('List, add, or remove organization members')
+      .description('List, invite, or remove organization members')
       .addCommand(
         new Command('list')
           .description('List members of an org')
@@ -394,24 +394,26 @@ export const orgCommand = new Command('org')
       )
       .addCommand(
         new Command('add')
-          .description('Add a member by email')
+          .description(
+            'Invite a member by username; they join once they accept'
+          )
           .argument('<orgId>', 'Organization id or slug')
-          .argument('<email>', 'Member email address')
+          .argument('<username>', 'Member username')
           .option('-r, --role <role>', 'Role: member or admin', 'member')
           .action(
             async (
               orgId: string,
-              email: string,
+              username: string,
               options: { role: string },
               command: Command
             ) => {
               const { url, timeout } = getGlobalOpts(command);
-              const spinner = ora('Adding member...').start();
+              const spinner = ora('Inviting member...').start();
               try {
                 const authHeaders = getAuthHeaders(url);
                 const pathname = `/api/v2/orgs/${encodeURIComponent(orgId)}/members`;
                 const body = {
-                  email: email.trim(),
+                  username: username.trim().replace(/^@+/, ''),
                   role: options.role === 'admin' ? 'admin' : 'member',
                 };
                 const base = url.replace(/\/$/, '');
@@ -428,7 +430,11 @@ export const orgCommand = new Command('org')
                   console.error(chalk.red(JSON.stringify(data)));
                   process.exit(1);
                 }
-                spinner.succeed('Member added');
+                spinner.succeed(
+                  status === 202
+                    ? 'Invitation sent; the user joins once they accept it'
+                    : 'Member added'
+                );
               } catch (e) {
                 spinner.fail('Failed');
                 console.error(
@@ -443,7 +449,7 @@ export const orgCommand = new Command('org')
         new Command('update')
           .description('Update a member role (admin or member)')
           .argument('<orgId>', 'Organization id or slug')
-          .argument('<email>', 'Member email address')
+          .argument('<member>', 'Member username or email address')
           .requiredOption('-r, --role <role>', 'New role: admin or member')
           .action(
             async (
@@ -486,9 +492,9 @@ export const orgCommand = new Command('org')
       )
       .addCommand(
         new Command('remove')
-          .description('Remove a member by email')
+          .description('Remove a member by username or email')
           .argument('<orgId>', 'Organization id or slug')
-          .argument('<email>', 'Member email address')
+          .argument('<member>', 'Member username or email address')
           .action(
             async (
               orgId: string,

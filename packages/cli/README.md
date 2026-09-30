@@ -48,9 +48,9 @@ calimero-registry org update <orgId> [-n <name>] [-m <json>]
 calimero-registry org delete <orgId> [-y]                   # irreversible
 
 calimero-registry org members list   <orgId>
-calimero-registry org members add    <orgId> <email> [-r admin|member]
-calimero-registry org members update <orgId> <email> -r admin|member
-calimero-registry org members remove <orgId> <email>
+calimero-registry org members add    <orgId> <username> [-r admin|member]
+calimero-registry org members update <orgId> <username> -r admin|member
+calimero-registry org members remove <orgId> <username>
 
 calimero-registry org packages link   <orgId> <package>
 calimero-registry org packages unlink <orgId> <package>

@@ -182,9 +182,9 @@ calimero-registry org list
 # Create
 calimero-registry org create -n "My Org" -s "my-org"
 
-# Members — add/remove by email
-calimero-registry org members add    <org-id> alice@example.com --role member
-calimero-registry org members remove <org-id> alice@example.com
+# Members — invite by username (they accept from the Organizations page), remove by username
+calimero-registry org members add    <org-id> alice --role member
+calimero-registry org members remove <org-id> alice
 
 # Link packages
 calimero-registry org packages link   <org-id> com.my-org.app
@@ -224,9 +224,9 @@ calimero-registry org get <org-id>                                      # public
 calimero-registry org update <org-id> [--name <name>] [--metadata <json>]
 calimero-registry org delete <org-id>
 calimero-registry org members list   <org-id>                           # public
-calimero-registry org members add    <org-id> <email> [--role member|admin]
-calimero-registry org members update <org-id> <email> --role member|admin
-calimero-registry org members remove <org-id> <email>
+calimero-registry org members add    <org-id> <username> [--role member|admin]
+calimero-registry org members update <org-id> <username> --role member|admin
+calimero-registry org members remove <org-id> <username>
 calimero-registry org packages link   <org-id> <package>
 calimero-registry org packages unlink <org-id> <package>
 

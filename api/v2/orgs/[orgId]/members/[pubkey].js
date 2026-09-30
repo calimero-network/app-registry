@@ -1,8 +1,8 @@
 /**
- * PATCH  /api/v2/orgs/:orgId/members/:email — update role (owner only)
- * DELETE /api/v2/orgs/:orgId/members/:email — remove member (admin/owner, or self-leave)
+ * PATCH  /api/v2/orgs/:orgId/members/:member — update role (owner only)
+ * DELETE /api/v2/orgs/:orgId/members/:member — remove member (admin/owner, or self-leave)
  *
- * Note: Vercel names the URL param 'pubkey' due to the filename, but it holds an email value.
+ * Note: Vercel names the URL param 'pubkey' due to the filename, but it holds a username or an email.
  */
 
 const {
@@ -14,6 +14,10 @@ const {
   isOrgMember,
 } = require('#api-lib/org-storage');
 const { requireAuth, requireOrgOwner } = require('#api-lib/auth-helpers');
+const { getUserByUsername } = require('#api-lib/user-storage');
+const {
+  resolveMemberEmail,
+} = require('@calimero-network/registry-shared/org-invitation-flow');
 
 async function countOrgOwners(orgId) {
   const members = await getOrgMembers(orgId);
@@ -32,16 +36,16 @@ function cors(res) {
 
 module.exports = async function handler(req, res) {
   const orgId = req.query?.orgId;
-  const memberEmail = req.query?.pubkey; // param is named 'pubkey' by filename but holds email
+  const memberParam = req.query?.pubkey;
   if (
     !orgId ||
-    !memberEmail ||
+    !memberParam ||
     typeof orgId !== 'string' ||
-    typeof memberEmail !== 'string'
+    typeof memberParam !== 'string'
   ) {
     return res
       .status(400)
-      .json({ error: 'bad_request', message: 'Missing orgId or email' });
+      .json({ error: 'bad_request', message: 'Missing orgId or member' });
   }
 
   cors(res);
@@ -61,6 +65,22 @@ module.exports = async function handler(req, res) {
     return res
       .status(404)
       .json({ error: 'not_found', message: 'Organization not found' });
+  }
+
+  let memberEmail;
+  try {
+    memberEmail = await resolveMemberEmail(getUserByUsername, memberParam);
+  } catch (e) {
+    console.error('orgs route error:', e);
+    return res
+      .status(500)
+      .json({ error: 'internal_error', message: 'Internal error' });
+  }
+  if (!memberEmail) {
+    return res.status(404).json({
+      error: 'not_found',
+      message: 'User is not a member of this organization',
+    });
   }
 
   if (req.method === 'PATCH') {
