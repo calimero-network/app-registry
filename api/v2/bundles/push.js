@@ -41,6 +41,8 @@ const {
   autolinkBotPackage,
 } = require('@calimero-network/registry-shared/bot-autolink');
 
+const MAX_PUSH_BODY_BYTES = 2 * 100 * 1024 * 1024 + 1024 * 1024;
+
 // Singleton storage instance
 let storage;
 
@@ -70,6 +72,14 @@ module.exports = async function handler(req, res) {
     const user = await resolveUser(req);
     if (!user?.email) {
       return rejectUnauthenticated(req, res);
+    }
+
+    const declared = Number(req.headers?.['content-length']);
+    if (Number.isFinite(declared) && declared > MAX_PUSH_BODY_BYTES) {
+      return res.status(413).json({
+        error: 'payload_too_large',
+        message: 'Request body too large',
+      });
     }
 
     const store = getStorage();
