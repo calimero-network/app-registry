@@ -4,6 +4,8 @@
  * Shared logic for bundle validation and canonicalization
  */
 
+const semver = require('semver');
+
 /**
  * Recursively sort object keys for canonicalization
  */
@@ -125,7 +127,29 @@ function validateBundleManifest(manifest) {
   };
 }
 
+/**
+ * Refuse a publish whose version is not greater than the package's latest.
+ * Returns null when the push may proceed, otherwise the HTTP answer.
+ */
+function versionOrderRefusal(incoming, latestVersion) {
+  if (
+    semver.valid(incoming) &&
+    semver.valid(latestVersion) &&
+    semver.lte(incoming, latestVersion)
+  ) {
+    return {
+      status: 400,
+      body: {
+        error: 'version_not_allowed',
+        message: `New version (${incoming}) must be greater than latest (${latestVersion}).`,
+      },
+    };
+  }
+  return null;
+}
+
 module.exports = {
+  versionOrderRefusal,
   sortKeysRecursively,
   canonicalizeJSON,
   canonicalizeBundle,

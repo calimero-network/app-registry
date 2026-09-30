@@ -27,6 +27,9 @@ const {
   storeRefusal,
 } = require('@calimero-network/registry-backend/src/lib/bundle-integrity');
 const {
+  versionOrderRefusal,
+} = require('@calimero-network/registry-backend/src/lib/v2-utils');
+const {
   stampOwnerEmail,
 } = require('@calimero-network/registry-backend/src/lib/package-owner');
 const { resolveUser } = require('#api-lib/auth-helpers');
@@ -220,6 +223,13 @@ module.exports = async function handler(req, res) {
       }
       // An organization publish keeps the package's existing key set.
       if (permission.viaOrg) bundleManifest._ownerKeys = permission.ownerKeys;
+      const versionRefusal = versionOrderRefusal(
+        bundleManifest.appVersion,
+        latestVersion
+      );
+      if (versionRefusal) {
+        return res.status(versionRefusal.status).json(versionRefusal.body);
+      }
       // Author is locked from the oldest (first) version, not the latest
       const oldestVersion = versions[versions.length - 1];
       const manifestOldest = await store.getBundleManifest(

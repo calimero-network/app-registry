@@ -241,6 +241,33 @@ describe('push.js organization publishing', () => {
   });
 });
 
+describe('push.js version ordering', () => {
+  test.each(['1.0.0', '0.9.0', '1.0.0-rc.1'])(
+    'refuses %s after 1.0.0 without storing it',
+    async version => {
+      const r = await push(AUTHOR, manifest(version, ORIGINAL_KEY));
+      expect(r.status).toBe(400);
+      expect(r.body).toEqual({
+        error: 'version_not_allowed',
+        message: `New version (${version}) must be greater than latest (1.0.0).`,
+      });
+      if (version !== '1.0.0') expect(await stored(version)).toBeNull();
+    }
+  );
+
+  test('an org admin cannot publish a lower version either', async () => {
+    const r = await push(ADMIN, manifest('0.1.0', ADMIN_KEY));
+    expect(r.status).toBe(400);
+    expect(r.body.error).toBe('version_not_allowed');
+    expect(await stored('0.1.0')).toBeNull();
+  });
+
+  test('a greater version is accepted', async () => {
+    const r = await push(AUTHOR, manifest('1.0.1', ORIGINAL_KEY));
+    expect(r.status).toBe(201);
+  });
+});
+
 describe('resolvePublishPermission (shared by push.js, push-file.js and the dev server)', () => {
   const latest = manifest('1.0.0', ORIGINAL_KEY);
 
