@@ -28,6 +28,8 @@ jest.mock('../../../api/lib/verify', () => ({
 jest.mock('../../../api/lib/auth-helpers', () => ({
   resolveUser: jest.fn().mockResolvedValue({ email: 'dev@example.com' }),
   LOGIN_REQUIRED: { error: 'unauthorized', message: 'Login required' },
+  rejectUnauthenticated: (_req, res) =>
+    res.status(401).json({ error: 'unauthorized', message: 'Login required' }),
 }));
 
 // Import the handler
