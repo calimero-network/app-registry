@@ -7,6 +7,7 @@ const { kv } = require('#api-lib/kv-client');
 const {
   parseCookies,
 } = require('@calimero-network/registry-shared/session-cookies');
+const { rejectCrossOriginCookieWrite } = require('#api-lib/request-origin');
 
 const TOKEN_PREFIX = 'apitoken:';
 const USER_TOKENS_PREFIX = 'user_tokens:';
@@ -18,6 +19,7 @@ module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'DELETE')
     return res.status(405).json({ error: 'Method not allowed' });
+  if (rejectCrossOriginCookieWrite(req, res)) return;
 
   // Revoke requires a session cookie (not just a Bearer token) for security
   const cookieName = process.env.AUTH_COOKIE_NAME || 'app_registry_session';
