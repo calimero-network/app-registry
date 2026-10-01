@@ -147,6 +147,28 @@ describe('Push package identity policy', () => {
       );
     });
 
+    test.each([
+      'com.calimero',
+      'network.calimero',
+      'com.calimero-network.app',
+      'com.calimeronetwork.app',
+    ])('rejects a non-staff first publish of %s', async pkg => {
+      mockCurrentUser = { email: 'stranger@example.com' };
+      req.body = makeManifest({ package: pkg });
+      await pushHandler(req, res);
+      expect(res.status).toHaveBeenCalledWith(403);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ error: 'reserved_prefix' })
+      );
+    });
+
+    test('allows a staff first publish of a look-alike name', async () => {
+      mockCurrentUser = { email: 'fran@calimero.network' };
+      req.body = makeManifest({ package: 'com.calimero-network.app' });
+      await pushHandler(req, res);
+      expect(res.status).toHaveBeenCalledWith(201);
+    });
+
     test('allows a staff publish of a com.calimero.* package', async () => {
       mockCurrentUser = { email: 'fran@calimero.network' };
       req.body = makeManifest({ package: 'com.calimero.official' });
@@ -163,6 +185,20 @@ describe('Push package identity policy', () => {
       mockKv.sMembers.mockResolvedValue(['1.0.0']); // package already exists
       req.body = makeManifest({
         package: 'com.calimero.chat',
+        appVersion: '2.0.0',
+      });
+      await pushHandler(req, res);
+      expect(res.json).not.toHaveBeenCalledWith(
+        expect.objectContaining({ error: 'reserved_prefix' })
+      );
+      expect(res.status).toHaveBeenCalledWith(201);
+    });
+
+    test('allows a non-staff OWNER to publish a new version of an existing look-alike package', async () => {
+      mockCurrentUser = { email: 'owner@example.com' };
+      mockKv.sMembers.mockResolvedValue(['1.0.0']);
+      req.body = makeManifest({
+        package: 'com.calimeronetwork.app',
         appVersion: '2.0.0',
       });
       await pushHandler(req, res);
