@@ -9,6 +9,11 @@ const { getOrgMemberRole, getPkg2Org, isOrgAdmin } = require('./org-storage');
 const { isAdmin, isBlacklisted, isBot } = require('./admin-storage');
 const { getUserByEmail } = require('./user-storage');
 const {
+  CROSS_ORIGIN_FORBIDDEN,
+  cookieWriteAllowed,
+  isCrossOriginCookieWrite,
+} = require('./request-origin');
+const {
   parseCookies,
 } = require('@calimero-network/registry-shared/session-cookies');
 const {
@@ -36,6 +41,7 @@ async function resolveSessionUser(req) {
   const cookies = parseCookies(req.headers?.cookie);
   const token = cookies[cookieName];
   if (!token) return null;
+  if (!cookieWriteAllowed(req)) return null;
   try {
     const payload = jwt.verify(token, sessionSecret, {
       algorithms: ['HS256'],
@@ -103,10 +109,17 @@ const BOT_FORBIDDEN = Object.freeze({
   message: 'Bot accounts may only publish packages and new versions of them',
 });
 
+function rejectUnauthenticated(req, res, body = LOGIN_REQUIRED) {
+  if (isCrossOriginCookieWrite(req)) {
+    return res.status(403).json(CROSS_ORIGIN_FORBIDDEN);
+  }
+  return res.status(401).json(body);
+}
+
 async function requireAuth(req, res) {
   const user = await resolveUser(req);
   if (!user) {
-    res.status(401).json(LOGIN_REQUIRED);
+    rejectUnauthenticated(req, res);
     return null;
   }
   // Bots may publish and nothing else. The publish endpoints call resolveUser
@@ -172,6 +185,8 @@ async function requireAdmin(req, res) {
 module.exports = {
   LOGIN_REQUIRED,
   BOT_FORBIDDEN,
+  CROSS_ORIGIN_FORBIDDEN,
+  rejectUnauthenticated,
   resolveUser,
   resolveSessionUser,
   requireAuth,
