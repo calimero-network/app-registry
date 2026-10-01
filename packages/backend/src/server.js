@@ -377,6 +377,8 @@ async function buildServer() {
           kv.incr(`downloads:${canonicalPkg}`).catch(() => {}),
         ]);
         const normalized = await sanitizeBundle(bundle);
+        normalized.yanked =
+          (await kv.get(`bundle-yanked:${pkg}/${version}`)) === '1';
         normalized.downloads =
           Number(await kv.get(`downloads:${canonicalPkg}`)) || 0;
         return [normalized];
@@ -410,7 +412,9 @@ async function buildServer() {
       const entries = await bundleStorage.listBundleManifests({
         package: pkg || null,
         allVersions: wantAllVersions,
-        includeYanked: wantAllVersions,
+        includeYanked: true,
+        skipYanked: true,
+        keepAllYanked: !!(developer || author),
       });
 
       // Filtering, sanitization, download counts and ordering are shared with
@@ -455,6 +459,8 @@ async function buildServer() {
         kv.incr('downloads:total').catch(() => {}),
         kv.incr(`downloads:${canonicalPkg}`).catch(() => {}),
       ]);
+      normalized.yanked =
+        (await kv.get(`bundle-yanked:${pkg}/${version}`)) === '1';
       normalized.downloads =
         Number(await kv.get(`downloads:${canonicalPkg}`)) || 0;
       return normalized;

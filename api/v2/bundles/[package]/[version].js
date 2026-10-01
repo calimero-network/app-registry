@@ -377,13 +377,15 @@ module.exports = async function handler(req, res) {
     const data = await readKv.get(`bundle:${pkg}/${version}`);
     if (!data) return res.status(404).json({ error: 'not_found' });
     const raw = JSON.parse(data).json;
-    const downloadCount = await readKv.get(
-      `downloads:${(pkg || '').toLowerCase()}`
-    );
+    const [downloadCount, yankFlag] = await Promise.all([
+      readKv.get(`downloads:${(pkg || '').toLowerCase()}`),
+      readKv.get(`bundle-yanked:${pkg}/${version}`),
+    ]);
     const downloads = downloadCount ? parseInt(downloadCount, 10) : 0;
     const sanitized = await sanitizeBundle(raw, pkg);
     return res.status(200).json({
       ...sanitized,
+      yanked: yankFlag === '1',
       downloads,
     });
   } catch (error) {

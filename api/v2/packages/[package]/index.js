@@ -61,14 +61,24 @@ module.exports = async function handler(req, res) {
         .status(404)
         .json({ error: 'not_found', message: `No such package: ${pkg}` });
     }
-    const version = req.query.version || versions[0];
+    const yankFlags = await Promise.all(
+      versions.map(v => kv.get(`bundle-yanked:${pkg}/${v}`))
+    );
+    const yankedVersions = versions.filter((_, i) => yankFlags[i] === '1');
+    const version =
+      req.query.version ||
+      versions.find(v => !yankedVersions.includes(v)) ||
+      versions[0];
     const raw = await store.getBundleManifest(pkg, version);
     if (!raw) {
       return res
         .status(404)
         .json({ error: 'not_found', message: `No such version: ${version}` });
     }
-    const bundle = await getSanitizers().sanitizeBundle(raw, pkg);
+    const bundle = {
+      ...(await getSanitizers().sanitizeBundle(raw, pkg)),
+      yanked: yankedVersions.includes(version),
+    };
 
     // Anonymous is the common case: the user is resolved only to decide
     // whether a pending package's assets are visible to them, exactly as the
@@ -96,6 +106,7 @@ module.exports = async function handler(req, res) {
       package: pkg,
       version,
       versions,
+      yankedVersions,
       metadata: bundle.metadata || {},
       verified: bundle.verified,
       bundle,
