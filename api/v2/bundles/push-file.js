@@ -10,7 +10,6 @@ const os = require('os');
 const path = require('path');
 const busboy = require('busboy');
 const tar = require('tar');
-const semver = require('semver');
 const {
   BundleStorageKV,
 } = require('@calimero-network/registry-backend/src/lib/bundle-storage-kv');
@@ -38,6 +37,9 @@ const {
 const {
   storeRefusal,
 } = require('@calimero-network/registry-backend/src/lib/bundle-integrity');
+const {
+  versionOrderRefusal,
+} = require('@calimero-network/registry-backend/src/lib/v2-utils');
 const {
   stampOwnerEmail,
 } = require('@calimero-network/registry-backend/src/lib/package-owner');
@@ -370,17 +372,12 @@ module.exports = async function handler(req, res) {
       // An organization publish keeps the package's existing key set.
       if (permission.viaOrg) bundleManifest._ownerKeys = permission.ownerKeys;
 
-      // New version must be greater than latest
-      const incoming = bundleManifest.appVersion;
-      if (
-        semver.valid(incoming) &&
-        semver.valid(latestVersion) &&
-        semver.lte(incoming, latestVersion)
-      ) {
-        return res.status(400).json({
-          error: 'version_not_allowed',
-          message: `New version (${incoming}) must be greater than latest (${latestVersion}).`,
-        });
+      const versionRefusal = versionOrderRefusal(
+        bundleManifest.appVersion,
+        latestVersion
+      );
+      if (versionRefusal) {
+        return res.status(versionRefusal.status).json(versionRefusal.body);
       }
     } else if (ownerEmail) {
       // New package — public author is the username (or nothing when the user
