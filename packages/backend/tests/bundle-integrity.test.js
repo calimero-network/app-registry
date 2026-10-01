@@ -14,6 +14,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const tar = require('tar');
+const zlib = require('zlib');
 
 const mockKVData = new Map();
 const mockKVSets = new Map();
@@ -81,6 +82,27 @@ function pack(files) {
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
+}
+
+/** A gzip'd tar with entry names written verbatim, bypassing tar's own path cleanup. */
+function rawTar(entries) {
+  const blocks = [];
+  for (const [name, data] of Object.entries(entries)) {
+    const body = Buffer.from(data);
+    const header = new tar.Header({
+      path: name,
+      mode: 0o644,
+      size: body.length,
+      type: 'File',
+      mtime: new Date(0),
+    });
+    header.encode();
+    blocks.push(header.block, body);
+    const pad = (512 - (body.length % 512)) % 512;
+    if (pad) blocks.push(Buffer.alloc(pad));
+  }
+  blocks.push(Buffer.alloc(1024));
+  return zlib.gzipSync(Buffer.concat(blocks));
 }
 
 /** A signed manifest plus the .mpk it describes, the way cargo-mero ships it. */
@@ -193,6 +215,74 @@ describe('verifyBundleBinary', () => {
     await expect(
       verifyBundleBinary(manifest, Buffer.from('not a tarball'))
     ).rejects.toBeInstanceOf(BundleIntegrityError);
+  });
+
+  test('accepts ./-prefixed archive entries', async () => {
+    const { manifest, files } = await signedBundle(keys);
+    const dotted = rawTar(
+      Object.fromEntries(
+        Object.entries(files).map(([name, data]) => [`./${name}`, data])
+      )
+    );
+    await expect(verifyBundleBinary(manifest, dotted)).resolves.toBeTruthy();
+  });
+
+  test.each([
+    '../../x.wasm',
+    '/abs/x.wasm',
+    '..\\..\\x.wasm',
+    'C:\\x.wasm',
+    'services/../../x.wasm',
+  ])('refuses an archive entry named %s', async name => {
+    const { manifest, files } = await signedBundle(keys);
+    const evil = rawTar({ ...files, [name]: 'x' });
+    await expect(verifyBundleBinary(manifest, evil)).rejects.toThrow(
+      /is not a safe relative path/
+    );
+  });
+
+  test.each(['../../x.wasm', '/abs/x.wasm', '..\\..\\x.wasm', 'C:\\x.wasm'])(
+    'refuses a signed manifest whose wasm.path is %s',
+    async wasmPath => {
+      const wasm = crypto.randomBytes(64);
+      const manifest = await signManifest(
+        {
+          version: '1.0',
+          package: 'com.example.integrity',
+          appVersion: '1.0.0',
+          wasm: { path: wasmPath, hash: sha256(wasm), size: wasm.length },
+          migrations: [],
+        },
+        keys
+      );
+      const mpk = rawTar({ 'manifest.json': JSON.stringify(manifest) });
+      await expect(verifyBundleBinary(manifest, mpk)).rejects.toThrow(
+        /wasm path .* is not a safe relative path/
+      );
+    }
+  );
+
+  test('refuses a signed manifest whose abi.path escapes the bundle', async () => {
+    const wasm = crypto.randomBytes(64);
+    const abi = Buffer.from('{}');
+    const manifest = await signManifest(
+      {
+        version: '1.0',
+        package: 'com.example.integrity',
+        appVersion: '1.0.0',
+        wasm: { path: 'app.wasm', hash: sha256(wasm), size: wasm.length },
+        abi: { path: '../abi.json', hash: sha256(abi), size: abi.length },
+        migrations: [],
+      },
+      keys
+    );
+    const mpk = rawTar({
+      'manifest.json': JSON.stringify(manifest),
+      'app.wasm': wasm,
+    });
+    await expect(verifyBundleBinary(manifest, mpk)).rejects.toThrow(
+      /abi path .* is not a safe relative path/
+    );
   });
 
   test('checks every service artifact', async () => {
