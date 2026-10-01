@@ -36,6 +36,15 @@ describe('vercel.json function config', () => {
   });
 });
 
+describe('vercel.json git deployments', () => {
+  test('only main deploys automatically', () => {
+    expect(config.git.deploymentEnabled).toEqual({
+      '**': false,
+      main: true,
+    });
+  });
+});
+
 describe('vercel.json CORS', () => {
   // Handlers rely on this block rather than setting CORS individually — see
   // api-handler-contract.test.js. Removing it silently breaks every browser

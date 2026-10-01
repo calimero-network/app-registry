@@ -10,16 +10,29 @@ const {
   globToRegex,
 } = require('@calimero-network/registry-shared/glob-to-regex');
 
-const isProduction = process.env.VERCEL === '1' || process.env.REDIS_URL;
+const {
+  storageVar,
+  isStorageBlocked,
+  createUnavailableKv,
+} = require('@calimero-network/registry-shared/storage-env');
+
+const redisUrl = storageVar('REDIS_URL');
+const isProduction = process.env.VERCEL === '1' || redisUrl;
 const isDevelopment = !isProduction;
 
 let kvClient;
 let redisClient;
 
-if (isProduction && process.env.REDIS_URL) {
+if (isStorageBlocked()) {
+  // eslint-disable-next-line no-console
+  console.error(
+    `Storage disabled: VERCEL_ENV=${process.env.VERCEL_ENV} and PREVIEW_REDIS_URL is not set`
+  );
+  kvClient = createUnavailableKv();
+} else if (isProduction && redisUrl) {
   // Use real Redis from Vercel Marketplace
   redisClient = createClient({
-    url: process.env.REDIS_URL,
+    url: redisUrl,
   });
 
   redisClient.on('error', err => {
