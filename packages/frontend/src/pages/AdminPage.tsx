@@ -231,30 +231,30 @@ function UsersTab({
               </div>
               <div className='flex items-center gap-1.5 flex-wrap'>
                 {!u.email.endsWith('@calimero.network') && (
-                  <>
-                    <ActionBtn
-                      label={u.adminVerified ? 'Unverify' : 'Verify'}
-                      icon={u.adminVerified ? XCircle : CheckCircle}
-                      color={u.adminVerified ? 'neutral' : 'green'}
-                      onClick={() =>
-                        mutate.mutate({
-                          userId: u.id,
-                          action: u.adminVerified ? 'unverify' : 'verify',
-                        })
-                      }
-                    />
-                    <ActionBtn
-                      label={u.isAdmin ? 'Remove admin' : 'Make admin'}
-                      icon={u.isAdmin ? ShieldOff : ShieldAlert}
-                      color={u.isAdmin ? 'neutral' : 'blue'}
-                      onClick={() =>
-                        mutate.mutate({
-                          userId: u.id,
-                          action: u.isAdmin ? 'remove_admin' : 'make_admin',
-                        })
-                      }
-                    />
-                  </>
+                  <ActionBtn
+                    label={u.adminVerified ? 'Unverify' : 'Verify'}
+                    icon={u.adminVerified ? XCircle : CheckCircle}
+                    color={u.adminVerified ? 'neutral' : 'green'}
+                    onClick={() =>
+                      mutate.mutate({
+                        userId: u.id,
+                        action: u.adminVerified ? 'unverify' : 'verify',
+                      })
+                    }
+                  />
+                )}
+                {u.email.toLowerCase() !== (me?.email || '').toLowerCase() && (
+                  <ActionBtn
+                    label={u.isAdmin ? 'Remove admin' : 'Make admin'}
+                    icon={u.isAdmin ? ShieldOff : ShieldAlert}
+                    color={u.isAdmin ? 'neutral' : 'blue'}
+                    onClick={() =>
+                      mutate.mutate({
+                        userId: u.id,
+                        action: u.isAdmin ? 'remove_admin' : 'make_admin',
+                      })
+                    }
+                  />
                 )}
                 {u.isBlacklisted ? (
                   <ActionBtn

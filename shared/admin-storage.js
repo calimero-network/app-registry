@@ -6,6 +6,8 @@
 const ADMIN_SET = 'admin:set';
 const BLACKLIST_SET = 'blacklist:set';
 const BOT_SET = 'bot:set';
+const ADMIN_REVOKED_SET = 'admin:revoked';
+const STAFF_DOMAIN = '@calimero.network';
 
 function createAdminStorage(kv) {
   /** Returns true if email belongs to a bot account (any org, any domain). */
@@ -21,7 +23,9 @@ function createAdminStorage(kv) {
     // Checked before the domain grant, and denied outright rather than merely
     // skipped, so a bot stays non-admin even if it reaches ADMIN_SET.
     if (await isBot(norm)) return false;
-    if (norm.endsWith('@calimero.network')) return true;
+    if (norm.endsWith(STAFF_DOMAIN)) {
+      return !(await kv.sIsMember(ADMIN_REVOKED_SET, norm));
+    }
     const result = await kv.sIsMember(ADMIN_SET, norm);
     return !!result;
   }
@@ -34,11 +38,24 @@ function createAdminStorage(kv) {
   }
 
   async function addAdmin(email) {
-    await kv.sAdd(ADMIN_SET, email.toLowerCase());
+    const norm = email.toLowerCase();
+    await kv.sAdd(ADMIN_SET, norm);
+    await kv.sRem(ADMIN_REVOKED_SET, norm);
   }
 
   async function removeAdmin(email) {
     await kv.sRem(ADMIN_SET, email.toLowerCase());
+  }
+
+  async function revokeAdmin(email) {
+    const norm = email.toLowerCase();
+    await kv.sRem(ADMIN_SET, norm);
+    if (norm.endsWith(STAFF_DOMAIN)) await kv.sAdd(ADMIN_REVOKED_SET, norm);
+  }
+
+  async function listRevokedAdminEmails() {
+    const members = await kv.sMembers(ADMIN_REVOKED_SET);
+    return Array.isArray(members) ? members : [];
   }
 
   async function blacklistUser(email, reason, byEmail) {
@@ -100,6 +117,8 @@ function createAdminStorage(kv) {
     isBlacklisted,
     addAdmin,
     removeAdmin,
+    revokeAdmin,
+    listRevokedAdminEmails,
     blacklistUser,
     unblacklistUser,
     listAdminEmails,
@@ -109,4 +128,4 @@ function createAdminStorage(kv) {
   };
 }
 
-module.exports = { createAdminStorage };
+module.exports = { createAdminStorage, STAFF_DOMAIN };
