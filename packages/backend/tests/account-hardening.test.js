@@ -88,8 +88,15 @@ function makeRes() {
 }
 
 const SAME_ORIGIN = 'https://apps.calimero.network';
+function seedProfile(email) {
+  const key = `email2user:${email}`;
+  if (store.has(key)) return;
+  store.set(key, `u-${email}`);
+  store.set(`user:u-${email}`, JSON.stringify({ id: `u-${email}`, email }));
+}
 
 function sessionCookie(email) {
+  seedProfile(email);
   const token = jwt.sign(
     { sub: `u-${email}`, email, name: email },
     SESSION_SECRET,
@@ -166,6 +173,28 @@ describe('token hashing + backward compatibility', () => {
       headers: { authorization: `Bearer ${forever}` },
     });
     expect(user.email).toBe('f@example.com');
+  });
+});
+
+describe('session cookies require a live profile', () => {
+  it('resolves a session whose profile exists', async () => {
+    const cookie = sessionCookie('live@example.com');
+    const user = await resolveUser({ headers: { cookie } });
+    expect(user).toMatchObject({ email: 'live@example.com' });
+  });
+
+  it('refuses a still-valid session once the profile is deleted', async () => {
+    const cookie = sessionCookie('deleted@example.com');
+    store.delete('email2user:deleted@example.com');
+    store.delete('user:u-deleted@example.com');
+    expect(await resolveUser({ headers: { cookie } })).toBeNull();
+
+    const res = makeRes();
+    await createTokenHandler(
+      { method: 'POST', headers: { cookie, origin: SAME_ORIGIN }, body: {} },
+      res
+    );
+    expect(res.statusCode).toBe(401);
   });
 });
 

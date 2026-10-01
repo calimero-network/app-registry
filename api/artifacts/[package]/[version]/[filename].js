@@ -75,16 +75,6 @@ module.exports = async function handler(req, res) {
     }
   }
 
-  // Debug logging
-  console.log('Artifact endpoint - Full request info:', {
-    query: req.query,
-    url: req.url,
-    method: req.method,
-    pkg,
-    version,
-    filename,
-  });
-
   if (!pkg || !version || pkg === '$package' || version === '$version') {
     return res.status(400).json({
       error: 'missing_params',

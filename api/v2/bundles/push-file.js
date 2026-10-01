@@ -55,6 +55,18 @@ module.exports.config = {
   },
 };
 
+const MAX_BUNDLE_BYTES = 100 * 1024 * 1024;
+const MAX_MULTIPART_OVERHEAD_BYTES = 1024 * 1024;
+
+function tooLarge(maxBytes) {
+  const err = new Error(
+    `Bundle exceeds the ${Math.floor(maxBytes / (1024 * 1024))} MiB limit.`
+  );
+  err.status = 413;
+  err.code = 'payload_too_large';
+  return err;
+}
+
 let storage;
 function getStorage() {
   if (!storage) storage = new BundleStorageKV();
@@ -64,13 +76,13 @@ function getStorage() {
 /**
  * Parse multipart/form-data and return the first file buffer + filename.
  */
-function parseMultipart(req) {
+function parseMultipart(req, maxBytes = MAX_BUNDLE_BYTES) {
   return new Promise((resolve, reject) => {
     let bb;
     try {
       bb = busboy({
         headers: req.headers,
-        limits: { fileSize: 100 * 1024 * 1024 },
+        limits: { fileSize: maxBytes + 1, files: 1, fields: 16 },
       });
     } catch (err) {
       return reject(new Error(`Invalid multipart request: ${err.message}`));
@@ -83,11 +95,19 @@ function parseMultipart(req) {
         return;
       }
       found = true;
-      const chunks = [];
-      file.on('data', chunk => chunks.push(chunk));
-      file.on('end', () =>
-        resolve({ buffer: Buffer.concat(chunks), filename: info.filename })
-      );
+      let chunks = [];
+      file.on('data', chunk => {
+        if (chunks) chunks.push(chunk);
+      });
+      file.on('limit', () => {
+        chunks = null;
+        reject(tooLarge(maxBytes));
+        file.resume();
+      });
+      file.on('end', () => {
+        if (!chunks || file.truncated) return;
+        resolve({ buffer: Buffer.concat(chunks), filename: info.filename });
+      });
       file.on('error', reject);
     });
 
@@ -141,14 +161,25 @@ module.exports = async function handler(req, res) {
       return rejectUnauthenticated(req, res);
     }
 
+    const declared = Number(req.headers?.['content-length']);
+    if (
+      Number.isFinite(declared) &&
+      declared > MAX_BUNDLE_BYTES + MAX_MULTIPART_OVERHEAD_BYTES
+    ) {
+      const err = tooLarge(MAX_BUNDLE_BYTES);
+      return res.status(413).json({ error: err.code, message: err.message });
+    }
+
     // Parse multipart
     let buffer, filename;
     try {
       ({ buffer, filename } = await parseMultipart(req));
     } catch (err) {
-      return res
-        .status(400)
-        .json({ error: 'invalid_request', message: err.message });
+      const status = err.status === 413 ? 413 : 400;
+      return res.status(status).json({
+        error: status === 413 ? err.code : 'invalid_request',
+        message: err.message,
+      });
     }
 
     if (!filename || !filename.toLowerCase().endsWith('.mpk')) {
@@ -428,3 +459,6 @@ module.exports = async function handler(req, res) {
     }
   }
 };
+
+module.exports.parseMultipart = parseMultipart;
+module.exports.MAX_BUNDLE_BYTES = MAX_BUNDLE_BYTES;

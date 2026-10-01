@@ -49,11 +49,12 @@ async function resolveSessionUser(req) {
     if (payload?.email) {
       if (await isBlacklisted(payload.email)) return null;
       const profile = await getUserByEmail(payload.email);
+      if (!profile) return null;
       return {
         id: payload.sub,
         email: payload.email,
         name: payload.name,
-        username: profile?.username ?? null,
+        username: profile.username ?? null,
       };
     }
   } catch {
