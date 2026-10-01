@@ -132,7 +132,7 @@ describe('Org auth — API token', () => {
     }
   });
 
-  it('org members add uses email not pubkey in request body', async () => {
+  it('org members add sends a username in the request body', async () => {
     process.env.CALIMERO_API_KEY = 'token-xyz';
 
     const mockFetch = vi.fn().mockResolvedValue({
@@ -145,7 +145,7 @@ describe('Org auth — API token', () => {
     const config = new RemoteConfig();
     const apiKey = config.getApiKey()!;
     const authHeaders = { Authorization: `Bearer ${apiKey}` };
-    const body = { email: 'bob@example.com', role: 'member' };
+    const body = { username: 'bob', role: 'member' };
 
     await fetch(`${base}/api/v2/orgs/my-org/members`, {
       method: 'POST',
@@ -158,7 +158,8 @@ describe('Org auth — API token', () => {
       { headers?: Record<string, string>; body?: string },
     ];
     const sentBody = JSON.parse(opts.body ?? '{}');
-    expect(sentBody).toHaveProperty('email', 'bob@example.com');
+    expect(sentBody).toHaveProperty('username', 'bob');
+    expect(sentBody).not.toHaveProperty('email');
     expect(sentBody).not.toHaveProperty('pubkey');
   });
 });

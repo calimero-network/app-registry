@@ -5,6 +5,7 @@
  */
 
 const { kv } = require('./kv-client');
+const { invitations } = require('./org-invitations');
 
 const ORG_PREFIX = 'org:';
 const ORG_BY_SLUG_PREFIX = 'org:by_slug:';
@@ -310,6 +311,8 @@ async function deleteOrg(orgId) {
   for (const pkg of packages) {
     await kv.del(PKG2ORG_PREFIX + pkg);
   }
+
+  await invitations.removeAllForOrg(orgId);
 
   // Delete org data keys
   await kv.del(ORG_PREFIX + orgId + MEMBERS_SUFFIX);

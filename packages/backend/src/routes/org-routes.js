@@ -44,6 +44,10 @@ const {
   countOwnedOrgs,
   MAX_OWNED_ORGS_PER_ACCOUNT,
 } = require('@calimero-network/registry-shared/org-validation');
+const { flow: invitationFlow } = require('../lib/invitation-flow');
+const {
+  resolveMemberEmail,
+} = require('@calimero-network/registry-shared/org-invitation-flow');
 const { BundleStorageKV } = require('../lib/bundle-storage-kv');
 const config = require('../config');
 
@@ -379,7 +383,7 @@ async function orgRoutes(server) {
     return reply.code(204).send();
   });
 
-  // POST /api/v2/orgs/:orgId/members — add member by username
+  // POST /api/v2/orgs/:orgId/members — invite a member by username
   server.post('/api/v2/orgs/:orgId/members', async (request, reply) => {
     const { orgId } = request.params;
     const org = await getOrg(orgId);
@@ -404,40 +408,92 @@ async function orgRoutes(server) {
       });
     }
     const roleNorm = role === 'admin' ? 'admin' : 'member';
-    if (roleNorm === 'admin') {
-      const user = await requireOrgOwner(request, reply, orgId);
-      if (!user) return;
-    } else {
-      const user = await requireOrgAdminOrOwner(request, reply, orgId);
-      if (!user) return;
-    }
-    const profile = await getUserByUsername(memberUsername);
-    if (!profile?.email) {
+    const inviter =
+      roleNorm === 'admin'
+        ? await requireOrgOwner(request, reply, orgId)
+        : await requireOrgAdminOrOwner(request, reply, orgId);
+    if (!inviter) return;
+    const { status, body } = await invitationFlow.invite({
+      orgId,
+      username: memberUsername,
+      role: roleNorm,
+      inviterEmail: inviter.email,
+    });
+    return reply.code(status).send(body);
+  });
+
+  // GET /api/v2/orgs/:orgId/invitations — pending invitations (admin/owner)
+  server.get('/api/v2/orgs/:orgId/invitations', async (request, reply) => {
+    const { orgId } = request.params;
+    if (!(await getOrg(orgId))) {
       return reply.code(404).send({
         error: 'not_found',
-        message: `User '@${memberUsername}' was not found`,
+        message: 'Organization not found',
       });
     }
-    const memberEmail = profile.email;
-    const existingRole = await getOrgMemberRole(orgId, memberEmail);
-    if (existingRole) {
-      return reply.code(409).send({
-        error: 'conflict',
-        message: `User '@${memberUsername}' is already a member of the organization`,
-      });
+    const user = await requireOrgAdminOrOwner(request, reply, orgId);
+    if (!user) return;
+    const { status, body } = await invitationFlow.listForOrg(orgId);
+    return reply.code(status).send(body);
+  });
+
+  // DELETE /api/v2/orgs/:orgId/invitations/:username — revoke (admin/owner)
+  server.delete(
+    '/api/v2/orgs/:orgId/invitations/:username',
+    async (request, reply) => {
+      const { orgId, username } = request.params;
+      if (!(await getOrg(orgId))) {
+        return reply.code(404).send({
+          error: 'not_found',
+          message: 'Organization not found',
+        });
+      }
+      const user = await requireOrgAdminOrOwner(request, reply, orgId);
+      if (!user) return;
+      const { status, body } = await invitationFlow.revoke(orgId, username);
+      return reply.code(status).send(body);
     }
-    await addOrgMember(orgId, memberEmail, roleNorm);
-    return reply.code(204).send();
+  );
+
+  // GET /api/v2/invitations — the caller's pending invitations
+  server.get('/api/v2/invitations', async (request, reply) => {
+    const user = await requireAuth(request, reply);
+    if (!user) return;
+    const { status, body } = await invitationFlow.listMine(user.email);
+    return reply.code(status).send(body);
+  });
+
+  // POST /api/v2/invitations/:orgId/:action — accept or decline
+  server.post('/api/v2/invitations/:orgId/:action', async (request, reply) => {
+    const { orgId, action } = request.params;
+    const user = await requireAuth(request, reply);
+    if (!user) return;
+    const { status, body } = await invitationFlow.respond(
+      orgId,
+      user.email,
+      action
+    );
+    return reply.code(status).send(body);
   });
 
   // PATCH /api/v2/orgs/:orgId/members/:email — update member role (owner only; promote/demote admin/member)
   server.patch('/api/v2/orgs/:orgId/members/:email', async (request, reply) => {
-    const { orgId, email: memberEmail } = request.params;
+    const { orgId, email: memberParam } = request.params;
     const org = await getOrg(orgId);
     if (!org) {
       return reply.code(404).send({
         error: 'not_found',
         message: 'Organization not found',
+      });
+    }
+    const memberEmail = await resolveMemberEmail(
+      getUserByUsername,
+      memberParam
+    );
+    if (!memberEmail) {
+      return reply.code(404).send({
+        error: 'not_found',
+        message: 'User is not a member of this organization',
       });
     }
     const user = await requireOrgOwner(request, reply, orgId);
@@ -478,12 +534,22 @@ async function orgRoutes(server) {
   server.delete(
     '/api/v2/orgs/:orgId/members/:email',
     async (request, reply) => {
-      const { orgId, email: memberEmail } = request.params;
+      const { orgId, email: memberParam } = request.params;
       const org = await getOrg(orgId);
       if (!org) {
         return reply.code(404).send({
           error: 'not_found',
           message: 'Organization not found',
+        });
+      }
+      const memberEmail = await resolveMemberEmail(
+        getUserByUsername,
+        memberParam
+      );
+      if (!memberEmail) {
+        return reply.code(404).send({
+          error: 'not_found',
+          message: 'User is not a member of this organization',
         });
       }
       const user = await requireAuth(request, reply);
@@ -639,7 +705,7 @@ async function orgRoutes(server) {
     return reply.send({ packages });
   });
 
-  // GET /api/v2/orgs/:orgId/members — list members (username + role, public; emails not exposed)
+  // GET /api/v2/orgs/:orgId/members — list members (username + role, public; emails only to their owner or a site admin)
   server.get('/api/v2/orgs/:orgId/members', async (request, reply) => {
     const { orgId } = request.params;
     const org = await getOrg(orgId);
@@ -650,20 +716,17 @@ async function orgRoutes(server) {
       });
     }
     const emails = await getOrgMembers(orgId);
-    // Privacy: member emails are personal data. Expose them only to a member of
-    // this org (any role) or a site admin; anonymous and outside callers get the
-    // public shape (username/role/verified/isBot). Mirrors the Vercel handler.
     const caller = await resolveOptionalUser(request);
-    const canSeeEmail =
-      !!caller?.email &&
-      (!!(await getOrgMemberRole(orgId, caller.email)) ||
-        (await isAdmin(caller.email)));
+    const callerEmail = caller?.email?.toLowerCase() ?? null;
+    const callerIsAdmin = !!callerEmail && (await isAdmin(callerEmail));
     const members = await Promise.all(
       emails.map(async email => {
         const role = await getOrgMemberRole(orgId, email);
         const profile = await getUserByEmail(email);
         return {
-          ...(canSeeEmail ? { email } : {}),
+          ...(callerIsAdmin || email.toLowerCase() === callerEmail
+            ? { email }
+            : {}),
           username: profile?.username ?? null,
           verified: profile?.verified ?? email.endsWith('@calimero.network'),
           role: role || 'member',
