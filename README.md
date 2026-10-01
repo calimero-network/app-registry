@@ -93,8 +93,10 @@ Every manifest is verified using:
 
 1. Remove `signature` and all `_*`-prefixed fields
 2. RFC 8785 (JCS) canonicalize → deterministic JSON bytes
-3. SHA-256 hash of canonical bytes
+3. SHA-256 hash of the domain tag `calimero.bundle.manifest.v1\0` followed by the canonical bytes
 4. Ed25519 verify(sig, hash, pubkey)
+
+A signature over the bare SHA-256 of the canonical bytes is refused.
 
 The same process runs on the node side when the Calimero Desktop app installs a bundle.
 
