@@ -87,6 +87,8 @@ function makeRes() {
   };
 }
 
+const SAME_ORIGIN = 'https://apps.calimero.network';
+
 function sessionCookie(email) {
   const token = jwt.sign(
     { sub: `u-${email}`, email, name: email },
@@ -107,7 +109,10 @@ describe('token hashing + backward compatibility', () => {
   it('POST /api/auth/token stores the token hashed and it resolves via Bearer', async () => {
     const req = {
       method: 'POST',
-      headers: { cookie: sessionCookie('victim@example.com') },
+      headers: {
+        cookie: sessionCookie('victim@example.com'),
+        origin: SAME_ORIGIN,
+      },
       body: { label: 'my cli' },
     };
     const res = makeRes();
@@ -166,7 +171,11 @@ describe('token hashing + backward compatibility', () => {
 
 describe('minting API tokens requires a session', () => {
   function mintReq(headers) {
-    return { method: 'POST', headers, body: { label: 'x' } };
+    return {
+      method: 'POST',
+      headers: { origin: SAME_ORIGIN, ...headers },
+      body: { label: 'x' },
+    };
   }
 
   it('refuses a Bearer API token as the credential for minting another', async () => {
@@ -250,7 +259,10 @@ describe('revocation on user delete', () => {
     const req = {
       method: 'DELETE',
       query: { userId: 'U1' },
-      headers: { cookie: sessionCookie('admin@calimero.network') },
+      headers: {
+        cookie: sessionCookie('admin@calimero.network'),
+        origin: SAME_ORIGIN,
+      },
       body: {},
     };
     const res = makeRes();
@@ -281,7 +293,10 @@ describe('revocation on user delete', () => {
     const req = {
       method: 'PATCH',
       query: { userId: 'U1' },
-      headers: { cookie: sessionCookie('admin@calimero.network') },
+      headers: {
+        cookie: sessionCookie('admin@calimero.network'),
+        origin: SAME_ORIGIN,
+      },
       body: { action: 'blacklist', reason: 'abuse' },
     };
     const res = makeRes();
@@ -317,7 +332,7 @@ describe('suspending and revoking any account', () => {
     return {
       method: 'PATCH',
       query: { userId: 'S1' },
-      headers: { cookie: sessionCookie(asEmail) },
+      headers: { cookie: sessionCookie(asEmail), origin: SAME_ORIGIN },
       body: { action, reason: 'offboarded' },
     };
   }
