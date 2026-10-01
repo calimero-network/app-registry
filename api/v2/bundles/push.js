@@ -29,10 +29,9 @@ const {
 const {
   stampOwnerEmail,
 } = require('@calimero-network/registry-backend/src/lib/package-owner');
-const { resolveUser } = require('#api-lib/auth-helpers');
+const { resolveUser, rejectUnauthenticated } = require('#api-lib/auth-helpers');
 const { getUserByEmail } = require('#api-lib/user-storage');
 const { isBot, isAdmin } = require('#api-lib/admin-storage');
-const { LOGIN_REQUIRED } = require('#api-lib/auth-helpers');
 const {
   getPkg2Org,
   setPkg2Org,
@@ -70,7 +69,7 @@ module.exports = async function handler(req, res) {
     // and may publish, hence resolveUser rather than requireAuth.
     const user = await resolveUser(req);
     if (!user?.email) {
-      return res.status(401).json(LOGIN_REQUIRED);
+      return rejectUnauthenticated(req, res);
     }
 
     const store = getStorage();
