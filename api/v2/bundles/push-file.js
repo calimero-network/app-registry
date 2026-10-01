@@ -43,10 +43,9 @@ const {
 const {
   stampOwnerEmail,
 } = require('@calimero-network/registry-backend/src/lib/package-owner');
-const { resolveUser } = require('#api-lib/auth-helpers');
+const { resolveUser, rejectUnauthenticated } = require('#api-lib/auth-helpers');
 const { getUserByEmail } = require('#api-lib/user-storage');
 const { isBot, isAdmin } = require('#api-lib/admin-storage');
-const { LOGIN_REQUIRED } = require('#api-lib/auth-helpers');
 const {
   autolinkBotPackage,
 } = require('@calimero-network/registry-shared/bot-autolink');
@@ -141,7 +140,7 @@ module.exports = async function handler(req, res) {
     // read so an anonymous caller cannot make the server buffer 100 MB.
     const user = await resolveUser(req);
     if (!user?.email) {
-      return res.status(401).json(LOGIN_REQUIRED);
+      return rejectUnauthenticated(req, res);
     }
 
     // Parse multipart

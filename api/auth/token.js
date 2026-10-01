@@ -6,7 +6,11 @@
  * as they are by requireAuth.
  */
 
-const { resolveSessionUser, BOT_FORBIDDEN } = require('#api-lib/auth-helpers');
+const {
+  resolveSessionUser,
+  rejectUnauthenticated,
+  BOT_FORBIDDEN,
+} = require('#api-lib/auth-helpers');
 const { isBot } = require('#api-lib/admin-storage');
 const { apiTokens } = require('#api-lib/api-token-storage');
 
@@ -20,7 +24,7 @@ module.exports = async function handler(req, res) {
 
   const user = await resolveSessionUser(req);
   if (!user) {
-    return res.status(401).json({
+    return rejectUnauthenticated(req, res, {
       error: 'unauthorized',
       message: 'Session login required to create API tokens',
     });
