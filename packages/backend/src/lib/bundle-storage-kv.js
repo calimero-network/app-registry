@@ -9,6 +9,8 @@ const blob = require('./blob-store');
 const {
   verifyBundleBinary,
   BundleIntegrityError,
+  isUnsafeBundlePath,
+  normalizeEntryPath,
 } = require('./bundle-integrity');
 const semver = require('semver');
 const { removeAllAssets } = require('./asset-store');
@@ -25,24 +27,6 @@ const {
 // delete and "<pkg>/<version>" for a single-version delete, and consulted by
 // both publish routes before they store anything.
 const TOMBSTONE_SET = 'bundle-tombstones';
-
-/**
- * True if a bundle artifact path is NOT a safe, bundle-relative path: it is a
- * non-string, empty, absolute, or contains a `.`/`..`/empty segment. Mirrors
- * the CLI's assertSafeBundlePath (packages/cli/src/lib/services.ts); keep the
- * two in sync.
- */
-function isUnsafeBundlePath(p) {
-  if (typeof p !== 'string' || p.length === 0) return true;
-  const segments = p.split(/[\\/]/);
-  return (
-    p.startsWith('/') ||
-    /^[a-zA-Z]:/.test(p) ||
-    segments.includes('..') ||
-    segments.includes('.') ||
-    segments.includes('')
-  );
-}
 
 /**
  * True if a service artifact path lives under the `services/` directory (the
@@ -107,6 +91,21 @@ class BundleStorageKV {
       ) {
         throw new Error(
           'Invalid interfaces.uses: must be an array or undefined/null'
+        );
+      }
+    }
+
+    for (const field of ['wasm', 'abi']) {
+      const art = manifestJson[field];
+      if (art === undefined || art === null) continue;
+      const artPath =
+        typeof art === 'object' && !Array.isArray(art) ? art.path : undefined;
+      if (
+        typeof artPath !== 'string' ||
+        isUnsafeBundlePath(normalizeEntryPath(artPath))
+      ) {
+        throw new BundleIntegrityError(
+          `Invalid ${field}.path "${artPath}": must be a safe relative path inside the bundle`
         );
       }
     }

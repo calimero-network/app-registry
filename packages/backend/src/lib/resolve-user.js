@@ -34,4 +34,16 @@ async function resolveUser(request, { cookieName, sessionSecret }) {
   return null;
 }
 
-module.exports = { resolveUser };
+/**
+ * Resolve the current user from the session cookie alone, ignoring any Bearer
+ * token. Blacklisted emails are treated as unauthenticated.
+ */
+async function resolveSessionUser(request, { cookieName, sessionSecret }) {
+  const token = request.cookies?.[cookieName];
+  const sessionUser = await verifySessionToken(token, sessionSecret);
+  if (!sessionUser?.email) return null;
+  if (await isBlacklisted(sessionUser.email)) return null;
+  return sessionUser;
+}
+
+module.exports = { resolveUser, resolveSessionUser };

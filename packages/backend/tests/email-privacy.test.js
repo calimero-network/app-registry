@@ -2,8 +2,8 @@
  * Privacy regression tests: account email addresses must not leak through the
  * public read/publish API.
  *
- *   1. GET /api/v2/orgs/:orgId/members hides `email` from a stranger and shows
- *      it to a member or a site admin.
+ *   1. GET /api/v2/orgs/:orgId/members hides `email` from a stranger, shows a
+ *      member only their own, and shows all of them to a site admin.
  *   2. GET /api/v2/bundles/:package/:version strips internal `_`-prefixed
  *      metadata (notably `metadata._ownerEmail`).
  *   3. POST /api/v2/bundles/push never stores an email as the public `author`.
@@ -155,12 +155,19 @@ describe('GET /api/v2/orgs/:orgId/members email exposure', () => {
     }
   });
 
-  test('a member of the org sees emails', async () => {
+  test('a member of the org sees only their own email', async () => {
     const res = await callAs('Bearer tok-member');
     expect(res.statusCode).toBe(200);
-    expect(res.body.members.map(m => m.email).sort()).toEqual(
-      [OWNER, MEMBER].sort()
-    );
+    const withEmail = res.body.members.filter(m => 'email' in m);
+    expect(withEmail.map(m => m.email)).toEqual([MEMBER]);
+  });
+
+  test('an org owner does not see other members emails', async () => {
+    store.set('apitoken:tok-owner', JSON.stringify({ email: OWNER }));
+    const res = await callAs('Bearer tok-owner');
+    expect(res.statusCode).toBe(200);
+    const withEmail = res.body.members.filter(m => 'email' in m);
+    expect(withEmail.map(m => m.email)).toEqual([OWNER]);
   });
 
   test('a site admin who is not a member sees emails', async () => {

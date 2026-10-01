@@ -105,6 +105,8 @@ function makeRes() {
 }
 
 function sessionCookie(email = EMAIL) {
+  store.set(`email2user:${email}`, `u-${email}`);
+  store.set(`user:u-${email}`, JSON.stringify({ id: `u-${email}`, email }));
   const token = jwt.sign(
     { sub: `u-${email}`, email, name: email },
     SESSION_SECRET,

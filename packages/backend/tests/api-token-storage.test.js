@@ -11,6 +11,7 @@ const crypto = require('crypto');
 const {
   createApiTokenStorage,
   hashToken,
+  parseLegacyCutoff,
 } = require('@calimero-network/registry-shared/api-token-storage');
 
 function makeKv() {
@@ -203,6 +204,69 @@ describe('api token storage', () => {
       const rec = JSON.parse(kv.store.get(`apitoken:${hashToken(token)}`));
       expect(typeof rec.expiresAt).toBe('number');
       expect(rec.hashed).toBe(true);
+    });
+  });
+
+  describe('legacy cutoff', () => {
+    const CUTOFF = 1_800_000_000_000;
+
+    async function seed(kv) {
+      const legacy = crypto.randomBytes(32).toString('base64url');
+      await kv.set(`apitoken:${legacy}`, JSON.stringify({ email: EMAIL }));
+      await kv.set(
+        `apitoken:${hashToken('no-expiry')}`,
+        JSON.stringify({ email: EMAIL })
+      );
+      return legacy;
+    }
+
+    it('accepts records without an expiry before the cutoff', async () => {
+      const kv = makeKv();
+      const legacy = await seed(kv);
+      const s = createApiTokenStorage(kv, { legacyAcceptedUntil: CUTOFF });
+      expect(await s.verify(legacy, CUTOFF - 1)).not.toBeNull();
+      expect(await s.verify('no-expiry', CUTOFF - 1)).not.toBeNull();
+    });
+
+    it('refuses records without an expiry from the cutoff on', async () => {
+      const kv = makeKv();
+      const legacy = await seed(kv);
+      const s = createApiTokenStorage(kv, { legacyAcceptedUntil: CUTOFF });
+      expect(await s.verify(legacy, CUTOFF)).toBeNull();
+      expect(await s.verify('no-expiry', CUTOFF)).toBeNull();
+    });
+
+    it('does not affect tokens that carry an expiry', async () => {
+      const kv = makeKv();
+      const s = createApiTokenStorage(kv, { legacyAcceptedUntil: CUTOFF });
+      const { token } = await s.create(EMAIL, 'Dev', 'CLI', {}, CUTOFF);
+      expect(await s.verify(token, CUTOFF + DAY)).not.toBeNull();
+    });
+
+    it('reads the cutoff from the environment', async () => {
+      const prev = process.env.LEGACY_API_TOKENS_ACCEPTED_UNTIL;
+      try {
+        process.env.LEGACY_API_TOKENS_ACCEPTED_UNTIL = '2027-01-01T00:00:00Z';
+        expect(createApiTokenStorage(makeKv()).legacyAcceptedUntil).toBe(
+          Date.parse('2027-01-01T00:00:00Z')
+        );
+        delete process.env.LEGACY_API_TOKENS_ACCEPTED_UNTIL;
+        expect(createApiTokenStorage(makeKv()).legacyAcceptedUntil).toBeNull();
+      } finally {
+        if (prev === undefined) {
+          delete process.env.LEGACY_API_TOKENS_ACCEPTED_UNTIL;
+        } else {
+          process.env.LEGACY_API_TOKENS_ACCEPTED_UNTIL = prev;
+        }
+      }
+    });
+
+    it('parses ISO dates and epoch milliseconds, ignores anything else', () => {
+      expect(parseLegacyCutoff('2027-01-01')).toBe(Date.parse('2027-01-01'));
+      expect(parseLegacyCutoff('1800000000000')).toBe(1_800_000_000_000);
+      expect(parseLegacyCutoff('')).toBeNull();
+      expect(parseLegacyCutoff(undefined)).toBeNull();
+      expect(parseLegacyCutoff('soon')).toBeNull();
     });
   });
 

@@ -10,6 +10,7 @@ const { retireUsername } = require('#api-lib/user-storage');
 const {
   addAdmin,
   removeAdmin,
+  revokeAdmin,
   blacklistUser,
   unblacklistUser,
   setAdminVerified,
@@ -112,14 +113,13 @@ module.exports = async function handler(req, res) {
 
       case 'remove_admin':
         if (!email) return res.status(400).json({ error: 'no_email' });
-        if (email.endsWith('@calimero.network')) {
+        if (sameEmail(email, admin.email)) {
           return res.status(400).json({
-            error: 'cannot_remove',
-            message:
-              'Cannot remove admin from @calimero.network accounts; suspend the account instead',
+            error: 'cannot_remove_self',
+            message: 'Cannot remove admin access from your own account',
           });
         }
-        await removeAdmin(email);
+        await revokeAdmin(email);
         return res.status(200).json({ ok: true });
 
       case 'blacklist':

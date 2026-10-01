@@ -13,8 +13,10 @@
  *    key, so those tokens keep resolving untouched. That fallback accepts only
  *    records that are genuinely legacy: no expiresAt and no `hashed` marker.
  *  - NEW tokens carry an expiresAt and are rejected once past it. A record with
- *    NO expiresAt (every legacy token) is grandfathered and never expires — we
- *    must not invalidate credentials users already hold.
+ *    NO expiresAt (every legacy token) is accepted until the optional
+ *    LEGACY_API_TOKENS_ACCEPTED_UNTIL cutoff (ISO date or epoch ms), and
+ *    forever while it is unset. scripts/migrate-legacy-tokens.js re-keys those
+ *    records to the hashed form with an expiry before the cutoff is set.
  *
  * This mirrors shared/refresh-storage.js on purpose; the token value is the
  * only thing the client presents, so a single read per lookup is unavoidable.
@@ -62,9 +64,22 @@ function isLegacyRecord(rec) {
   return rec.hashed !== true && rec.expiresAt == null;
 }
 
+const LEGACY_CUTOFF_ENV = 'LEGACY_API_TOKENS_ACCEPTED_UNTIL';
+
+function parseLegacyCutoff(value) {
+  if (value == null) return null;
+  const text = String(value).trim();
+  if (!text) return null;
+  const ms = /^\d+$/.test(text) ? Number(text) : Date.parse(text);
+  return Number.isFinite(ms) ? ms : null;
+}
+
 function createApiTokenStorage(
   kv,
-  { maxAgeSeconds = DEFAULT_MAX_AGE_SECONDS } = {}
+  {
+    maxAgeSeconds = DEFAULT_MAX_AGE_SECONDS,
+    legacyAcceptedUntil = parseLegacyCutoff(process.env[LEGACY_CUTOFF_ENV]),
+  } = {}
 ) {
   /**
    * Mint a new token. Returns the raw token (shown once) plus its metadata and
@@ -120,14 +135,18 @@ function createApiTokenStorage(
     }
     if (!rec || !rec.email) return null;
 
-    // Grandfathered: a record with no expiresAt never expires.
-    if (rec.expiresAt && (nowMs ?? Date.now()) >= rec.expiresAt) {
+    const now = nowMs ?? Date.now();
+    if (rec.expiresAt == null) {
+      if (legacyAcceptedUntil != null && now >= legacyAcceptedUntil) {
+        return null;
+      }
+    } else if (now >= rec.expiresAt) {
       return null;
     }
 
     // Best-effort usage stamp; a failed write must never fail the request.
     try {
-      rec.lastUsed = new Date(nowMs ?? Date.now()).toISOString();
+      rec.lastUsed = new Date(now).toISOString();
       await kv.set(key, JSON.stringify(rec));
     } catch {
       /* non-fatal */
@@ -140,6 +159,7 @@ function createApiTokenStorage(
     verify,
     hashToken,
     maxAgeSeconds,
+    legacyAcceptedUntil,
     TOKEN_PREFIX,
     USER_TOKENS_PREFIX,
   };
@@ -148,6 +168,10 @@ function createApiTokenStorage(
 module.exports = {
   createApiTokenStorage,
   hashToken,
+  isLegacyRecord,
+  parseLegacyCutoff,
+  LEGACY_CUTOFF_ENV,
+  HASH_HEX_RE,
   DEFAULT_MAX_AGE_SECONDS,
   TOKEN_PREFIX,
   USER_TOKENS_PREFIX,

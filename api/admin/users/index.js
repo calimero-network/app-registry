@@ -3,6 +3,7 @@ const { requireAdmin } = require('#api-lib/auth-helpers');
 const { kv } = require('#api-lib/kv-client');
 const {
   listAdminEmails,
+  listRevokedAdminEmails,
   listBlacklistedEmails,
   getAdminVerified,
 } = require('#api-lib/admin-storage');
@@ -14,11 +15,13 @@ module.exports = async function handler(req, res) {
 
   try {
     const keys = await kv.scanKeys('user:*');
-    const [adminEmails, blacklistedEmails] = await Promise.all([
+    const [adminEmails, revokedEmails, blacklistedEmails] = await Promise.all([
       listAdminEmails(),
+      listRevokedAdminEmails(),
       listBlacklistedEmails(),
     ]);
     const adminSet = new Set(adminEmails.map(e => e.toLowerCase()));
+    const revokedSet = new Set(revokedEmails.map(e => e.toLowerCase()));
     const blacklistSet = new Set(blacklistedEmails.map(e => e.toLowerCase()));
 
     // ⚠️ TWO WAVES, NOT TWO ROUND TRIPS PER USER.
@@ -71,7 +74,8 @@ module.exports = async function handler(req, res) {
         verified: user.verified || adminVerified,
         adminVerified,
         isAdmin:
-          user.email.endsWith('@calimero.network') ||
+          (user.email.endsWith('@calimero.network') &&
+            !revokedSet.has(user.email.toLowerCase())) ||
           adminSet.has(user.email.toLowerCase()),
         isBlacklisted: blacklistSet.has(user.email.toLowerCase()),
         createdAt: user.createdAt || null,

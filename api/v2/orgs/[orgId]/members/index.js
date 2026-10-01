@@ -1,21 +1,20 @@
 /**
  * GET  /api/v2/orgs/:orgId/members — list members
- * POST /api/v2/orgs/:orgId/members — add member by username
+ * POST /api/v2/orgs/:orgId/members — invite a member by username
  */
 
 const {
   getOrg,
   getOrgMembers,
-  getOrgMemberRole,
   getOrgMemberRoles,
-  addOrgMember,
 } = require('#api-lib/org-storage');
+const { flow } = require('#api-lib/invitation-flow');
 const {
   resolveUser,
   requireOrgAdminOrOwner,
   requireOrgOwner,
 } = require('#api-lib/auth-helpers');
-const { getUserByEmail, getUserByUsername } = require('#api-lib/user-storage');
+const { getUserByEmail } = require('#api-lib/user-storage');
 const { isBot, isAdmin } = require('#api-lib/admin-storage');
 
 function cors(res) {
@@ -69,17 +68,13 @@ module.exports = async function handler(req, res) {
         resolveUser(req),
       ]);
 
-      // Privacy: member emails are personal data and were previously returned
-      // to any unauthenticated caller. Expose them only to someone who belongs
-      // to this org (any role) or a site admin; everyone else gets the public
-      // shape (username/role/verified/isBot), which is all the UI needs to key
-      // its actions on.
-      const canSeeEmail =
-        !!caller?.email &&
-        (!!roleOf(caller.email) || (await isAdmin(caller.email)));
+      const callerEmail = caller?.email?.toLowerCase() ?? null;
+      const callerIsAdmin = !!callerEmail && (await isAdmin(callerEmail));
 
       const members = emails.map((email, i) => ({
-        ...(canSeeEmail ? { email } : {}),
+        ...(callerIsAdmin || email.toLowerCase() === callerEmail
+          ? { email }
+          : {}),
         username: profiles[i]?.username ?? null,
         verified: profiles[i]?.verified ?? email.endsWith('@calimero.network'),
         role: roleOf(email) || 'member',
@@ -111,31 +106,19 @@ module.exports = async function handler(req, res) {
     }
     const roleNorm = role === 'admin' ? 'admin' : 'member';
     // Adding admin requires owner; adding member requires admin or owner
-    if (roleNorm === 'admin') {
-      const user = await requireOrgOwner(req, res, orgId);
-      if (!user) return;
-    } else {
-      const user = await requireOrgAdminOrOwner(req, res, orgId);
-      if (!user) return;
-    }
+    const inviter =
+      roleNorm === 'admin'
+        ? await requireOrgOwner(req, res, orgId)
+        : await requireOrgAdminOrOwner(req, res, orgId);
+    if (!inviter) return;
     try {
-      const profile = await getUserByUsername(memberUsername);
-      if (!profile?.email) {
-        return res.status(404).json({
-          error: 'not_found',
-          message: `User '@${memberUsername}' was not found`,
-        });
-      }
-      const memberEmail = profile.email;
-      const existingRole = await getOrgMemberRole(orgId, memberEmail);
-      if (existingRole) {
-        return res.status(409).json({
-          error: 'conflict',
-          message: `User '@${memberUsername}' is already a member of the organization`,
-        });
-      }
-      await addOrgMember(orgId, memberEmail, roleNorm);
-      return res.status(204).end();
+      const { status, body } = await flow.invite({
+        orgId,
+        username: memberUsername,
+        role: roleNorm,
+        inviterEmail: inviter.email,
+      });
+      return body ? res.status(status).json(body) : res.status(status).end();
     } catch (e) {
       console.error('orgs route error:', e);
       return res

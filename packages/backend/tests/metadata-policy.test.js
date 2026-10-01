@@ -386,6 +386,36 @@ describe('package identity policy', () => {
     test('does not match a mere substring', () => {
       expect(reservedPackagePrefix('com.notcalimero.app')).toBeNull();
     });
+    test.each([
+      ['com.calimero', 'com.calimero.'],
+      ['network.calimero', 'network.calimero.'],
+      ['com.calimero.a.b', 'com.calimero.'],
+    ])('flags the bare or nested label %s', (pkg, prefix) => {
+      expect(reservedPackagePrefix(pkg)).toBe(prefix);
+    });
+    test.each([
+      ['com.calimero-network.app', 'com.calimero-network.'],
+      ['com.calimeronetwork.app', 'com.calimeronetwork.'],
+      ['network.calimero-labs.app', 'network.calimero-labs.'],
+      ['com.ca1imero.app', 'com.ca1imero.'],
+      ['com.calimer0.app', 'com.calimer0.'],
+      ['com.calirnero.app', 'com.calirnero.'],
+      ['com.cal-imero.app', 'com.cal-imero.'],
+      ['io.calimero.app', 'io.calimero.'],
+      ['calimero.network.app', 'calimero.network.'],
+      ['net.calimero', 'net.calimero.'],
+    ])('flags the look-alike %s', (pkg, prefix) => {
+      expect(reservedPackagePrefix(pkg)).toBe(prefix);
+    });
+    test.each([
+      'com.calimer.app',
+      'com.example.calimero',
+      'com.example.calimero-network',
+      'com.caliber.app',
+      'org.merolabs.app',
+    ])('leaves %s alone', pkg => {
+      expect(reservedPackagePrefix(pkg)).toBeNull();
+    });
   });
 
   describe('isStaffEmail', () => {

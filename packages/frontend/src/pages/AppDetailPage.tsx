@@ -276,7 +276,7 @@ export default function AppDetailPage() {
   const userEmailLower = user?.email?.toLowerCase() ?? '';
   const orgRole = userEmailLower
     ? (orgMembersData?.members?.find(
-        m => m.email.toLowerCase() === userEmailLower
+        m => m.email?.toLowerCase() === userEmailLower
       )?.role ?? null)
     : null;
   const isOrgManager = orgRole === 'owner' || orgRole === 'admin';

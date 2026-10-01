@@ -229,4 +229,42 @@ describe('Multi-service bundle storage', () => {
     );
     expect(kv.setNX).not.toHaveBeenCalled();
   });
+  test.each([
+    '../../x.wasm',
+    '/abs/x.wasm',
+    '..\\..\\x.wasm',
+    'C:\\x.wasm',
+    '',
+  ])('rejects a main wasm.path of %p', async bad => {
+    const manifest = {
+      ...baseManifest(),
+      wasm: { path: bad, hash: 'h', size: 1 },
+    };
+    await expect(storage.storeBundleManifest(manifest)).rejects.toThrow(
+      /Invalid wasm\.path/
+    );
+    expect(kv.setNX).not.toHaveBeenCalled();
+  });
+
+  test.each(['../abi.json', '/abs/abi.json', 'C:\\abi.json'])(
+    'rejects a main abi.path of %p',
+    async bad => {
+      const manifest = {
+        ...baseManifest(),
+        abi: { path: bad, hash: 'h', size: 1 },
+      };
+      await expect(storage.storeBundleManifest(manifest)).rejects.toThrow(
+        /Invalid abi\.path/
+      );
+      expect(kv.setNX).not.toHaveBeenCalled();
+    }
+  );
+
+  test('accepts a ./-prefixed main wasm.path', async () => {
+    const manifest = {
+      ...baseManifest(),
+      wasm: { path: './app.wasm', hash: 'h', size: 1 },
+    };
+    await expect(storage.storeBundleManifest(manifest)).resolves.not.toThrow();
+  });
 });

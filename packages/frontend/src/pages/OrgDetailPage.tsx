@@ -8,6 +8,8 @@ import {
   getOrgPackages,
   addOrgMember,
   removeOrgMember,
+  getOrgInvitations,
+  revokeOrgInvitation,
   linkOrgPackage,
   unlinkOrgPackage,
   updateOrg,
@@ -41,7 +43,9 @@ import {
   ExternalLink,
   BadgeCheck,
   Bot,
+  Clock,
 } from 'lucide-react';
+import type { OrgMember } from '@/types/api';
 import { GithubIcon, TwitterXIcon } from '@/components/BrandIcons';
 
 /** Extract a readable message from an Axios or generic error. */
@@ -53,6 +57,10 @@ function getApiErrorMessage(error: unknown): string {
   }
   if (error instanceof Error) return error.message;
   return 'An unexpected error occurred.';
+}
+
+function memberKey(member: OrgMember): string | null {
+  return member.username ?? member.email ?? null;
 }
 
 export default function OrgDetailPage() {
@@ -67,6 +75,7 @@ export default function OrgDetailPage() {
     'member'
   );
   const [memberUsernameTouched, setMemberUsernameTouched] = useState(false);
+  const [inviteNotice, setInviteNotice] = useState<string | null>(null);
   const USERNAME_REGEX = /^[a-z0-9]([a-z0-9_-]{0,48}[a-z0-9])?$/;
 
   const isValidUsername = (value: string) =>
@@ -91,9 +100,8 @@ export default function OrgDetailPage() {
   });
 
   // Confirmation dialogs for destructive actions
-  const [confirmRemoveEmail, setConfirmRemoveEmail] = useState<string | null>(
-    null
-  );
+  const [confirmRemoveKey, setConfirmRemoveKey] = useState<string | null>(null);
+  const [confirmRevoke, setConfirmRevoke] = useState<string | null>(null);
   const [confirmUnlinkPkg, setConfirmUnlinkPkg] = useState<string | null>(null);
   const [confirmDeleteOrg, setConfirmDeleteOrg] = useState(false);
 
@@ -124,21 +132,19 @@ export default function OrgDetailPage() {
   const members = membersData?.members ?? [];
   const packages = packagesData?.packages ?? [];
   const userEmailNorm = user?.email?.toLowerCase() ?? '';
-  const isAdmin =
-    !!user?.email &&
-    members.some(
-      m =>
-        m.email.toLowerCase() === userEmailNorm &&
-        (m.role === 'admin' || m.role === 'owner')
-    );
-  const isOwner =
-    !!user?.email &&
-    members.some(
-      m => m.email.toLowerCase() === userEmailNorm && m.role === 'owner'
-    );
+  const isSelf = (m: OrgMember) =>
+    !!userEmailNorm && m.email?.toLowerCase() === userEmailNorm;
+  const selfRow = members.find(isSelf);
+  const isAdmin = selfRow?.role === 'admin' || selfRow?.role === 'owner';
+  const isOwner = selfRow?.role === 'owner';
   /** Any member of the org (owner, admin, or regular member). */
-  const isMember =
-    !!user?.email && members.some(m => m.email.toLowerCase() === userEmailNorm);
+  const isMember = !!selfRow;
+
+  const { data: invitations = [] } = useQuery({
+    queryKey: ['org-invitations', decodedOrgId],
+    queryFn: () => getOrgInvitations(decodedOrgId),
+    enabled: !!decodedOrgId && !!org && isAdmin,
+  });
 
   const addMemberMutation = useMutation({
     mutationFn: () =>
@@ -147,9 +153,18 @@ export default function OrgDetailPage() {
         sanitizeText(newMemberUsername.trim()),
         newMemberRole
       ),
-    onSuccess: () => {
+    onSuccess: ({ invited }) => {
+      const username = newMemberUsername.trim().replace(/^@+/, '');
+      setInviteNotice(
+        invited
+          ? `Invitation sent to @${username}. They join once they accept it.`
+          : `@${username} was added.`
+      );
       queryClient.invalidateQueries({
         queryKey: ['org-members', decodedOrgId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ['org-invitations', decodedOrgId],
       });
       setNewMemberUsername('');
       setNewMemberRole('member');
@@ -157,12 +172,22 @@ export default function OrgDetailPage() {
     },
   });
 
+  const revokeInvitationMutation = useMutation({
+    mutationFn: (username: string) =>
+      revokeOrgInvitation(decodedOrgId, username),
+    onSuccess: () => {
+      setConfirmRevoke(null);
+      queryClient.invalidateQueries({
+        queryKey: ['org-invitations', decodedOrgId],
+      });
+    },
+  });
+
   const removeMemberMutation = useMutation({
-    mutationFn: (memberEmail: string) =>
-      removeOrgMember(decodedOrgId, memberEmail),
-    onSuccess: (_, memberEmail) => {
-      setConfirmRemoveEmail(null);
-      if (memberEmail.toLowerCase() === userEmailNorm) {
+    mutationFn: (key: string) => removeOrgMember(decodedOrgId, key),
+    onSuccess: (_, key) => {
+      setConfirmRemoveKey(null);
+      if (selfRow && key === memberKey(selfRow)) {
         navigate('/orgs');
         return;
       }
@@ -254,6 +279,7 @@ export default function OrgDetailPage() {
     setMemberUsernameTouched(true);
     if (!newMemberUsername.trim() || !isValidUsername(newMemberUsername))
       return;
+    setInviteNotice(null);
     addMemberMutation.mutate();
   };
 
@@ -403,7 +429,7 @@ export default function OrgDetailPage() {
             onSubmit={handleAddMember}
           >
             <p className='text-[14px] font-medium text-neutral-300'>
-              Add member
+              Invite member
             </p>
             <div className='flex flex-wrap items-start gap-3'>
               <div className='flex-1 min-w-[220px]'>
@@ -455,7 +481,7 @@ export default function OrgDetailPage() {
                 className='inline-flex items-center gap-1.5 rounded-lg bg-brand-accent hover:bg-brand-accent-hover disabled:opacity-50 disabled:cursor-not-allowed text-black px-4 py-2 text-[15px] font-medium transition-colors'
               >
                 <UserPlus className='w-3.5 h-3.5' />
-                {addMemberMutation.isPending ? 'Adding…' : 'Add member'}
+                {addMemberMutation.isPending ? 'Inviting…' : 'Send invite'}
               </button>
             </div>
             {addMemberMutation.isError && (
@@ -463,7 +489,78 @@ export default function OrgDetailPage() {
                 {getApiErrorMessage(addMemberMutation.error)}
               </p>
             )}
+            {inviteNotice && !addMemberMutation.isError && (
+              <p className='text-[14px] text-emerald-400'>{inviteNotice}</p>
+            )}
           </form>
+        )}
+
+        {isAdmin && invitations.length > 0 && (
+          <div className='mb-4 rounded-xl border border-line bg-ink/[0.02] overflow-hidden'>
+            <p className='px-5 py-3 border-b border-line bg-ink/[0.03] text-[14px] font-medium text-neutral-300'>
+              <Clock className='w-3.5 h-3.5 inline mr-1.5' />
+              Pending invitations
+            </p>
+            <ul>
+              {invitations.map(inv => {
+                const username = inv.username;
+                const isRevoking =
+                  revokeInvitationMutation.isPending &&
+                  revokeInvitationMutation.variables === username;
+                return (
+                  <li
+                    key={`${username}-${inv.createdAt}`}
+                    className='flex flex-wrap items-center justify-between gap-2 px-5 py-3 border-b border-line last:border-0 text-[15px]'
+                  >
+                    <span className='text-neutral-400'>
+                      <span className='font-mono'>
+                        {username ? `@${username}` : '(no username)'}
+                      </span>{' '}
+                      <span className='text-[12.5px] text-neutral-500'>
+                        as {inv.role === 'admin' ? 'admin' : 'member'} · expires{' '}
+                        {new Date(inv.expiresAt).toLocaleDateString()}
+                      </span>
+                    </span>
+                    {username &&
+                      (confirmRevoke === username ? (
+                        <span className='inline-flex items-center gap-2'>
+                          <span className='text-[12.5px] text-neutral-400'>
+                            Revoke?
+                          </span>
+                          <button
+                            type='button'
+                            onClick={() =>
+                              revokeInvitationMutation.mutate(username)
+                            }
+                            disabled={isRevoking}
+                            className='text-[12.5px] font-medium text-red-400 hover:text-red-300 disabled:opacity-50 transition-colors'
+                          >
+                            {isRevoking ? 'Revoking…' : 'Yes'}
+                          </button>
+                          <button
+                            type='button'
+                            onClick={() => setConfirmRevoke(null)}
+                            className='text-[12.5px] text-neutral-500 hover:text-neutral-300 transition-colors'
+                          >
+                            Cancel
+                          </button>
+                        </span>
+                      ) : (
+                        <button
+                          type='button'
+                          onClick={() => setConfirmRevoke(username)}
+                          className='inline-flex items-center gap-1 text-[12.5px] text-neutral-500 hover:text-red-400 px-2 py-1 rounded transition-colors'
+                          title='Revoke invitation'
+                        >
+                          <X className='w-3.5 h-3.5' />
+                          Revoke
+                        </button>
+                      ))}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
         )}
 
         {membersLoading ? (
@@ -494,16 +591,16 @@ export default function OrgDetailPage() {
                 </tr>
               </thead>
               <tbody>
-                {members.map(member => {
-                  const isConfirming = confirmRemoveEmail === member.email;
+                {members.map((member, index) => {
+                  const key = memberKey(member);
+                  const isConfirming = !!key && confirmRemoveKey === key;
                   const isRemoving =
                     removeMemberMutation.isPending &&
-                    removeMemberMutation.variables === member.email;
-                  const isCurrentUserRow =
-                    member.email.toLowerCase() === userEmailNorm;
+                    removeMemberMutation.variables === key;
+                  const isCurrentUserRow = isSelf(member);
                   return (
                     <tr
-                      key={member.email}
+                      key={key ?? `member-${index}`}
                       className='border-b border-line last:border-0'
                     >
                       <td className='py-3 px-5 text-neutral-400 truncate max-w-[280px]'>
@@ -559,7 +656,7 @@ export default function OrgDetailPage() {
                               <button
                                 type='button'
                                 onClick={() =>
-                                  removeMemberMutation.mutate(member.email)
+                                  key && removeMemberMutation.mutate(key)
                                 }
                                 disabled={isRemoving}
                                 className='text-[12.5px] font-medium text-red-400 hover:text-red-300 disabled:opacity-50 transition-colors'
@@ -572,30 +669,26 @@ export default function OrgDetailPage() {
                               </button>
                               <button
                                 type='button'
-                                onClick={() => setConfirmRemoveEmail(null)}
+                                onClick={() => setConfirmRemoveKey(null)}
                                 className='text-[12.5px] text-neutral-500 hover:text-neutral-300 transition-colors'
                               >
                                 Cancel
                               </button>
                             </span>
-                          ) : isCurrentUserRow ? (
+                          ) : isCurrentUserRow && key ? (
                             <button
                               type='button'
-                              onClick={() =>
-                                setConfirmRemoveEmail(member.email)
-                              }
+                              onClick={() => setConfirmRemoveKey(key)}
                               className='inline-flex items-center gap-1 text-[12.5px] text-neutral-500 hover:text-red-400 px-2 py-1 rounded transition-colors'
                               title='Leave organization'
                             >
                               <Trash2 className='w-3.5 h-3.5' />
                               Leave
                             </button>
-                          ) : isAdmin ? (
+                          ) : isAdmin && key ? (
                             <button
                               type='button'
-                              onClick={() =>
-                                setConfirmRemoveEmail(member.email)
-                              }
+                              onClick={() => setConfirmRemoveKey(key)}
                               className='inline-flex items-center gap-1 text-[12.5px] text-neutral-500 hover:text-red-400 px-2 py-1 rounded transition-colors'
                               title='Remove member'
                             >

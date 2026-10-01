@@ -8,10 +8,11 @@
  */
 
 const { Storage } = require('@google-cloud/storage');
+const { storageVar } = require('@calimero-network/registry-shared/storage-env');
 
 // Read GCS config fresh on each access (not captured at module load) so tests
 // and any runtime reconfiguration that mutate process.env are picked up.
-const bucketName = () => process.env.GCS_BUCKET;
+const bucketName = () => storageVar('GCS_BUCKET');
 const prefix = () => process.env.GCS_PREFIX || 'bundles';
 
 /**
@@ -37,14 +38,14 @@ function getBucket() {
   // 2. Application Default Credentials (GOOGLE_APPLICATION_CREDENTIALS path,
   //    workload identity, gcloud auth, etc.) when inline creds are absent.
   const options = {};
-  if (process.env.GCS_PROJECT_ID) {
-    options.projectId = process.env.GCS_PROJECT_ID;
+  if (storageVar('GCS_PROJECT_ID')) {
+    options.projectId = storageVar('GCS_PROJECT_ID');
   }
-  if (process.env.GCS_CLIENT_EMAIL && process.env.GCS_PRIVATE_KEY) {
+  if (storageVar('GCS_CLIENT_EMAIL') && storageVar('GCS_PRIVATE_KEY')) {
     options.credentials = {
-      client_email: process.env.GCS_CLIENT_EMAIL,
+      client_email: storageVar('GCS_CLIENT_EMAIL'),
       // Env vars flatten newlines to the literal "\n"; restore them for the PEM.
-      private_key: process.env.GCS_PRIVATE_KEY.replace(/\\n/g, '\n'),
+      private_key: storageVar('GCS_PRIVATE_KEY').replace(/\\n/g, '\n'),
     };
   }
 

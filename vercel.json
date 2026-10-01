@@ -4,6 +4,12 @@
   "outputDirectory": "packages/frontend/dist",
   "installCommand": "pnpm install --frozen-lockfile",
   "framework": null,
+  "git": {
+    "deploymentEnabled": {
+      "**": false,
+      "main": true
+    }
+  },
   "functions": {
     "api/**/*.js": {
       "memory": 1024,

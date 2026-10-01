@@ -143,11 +143,27 @@ export interface Org {
 }
 
 export interface OrgMember {
-  email: string;
+  email?: string;
   username: string | null;
   verified?: boolean;
   role: 'owner' | 'admin' | 'member';
   isBot?: boolean;
+}
+
+export interface OrgInvitation {
+  username: string | null;
+  role: 'admin' | 'member';
+  invitedBy: string | null;
+  createdAt: string;
+  expiresAt: string;
+}
+
+export interface MyOrgInvitation {
+  org: { id: string; name: string; slug: string };
+  role: 'admin' | 'member';
+  invitedBy: string | null;
+  createdAt: string;
+  expiresAt: string;
 }
 
 export interface ApiToken {

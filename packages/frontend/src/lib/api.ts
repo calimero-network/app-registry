@@ -10,6 +10,8 @@ import type {
   Org,
   OrgMetadata,
   OrgMember,
+  OrgInvitation,
+  MyOrgInvitation,
   OrgPackageList,
   ApiToken,
 } from '@/types/api';
@@ -571,26 +573,70 @@ export const updateOrg = async (
   return response.data;
 };
 
-/** Add member to org by username (admin only). */
+/** Invite a user to an org by username (admin only). They join once they accept. */
 export const addOrgMember = async (
   orgId: string,
   username: string,
   role: 'admin' | 'member' = 'member'
-): Promise<void> => {
-  await api.post(`/v2/orgs/${encodeURIComponent(orgId)}/members`, {
-    username: username.trim().replace(/^@+/, ''),
-    role,
-  });
+): Promise<{ invited: boolean }> => {
+  const response = await api.post(
+    `/v2/orgs/${encodeURIComponent(orgId)}/members`,
+    {
+      username: username.trim().replace(/^@+/, ''),
+      role,
+    }
+  );
+  return { invited: response.status === 202 };
 };
 
-/** Remove member from org (admin only). */
+/** Remove member from org by username or email (admin only, or self). */
 export const removeOrgMember = async (
   orgId: string,
-  memberEmail: string
+  member: string
 ): Promise<void> => {
   await api.delete(
-    `/v2/orgs/${encodeURIComponent(orgId)}/members/${encodeURIComponent(memberEmail)}`
+    `/v2/orgs/${encodeURIComponent(orgId)}/members/${encodeURIComponent(member)}`
   );
+};
+
+/** Pending invitations of an org (admin only). */
+export const getOrgInvitations = async (
+  orgId: string
+): Promise<OrgInvitation[]> => {
+  const response = await api.get<{ invitations: OrgInvitation[] }>(
+    `/v2/orgs/${encodeURIComponent(orgId)}/invitations`
+  );
+  return Array.isArray(response.data?.invitations)
+    ? response.data.invitations
+    : [];
+};
+
+/** Revoke a pending invitation (admin only). */
+export const revokeOrgInvitation = async (
+  orgId: string,
+  username: string
+): Promise<void> => {
+  await api.delete(
+    `/v2/orgs/${encodeURIComponent(orgId)}/invitations/${encodeURIComponent(username)}`
+  );
+};
+
+/** The signed-in user's pending org invitations. */
+export const getMyOrgInvitations = async (): Promise<MyOrgInvitation[]> => {
+  const response = await api.get<{ invitations: MyOrgInvitation[] }>(
+    '/v2/invitations'
+  );
+  return Array.isArray(response.data?.invitations)
+    ? response.data.invitations
+    : [];
+};
+
+/** Accept or decline an org invitation. */
+export const respondToOrgInvitation = async (
+  orgId: string,
+  action: 'accept' | 'decline'
+): Promise<void> => {
+  await api.post(`/v2/invitations/${encodeURIComponent(orgId)}/${action}`);
 };
 
 /** Link package to org (admin only; must be package author). */

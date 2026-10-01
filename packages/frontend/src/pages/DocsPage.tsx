@@ -1424,8 +1424,8 @@ tar -xzf cargo-mero.tar.gz -C "\${CARGO_HOME:-$HOME/.cargo}/bin"`}</CodeBlock>
                   </>,
                 ],
                 [
-                  'Add members by email',
-                  'On the org detail page, enter an email address and a role. Members need a Google account to sign in.',
+                  'Invite members by username',
+                  'On the org detail page, enter a username and a role. The invitee accepts from their Organizations page before they join.',
                 ],
                 [
                   'Link packages',
@@ -1503,11 +1503,11 @@ calimero-registry org get    <org-id>                    # public
 calimero-registry org update <org-id> --name "New Name"
 calimero-registry org delete <org-id>
 
-# members, by email
+# members, by username; an invitee joins once they accept
 calimero-registry org members list   <org-id>            # public
-calimero-registry org members add    <org-id> alice@example.com --role member
-calimero-registry org members update <org-id> alice@example.com --role admin
-calimero-registry org members remove <org-id> alice@example.com
+calimero-registry org members add    <org-id> alice --role member
+calimero-registry org members update <org-id> alice --role admin
+calimero-registry org members remove <org-id> alice
 
 # package linking
 calimero-registry org packages link   <org-id> com.my-org.app-1
