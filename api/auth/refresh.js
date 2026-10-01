@@ -23,9 +23,11 @@ const {
   clearedSessionCookie,
   clearedRefreshCookie,
 } = require('@calimero-network/registry-shared/session-cookies');
+const { rejectCrossOriginCookieWrite } = require('#api-lib/request-origin');
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
+  if (rejectCrossOriginCookieWrite(req, res)) return;
 
   // Checked before configuration: a caller with no refresh cookie is
   // unauthenticated whatever the server is missing, and answering 401 keeps a

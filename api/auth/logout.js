@@ -9,9 +9,11 @@ const {
   clearedSessionCookie,
   clearedRefreshCookie,
 } = require('@calimero-network/registry-shared/session-cookies');
+const { rejectCrossOriginCookieWrite } = require('#api-lib/request-origin');
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
+  if (rejectCrossOriginCookieWrite(req, res)) return;
 
   const presented = parseCookies(req.headers?.cookie)[refreshCookieName()];
   if (presented) {
