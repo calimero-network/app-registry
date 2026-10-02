@@ -360,6 +360,7 @@ async function buildServer() {
         developer,
         author,
         all_versions,
+        mine,
       } = request.query || {};
 
       // If specific package and version requested, return single bundle
@@ -399,12 +400,25 @@ async function buildServer() {
           message: 'all_versions requires a package parameter',
         });
       }
-      if (all_versions === 'true' && (developer || author)) {
+      const wantsMine = mine === '1' || mine === 'true';
+      if (all_versions === 'true' && (developer || author || wantsMine)) {
         return reply.code(400).send({
           error: 'invalid_params',
           message:
-            'all_versions cannot be combined with developer or author filters',
+            'all_versions cannot be combined with developer, author or mine filters',
         });
+      }
+
+      let owner = null;
+      if (wantsMine) {
+        reply.header('Cache-Control', 'private, no-store');
+        owner = await resolveAuthUser(request);
+        if (!owner) {
+          return reply.code(401).send({
+            error: 'unauthorized',
+            message: 'Authentication required',
+          });
+        }
       }
 
       // Every version (for the version picker) or just the latest per package
@@ -415,13 +429,19 @@ async function buildServer() {
         allVersions: wantAllVersions,
         includeYanked: true,
         skipYanked: true,
-        keepAllYanked: !!(developer || author),
+        keepAllYanked: !!(developer || author || owner),
       });
 
       // Filtering, sanitization, download counts and ordering are shared with
       // the Vercel copy, so the two cannot disagree on how a listing entry is
       // built either.
-      return await buildBundleListing({ entries, kv, developer, author });
+      return await buildBundleListing({
+        entries,
+        kv,
+        developer,
+        author,
+        owner,
+      });
     } catch (error) {
       server.log.error('Error listing bundles:', error);
       return reply.code(500).send({
