@@ -196,4 +196,5 @@ module.exports = {
   legacyKey,
   DECIDED_SET,
   STATES,
+  TRUSTED_ORG_SLUGS,
 };

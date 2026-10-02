@@ -17,6 +17,8 @@ const { requireAuth } = require('#api-lib/auth-helpers');
 const { isAdmin } = require('#api-lib/admin-storage');
 const {
   isReservedOrgSlug,
+  isReservedOrgName,
+  normalizeOrgName,
 } = require('@calimero-network/registry-shared/org-slugs');
 const {
   validateOrgName,
@@ -122,6 +124,12 @@ module.exports = async function handler(req, res) {
           message: 'This organization slug is reserved',
         });
       }
+      if (isReservedOrgName(name) && !callerIsAdmin) {
+        return res.status(403).json({
+          error: 'reserved_name',
+          message: 'This organization name is reserved',
+        });
+      }
       if (
         !callerIsAdmin &&
         (await countOwnedOrgs(
@@ -145,7 +153,7 @@ module.exports = async function handler(req, res) {
           message: 'An organization with this slug already exists',
         });
       }
-      const org = { id: orgId, name: name.trim(), slug: slugNorm };
+      const org = { id: orgId, name: normalizeOrgName(name), slug: slugNorm };
       try {
         await setOrg(org);
         await addOrgMember(orgId, user.email, 'owner');

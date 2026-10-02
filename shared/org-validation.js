@@ -7,6 +7,7 @@
  */
 
 const { findUnsafeMetadataUrl } = require('./metadata-urls');
+const { normalizeOrgName } = require('./org-slugs');
 
 const ORG_NAME_MAX_LENGTH = 100;
 
@@ -33,10 +34,10 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
  * @returns {string | null} error message, or null when valid
  */
 function validateOrgName(name) {
-  if (typeof name !== 'string' || name.trim() === '') {
+  if (typeof name !== 'string' || normalizeOrgName(name) === '') {
     return 'name must be a non-empty string';
   }
-  if (name.trim().length > ORG_NAME_MAX_LENGTH) {
+  if (normalizeOrgName(name).length > ORG_NAME_MAX_LENGTH) {
     return `name must be at most ${ORG_NAME_MAX_LENGTH} characters`;
   }
   return null;

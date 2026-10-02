@@ -4,6 +4,8 @@
  * authentication and role checks; each function returns { status, body }.
  */
 
+const MAX_PENDING_INVITATIONS_PER_ORG = 50;
+
 function normUsername(username) {
   return typeof username === 'string'
     ? username.trim().replace(/^@+/, '').toLowerCase()
@@ -77,6 +79,16 @@ function createInvitationFlow(deps) {
         body: {
           error: 'already_invited',
           message: `User '@${memberUsername}' already has a pending invitation`,
+        },
+      };
+    }
+    const pending = await invitations.listForOrg(orgId);
+    if (pending.length >= MAX_PENDING_INVITATIONS_PER_ORG) {
+      return {
+        status: 403,
+        body: {
+          error: 'invitation_limit',
+          message: `An organization can have at most ${MAX_PENDING_INVITATIONS_PER_ORG} pending invitations`,
         },
       };
     }
@@ -180,4 +192,9 @@ function createInvitationFlow(deps) {
   return { invite, listForOrg, revoke, listMine, respond };
 }
 
-module.exports = { createInvitationFlow, normUsername, resolveMemberEmail };
+module.exports = {
+  createInvitationFlow,
+  normUsername,
+  resolveMemberEmail,
+  MAX_PENDING_INVITATIONS_PER_ORG,
+};
