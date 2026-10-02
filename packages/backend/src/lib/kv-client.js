@@ -93,6 +93,11 @@ if (isStorageBlocked()) {
       return await redisClient.setNX(key, value);
     },
 
+    async mGet(keys) {
+      await this._ensureConnected();
+      return keys.length ? await redisClient.mGet(keys) : [];
+    },
+
     async del(key) {
       await this._ensureConnected();
       return await redisClient.del(key);
@@ -207,6 +212,13 @@ if (isStorageBlocked()) {
       }
       mockStore.set(key, value);
       return true; // Key was set
+    },
+
+    async mGet(keys) {
+      return keys.map(key => {
+        const value = mockStore.get(key);
+        return value !== undefined ? value : null;
+      });
     },
 
     async del(key) {

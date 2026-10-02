@@ -13,6 +13,7 @@ const {
 const {
   buildBundleListing,
 } = require('@calimero-network/registry-backend/src/lib/bundle-listing');
+const { resolveUser } = require('#api-lib/auth-helpers');
 
 // Singleton storage instance (shared Redis connection with the sibling bundle
 // endpoints — this handler used to open a second one of its own).
@@ -50,9 +51,11 @@ const EDGE_STALE_SECONDS = 30;
  * the delete asking again, or a publish job reading back the latest version —
  * passes `?fresh=1`.
  */
-function wantsFresh(query) {
-  const value = query?.fresh;
-  return value === '1' || value === 'true';
+async function wantsFresh(req) {
+  const value = req.query?.fresh;
+  if (value !== '1' && value !== 'true') return false;
+  if (req.query?.package) return true;
+  return !!(await resolveUser(req));
 }
 
 /**
@@ -91,9 +94,8 @@ module.exports = async function handler(req, res) {
 
   const store = getStorage();
   const { sanitizeBundle } = createBundleSanitizers(kv);
-  const fresh = wantsFresh(req.query);
-
   try {
+    const fresh = await wantsFresh(req);
     const { package: pkg, version, developer, author } = req.query || {};
 
     if (pkg && version) {
