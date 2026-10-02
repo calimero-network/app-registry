@@ -114,6 +114,11 @@ function reset() {
       `apitoken:${actor.token}`,
       JSON.stringify({ email: actor.email, name: actor.email })
     );
+    store.set(`email2user:${actor.email}`, `u-${actor.email}`);
+    store.set(
+      `user:u-${actor.email}`,
+      JSON.stringify({ id: `u-${actor.email}`, email: actor.email })
+    );
   }
   sets.set('admin:set', new Set([SITE_ADMIN.email]));
 }
