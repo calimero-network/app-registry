@@ -34,6 +34,7 @@ const {
   getPublicKeyFromManifest,
   normalizeSignature,
 } = require('./lib/verify');
+const { devSigningKeyRefusal } = require('./lib/dev-signing-key');
 const {
   isAllowedToPublish,
   resolvePublishPermission,
@@ -531,6 +532,9 @@ async function buildServer() {
         });
       }
 
+      const devKey = devSigningKeyRefusal(incoming);
+      if (devKey) return reply.code(devKey.status).send(devKey.body);
+
       // 3. Check ownership: the account must be able to manage the package,
       //    and the signer must be allowed to publish to it.
       if (!(await canManagePackage(pkg, existing, sessionUser))) {
@@ -848,6 +852,8 @@ async function buildServer() {
         },
       };
     }
+    const devKey = devSigningKeyRefusal(bundleManifest);
+    if (devKey) throw { statusCode: devKey.status, body: devKey.body };
     const incomingKey = getPublicKeyFromManifest(bundleManifest);
     // `_ownerKeys` is server-owned (it decides who may publish next); only the
     // ownership check below may set it.

@@ -30,6 +30,9 @@ const {
   versionOrderRefusal,
 } = require('@calimero-network/registry-backend/src/lib/v2-utils');
 const {
+  devSigningKeyRefusal,
+} = require('@calimero-network/registry-backend/src/lib/dev-signing-key');
+const {
   stampOwnerEmail,
 } = require('@calimero-network/registry-backend/src/lib/package-owner');
 const { resolveUser, rejectUnauthenticated } = require('#api-lib/auth-helpers');
@@ -142,6 +145,9 @@ module.exports = async function handler(req, res) {
         message: err.message || 'Signature verification failed',
       });
     }
+
+    const devKey = devSigningKeyRefusal(bundleManifest);
+    if (devKey) return res.status(devKey.status).json(devKey.body);
 
     const ownerEmail = user.email;
     const profile = await getUserByEmail(user.email);

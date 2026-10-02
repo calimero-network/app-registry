@@ -18,6 +18,9 @@ const {
   validateBundleManifest,
 } = require('@calimero-network/registry-backend/src/lib/v2-utils');
 const {
+  devSigningKeyRefusal,
+} = require('@calimero-network/registry-backend/src/lib/dev-signing-key');
+const {
   verifyManifest,
   getPublicKeyFromManifest,
   isAllowedOwner,
@@ -157,6 +160,9 @@ async function handlePatch(req, res, pkg, version) {
       message: err.message || 'Signature verification failed',
     });
   }
+
+  const devKey = devSigningKeyRefusal(body);
+  if (devKey) return res.status(devKey.status).json(devKey.body);
 
   const store = getStorage();
   let existing;
