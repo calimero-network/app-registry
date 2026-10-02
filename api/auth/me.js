@@ -8,6 +8,7 @@ const { getUserById, getUserByEmail } = require('#api-lib/user-storage');
 const {
   parseCookies,
 } = require('@calimero-network/registry-shared/session-cookies');
+const { storageVar } = require('@calimero-network/registry-shared/storage-env');
 const {
   isAdmin,
   getAdminVerified,
@@ -30,7 +31,7 @@ module.exports = async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).end();
 
   const cookieName = process.env.AUTH_COOKIE_NAME || 'app_registry_session';
-  const sessionSecret = process.env.SESSION_SECRET;
+  const sessionSecret = storageVar('SESSION_SECRET');
 
   // 1) Try Bearer API token
   const bearer = getBearerToken(req);
@@ -79,6 +80,13 @@ module.exports = async function handler(req, res) {
     return res
       .status(401)
       .json({ error: 'unauthorized', message: 'Not signed in' });
+  }
+
+  if (!sessionSecret) {
+    return res.status(503).json({
+      error: 'auth_not_configured',
+      message: 'SESSION_SECRET not set',
+    });
   }
 
   try {

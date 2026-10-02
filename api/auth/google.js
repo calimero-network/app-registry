@@ -2,6 +2,8 @@
  * GET /api/auth/google — redirect to Google OAuth consent screen
  */
 
+const { storageVar } = require('@calimero-network/registry-shared/storage-env');
+
 const GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 const SCOPES = ['openid', 'email', 'profile'];
 const STATE_COOKIE = 'oauth_state';
@@ -16,7 +18,7 @@ function generateState() {
 module.exports = async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).end();
 
-  const clientId = process.env.GOOGLE_CLIENT_ID;
+  const clientId = storageVar('GOOGLE_CLIENT_ID');
   if (!clientId) {
     return res.status(503).json({
       error: 'auth_not_configured',

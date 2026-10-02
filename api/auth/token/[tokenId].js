@@ -8,6 +8,7 @@ const {
   parseCookies,
 } = require('@calimero-network/registry-shared/session-cookies');
 const { rejectCrossOriginCookieWrite } = require('#api-lib/request-origin');
+const { storageVar } = require('@calimero-network/registry-shared/storage-env');
 
 const TOKEN_PREFIX = 'apitoken:';
 const USER_TOKENS_PREFIX = 'user_tokens:';
@@ -23,7 +24,7 @@ module.exports = async function handler(req, res) {
 
   // Revoke requires a session cookie (not just a Bearer token) for security
   const cookieName = process.env.AUTH_COOKIE_NAME || 'app_registry_session';
-  const sessionSecret = process.env.SESSION_SECRET;
+  const sessionSecret = storageVar('SESSION_SECRET');
   const cookies = parseCookies(req.headers?.cookie);
   const sessionToken = cookies[cookieName];
 

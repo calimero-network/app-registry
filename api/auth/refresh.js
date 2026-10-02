@@ -24,6 +24,7 @@ const {
   clearedRefreshCookie,
 } = require('@calimero-network/registry-shared/session-cookies');
 const { rejectCrossOriginCookieWrite } = require('#api-lib/request-origin');
+const { storageVar } = require('@calimero-network/registry-shared/storage-env');
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
@@ -39,10 +40,10 @@ module.exports = async function handler(req, res) {
       .json({ error: 'no_refresh_token', message: 'No refresh token' });
   }
 
-  const sessionSecret = process.env.SESSION_SECRET;
+  const sessionSecret = storageVar('SESSION_SECRET');
   if (!sessionSecret) {
     return res
-      .status(500)
+      .status(503)
       .json({ error: 'not_configured', message: 'SESSION_SECRET is not set' });
   }
 
