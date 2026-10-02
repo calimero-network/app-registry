@@ -93,15 +93,6 @@ if (isStorageBlocked()) {
       return await redisClient.setNX(key, value);
     },
 
-    async setXX(key, value) {
-      await this._ensureConnected();
-      const reply = await redisClient.set(key, value, {
-        XX: true,
-        KEEPTTL: true,
-      });
-      return reply === 'OK';
-    },
-
     async del(key) {
       await this._ensureConnected();
       return await redisClient.del(key);
@@ -110,6 +101,15 @@ if (isStorageBlocked()) {
     async incr(key) {
       await this._ensureConnected();
       return await redisClient.incr(key);
+    },
+
+    async setXX(key, value) {
+      await this._ensureConnected();
+      const reply = await redisClient.set(key, value, {
+        XX: true,
+        KEEPTTL: true,
+      });
+      return reply === 'OK';
     },
 
     // Hash operations
@@ -218,12 +218,6 @@ if (isStorageBlocked()) {
       return true; // Key was set
     },
 
-    async setXX(key, value) {
-      if (!mockStore.has(key)) return false;
-      mockStore.set(key, value);
-      return true;
-    },
-
     async del(key) {
       const existed = mockStore.has(key);
       mockStore.delete(key);
@@ -235,6 +229,12 @@ if (isStorageBlocked()) {
       const next = current + 1;
       mockStore.set(key, String(next));
       return next;
+    },
+
+    async setXX(key, value) {
+      if (!mockStore.has(key)) return false;
+      mockStore.set(key, value);
+      return true;
     },
 
     // Hash operations
