@@ -366,6 +366,7 @@ module.exports = async function handler(req, res) {
         return res.status(403).json({
           error: 'not_owner',
           message:
+            permission.message ||
             'Only the package owner or an organization admin can publish new versions.',
         });
       }

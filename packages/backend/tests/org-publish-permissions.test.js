@@ -68,6 +68,16 @@ jest.mock('../../../api/lib/kv-client', () => ({
   isProduction: false,
 }));
 
+jest.mock('../src/lib/bundle-integrity', () => ({
+  ...jest.requireActual('../src/lib/bundle-integrity'),
+  verifyBundleBinary: jest.fn().mockResolvedValue(undefined),
+}));
+jest.mock('../src/lib/blob-store', () => ({
+  putBinary: jest.fn(async () => '1'),
+  getBinary: jest.fn(async () => null),
+  deleteBinary: jest.fn(async () => {}),
+}));
+
 // Real key/ownership logic; only the signature check is stubbed.
 jest.mock('../../../api/lib/verify', () => ({
   ...jest.requireActual('../../../api/lib/verify'),
@@ -124,6 +134,7 @@ function manifest(appVersion, publicKey, extra = {}) {
       icon: TEST_ICON,
     },
     wasm: { path: 'app.wasm', size: 100, hash: 'abc123' },
+    _binary: '00',
     signature: {
       algorithm: 'ed25519',
       publicKey,

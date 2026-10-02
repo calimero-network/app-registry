@@ -16,6 +16,16 @@ jest.mock('../src/lib/kv-client', () => ({
   kv: mockKv,
 }));
 
+jest.mock('../src/lib/bundle-integrity', () => ({
+  ...jest.requireActual('../src/lib/bundle-integrity'),
+  verifyBundleBinary: jest.fn().mockResolvedValue(undefined),
+}));
+jest.mock('../src/lib/blob-store', () => ({
+  putBinary: jest.fn(async () => '1'),
+  getBinary: jest.fn(async () => null),
+  deleteBinary: jest.fn(async () => {}),
+}));
+
 // Push handler uses api/lib/verify (not backend); mock that so signature check passes
 jest.mock('../../../api/lib/verify', () => ({
   verifyManifest: jest.fn().mockResolvedValue(undefined),
@@ -97,6 +107,7 @@ describe('Push Endpoint Validation', () => {
           icon: TEST_ICON,
         },
         wasm: { path: 'app.wasm', size: 100, hash: 'abc123' },
+        _binary: '00',
         signature: {
           algorithm: 'ed25519',
           publicKey: 'dGVzdC1wdWJrZXk',
@@ -141,6 +152,7 @@ describe('Push Endpoint Validation', () => {
         },
         links,
         wasm: { path: 'app.wasm', size: 100, hash: 'abc123' },
+        _binary: '00',
         signature: {
           algorithm: 'ed25519',
           publicKey: 'dGVzdC1wdWJrZXk',

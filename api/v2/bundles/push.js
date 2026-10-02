@@ -106,6 +106,14 @@ module.exports = async function handler(req, res) {
       });
     }
 
+    if (typeof bundleManifest._binary !== 'string' || !bundleManifest._binary) {
+      return res.status(400).json({
+        error: 'missing_binary',
+        message:
+          'Missing _binary: send the whole .mpk as hex in `_binary` (cargo mero publish does this), or upload it to /api/v2/bundles/push-file.',
+      });
+    }
+
     // Validate the package id and version shape before anything is stored. A
     // malformed id or a non-semver version otherwise reaches storage and breaks
     // ordering/lookup downstream.
@@ -227,6 +235,7 @@ module.exports = async function handler(req, res) {
         return res.status(403).json({
           error: 'not_owner',
           message:
+            permission.message ||
             'Package name is already registered to a different key; you are not the owner.',
         });
       }

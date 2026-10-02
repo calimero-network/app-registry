@@ -326,12 +326,37 @@ async function deleteOrg(orgId) {
   }
 }
 
+const PUBLISHER_NOT_IN_PACKAGE_MESSAGE =
+  "This bundle is signed with a package key, but the account publishing it is not the package owner, a member of its organization, or that organization's bot.";
+
+async function publisherBelongsToPackage(latestManifest, packageName, email) {
+  const {
+    manifestOwnedByUser,
+  } = require('@calimero-network/registry-shared/package-permissions');
+  const {
+    isStaffEmail,
+  } = require('@calimero-network/registry-backend/src/lib/metadata-policy');
+  const { isAdmin, isBot } = require('./admin-storage');
+  const { getUserByEmail } = require('./user-storage');
+  const orgId = await getPkg2Org(packageName);
+  if (!latestManifest?.metadata?._ownerEmail && !orgId) return true;
+  if (!email) return false;
+  if (manifestOwnedByUser(latestManifest, { email })) return true;
+  if (orgId && (await isOrgMember(orgId, email))) return true;
+  if (orgId && (await isBot(email))) {
+    const profile = await getUserByEmail(email);
+    if (profile?.botOrg === orgId) return true;
+  }
+  return isStaffEmail(email) || !!(await isAdmin(email));
+}
+
 /**
  * Decide whether a new version of an existing package may be published.
  *
  * Two ways in:
  * 1. Key: the signing key is one of the package's owner keys
- *    (getOwnerKeys of the latest version). The new version's own signer /
+ *    (getOwnerKeys of the latest version), and the account belongs to the
+ *    package (publisherBelongsToPackage). The new version's own signer /
  *    owners[] then define the key set going forward, as before.
  * 2. Organization: the package is linked to an org and the authenticated
  *    account is an admin or owner of it (plain members publish with a package
@@ -353,10 +378,15 @@ async function resolvePublishPermission(
   authorEmail
 ) {
   const { isAllowedOwner, getOwnerKeys } = require('./verify');
-  if (isAllowedOwner(latestManifest, incomingKey)) {
-    return { allowed: true, viaOrg: false, ownerKeys: null };
-  }
   const denied = { allowed: false, viaOrg: false, ownerKeys: null };
+  if (isAllowedOwner(latestManifest, incomingKey)) {
+    if (
+      await publisherBelongsToPackage(latestManifest, packageName, authorEmail)
+    ) {
+      return { allowed: true, viaOrg: false, ownerKeys: null };
+    }
+    return { ...denied, message: PUBLISHER_NOT_IN_PACKAGE_MESSAGE };
+  }
   if (!authorEmail) return denied;
   const orgId = await getPkg2Org(packageName);
   if (!orgId) return denied;
@@ -411,5 +441,6 @@ module.exports = {
   getPackagesByOrg,
   deleteOrg,
   isAllowedToPublish,
+  publisherBelongsToPackage,
   resolvePublishPermission,
 };

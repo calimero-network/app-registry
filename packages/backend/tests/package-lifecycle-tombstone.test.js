@@ -77,6 +77,11 @@ jest.mock('@google-cloud/storage', () => ({
 
 process.env.GCS_BUCKET = 'test-bucket';
 
+jest.mock('../src/lib/bundle-integrity', () => ({
+  ...jest.requireActual('../src/lib/bundle-integrity'),
+  verifyBundleBinary: jest.fn().mockResolvedValue(undefined),
+}));
+
 // Signatures are exercised elsewhere; here every publish is well-signed.
 jest.mock('../../../api/lib/verify', () => ({
   verifyManifest: jest.fn().mockResolvedValue(undefined),
@@ -194,6 +199,7 @@ function publishableManifest(overrides = {}) {
       ...(overrides.metadata || {}),
     },
     wasm: { path: 'app.wasm', size: 100, hash: 'abc123' },
+    _binary: '00',
     signature: {
       algorithm: 'ed25519',
       publicKey: 'dGVzdC1wdWJrZXk',
