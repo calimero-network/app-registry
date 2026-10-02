@@ -11,6 +11,7 @@ const { rejectCrossOriginCookieWrite } = require('#api-lib/request-origin');
 
 const TOKEN_PREFIX = 'apitoken:';
 const USER_TOKENS_PREFIX = 'user_tokens:';
+const TOKEN_ID_RE = /^[A-Za-z0-9_-]{8}$/;
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -47,7 +48,7 @@ module.exports = async function handler(req, res) {
   }
 
   const tokenId = req.query?.tokenId;
-  if (!tokenId || typeof tokenId !== 'string') {
+  if (typeof tokenId !== 'string' || !TOKEN_ID_RE.test(tokenId)) {
     return res
       .status(400)
       .json({ error: 'bad_request', message: 'tokenId required' });

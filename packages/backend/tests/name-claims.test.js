@@ -76,6 +76,8 @@ function seed() {
   hashes.clear();
   for (const [email, token] of Object.entries(TOKENS)) {
     store.set(`apitoken:${token}`, JSON.stringify({ email }));
+    store.set(`email2user:${email}`, email);
+    store.set(`user:${email}`, JSON.stringify({ id: email, email }));
   }
   setFor('admin:set').add(ADMIN);
 }
@@ -189,14 +191,15 @@ describe.each([
 });
 
 describe('POST /api/auth/username error codes', () => {
-  it('answers 404 (not 500) when the caller has no profile', async () => {
+  it('answers 401 (not 500) when the caller has no profile', async () => {
+    store.delete(`user:${ALICE}`);
     const r = await callVercel(usernameHandler, {
       method: 'POST',
       email: ALICE,
       body: { username: 'alice' },
     });
-    expect(r.status).toBe(404);
-    expect(r.body.error).toBe('not_found');
+    expect(r.status).toBe(401);
+    expect(r.body.error).toBe('unauthorized');
   });
 
   it('answers 409 (not 500) for a retired name', async () => {

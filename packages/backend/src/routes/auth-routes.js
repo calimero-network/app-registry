@@ -469,7 +469,7 @@ async function authRoutes(server, options) {
       });
     }
     const { tokenId } = request.params;
-    if (!tokenId || typeof tokenId !== 'string') {
+    if (typeof tokenId !== 'string' || !/^[A-Za-z0-9_-]{8}$/.test(tokenId)) {
       return reply
         .code(400)
         .send({ error: 'bad_request', message: 'tokenId required' });

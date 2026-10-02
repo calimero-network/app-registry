@@ -147,7 +147,7 @@ function createApiTokenStorage(
     // Best-effort usage stamp; a failed write must never fail the request.
     try {
       rec.lastUsed = new Date(now).toISOString();
-      await kv.set(key, JSON.stringify(rec));
+      await kv.setXX(key, JSON.stringify(rec));
     } catch {
       /* non-fatal */
     }

@@ -42,6 +42,8 @@ jest.mock('../../../api/lib/kv-client', () => ({
   isProduction: false,
 }));
 
+const { seedProfile } = require('./helpers/profile');
+
 const vercelHandler = require('../../../api/v2/orgs/index');
 const { buildServer } = require('../src/server');
 const { isReservedOrgSlug } = require('../../../shared/org-slugs');
@@ -58,6 +60,8 @@ function seed() {
   hashes.clear();
   store.set(`apitoken:${USER_TOKEN}`, JSON.stringify({ email: USER }));
   store.set(`apitoken:${ADMIN_TOKEN}`, JSON.stringify({ email: ADMIN }));
+  seedProfile(store, USER);
+  seedProfile(store, ADMIN);
   sets.set('admin:set', new Set([ADMIN]));
 }
 

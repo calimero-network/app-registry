@@ -39,6 +39,8 @@ jest.mock('../../../api/lib/kv-client', () => ({
   isProduction: false,
 }));
 
+const { seedProfile } = require('./helpers/profile');
+
 const pushHandler = require('../../../api/v2/bundles/push');
 const listHandler = require('../../../api/v2/bundles/index');
 const { generateKeypair, signManifest } = require('./helpers/ed25519-helper');
@@ -102,6 +104,7 @@ beforeEach(() => {
   store.clear();
   sets.clear();
   store.set('apitoken:tok-dev', JSON.stringify({ email: PUBLISHER }));
+  seedProfile(store, PUBLISHER);
 });
 
 describe('publishing with a real signature', () => {
