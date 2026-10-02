@@ -2,7 +2,7 @@
   "version": 2,
   "buildCommand": "pnpm build:frontend",
   "outputDirectory": "packages/frontend/dist",
-  "installCommand": "pnpm install --frozen-lockfile",
+  "installCommand": "pnpm install --frozen-lockfile --ignore-scripts",
   "framework": null,
   "git": {
     "deploymentEnabled": {
