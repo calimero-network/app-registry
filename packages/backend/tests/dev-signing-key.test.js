@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -42,6 +43,11 @@ jest.mock('../../../api/lib/kv-client', () => ({
   isDevelopment: true,
   isProduction: false,
 }));
+jest.mock('../src/lib/blob-store', () => ({
+  putBinary: jest.fn(async () => '1'),
+  getBinary: jest.fn(async () => null),
+  deleteBinary: jest.fn(async () => {}),
+}));
 jest.mock('../../../api/lib/auth-helpers', () => {
   const actual = jest.requireActual('../../../api/lib/auth-helpers');
   return {
@@ -77,6 +83,7 @@ const DEV_SEED = Buffer.from([
 ]);
 
 const PKG = 'com.example.devkey';
+const WASM = Buffer.from('a wasm module used by the development key tests');
 
 let devKeys;
 let ownKeys;
@@ -113,7 +120,11 @@ function manifest(appVersion, extra = {}) {
       category: 'developer-tools',
       icon: TEST_ICON,
     },
-    wasm: { path: 'app.wasm', size: 100, hash: 'a'.repeat(64) },
+    wasm: {
+      path: 'app.wasm',
+      size: WASM.length,
+      hash: crypto.createHash('sha256').update(WASM).digest('hex'),
+    },
     ...extra,
   };
 }
@@ -139,37 +150,52 @@ function makeRes() {
   };
 }
 
+function pack(signed) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'devkey-test-'));
+  try {
+    fs.writeFileSync(path.join(dir, 'manifest.json'), JSON.stringify(signed));
+    fs.writeFileSync(path.join(dir, 'app.wasm'), WASM);
+    const out = path.join(dir, 'bundle.mpk');
+    tar.c({ gzip: true, file: out, cwd: dir, sync: true }, [
+      'manifest.json',
+      'app.wasm',
+    ]);
+    return fs.readFileSync(out);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+}
+
 async function push(body) {
   const res = makeRes();
-  await pushHandler({ method: 'POST', body, headers: {} }, res);
+  await pushHandler(
+    {
+      method: 'POST',
+      body: { ...body, _binary: pack(body).toString('hex') },
+      headers: {},
+    },
+    res
+  );
   return res;
 }
 
 function mpkRequest(signed) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'devkey-test-'));
-  try {
-    fs.writeFileSync(path.join(dir, 'manifest.json'), JSON.stringify(signed));
-    const out = path.join(dir, 'bundle.mpk');
-    tar.c({ gzip: true, file: out, cwd: dir, sync: true }, ['manifest.json']);
-    const mpk = fs.readFileSync(out);
-    const boundary = 'devkeyboundary';
-    const body = Buffer.concat([
-      Buffer.from(
-        `--${boundary}\r\nContent-Disposition: form-data; name="bundle"; filename="b.mpk"\r\nContent-Type: application/octet-stream\r\n\r\n`
-      ),
-      mpk,
-      Buffer.from(`\r\n--${boundary}--\r\n`),
-    ]);
-    const req = Readable.from([body]);
-    req.method = 'POST';
-    req.headers = {
-      'content-type': `multipart/form-data; boundary=${boundary}`,
-      'content-length': String(body.length),
-    };
-    return req;
-  } finally {
-    fs.rmSync(dir, { recursive: true, force: true });
-  }
+  const mpk = pack(signed);
+  const boundary = 'devkeyboundary';
+  const body = Buffer.concat([
+    Buffer.from(
+      `--${boundary}\r\nContent-Disposition: form-data; name="bundle"; filename="b.mpk"\r\nContent-Type: application/octet-stream\r\n\r\n`
+    ),
+    mpk,
+    Buffer.from(`\r\n--${boundary}--\r\n`),
+  ]);
+  const req = Readable.from([body]);
+  req.method = 'POST';
+  req.headers = {
+    'content-type': `multipart/form-data; boundary=${boundary}`,
+    'content-length': String(body.length),
+  };
+  return req;
 }
 
 describe('the development key', () => {
@@ -273,13 +299,13 @@ describe('push-file.js', () => {
     expect(store.has(`bundle:${PKG}/1.0.0`)).toBe(false);
   });
 
-  test('reads past the check for a .mpk signed with its own key', async () => {
+  test('publishes a .mpk signed with its own key', async () => {
     const res = makeRes();
     await pushFileHandler(
       mpkRequest(await signManifest(manifest('1.0.0'), ownKeys)),
       res
     );
-    expect(res.body?.error).not.toBe('dev_signing_key');
+    expect(res.statusCode).toBe(201);
   });
 });
 
