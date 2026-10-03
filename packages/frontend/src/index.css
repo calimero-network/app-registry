@@ -154,6 +154,8 @@
     --tracking-eyebrow: 0.28em;
     --tracking-label: 0.16em;
     --tracking-button: 0.15em;
+    --zoom: 1;
+    --vh: 1vh;
   }
 
   /* ── Light (opt-in) ──
@@ -277,7 +279,7 @@
   #root {
     position: relative;
     z-index: 1;
-    min-height: 100vh;
+    min-height: calc(100 * var(--vh));
   }
 
   ::selection {
@@ -474,6 +476,16 @@
       padding-inline: 16px;
     }
   }
+
+  @media (width > 1536px) {
+    .shell {
+      max-width: clamp(
+        calc(1280px + 2 * 64px),
+        calc(1280px + 2 * 64px + (100vw - 1536px) * 0.8333),
+        calc(1600px + 2 * 64px)
+      );
+    }
+  }
 }
 
 /* ---------------------------------------------------------------------------
@@ -489,9 +501,58 @@
  * zoom, so anything sized to the screen uses 125vh under it (see Layout).
  */
 @media (width >= 1100px) {
-  html {
-    zoom: 0.8;
+  :root {
+    --zoom: 0.8;
+    --vh: calc(0.8vh / var(--zoom));
   }
+}
+
+@media (width >= 1920px) {
+  :root {
+    --zoom: 1;
+  }
+}
+
+@media (width >= 2560px) {
+  :root {
+    --zoom: 1.3333;
+  }
+}
+
+@media (width >= 3200px) {
+  :root {
+    --zoom: 1.6667;
+  }
+}
+
+@media (width >= 3840px) {
+  :root {
+    --zoom: 2;
+  }
+}
+
+@media (width >= 4480px) {
+  :root {
+    --zoom: 2.3333;
+  }
+}
+
+@media (width >= 5120px) {
+  :root {
+    --zoom: 2.6667;
+  }
+}
+
+@supports (zoom: calc(100vw / 1920px)) {
+  @media (width > 1536px) {
+    :root {
+      --zoom: calc(100vw / 1920px);
+    }
+  }
+}
+
+html {
+  zoom: var(--zoom);
 }
 
 /* Page titles: the landing's h1 — uppercase, weight 950, tight. */
@@ -903,16 +964,10 @@ html {
   }
 }
 
-/* The page frame fills the screen. Under the desktop zoom a full screen is
-   125vh, because viewport units resolve before zoom. */
+/* The page frame fills the screen. Viewport units resolve before zoom, so a
+   full screen is 100vh divided by the zoom. */
 .app-frame {
-  min-height: 100vh;
-}
-
-@media (width >= 1100px) {
-  .app-frame {
-    min-height: 125vh;
-  }
+  min-height: calc(100vh / var(--zoom));
 }
 
 /* The landing's 404 drawing: lime line-art, its white fills following the

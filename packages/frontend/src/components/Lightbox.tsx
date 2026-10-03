@@ -154,7 +154,7 @@ export function Lightbox({
             src={item.url}
             controls
             autoPlay
-            className='max-h-[80vh] max-w-full rounded-lg min-[1100px]:max-h-[100vh]'
+            className='max-h-[80vh] max-w-full rounded-lg min-[1100px]:max-h-[calc(100*var(--vh))]'
           />
         ) : (
           // ⚠️ KEYED ON THE ID. Without it React keeps the same <img> node
@@ -180,7 +180,7 @@ export function Lightbox({
 }
 
 const IMG_CLASS =
-  'max-h-[80vh] w-auto max-w-full rounded-lg object-contain min-[1100px]:max-h-[100vh]';
+  'max-h-[80vh] w-auto max-w-full rounded-lg object-contain min-[1100px]:max-h-[calc(100*var(--vh))]';
 
 /**
  * The full image, over its own thumbnail until it has arrived.
