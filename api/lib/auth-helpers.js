@@ -16,6 +16,7 @@ const {
 const {
   parseCookies,
 } = require('@calimero-network/registry-shared/session-cookies');
+const { storageVar } = require('@calimero-network/registry-shared/storage-env');
 const {
   manifestOwnedByUser,
   createPackagePermissions,
@@ -35,7 +36,7 @@ const { canManagePackage } = createPackagePermissions({
  * stored credential. Returns { id, email, name, username } or null.
  */
 async function resolveSessionUser(req) {
-  const sessionSecret = process.env.SESSION_SECRET;
+  const sessionSecret = storageVar('SESSION_SECRET');
   if (!sessionSecret) return null;
   const cookieName = process.env.AUTH_COOKIE_NAME || 'app_registry_session';
   const cookies = parseCookies(req.headers?.cookie);

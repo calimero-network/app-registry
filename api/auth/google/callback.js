@@ -12,6 +12,7 @@ const {
   sessionCookie,
   refreshCookie,
 } = require('@calimero-network/registry-shared/session-cookies');
+const { storageVar } = require('@calimero-network/registry-shared/storage-env');
 
 const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const GOOGLE_USERINFO_URL = 'https://www.googleapis.com/oauth2/v2/userinfo';
@@ -26,12 +27,12 @@ module.exports = async function handler(req, res) {
 
   const frontendUrl =
     process.env.FRONTEND_URL || 'https://apps.calimero.network';
-  const clientId = process.env.GOOGLE_CLIENT_ID;
-  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-  const sessionSecret = process.env.SESSION_SECRET;
+  const clientId = storageVar('GOOGLE_CLIENT_ID');
+  const clientSecret = storageVar('GOOGLE_CLIENT_SECRET');
+  const sessionSecret = storageVar('SESSION_SECRET');
   const redirectUri = `${frontendUrl}/api/auth/google/callback`;
 
-  if (!clientId || !clientSecret) {
+  if (!clientId || !clientSecret || !sessionSecret) {
     return res.redirect(loginErrorUrl(frontendUrl, 'auth_not_configured'));
   }
 
