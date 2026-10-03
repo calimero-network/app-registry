@@ -13,7 +13,7 @@ const {
 const {
   buildBundleListing,
 } = require('@calimero-network/registry-backend/src/lib/bundle-listing');
-const { resolveUser } = require('#api-lib/auth-helpers');
+const { resolveUser, rejectUnauthenticated } = require('#api-lib/auth-helpers');
 
 // Singleton storage instance (shared Redis connection with the sibling bundle
 // endpoints — this handler used to open a second one of its own).
@@ -56,6 +56,11 @@ async function wantsFresh(req) {
   if (value !== '1' && value !== 'true') return false;
   if (req.query?.package) return true;
   return !!(await resolveUser(req));
+}
+
+function wantsMine(query) {
+  const value = query?.mine;
+  return value === '1' || value === 'true';
 }
 
 /**
@@ -115,6 +120,7 @@ module.exports = async function handler(req, res) {
     }
 
     const { all_versions } = req.query || {};
+    const mine = wantsMine(req.query);
 
     if (all_versions === 'true' && !pkg) {
       return res.status(400).json({
@@ -122,12 +128,19 @@ module.exports = async function handler(req, res) {
         message: 'all_versions requires a package parameter',
       });
     }
-    if (all_versions === 'true' && (developer || author)) {
+    if (all_versions === 'true' && (developer || author || mine)) {
       return res.status(400).json({
         error: 'invalid_params',
         message:
-          'all_versions cannot be combined with developer or author filters',
+          'all_versions cannot be combined with developer, author or mine filters',
       });
+    }
+
+    let owner = null;
+    if (mine) {
+      res.setHeader('Cache-Control', 'private, no-store');
+      owner = await resolveUser(req);
+      if (!owner) return rejectUnauthenticated(req, res);
     }
 
     // Every version (for the version picker) or just the latest per package
@@ -147,7 +160,7 @@ module.exports = async function handler(req, res) {
       allVersions: wantAllVersions,
       includeYanked: true,
       skipYanked: true,
-      keepAllYanked: !!(developer || author),
+      keepAllYanked: !!(developer || author || owner),
     });
 
     // Filtering, sanitization, download counts and ordering are shared with
@@ -158,7 +171,9 @@ module.exports = async function handler(req, res) {
       kv,
       developer,
       author,
+      owner,
     });
+    if (owner) return res.status(200).json(bundles);
     return sendCached(res, bundles, { fresh });
   } catch (error) {
     console.error('List Error:', error);

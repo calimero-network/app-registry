@@ -11,7 +11,7 @@ export default function MyPackagesPage() {
 
   const { data: packages = [], isLoading } = useQuery({
     queryKey: ['my-packages', username, email],
-    queryFn: () => getMyPackages({ username, email }),
+    queryFn: () => getMyPackages({ username }),
     enabled: !!username?.trim() || !!email?.trim(),
   });
 
@@ -27,8 +27,9 @@ export default function MyPackagesPage() {
           {user?.username
             ? `@${user.username}`
             : (user?.email ?? user?.name ?? 'Unknown')}
-          . Packages whose <code className='text-brand-600'>author</code>{' '}
-          matches your username are listed below.
+          . Packages published from this account, or whose{' '}
+          <code className='text-brand-600'>author</code> matches your username,
+          are listed below.
         </p>
       </div>
 

@@ -99,18 +99,43 @@ describe('buildBundleListing', () => {
     expect(result.map(b => b.package)).toEqual(['com.b']);
   });
 
-  test('filters by author, falling back to _ownerEmail for legacy bundles', async () => {
-    const legacy = entry('com.legacy', '1.0.0', {
+  test('filters by author', async () => {
+    const result = await buildBundleListing({
+      entries: [entry('com.a', '1.0.0'), entry('com.b', '1.0.0')],
+      kv: mockKv,
+      author: 'author-com.b',
+    });
+
+    expect(result.map(b => b.package)).toEqual(['com.b']);
+  });
+
+  test('the author filter never matches the private owner email', async () => {
+    const noUsername = entry('com.legacy', '1.0.0', {
       metadata: { _ownerEmail: 'old@example.com' },
     });
 
     const result = await buildBundleListing({
-      entries: [entry('com.a', '1.0.0'), legacy],
+      entries: [entry('com.a', '1.0.0'), noUsername],
       kv: mockKv,
       author: 'old@example.com',
     });
 
-    expect(result.map(b => b.package)).toEqual(['com.legacy']);
+    expect(result).toEqual([]);
+  });
+
+  test('filters by owner on the stored owner email', async () => {
+    const owned = entry('com.owned', '1.0.0', {
+      metadata: { _ownerEmail: 'Old@Example.com' },
+    });
+
+    const result = await buildBundleListing({
+      entries: [entry('com.a', '1.0.0'), owned],
+      kv: mockKv,
+      owner: { email: 'old@example.com' },
+    });
+
+    expect(result.map(b => b.package)).toEqual(['com.owned']);
+    expect(result[0].metadata._ownerEmail).toBeUndefined();
   });
 
   test('a bundle missing the filtered field is excluded, not included', async () => {

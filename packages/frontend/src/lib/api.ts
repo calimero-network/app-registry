@@ -305,27 +305,16 @@ export const getApps = async (params?: {
   return bundles.map(toAppSummary);
 };
 
-/** Fetch bundles filtered by metadata.author, preferring username and falling back to email for legacy packages. */
+/** Fetch the signed-in account's packages, plus any whose metadata.author is its username. */
 export const getMyPackages = async (params: {
   username?: string | null;
-  email?: string | null;
 }): Promise<AppSummary[]> => {
-  const authorCandidates = [
-    params.username?.trim(),
-    params.email?.trim(),
-  ].filter(
-    (value, index, arr): value is string =>
-      !!value && arr.indexOf(value) === index
-  );
-
-  if (authorCandidates.length === 0) return [];
+  const username = params.username?.trim();
+  const queries: Record<string, string>[] = [{ mine: '1' }];
+  if (username) queries.push({ author: username });
 
   const responses = await Promise.all(
-    authorCandidates.map(author =>
-      api.get('/v2/bundles', {
-        params: { author },
-      })
-    )
+    queries.map(query => api.get('/v2/bundles', { params: query }))
   );
 
   const bundles = responses.flatMap(response =>

@@ -18,6 +18,9 @@
  */
 
 const { createBundleSanitizers } = require('./bundle-sanitize');
+const {
+  manifestOwnedByUser,
+} = require('@calimero-network/registry-shared/package-permissions');
 
 /** Redis counters are plain integers; tolerate anything legacy or absent. */
 function toCount(value) {
@@ -36,13 +39,14 @@ function toCount(value) {
  *                                   never grow the field.
  * @param {object}   opts.kv         KV client with async get(key).
  * @param {string}   [opts.developer] Filter on signature.pubkey.
- * @param {string}   [opts.author]    Filter on metadata.author, falling back to
- *                                    metadata._ownerEmail for legacy bundles.
+ * @param {string}   [opts.author]    Filter on metadata.author.
+ * @param {object}   [opts.owner]     Authenticated user; keep only bundles
+ *                                    whose metadata._ownerEmail is theirs.
  * @returns {Promise<Array<object>>} Sanitized bundles with `downloads`, sorted
  *          by package name. The sort is stable, so version-descending order
  *          within a package survives.
  */
-async function buildBundleListing({ entries, kv, developer, author }) {
+async function buildBundleListing({ entries, kv, developer, author, owner }) {
   const { sanitizeBundles } = createBundleSanitizers(kv);
 
   const selected = [];
@@ -52,9 +56,10 @@ async function buildBundleListing({ entries, kv, developer, author }) {
       if (!pubkey || pubkey !== developer) continue;
     }
     if (author) {
-      const identity = bundle.metadata?.author ?? bundle.metadata?._ownerEmail;
+      const identity = bundle.metadata?.author;
       if (!identity || identity !== author) continue;
     }
+    if (owner && !manifestOwnedByUser(bundle, owner)) continue;
     selected.push({
       bundle: yanked === undefined ? bundle : { ...bundle, yanked },
       packageName,
