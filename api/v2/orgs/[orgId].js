@@ -14,11 +14,18 @@ const {
   requireOrgAdminOrOwner,
   requireOrgOwner,
 } = require('#api-lib/auth-helpers');
-const { setAdminVerified } = require('#api-lib/admin-storage');
+const { isAdmin, setAdminVerified } = require('#api-lib/admin-storage');
 const {
   validateOrgName,
   validateOrgMetadata,
 } = require('@calimero-network/registry-shared/org-validation');
+const {
+  isReservedOrgName,
+  normalizeOrgName,
+} = require('@calimero-network/registry-shared/org-slugs');
+const {
+  TRUSTED_ORG_SLUGS,
+} = require('@calimero-network/registry-shared/package-review');
 
 function cors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -75,7 +82,19 @@ module.exports = async function handler(req, res) {
           .status(400)
           .json({ error: 'bad_request', message: nameError });
       }
-      updates.name = name.trim();
+      const nameNorm = normalizeOrgName(name);
+      if (
+        nameNorm !== org.name &&
+        isReservedOrgName(nameNorm) &&
+        !TRUSTED_ORG_SLUGS.includes(org.slug) &&
+        !(await isAdmin(user.email))
+      ) {
+        return res.status(403).json({
+          error: 'reserved_name',
+          message: 'This organization name is reserved',
+        });
+      }
+      updates.name = nameNorm;
     }
     if (metadata !== undefined) {
       // Allowlisted keys, bounded lengths, http(s)-only links (the frontend

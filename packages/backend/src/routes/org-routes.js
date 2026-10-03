@@ -34,7 +34,12 @@ const {
 const { kv } = require('../lib/kv-client');
 const {
   isReservedOrgSlug,
+  isReservedOrgName,
+  normalizeOrgName,
 } = require('@calimero-network/registry-shared/org-slugs');
+const {
+  TRUSTED_ORG_SLUGS,
+} = require('@calimero-network/registry-shared/package-review');
 const {
   manifestOwnedByUser,
 } = require('@calimero-network/registry-shared/package-permissions');
@@ -278,6 +283,12 @@ async function orgRoutes(server) {
         message: 'This organization slug is reserved',
       });
     }
+    if (isReservedOrgName(name) && !callerIsAdmin) {
+      return reply.code(403).send({
+        error: 'reserved_name',
+        message: 'This organization name is reserved',
+      });
+    }
     if (
       !callerIsAdmin &&
       (await countOwnedOrgs(
@@ -301,7 +312,7 @@ async function orgRoutes(server) {
     }
     const org = {
       id: orgId,
-      name: name.trim(),
+      name: normalizeOrgName(name),
       slug: slugNorm,
     };
     try {
@@ -347,7 +358,19 @@ async function orgRoutes(server) {
           .code(400)
           .send({ error: 'bad_request', message: nameError });
       }
-      updates.name = name.trim();
+      const nameNorm = normalizeOrgName(name);
+      if (
+        nameNorm !== org.name &&
+        isReservedOrgName(nameNorm) &&
+        !TRUSTED_ORG_SLUGS.includes(org.slug) &&
+        !(await isAdmin(user.email))
+      ) {
+        return reply.code(403).send({
+          error: 'reserved_name',
+          message: 'This organization name is reserved',
+        });
+      }
+      updates.name = nameNorm;
     }
     if (metadata !== undefined) {
       const checked = validateOrgMetadata(metadata);

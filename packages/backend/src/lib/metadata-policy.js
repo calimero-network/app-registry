@@ -36,6 +36,10 @@ const semver = require('semver');
 const {
   isSafeHttpUrl,
 } = require('@calimero-network/registry-shared/metadata-urls');
+const {
+  confusableSkeleton,
+  CALIMERO_SKELETON,
+} = require('@calimero-network/registry-shared/org-slugs');
 
 /**
  * Package identity policy: the `package` id and `appVersion` a bundle carries.
@@ -95,18 +99,6 @@ function isValidPackageVersion(version) {
 }
 
 const RESERVED_LABEL_REGEX = /^(com|network)\.calimero(\.|$)/;
-
-function confusableSkeleton(label) {
-  return label
-    .replace(/[-_]/g, '')
-    .replace(/rn/g, 'm')
-    .replace(/0/g, 'o')
-    .replace(/[1i]/g, 'l')
-    .replace(/3/g, 'e')
-    .replace(/4/g, 'a');
-}
-
-const CALIMERO_SKELETON = confusableSkeleton('calimero');
 
 /**
  * The reserved prefix `pkg` falls under (case-insensitive), or null. Returning
