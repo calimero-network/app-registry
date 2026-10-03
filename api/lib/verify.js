@@ -257,10 +257,20 @@ function isAllowedOwner(existingManifest, incomingKey) {
 }
 
 /**
+ * Domain tag mero-sign prefixes to the canonical manifest before hashing, so a
+ * signature over a manifest is not valid for any other message the key signs.
+ * Must match `MANIFEST_SIGNING_DOMAIN` in core's `calimero-bundle` crate.
+ */
+const MANIFEST_SIGNING_DOMAIN = Buffer.from(
+  'calimero.bundle.manifest.v1\0',
+  'utf8'
+);
+
+/**
  * Verify manifest signature (matches mero-sign flow).
  * 1. Remove signature and all _*-prefixed keys.
  * 2. RFC 8785 canonicalize -> canonical bytes.
- * 3. Signing payload = SHA-256(canonical bytes).
+ * 3. Signing payload = SHA-256(MANIFEST_SIGNING_DOMAIN || canonical bytes).
  * 4. Ed25519 verify(signature, payload, publicKey); publicKey/signature are base64url.
  */
 async function verifyManifest(manifest) {
@@ -287,6 +297,7 @@ async function verifyManifest(manifest) {
   const canonicalBytes = Buffer.from(canonicalStr, 'utf8');
   const signingPayload = crypto
     .createHash('sha256')
+    .update(MANIFEST_SIGNING_DOMAIN)
     .update(canonicalBytes)
     .digest();
 
@@ -346,6 +357,7 @@ function validatePublicKey(pubkey) {
 }
 
 module.exports = {
+  MANIFEST_SIGNING_DOMAIN,
   canonicalizeJSON,
   getPublicKeyFromManifest,
   isAllowedOwner,

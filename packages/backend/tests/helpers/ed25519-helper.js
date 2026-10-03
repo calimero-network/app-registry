@@ -14,14 +14,24 @@ async function generateKeypair() {
   return { secretKey, publicKey: await ed.getPublicKeyAsync(secretKey) };
 }
 
-/** SHA-256 of the RFC 8785 form, without `signature` and `_`-prefixed keys. */
+/** Domain tag cargo-mero prefixes to the canonical bytes before hashing. */
+const MANIFEST_SIGNING_DOMAIN = Buffer.from('calimero.bundle.manifest.v1\0');
+
+/**
+ * SHA-256 of the domain tag followed by the RFC 8785 form, without `signature`
+ * and `_`-prefixed keys.
+ */
 function signingPayload(manifest) {
   const signed = Object.fromEntries(
     Object.entries(manifest).filter(
       ([key]) => key !== 'signature' && !key.startsWith('_')
     )
   );
-  return crypto.createHash('sha256').update(canonicalize(signed)).digest();
+  return crypto
+    .createHash('sha256')
+    .update(MANIFEST_SIGNING_DOMAIN)
+    .update(canonicalize(signed))
+    .digest();
 }
 
 async function signManifest(manifest, { secretKey, publicKey }) {
