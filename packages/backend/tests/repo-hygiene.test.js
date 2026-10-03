@@ -7,6 +7,9 @@
  *   the shell through `env:` instead.
  * - In a workflow that runs for pull requests, a job holding a write scope
  *   only runs for pushes, and checkouts do not persist the token.
+ * - Builds that run with deploy or release secrets in scope install
+ *   dependencies without running their install scripts, and the release
+ *   checkout does not persist the token.
  * - Every dependency the CLI declares is imported by the CLI.
  * - Every module in api/lib is required by deployed code.
  */
@@ -110,6 +113,48 @@ describe('CI workflows', () => {
       }
       expect(offenders).toEqual([]);
     });
+  });
+});
+
+describe('builds with secrets in scope', () => {
+  function workflow(file) {
+    const found = workflows.find(w => w.file === file);
+    if (!found) throw new Error(`missing workflow ${file}`);
+    return found.doc;
+  }
+
+  function installs(doc, jobId) {
+    return (doc.jobs[jobId].steps || [])
+      .map(step => String(step.run || ''))
+      .filter(run => /\bpnpm install\b/.test(run));
+  }
+
+  it('skips dependency install scripts in the Vercel install', () => {
+    const vercel = JSON.parse(
+      fs.readFileSync(path.join(ROOT, 'vercel.json'), 'utf8')
+    );
+    expect(vercel.installCommand).toMatch(/--ignore-scripts\b/);
+  });
+
+  it.each([
+    ['semantic-release.yml', 'semantic-release'],
+    ['deploy.yml', 'deploy'],
+  ])('skips dependency install scripts in %s / %s', (file, jobId) => {
+    const runs = installs(workflow(file), jobId);
+    expect(runs.length).toBeGreaterThan(0);
+    for (const run of runs) expect(run).toMatch(/--ignore-scripts\b/);
+  });
+
+  it('does not persist the token on the release checkout', () => {
+    const checkouts = workflow('semantic-release.yml').jobs[
+      'semantic-release'
+    ].steps.filter(step =>
+      String(step.uses || '').startsWith('actions/checkout@')
+    );
+    expect(checkouts.length).toBeGreaterThan(0);
+    for (const step of checkouts) {
+      expect(step.with && step.with['persist-credentials']).toBe(false);
+    }
   });
 });
 
