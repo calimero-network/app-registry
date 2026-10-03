@@ -45,6 +45,11 @@ jest.mock('../src/lib/kv-client', () => ({
   isProduction: false,
 }));
 
+let mockUser = null;
+jest.mock('../../../api/lib/auth-helpers', () => ({
+  resolveUser: async () => mockUser,
+}));
+
 const listHandler = require('../../../api/v2/bundles/index');
 
 function manifest(pkg, version, extra = {}) {
@@ -179,6 +184,7 @@ describe('GET /api/v2/bundles caching', () => {
   beforeEach(() => {
     waves = 0;
     inFlight = 0;
+    mockUser = null;
     seedRegistry();
   });
 
@@ -226,7 +232,8 @@ describe('GET /api/v2/bundles caching', () => {
   // How a client that has just mutated the registry reads its own write: the
   // function runs, and the answer is kept out of the shared cache so the next
   // visitor doesn't inherit a one-off.
-  test('fresh=1 opts out of caching entirely', async () => {
+  test('fresh=1 opts out of caching entirely for a signed-in caller', async () => {
+    mockUser = { email: 'owner@example.com' };
     for (const value of ['1', 'true']) {
       const [req, res] = makeReqRes({ fresh: value });
       await listHandler(req, res);

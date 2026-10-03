@@ -42,6 +42,10 @@ module.exports = async (req, res) => {
     // Count unique packages
     const uniquePackages = new Set(bundleKeys.map(k => k.package)).size;
 
+    res.setHeader(
+      'Cache-Control',
+      'public, max-age=0, s-maxage=300, stale-while-revalidate=600'
+    );
     return res.status(200).json({
       publishedBundles: totalBundles,
       uniquePackages,

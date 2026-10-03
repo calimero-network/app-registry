@@ -125,7 +125,7 @@ The rest is common ground. Both push endpoints gate ownership behind `versions.l
 
 `metadata.author` is set server-side on first publish and carried forward from the oldest version onto every later one, so a manifest cannot set or change it.
 
-A delete takes effect immediately, but `GET /api/v2/bundles` is cached at the CDN and nothing purges it, so a listing can trail the registry by up to a minute - long enough for a deleted package to look like it survived. Add `fresh=1` when a read has to reflect a write that just happened; the site does this automatically for a while after any change you make.
+A delete takes effect immediately, but `GET /api/v2/bundles` is cached at the CDN and nothing purges it, so a listing can trail the registry by up to a minute - long enough for a deleted package to look like it survived. Add `fresh=1` when a read has to reflect a write that just happened; the site does this automatically for a while after any change you make. `fresh=1` is honoured for a single-package read (`?package=<name>`) from anyone, and for any other listing only when the request is signed in.
 
 [^1]:
     `owners[]` predates the identity model below and `cargo mero` never writes it.

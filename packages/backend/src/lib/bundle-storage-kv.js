@@ -28,6 +28,19 @@ const {
 // both publish routes before they store anything.
 const TOMBSTONE_SET = 'bundle-tombstones';
 
+const MGET_CHUNK = 1000;
+
+async function getMany(keys) {
+  if (typeof kv.mGet !== 'function') {
+    return Promise.all(keys.map(key => kv.get(key)));
+  }
+  const chunks = [];
+  for (let i = 0; i < keys.length; i += MGET_CHUNK) {
+    chunks.push(kv.mGet(keys.slice(i, i + MGET_CHUNK)));
+  }
+  return (await Promise.all(chunks)).flat();
+}
+
 /**
  * True if a service artifact path lives under the `services/` directory (the
  * layout the CLI emits). Combined with isUnsafeBundlePath this stops a service
@@ -378,11 +391,10 @@ class BundleStorageKV {
    * More efficient than individual getBundleManifest calls
    */
   async getBundleManifestsBatch(bundleKeys) {
-    // Fetch all manifests in parallel
-    const manifestPromises = bundleKeys.map(({ package: pkg, version }) =>
-      this.getBundleManifest(pkg, version)
+    const values = await getMany(
+      bundleKeys.map(({ package: pkg, version }) => `bundle:${pkg}/${version}`)
     );
-    return Promise.all(manifestPromises);
+    return values.map(data => (data ? JSON.parse(data).json : null));
   }
 
   /**
@@ -430,9 +442,7 @@ class BundleStorageKV {
         for (const version of versionLists[i])
           all.push(`${packageName}/${version}`);
       });
-      const flags = await Promise.all(
-        all.map(key => kv.get(`bundle-yanked:${key}`))
-      );
+      const flags = await getMany(all.map(key => `bundle-yanked:${key}`));
       all.forEach((key, i) => {
         if (flags[i] === '1') yankedSet.add(key);
       });
@@ -466,10 +476,8 @@ class BundleStorageKV {
         wanted.map(w => ({ package: w.packageName, version: w.version }))
       ),
       readYankFlags
-        ? Promise.all(
-            wanted.map(w =>
-              kv.get(`bundle-yanked:${w.packageName}/${w.version}`)
-            )
+        ? getMany(
+            wanted.map(w => `bundle-yanked:${w.packageName}/${w.version}`)
           )
         : Promise.resolve([]),
     ]);
