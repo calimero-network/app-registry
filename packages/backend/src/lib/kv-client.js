@@ -103,6 +103,15 @@ if (isStorageBlocked()) {
       return await redisClient.incr(key);
     },
 
+    async setXX(key, value) {
+      await this._ensureConnected();
+      const reply = await redisClient.set(key, value, {
+        XX: true,
+        KEEPTTL: true,
+      });
+      return reply === 'OK';
+    },
+
     // Hash operations
     async hSet(key, obj) {
       await this._ensureConnected();
@@ -220,6 +229,12 @@ if (isStorageBlocked()) {
       const next = current + 1;
       mockStore.set(key, String(next));
       return next;
+    },
+
+    async setXX(key, value) {
+      if (!mockStore.has(key)) return false;
+      mockStore.set(key, value);
+      return true;
     },
 
     // Hash operations

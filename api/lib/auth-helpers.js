@@ -81,10 +81,11 @@ async function resolveUser(req) {
         if (data?.email) {
           if (await isBlacklisted(data.email)) return null;
           const profile = await getUserByEmail(data.email);
+          if (!profile) return null;
           return {
             email: data.email,
             name: data.name || data.email,
-            username: profile?.username ?? null,
+            username: profile.username ?? null,
           };
         }
       } catch {

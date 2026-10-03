@@ -17,6 +17,7 @@ const setFor = k => {
 const mockKv = {
   get: async k => (store.has(k) ? store.get(k) : null),
   set: async (k, v) => (store.set(k, v), 'OK'),
+  setXX: async (k, v) => (store.has(k) ? (store.set(k, v), true) : false),
   del: async k => {
     const hit = store.delete(k) || sets.delete(k);
     return hit ? 1 : 0;

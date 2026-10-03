@@ -49,6 +49,7 @@ const pushHandler = require('../../../api/v2/bundles/push');
 const listHandler = require('../../../api/v2/bundles/index');
 const { generateKeypair, signBundle } = require('./helpers/ed25519-helper');
 const { TEST_ICON } = require('./helpers/publishable');
+const { seedProfile } = require('./helpers/profile');
 
 const PKG = 'com.example.signed-flow';
 
@@ -108,6 +109,7 @@ beforeEach(() => {
   store.clear();
   sets.clear();
   store.set('apitoken:tok-dev', JSON.stringify({ email: PUBLISHER }));
+  seedProfile(store, PUBLISHER);
 });
 
 describe('publishing with a real signature', () => {

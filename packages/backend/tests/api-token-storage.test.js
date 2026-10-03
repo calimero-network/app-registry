@@ -26,6 +26,7 @@ function makeKv() {
     sets,
     get: async k => (store.has(k) ? store.get(k) : null),
     set: async (k, v) => (store.set(k, v), 'OK'),
+    setXX: async (k, v) => (store.has(k) ? (store.set(k, v), true) : false),
     del: async k => (store.delete(k) ? 1 : 0),
     sAdd: async (k, ...m) => (m.flat().forEach(x => setFor(k).add(x)), 1),
     sMembers: async k => [...setFor(k)],
@@ -120,7 +121,7 @@ describe('api token storage', () => {
     const kv = makeKv();
     const s = createApiTokenStorage(kv);
     const { token } = await s.create(EMAIL, 'Dev', 'CLI');
-    kv.set = async () => {
+    kv.setXX = async () => {
       throw new Error('redis down');
     };
     await expect(s.verify(token)).resolves.toMatchObject({ email: EMAIL });

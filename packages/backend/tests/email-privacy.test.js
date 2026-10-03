@@ -85,6 +85,8 @@ jest.mock('../../../api/lib/verify', () => ({
   normalizeSignature: jest.fn(sig => sig || null),
 }));
 
+const { seedProfile } = require('./helpers/profile');
+
 const membersHandler = require('../../../api/v2/orgs/[orgId]/members/index');
 const detailHandler = require('../../../api/v2/bundles/[package]/[version]');
 const pushHandler = require('../../../api/v2/bundles/push');
@@ -135,6 +137,8 @@ describe('GET /api/v2/orgs/:orgId/members email exposure', () => {
     });
     store.set('apitoken:tok-member', JSON.stringify({ email: MEMBER }));
     store.set('apitoken:tok-admin', JSON.stringify({ email: SITE_ADMIN }));
+    seedProfile(store, MEMBER);
+    seedProfile(store, SITE_ADMIN);
   }
 
   async function callAs(authorization) {
@@ -174,6 +178,7 @@ describe('GET /api/v2/orgs/:orgId/members email exposure', () => {
 
   test('an org owner does not see other members emails', async () => {
     store.set('apitoken:tok-owner', JSON.stringify({ email: OWNER }));
+    seedProfile(store, OWNER);
     const res = await callAs('Bearer tok-owner');
     expect(res.statusCode).toBe(200);
     const withEmail = res.body.members.filter(m => 'email' in m);
@@ -239,6 +244,7 @@ describe('POST /api/v2/bundles/push never stores an email as author', () => {
 
   test('a publisher with no username publishes with no email author', async () => {
     store.set('apitoken:tok-push', JSON.stringify({ email: EMAIL }));
+    seedProfile(store, EMAIL);
 
     const res = makeRes();
     await pushHandler(
@@ -310,6 +316,7 @@ describe('POST /api/v2/bundles/push never stores an email as author', () => {
 
   test('a manifest-supplied author is never stored for a user with no username', async () => {
     store.set('apitoken:tok-push', JSON.stringify({ email: EMAIL }));
+    seedProfile(store, EMAIL);
 
     const res = await push(
       'tok-push',

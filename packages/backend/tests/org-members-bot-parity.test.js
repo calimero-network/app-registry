@@ -40,6 +40,8 @@ jest.mock('../../../api/lib/kv-client', () => ({
   isProduction: false,
 }));
 
+const { seedProfile } = require('./helpers/profile');
+
 const vercelHandler = require('../../../api/v2/orgs/[orgId]/members/index');
 const { buildServer } = require('../src/server');
 
@@ -64,6 +66,7 @@ function seed() {
     'apitoken:tok-human',
     JSON.stringify({ email: HUMAN, name: 'Alice' })
   );
+  seedProfile(store, HUMAN);
 }
 
 async function callVercel() {

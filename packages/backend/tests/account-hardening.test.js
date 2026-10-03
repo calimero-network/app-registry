@@ -147,6 +147,7 @@ describe('token hashing + backward compatibility', () => {
       JSON.stringify({ email: 'old@example.com', name: 'Old' }) // no expiresAt
     );
     setFor('user_tokens:old@example.com').add(legacy);
+    seedProfile('old@example.com');
 
     const user = await resolveUser({
       headers: { authorization: `Bearer ${legacy}` },
@@ -169,6 +170,7 @@ describe('token hashing + backward compatibility', () => {
       `apitoken:${forever}`,
       JSON.stringify({ email: 'f@example.com' }) // legacy: no expiresAt
     );
+    seedProfile('f@example.com');
     const user = await resolveUser({
       headers: { authorization: `Bearer ${forever}` },
     });

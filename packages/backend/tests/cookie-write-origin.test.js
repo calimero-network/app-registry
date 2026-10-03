@@ -147,6 +147,7 @@ beforeEach(() => {
   for (const k of ENV_KEYS) delete process.env[k];
   process.env.VERCEL_ENV = 'production';
   store.set(`apitoken:${TOKEN}`, JSON.stringify({ email: EMAIL, name: EMAIL }));
+  sessionCookie();
 });
 
 describe('cookie-authenticated writes through requireAuth', () => {
@@ -286,7 +287,7 @@ describe('session-only auth routes', () => {
     sets.set(`user_tokens:${EMAIL}`, new Set([TOKEN]));
     const res = await call(revokeTokenHandler, {
       method: 'DELETE',
-      query: { tokenId: TOKEN },
+      query: { tokenId: TOKEN.slice(0, 8) },
       headers: { cookie: sessionCookie(), origin: REGISTRY },
     });
     expect(res.statusCode).toBe(204);

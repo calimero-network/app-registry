@@ -83,6 +83,8 @@ jest.mock('../src/lib/bundle-storage-kv', () => ({
   },
 }));
 
+const { seedProfile } = require('./helpers/profile');
+
 const packagesHandler = require('../../../api/v2/orgs/[orgId]/packages/index');
 const memberHandler = require('../../../api/v2/orgs/[orgId]/members/[pubkey]');
 
@@ -98,6 +100,7 @@ const MEMBER = { email: 'member@acme.io', token: 'tok-member' };
 
 function seedApiToken({ email, token }) {
   store.set(`apitoken:${token}`, JSON.stringify({ email, name: email }));
+  seedProfile(store, email);
 }
 
 function reset() {
