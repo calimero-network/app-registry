@@ -1,9 +1,25 @@
 /**
- * DELETE /api/v2/orgs/:orgId/packages/:packageName — unlink package (admin or owner)
+ * DELETE /api/v2/orgs/:orgId/packages/:packageName — unlink package (org admin or owner, package owner, or site admin)
  */
 
-const { getOrg, getPkg2Org, deletePkg2Org } = require('#api-lib/org-storage');
-const { requireOrgAdminOrOwner } = require('#api-lib/auth-helpers');
+const {
+  getOrg,
+  getPkg2Org,
+  deletePkg2Org,
+  isOrgAdmin,
+} = require('#api-lib/org-storage');
+const { requireAuth, canManagePackage } = require('#api-lib/auth-helpers');
+const {
+  BundleStorageKV,
+} = require('@calimero-network/registry-backend/src/lib/bundle-storage-kv');
+
+const bundleStorage = new BundleStorageKV();
+
+async function latestManifest(packageName) {
+  const versions = await bundleStorage.getBundleVersions(packageName);
+  if (!versions || versions.length === 0) return null;
+  return bundleStorage.getBundleManifest(packageName, versions[0]);
+}
 
 function cors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -46,10 +62,24 @@ module.exports = async function handler(req, res) {
       .json({ error: 'not_found', message: 'Organization not found' });
   }
 
-  const user = await requireOrgAdminOrOwner(req, res, orgId);
+  const user = await requireAuth(req, res);
   if (!user) return;
 
   try {
+    const allowed =
+      (await isOrgAdmin(orgId, user.email)) ||
+      (await canManagePackage(
+        packageName,
+        await latestManifest(packageName),
+        user
+      ));
+    if (!allowed) {
+      return res.status(403).json({
+        error: 'forbidden',
+        message:
+          'Only an organization admin or owner, or the package owner, can unlink this package',
+      });
+    }
     const currentOrgId = await getPkg2Org(packageName);
     if (currentOrgId !== orgId) {
       return res.status(404).json({

@@ -3,9 +3,10 @@
  * Vercel functions (api/v2/orgs/...). Each maps to a concrete privilege
  * escalation the handlers previously allowed:
  *
- *  1. RE-LINK STEAL — linking a package already owned by another org overwrote
- *     the link, so a package author could yank an org-owned package into their
- *     own org and strip the real org's admins.
+ *  1. RE-LINK — linking a package already linked to another org moves the
+ *     link. Only the package owner can link, so this is the owner taking their
+ *     package elsewhere; the previous org's admins lose their publish rights
+ *     (see org-package-links.test.js).
  *  2. ADMIN REMOVES OWNER — DELETE let any admin remove owners/admins; an admin
  *     could evict the owners and seize the org. Only an owner may now remove a
  *     privileged member.
@@ -183,7 +184,7 @@ function setMembers(orgId, roleByEmail) {
   hashes.set(`org:${orgId}:roles`, { ...roleByEmail });
 }
 
-describe('#1 re-link steal: link package already owned by another org', () => {
+describe('#1 re-link: link package already linked to another org', () => {
   beforeEach(() => {
     reset();
     seedApiToken(AUTHOR);
@@ -197,11 +198,10 @@ describe('#1 re-link steal: link package already owned by another org', () => {
     store.set(`pkg2org:${PKG}`, 'victim-org');
   });
 
-  test('is refused (409) and the existing link is preserved', async () => {
+  test('is allowed (204) for the package owner and moves the link', async () => {
     const r = await postPackage('attacker-org', AUTHOR, PKG);
-    expect(r.statusCode).toBe(409);
-    expect(r.body.error).toBe('conflict');
-    expect(store.get(`pkg2org:${PKG}`)).toBe('victim-org');
+    expect(r.statusCode).toBe(204);
+    expect(store.get(`pkg2org:${PKG}`)).toBe('attacker-org');
   });
 
   test('is allowed (204) when the package is unlinked', async () => {

@@ -213,8 +213,15 @@ async function getPkg2Org(packageName) {
  */
 async function setPkg2Org(packageName, orgId) {
   if (!packageName || !orgId) throw new Error('package and orgId required');
+  const previousOrgId = await kv.get(PKG2ORG_PREFIX + packageName);
   await kv.set(PKG2ORG_PREFIX + packageName, orgId);
   await kv.sAdd(ORG_PREFIX + orgId + ORG_PACKAGES_SUFFIX, packageName);
+  if (previousOrgId && previousOrgId !== orgId) {
+    await kv.sRem(
+      ORG_PREFIX + previousOrgId + ORG_PACKAGES_SUFFIX,
+      packageName
+    );
+  }
 }
 
 /**
@@ -296,7 +303,9 @@ async function deleteOrg(orgId) {
   // Remove all package reverse indexes
   const packages = await getPackagesByOrg(orgId);
   for (const pkg of packages) {
-    await kv.del(PKG2ORG_PREFIX + pkg);
+    if ((await kv.get(PKG2ORG_PREFIX + pkg)) === orgId) {
+      await kv.del(PKG2ORG_PREFIX + pkg);
+    }
   }
 
   await invitations.removeAllForOrg(orgId);
