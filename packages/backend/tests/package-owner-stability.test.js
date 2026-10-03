@@ -2,8 +2,9 @@
  * Package ownership (`metadata._ownerEmail`) is recorded once, at the first
  * publish, and carried forward unchanged by every later version — whichever
  * account pushes that version. Publishing a version is authorized by the
- * signing key; managing the package (delete, yank, assets, org link) belongs to
- * the account that first published it.
+ * signing key plus an account tied to the package (here, an org member);
+ * managing the package (delete, yank, assets, org link) belongs to the account
+ * that first published it.
  *
  * Runs push.js against an in-memory Redis stand-in, then asks the real
  * permission helpers who may manage the stored package.
@@ -48,6 +49,16 @@ jest.mock('../../../api/lib/kv-client', () => ({
   isProduction: false,
 }));
 
+jest.mock('../src/lib/bundle-integrity', () => ({
+  ...jest.requireActual('../src/lib/bundle-integrity'),
+  verifyBundleBinary: jest.fn().mockResolvedValue(undefined),
+}));
+jest.mock('../src/lib/blob-store', () => ({
+  putBinary: jest.fn(async () => '1'),
+  getBinary: jest.fn(async () => null),
+  deleteBinary: jest.fn(async () => {}),
+}));
+
 // Signature checks pass: the second account holds a validly signed manifest
 // for the allowed key, which is exactly the case under test.
 jest.mock('../../../api/lib/verify', () => ({
@@ -89,6 +100,7 @@ const {
   stampOwnerEmail,
 } = require('../src/lib/package-owner');
 const { TEST_ICON } = require('./helpers/publishable');
+const orgs = require('../../../api/lib/org-storage');
 
 const PKG = 'com.example.owned';
 const ALICE = { email: 'alice@example.com', username: 'alice' };
@@ -129,6 +141,7 @@ function makeManifest(appVersion, metadata = {}) {
       ...metadata,
     },
     wasm: { path: 'app.wasm', size: 100, hash: 'abc123' },
+    _binary: '00',
     signature: {
       algorithm: 'ed25519',
       publicKey: 'dGVzdC1wdWJrZXk',
@@ -159,6 +172,11 @@ function seedVersion(version, metadata) {
     sets.set(`bundle-versions:${PKG}`, new Set());
   }
   sets.get(`bundle-versions:${PKG}`).add(version);
+}
+
+async function joinPackageOrg(email) {
+  await orgs.setPkg2Org(PKG, 'org-owned');
+  await orgs.addOrgMember('org-owned', email, 'member');
 }
 
 async function tryDelete(user) {
@@ -201,6 +219,7 @@ describe('a later version pushed by a different account', () => {
   test('keeps the original owner, and the pusher cannot manage the package', async () => {
     mockUsernames.set(BOB.email, BOB.username);
     expect((await pushAs(ALICE, makeManifest('1.0.0'))).statusCode).toBe(201);
+    await joinPackageOrg(BOB.email);
 
     const res = await pushAs(BOB, makeManifest('2.0.0'));
     expect(res.statusCode).toBe(201);
@@ -221,6 +240,7 @@ describe('a later version pushed by a different account', () => {
       name: 'Owned App',
       _ownerEmail: ALICE.email,
     });
+    await joinPackageOrg(BOB_NO_USERNAME.email);
 
     const res = await pushAs(BOB_NO_USERNAME, makeManifest('2.0.0'));
     expect(res.statusCode).toBe(201);
@@ -234,6 +254,7 @@ describe('a later version pushed by a different account', () => {
   test('inherits the owner from a later version when the oldest has none', async () => {
     seedVersion('1.0.0', { name: 'Owned App' });
     seedVersion('1.1.0', { name: 'Owned App', _ownerEmail: ALICE.email });
+    await joinPackageOrg(BOB_NO_USERNAME.email);
 
     const res = await pushAs(BOB_NO_USERNAME, makeManifest('2.0.0'));
     expect(res.statusCode).toBe(201);

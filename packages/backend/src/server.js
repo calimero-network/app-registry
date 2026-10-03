@@ -802,6 +802,16 @@ async function buildServer() {
         },
       };
     }
+    if (typeof bundleManifest._binary !== 'string' || !bundleManifest._binary) {
+      throw {
+        statusCode: 400,
+        body: {
+          error: 'missing_binary',
+          message:
+            'Missing _binary: send the whole .mpk as hex in `_binary` (cargo mero publish does this), or upload it to /api/v2/bundles/push-file.',
+        },
+      };
+    }
     // Validate the package id and version shape before anything is stored. A
     // malformed id or a non-semver version otherwise reaches storage and breaks
     // ordering/lookup downstream.
@@ -936,6 +946,7 @@ async function buildServer() {
           body: {
             error: 'not_owner',
             message:
+              permission.message ||
               'Only the package owner (signer or a key in manifest.owners) or an organization admin can publish new versions.',
           },
         };

@@ -40,6 +40,16 @@ jest.mock('../../../api/lib/kv-client', () => ({
   isProduction: false,
 }));
 
+jest.mock('../src/lib/bundle-integrity', () => ({
+  ...jest.requireActual('../src/lib/bundle-integrity'),
+  verifyBundleBinary: jest.fn().mockResolvedValue(undefined),
+}));
+jest.mock('../src/lib/blob-store', () => ({
+  putBinary: jest.fn(async () => '1'),
+  getBinary: jest.fn(async () => null),
+  deleteBinary: jest.fn(async () => {}),
+}));
+
 // Signature verification is not what this test is about.
 jest.mock('../../../api/lib/verify', () => ({
   verifyManifest: jest.fn().mockResolvedValue(undefined),
@@ -69,6 +79,7 @@ function manifest(pkg) {
       icon: TEST_ICON,
     },
     wasm: { path: 'app.wasm', size: 100, hash: 'abc123' },
+    _binary: '00',
     signature: {
       algorithm: 'ed25519',
       publicKey: 'dGVzdC1wdWJrZXk',

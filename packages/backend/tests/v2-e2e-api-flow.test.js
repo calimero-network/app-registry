@@ -39,9 +39,15 @@ jest.mock('../../../api/lib/kv-client', () => ({
   isProduction: false,
 }));
 
+jest.mock('../src/lib/blob-store', () => ({
+  putBinary: jest.fn(async () => '1'),
+  getBinary: jest.fn(async () => null),
+  deleteBinary: jest.fn(async () => {}),
+}));
+
 const pushHandler = require('../../../api/v2/bundles/push');
 const listHandler = require('../../../api/v2/bundles/index');
-const { generateKeypair, signManifest } = require('./helpers/ed25519-helper');
+const { generateKeypair, signBundle } = require('./helpers/ed25519-helper');
 const { TEST_ICON } = require('./helpers/publishable');
 
 const PKG = 'com.example.signed-flow';
@@ -108,14 +114,14 @@ describe('publishing with a real signature', () => {
   test('an anonymous push is refused, even with a valid signature', async () => {
     // A public signed manifest can be replayed by anyone, so the signature
     // alone must never be enough to publish.
-    const pushed = await push(await signManifest(manifest('1.0.0'), owner), {});
+    const pushed = await push(await signBundle(manifest('1.0.0'), owner), {});
     expect(pushed.statusCode).toBe(401);
     expect(pushed.body.error).toBe('unauthorized');
     expect(store.has(`bundle:${PKG}/1.0.0`)).toBe(false);
   });
 
   test('a signed bundle publishes and is listed', async () => {
-    const pushed = await push(await signManifest(manifest('1.0.0'), owner));
+    const pushed = await push(await signBundle(manifest('1.0.0'), owner));
     expect(pushed.statusCode).toBe(201);
 
     const listed = await call(listHandler, {
@@ -128,7 +134,7 @@ describe('publishing with a real signature', () => {
   });
 
   test('a manifest changed after signing is rejected', async () => {
-    const signed = await signManifest(manifest('1.0.0'), owner);
+    const signed = await signBundle(manifest('1.0.0'), owner);
     signed.metadata.name = 'Tampered';
     const pushed = await push(signed);
     expect(pushed.statusCode).toBe(400);
@@ -136,19 +142,19 @@ describe('publishing with a real signature', () => {
   });
 
   test('an unsigned manifest is rejected', async () => {
-    const pushed = await push(manifest('1.0.0'));
+    const pushed = await push({ ...manifest('1.0.0'), _binary: '00' });
     expect(pushed.statusCode).toBe(400);
     expect(pushed.body.error).toBe('missing_signature');
   });
 
   test('the owner publishes a new version; another key cannot', async () => {
-    await push(await signManifest(manifest('1.0.0'), owner));
+    await push(await signBundle(manifest('1.0.0'), owner));
 
-    const next = await push(await signManifest(manifest('1.1.0'), owner));
+    const next = await push(await signBundle(manifest('1.1.0'), owner));
     expect(next.statusCode).toBe(201);
 
     const intruder = await generateKeypair();
-    const taken = await push(await signManifest(manifest('1.2.0'), intruder));
+    const taken = await push(await signBundle(manifest('1.2.0'), intruder));
     expect(taken.statusCode).toBe(403);
     expect(taken.body.error).toBe('not_owner');
   });

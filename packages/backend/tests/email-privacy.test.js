@@ -66,6 +66,16 @@ jest.mock('redis', () => ({
 }));
 process.env.REDIS_URL = 'redis://email-privacy-test';
 
+jest.mock('../src/lib/bundle-integrity', () => ({
+  ...jest.requireActual('../src/lib/bundle-integrity'),
+  verifyBundleBinary: jest.fn().mockResolvedValue(undefined),
+}));
+jest.mock('../src/lib/blob-store', () => ({
+  putBinary: jest.fn(async () => '1'),
+  getBinary: jest.fn(async () => null),
+  deleteBinary: jest.fn(async () => {}),
+}));
+
 // The push handler verifies signatures via api/lib/verify; stub it so the test
 // exercises author handling rather than crypto.
 jest.mock('../../../api/lib/verify', () => ({
@@ -246,6 +256,7 @@ describe('POST /api/v2/bundles/push never stores an email as author', () => {
             icon: TEST_ICON,
           },
           wasm: { path: 'app.wasm', size: 100, hash: 'abc123' },
+          _binary: '00',
           signature: {
             algorithm: 'ed25519',
             publicKey: 'dGVzdC1wdWJrZXk',
@@ -279,6 +290,7 @@ describe('POST /api/v2/bundles/push never stores an email as author', () => {
         ...metadata,
       },
       wasm: { path: 'app.wasm', size: 100, hash: 'abc123' },
+      _binary: '00',
       signature: {
         algorithm: 'ed25519',
         publicKey: 'dGVzdC1wdWJrZXk',
