@@ -324,7 +324,57 @@ function hasControlOrSpace(s) {
 }
 
 /**
- * Every problem with a manifest's `links`, as sentences. Empty means good.
+ * One `frontendAliases` entry: an absolute http(s) URL with a host. Stricter
+ * than `isSafeHttpUrl`, which also passes an empty value for optional fields;
+ * an alias exists only to be trusted, so an empty one is an error.
+ */
+function isFrontendAliasUrl(value) {
+  if (typeof value !== 'string' || hasControlOrSpace(value)) return false;
+  try {
+    const { protocol, host } = new URL(value);
+    return (protocol === 'https:' || protocol === 'http:') && host !== '';
+  } catch {
+    return false;
+  }
+}
+
+/** More aliases than any real domain move needs; the list is not a catalogue. */
+const MAX_FRONTEND_ALIASES = 16;
+
+/**
+ * Every problem with a manifest's top-level `frontendAliases`, as sentences.
+ *
+ * The aliases are other URLs the app's frontend is served at, besides
+ * `links.frontend` — typically the domain it moved away from. Nothing opens
+ * them, but a node's sign-in page trusts a login callback to their origins, so
+ * they carry the same weight as `links.frontend` and get the same rule: each an
+ * absolute http(s) URL. A sibling of `links` rather than inside it because
+ * `links` is a map of single URLs that clients render one per key.
+ *
+ * Not grandfathered, for the same reason as `links`.
+ */
+function frontendAliasProblems(aliases) {
+  if (aliases === undefined || aliases === null) return [];
+  if (!Array.isArray(aliases)) {
+    return ['`frontendAliases` must be a list of http(s) URLs.'];
+  }
+  if (aliases.length > MAX_FRONTEND_ALIASES) {
+    return [
+      `\`frontendAliases\` lists ${aliases.length} URLs; at most ${MAX_FRONTEND_ALIASES} are allowed.`,
+    ];
+  }
+  const problems = [];
+  aliases.forEach((value, i) => {
+    if (!isFrontendAliasUrl(value)) {
+      problems.push(`\`frontendAliases[${i}]\` must be an http(s) URL.`);
+    }
+  });
+  return problems;
+}
+
+/**
+ * Every problem with a manifest's `links` (and, when given, its
+ * `frontendAliases`), as sentences. Empty means good.
  *
  * Each present `links.*` value must be an absolute http(s) URL with a host and
  * no whitespace or control characters; an empty value is allowed (the link is
@@ -336,12 +386,12 @@ function hasControlOrSpace(s) {
  * navigate a window to `links.frontend`. That is not missing polish an
  * existing package may owe — it is refused for everyone.
  */
-function linkProblems(links) {
-  if (links === undefined || links === null) return [];
+function linkProblems(links, frontendAliases) {
+  const problems = frontendAliasProblems(frontendAliases);
+  if (links === undefined || links === null) return problems;
   if (typeof links !== 'object' || Array.isArray(links)) {
-    return ['`links` must be an object of http(s) URLs.'];
+    return ['`links` must be an object of http(s) URLs.', ...problems];
   }
-  const problems = [];
   for (const [key, value] of Object.entries(links)) {
     if (value === undefined || value === null || value === '') continue;
     let ok = false;
@@ -419,7 +469,7 @@ function validateBundleMetadata(manifest, { isNewPackage } = {}) {
   }
 
   // Unsafe links block every package, new or grandfathered — see linkProblems.
-  const linkErrors = linkProblems(manifest?.links);
+  const linkErrors = linkProblems(manifest?.links, manifest?.frontendAliases);
 
   return isNewPackage
     ? { errors: [...problems, ...linkErrors], warnings: advisories, category }
@@ -444,6 +494,16 @@ function safeLinks(links) {
     if (isSafeHttpUrl(value)) out[key] = value;
   }
   return out;
+}
+
+/**
+ * The http(s) entries of `frontendAliases`, for output: anything that is not a
+ * list of URLs serves as absent. Mirrors `safeLinks`.
+ */
+function safeFrontendAliases(aliases) {
+  if (!Array.isArray(aliases)) return undefined;
+  const out = aliases.filter(isFrontendAliasUrl);
+  return out.length > 0 ? out : undefined;
 }
 
 /**
@@ -488,6 +548,8 @@ module.exports = {
   STAFF_EMAIL_DOMAIN,
   validateBundleMetadata,
   linkProblems,
+  frontendAliasProblems,
+  MAX_FRONTEND_ALIASES,
   isValidPackageName,
   isValidPackageVersion,
   reservedPackagePrefix,
@@ -498,4 +560,5 @@ module.exports = {
   decodeDataUri,
   stripReservedMetadata,
   safeLinks,
+  safeFrontendAliases,
 };

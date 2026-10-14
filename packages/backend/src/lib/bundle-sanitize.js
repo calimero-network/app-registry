@@ -23,7 +23,7 @@
  *
  * @param {object} kv - KV client with async get(key)
  */
-const { safeLinks } = require('./metadata-policy');
+const { safeLinks, safeFrontendAliases } = require('./metadata-policy');
 
 /**
  * Re-expose the server-stamped fields under public names.
@@ -55,12 +55,18 @@ function exposeServerStamped(bundle) {
 }
 
 /**
- * `links` for output: only http(s) values survive. New publishes and edits are
+ * `links` and `frontendAliases` for output: only http(s) values survive. New publishes and edits are
  * refused a non-http(s) link (metadata-policy linkProblems); this covers
  * anything stored before that rule existed.
  */
 function exposeLinks(bundle) {
-  return bundle.links === undefined ? {} : { links: safeLinks(bundle.links) };
+  return {
+    ...(bundle.links === undefined ? {} : { links: safeLinks(bundle.links) }),
+    // Only http(s) entries, like `links`; undefined drops the key from JSON.
+    ...(bundle.frontendAliases === undefined
+      ? {}
+      : { frontendAliases: safeFrontendAliases(bundle.frontendAliases) }),
+  };
 }
 
 function createBundleSanitizers(kv, review) {

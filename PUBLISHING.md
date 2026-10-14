@@ -40,6 +40,8 @@ frontend = "https://my-app.example.com"
 github = "https://github.com/example/my-app"
 ```
 
+`frontend` is where clients open your app, and a node's sign-in page hands login tokens only to its origin. When the app moves domain, list the old address in `frontend-aliases = ["https://old.example.com"]`: clients still open only `frontend`, but a login from the old origin keeps working while nodes and launchers still open it. Drop the alias in a later version once nothing does. Each entry must be an http(s) URL; the registry refuses anything else.
+
 A workspace that ships several wasm services declares them under `[workspace.metadata.calimero]` instead, which also wins over a package table when both are present:
 
 ```toml
