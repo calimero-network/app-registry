@@ -393,7 +393,10 @@ module.exports = async function handler(req, res) {
       bundleManifest.metadata._ownerEmail = ownerEmail;
     }
 
-    const badLinks = linkProblems(bundleManifest.links);
+    const badLinks = linkProblems(
+      bundleManifest.links,
+      bundleManifest.frontendAliases
+    );
     if (badLinks.length > 0) {
       return res.status(400).json({
         error: 'invalid_links',

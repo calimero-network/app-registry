@@ -106,6 +106,13 @@ export interface BundleManifest {
     sdkVersion?: string;
     sdkRev?: string;
   };
+  /**
+   * Other URLs the frontend is served at, besides `links.frontend` (e.g. the
+   * domain an app moved away from). Never opened; a node's sign-in page also
+   * trusts a login callback to their origins. A sibling of `links`, written by
+   * `cargo mero bundle` from `frontend-aliases`.
+   */
+  frontendAliases?: string[];
   /** DID of the signer — part of the signed payload, must be forwarded as-is. */
   signerId?: string;
 }

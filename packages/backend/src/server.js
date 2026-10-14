@@ -612,7 +612,7 @@ async function buildServer() {
         });
       }
 
-      const badLinks = linkProblems(incoming.links);
+      const badLinks = linkProblems(incoming.links, incoming.frontendAliases);
       if (badLinks.length > 0) {
         return reply.code(400).send({
           error: 'invalid_links',
@@ -633,6 +633,7 @@ async function buildServer() {
         ...existing,
         metadata: mergedMetadata,
         links: incoming.links ?? existing.links,
+        frontendAliases: incoming.frontendAliases ?? existing.frontendAliases,
         interfaces: incoming.interfaces ?? existing.interfaces,
         signature: incoming.signature,
       };
@@ -995,7 +996,10 @@ async function buildServer() {
       if (displayAuthor) bundleManifest.metadata.author = displayAuthor;
       bundleManifest.metadata._ownerEmail = userEmail;
     }
-    const badLinks = linkProblems(bundleManifest.links);
+    const badLinks = linkProblems(
+      bundleManifest.links,
+      bundleManifest.frontendAliases
+    );
     if (badLinks.length > 0) {
       throw {
         statusCode: 400,

@@ -202,7 +202,7 @@ async function handlePatch(req, res, pkg, version) {
     });
   }
 
-  const badLinks = linkProblems(body.links);
+  const badLinks = linkProblems(body.links, body.frontendAliases);
   if (badLinks.length > 0) {
     return res.status(400).json({
       error: 'invalid_links',
