@@ -13,14 +13,19 @@ const LOCKED_FIELDS = [
   'services',
 ];
 
+// Readers disagree on which spelling wins, so every spelling the body carries must equal the stored floor.
+const RUNTIME_FLOOR_SPELLINGS = ['minRuntimeVersion', 'min_runtime_version'];
+
 function lockedFieldChanges(body, existing) {
-  // GET fills in the default, so a GET-edit-sign round trip carries it.
-  const value = (manifest, field) =>
+  const floor = minRuntimeVersionOf(existing);
+  return LOCKED_FIELDS.filter(field =>
     field === 'minRuntimeVersion'
-      ? minRuntimeVersionOf(manifest)
-      : manifest[field];
-  return LOCKED_FIELDS.filter(
-    field => !isDeepStrictEqual(value(body, field), value(existing, field))
+      ? RUNTIME_FLOOR_SPELLINGS.some(
+          key =>
+            body[key] !== undefined &&
+            minRuntimeVersionOf({ [key]: body[key] }) !== floor
+        )
+      : !isDeepStrictEqual(body[field], existing[field])
   );
 }
 

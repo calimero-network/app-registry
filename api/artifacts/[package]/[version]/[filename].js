@@ -7,6 +7,9 @@
 const {
   BundleStorageKV,
 } = require('@calimero-network/registry-backend/src/lib/bundle-storage-kv');
+const {
+  minRuntimeVersionOf,
+} = require('@calimero-network/registry-backend/src/lib/bundle-sanitize');
 
 // Singleton storage instance
 let storage;
@@ -111,13 +114,7 @@ module.exports = async function handler(req, res) {
     }
 
     // Expose min_runtime_version for runtime compatibility (Rust expects this)
-    const minRuntimeVersion =
-      manifest?.minRuntimeVersion ?? manifest?.min_runtime_version;
-    const minRuntimeVersionHeader =
-      minRuntimeVersion != null && String(minRuntimeVersion).trim()
-        ? String(minRuntimeVersion).trim()
-        : '0.1.0';
-    res.setHeader('X-Min-Runtime-Version', minRuntimeVersionHeader);
+    res.setHeader('X-Min-Runtime-Version', minRuntimeVersionOf(manifest));
 
     const binary = Buffer.from(binaryHex, 'hex');
 

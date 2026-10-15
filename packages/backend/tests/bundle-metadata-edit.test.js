@@ -193,6 +193,10 @@ describe('PATCH /api/v2/bundles/:pkg/:version — what may change', () => {
       'min_runtime_version (snake_case)',
       { minRuntimeVersion: '0.1.0', min_runtime_version: '99.0.0' },
     ],
+    [
+      'minRuntimeVersion behind an unchanged min_runtime_version',
+      { min_runtime_version: '0.1.0', minRuntimeVersion: '99.0.0' },
+    ],
   ])('changing %s is refused', async (_field, overrides) => {
     const r = await patch(AUTHOR, edit(overrides));
     expect(r.status).toHaveBeenCalledWith(400);
