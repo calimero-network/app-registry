@@ -166,7 +166,7 @@ So a package has one signing key, and the org governs who may use it. Hold it as
 2. **Create an org** from the Organizations page, where you become the admin
 3. **Get a CLI API token** from the Organizations page → CLI Access section:
    ```bash
-   calimero-registry config set api-key <token>
+   calimero-registry config set api-key   # paste the token when asked
    # or: export CALIMERO_API_KEY=<token>
    ```
 4. **Add members** by email from the web UI or CLI
@@ -234,7 +234,7 @@ calimero-registry org packages unlink <org-id> <package>
 
 # Config
 calimero-registry config set registry-url <url>
-calimero-registry config set api-key <token>
+calimero-registry config set api-key   # paste the token when asked
 ```
 
 Environment variables: `CALIMERO_REGISTRY_URL`, `CALIMERO_API_KEY`.

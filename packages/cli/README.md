@@ -23,7 +23,7 @@ Two settings, resolved in this order: command flags, then environment, then the 
 
 ```bash
 calimero-registry config set registry-url https://apps.calimero.network
-calimero-registry config set api-key <token>
+calimero-registry config set api-key   # paste the token when asked
 calimero-registry config list
 calimero-registry config get registry-url
 calimero-registry config reset [--force]

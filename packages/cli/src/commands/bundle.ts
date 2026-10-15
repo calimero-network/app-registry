@@ -661,7 +661,7 @@ Examples:
 Configuration:
   Set defaults using the config command:
   $ calimero-registry config set registry-url https://apps.calimero.network
-  $ calimero-registry config set api-key your-api-key
+  $ calimero-registry config set api-key   # paste the key when asked
   
   Or use environment variables:
   $ export CALIMERO_REGISTRY_URL=https://apps.calimero.network
