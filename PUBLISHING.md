@@ -448,6 +448,14 @@ The whole `.mpk` rides along under a `_binary` field; `_`-prefixed keys are stri
     The registry would accept that publish; every node with the app installed would not see it.
     That is why the CI step above compares the signer directly and refuses a mismatch - deliberately stricter than the endpoint, because the endpoint's answer is not the one that matters on the other end.
 
+### Who manages a package
+
+A signed bundle names no registry account, so pushing one first does not make the pushing account its manager.
+A first publish records a manager only when the push carries `_claim`: an Ed25519 signature by a key of the bundle over the package, the pushing account's email and a timestamp no older than ten minutes.
+`calimero-registry bundle push --key key.json` attaches one; `cargo mero publish` and browser uploads do not, so those first publishes leave the package unmanaged.
+An unmanaged package can still be published to with its key, but only site admins can delete it, yank versions, upload assets or link it to an organization.
+A key holder becomes the manager at any time with `calimero-registry bundle claim <package> --key key.json`, which also removes any organization link.
+
 Both push endpoints also accept a version signed with another key when the publishing account is an **admin or owner** of the org linked to the package; the package's existing key set is kept as it was. The browser upload endpoint, `POST /api/v2/bundles/push-file`, additionally rejects a version that is not greater than the latest published one.
 `push` leaves version ordering to the caller, which is what `--bump` is for.
 
