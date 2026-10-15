@@ -158,9 +158,7 @@ export default function MyOrgsPage() {
 
   const handleCopyCmd = async () => {
     if (!freshToken) return;
-    await navigator.clipboard.writeText(
-      `calimero-registry config set api-key ${freshToken}`
-    );
+    await navigator.clipboard.writeText('calimero-registry config set api-key');
     setCmdCopied(true);
     setTimeout(() => setCmdCopied(false), 2000);
   };
@@ -309,8 +307,9 @@ export default function MyOrgsPage() {
                 Generate a token to authenticate the CLI for org management and
                 bundle publishing. Configure it once with:
                 <code className='ml-1 bg-ink/[0.06] px-1.5 py-0.5 rounded text-neutral-300 text-[12.5px]'>
-                  calimero-registry config set api-key &lt;token&gt;
-                </code>
+                  calimero-registry config set api-key
+                </code>{' '}
+                and paste the token when it asks.
               </p>
 
               {/* Generate new token */}
@@ -366,7 +365,7 @@ export default function MyOrgsPage() {
                         measures 4.16:1. This is a command the reader has to
                         retype, so it takes the next step up. */}
                     <code className='flex-1 text-[12.5px] font-mono text-neutral-400 bg-ink/[0.06] rounded px-2 py-1.5 truncate'>
-                      calimero-registry config set api-key {freshToken}
+                      calimero-registry config set api-key
                     </code>
                     <button
                       type='button'

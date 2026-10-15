@@ -183,6 +183,52 @@ describe('PATCH /api/v2/bundles/:pkg/:version — what may change', () => {
     expect(r.status).toHaveBeenCalledWith(400);
   });
 
+  test.each([
+    ['abi', { abi: { methods: [] } }],
+    ['minRuntimeVersion', { minRuntimeVersion: '9.9.9' }],
+    ['services', { services: [{ name: 'svc' }] }],
+    ['version', { version: '2.0' }],
+    ['signerId', { signerId: 'did:key:z6MkOther' }],
+    [
+      'min_runtime_version (snake_case)',
+      { minRuntimeVersion: '0.1.0', min_runtime_version: '99.0.0' },
+    ],
+    [
+      'minRuntimeVersion behind an unchanged min_runtime_version',
+      { min_runtime_version: '0.1.0', minRuntimeVersion: '99.0.0' },
+    ],
+  ])('changing %s is refused', async (_field, overrides) => {
+    const r = await patch(AUTHOR, edit(overrides));
+    expect(r.status).toHaveBeenCalledWith(400);
+    expect(saved()).toEqual(stored);
+  });
+
+  test('dropping a stored minRuntimeVersion is refused', async () => {
+    const floored = { ...stored, minRuntimeVersion: '1.2.0' };
+    mockKVData.set(KEY, JSON.stringify({ json: floored }));
+    const r = await patch(AUTHOR, edit());
+    expect(r.status).toHaveBeenCalledWith(400);
+    expect(saved()).toEqual(floored);
+  });
+
+  test('a GET-then-PATCH round trip with only a description change is accepted', async () => {
+    const { sanitizeBundle } = createBundleSanitizers(mockKv, {
+      isApproved: async () => false,
+    });
+    const body = await sanitizeBundle(stored, PKG);
+    body.metadata = { ...body.metadata, description: 'Round trip.' };
+    const r = await patch(AUTHOR, body);
+    expect(r.status).toHaveBeenCalledWith(200);
+    expect(saved().metadata.description).toBe('Round trip.');
+  });
+
+  test('dropping a signed field is refused', async () => {
+    const body = edit();
+    delete body.version;
+    const r = await patch(AUTHOR, body);
+    expect(r.status).toHaveBeenCalledWith(400);
+  });
+
   test('the same owners in another order is not a change', async () => {
     mockKVData.set(
       KEY,

@@ -93,6 +93,16 @@ if (isStorageBlocked()) {
       return await redisClient.setNX(key, value);
     },
 
+    /** SET NX EX: true if the key was set, false if it already existed. */
+    async setNXEx(key, value, ttlSeconds) {
+      await this._ensureConnected();
+      const reply = await redisClient.set(key, value, {
+        NX: true,
+        EX: ttlSeconds,
+      });
+      return reply === 'OK';
+    },
+
     async mGet(keys) {
       await this._ensureConnected();
       return keys.length ? await redisClient.mGet(keys) : [];
@@ -197,6 +207,7 @@ if (isStorageBlocked()) {
   const mockStore = new Map();
   const mockSets = new Map();
   const mockHashes = new Map();
+  const mockExpiry = new Map();
 
   kvClient = {
     // String operations
@@ -221,6 +232,18 @@ if (isStorageBlocked()) {
       }
       mockStore.set(key, value);
       return true; // Key was set
+    },
+
+    async setNXEx(key, value, ttlSeconds) {
+      const expiresAt = mockExpiry.get(key);
+      if (expiresAt !== undefined && expiresAt <= Date.now()) {
+        mockStore.delete(key);
+        mockExpiry.delete(key);
+      }
+      if (mockStore.has(key)) return false;
+      mockStore.set(key, value);
+      mockExpiry.set(key, Date.now() + ttlSeconds * 1000);
+      return true;
     },
 
     async mGet(keys) {
@@ -333,6 +356,7 @@ if (isStorageBlocked()) {
       mockStore.clear();
       mockSets.clear();
       mockHashes.clear();
+      mockExpiry.clear();
       return 'OK';
     },
   };

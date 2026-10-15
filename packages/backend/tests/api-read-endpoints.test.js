@@ -253,6 +253,38 @@ describe('POST /api/v2/downloads/record', () => {
     expect(store.get('downloads:total')).toBe('2');
   });
 
+  test('counts one client once per package across its versions', async () => {
+    seed({
+      'com.a.one': {
+        '1.0.0': { author: 'alice', pubkey: 'pk' },
+        '1.0.1': { author: 'alice', pubkey: 'pk' },
+      },
+    });
+    const headers = { 'x-forwarded-for': '203.0.113.9' };
+    await record({ package: 'com.a.one', version: '1.0.0' }, headers);
+    await record({ package: 'com.a.one', version: '1.0.1' }, headers);
+    await record({ package: 'com.a.one' }, headers);
+
+    expect(store.get('downloads:com.a.one')).toBe('1');
+  });
+
+  test('counts addresses from one IPv6 /64 as one client', async () => {
+    seed(ONE);
+    for (const ip of [
+      '2001:db8:1:2::1',
+      '2001:db8:1:2:ffff::7',
+      '2001:0db8:0001:0002::9',
+    ]) {
+      await record({ package: 'com.a.one' }, { 'x-forwarded-for': ip });
+    }
+    await record(
+      { package: 'com.a.one' },
+      { 'x-forwarded-for': '2001:db8:1:3::1' }
+    );
+
+    expect(store.get('downloads:com.a.one')).toBe('2');
+  });
+
   test('falls back to x-real-ip and never stores the raw address', async () => {
     seed(ONE);
     await record({ package: 'com.a.one' }, { 'x-real-ip': '198.51.100.7' });

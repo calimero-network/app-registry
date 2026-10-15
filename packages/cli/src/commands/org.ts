@@ -39,7 +39,7 @@ function getAuthHeaders(url: string): Record<string, string> {
     throw new Error(
       'API token required for org write operations.\n' +
         'Get a token from the Organizations page in the web UI, then run:\n' +
-        '  calimero-registry config set api-key <token>'
+        '  calimero-registry config set api-key   (paste the token when asked)'
     );
   }
   RemoteConfig.assertApiKeyTransport(url, apiKey);
