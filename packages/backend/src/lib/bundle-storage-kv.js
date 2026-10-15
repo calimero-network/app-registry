@@ -318,6 +318,18 @@ class BundleStorageKV {
   }
 
   /**
+   * Record which account manages a stored version, leaving everything else as stored.
+   */
+  async setOwnerEmail(pkg, version, email) {
+    const key = `bundle:${pkg}/${version}`;
+    const data = await kv.get(key);
+    if (!data) return;
+    const parsed = JSON.parse(data);
+    parsed.json.metadata = { ...parsed.json.metadata, _ownerEmail: email };
+    await kv.set(key, JSON.stringify(parsed));
+  }
+
+  /**
    * Get V2 Bundle Manifest by package and version
    */
   async getBundleManifest(pkg, version) {

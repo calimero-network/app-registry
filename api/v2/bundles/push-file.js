@@ -46,6 +46,9 @@ const {
 const {
   stampOwnerEmail,
 } = require('@calimero-network/registry-backend/src/lib/package-owner');
+const {
+  firstPublishClaimRefusal,
+} = require('@calimero-network/registry-backend/src/lib/package-claim');
 const { resolveUser, rejectUnauthenticated } = require('#api-lib/auth-helpers');
 const { getUserByEmail } = require('#api-lib/user-storage');
 const { isBot, isAdmin } = require('#api-lib/admin-storage');
@@ -94,6 +97,11 @@ function parseMultipart(req, maxBytes = MAX_BUNDLE_BYTES) {
     }
 
     let found = false;
+    let upload = null;
+    const fields = {};
+    bb.on('field', (name, value) => {
+      fields[name] = value;
+    });
     bb.on('file', (_fieldname, file, info) => {
       if (found) {
         file.resume();
@@ -111,7 +119,7 @@ function parseMultipart(req, maxBytes = MAX_BUNDLE_BYTES) {
       });
       file.on('end', () => {
         if (!chunks || file.truncated) return;
-        resolve({ buffer: Buffer.concat(chunks), filename: info.filename });
+        upload = { buffer: Buffer.concat(chunks), filename: info.filename };
       });
       file.on('error', reject);
     });
@@ -119,6 +127,7 @@ function parseMultipart(req, maxBytes = MAX_BUNDLE_BYTES) {
     bb.on('error', reject);
     bb.on('finish', () => {
       if (!found) reject(new Error('No file found in multipart upload'));
+      else if (upload) resolve({ ...upload, fields });
     });
 
     req.pipe(bb);
@@ -176,15 +185,25 @@ module.exports = async function handler(req, res) {
     }
 
     // Parse multipart
-    let buffer, filename;
+    let buffer, filename, fields;
     try {
-      ({ buffer, filename } = await parseMultipart(req));
+      ({ buffer, filename, fields } = await parseMultipart(req));
     } catch (err) {
       const status = err.status === 413 ? 413 : 400;
       return res.status(status).json({
         error: status === 413 ? err.code : 'invalid_request',
         message: err.message,
       });
+    }
+    let claim;
+    if (fields.claim !== undefined) {
+      try {
+        claim = JSON.parse(fields.claim);
+      } catch {
+        return res
+          .status(400)
+          .json({ error: 'invalid_claim', message: 'claim must be JSON' });
+      }
     }
 
     if (!filename || !filename.toLowerCase().endsWith('.mpk')) {
@@ -390,7 +409,21 @@ module.exports = async function handler(req, res) {
       // New package — public author is the username (or nothing when the user
       // has not set one); the email stays private in _ownerEmail.
       if (displayAuthor) bundleManifest.metadata.author = displayAuthor;
-      bundleManifest.metadata._ownerEmail = ownerEmail;
+      // Only a claim by the bundle's key makes this account the manager; a
+      // replayed bundle alone leaves the package unmanaged until claimed.
+      if (claim !== undefined) {
+        const refusal = await firstPublishClaimRefusal(
+          claim,
+          bundleManifest,
+          ownerEmail
+        );
+        if (refusal) {
+          return res
+            .status(400)
+            .json({ error: 'invalid_claim', message: refusal });
+        }
+        bundleManifest.metadata._ownerEmail = ownerEmail;
+      }
     }
 
     const badLinks = linkProblems(

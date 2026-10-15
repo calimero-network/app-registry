@@ -35,6 +35,9 @@ const {
 const {
   stampOwnerEmail,
 } = require('@calimero-network/registry-backend/src/lib/package-owner');
+const {
+  firstPublishClaimRefusal,
+} = require('@calimero-network/registry-backend/src/lib/package-claim');
 const { resolveUser, rejectUnauthenticated } = require('#api-lib/auth-helpers');
 const { getUserByEmail } = require('#api-lib/user-storage');
 const { isBot, isAdmin } = require('#api-lib/admin-storage');
@@ -101,6 +104,9 @@ module.exports = async function handler(req, res) {
         message: 'Missing body',
       });
     }
+
+    const claim = bundleManifest._claim;
+    delete bundleManifest._claim;
 
     if (!bundleManifest?.package || !bundleManifest?.appVersion) {
       return res.status(400).json({
@@ -284,7 +290,21 @@ module.exports = async function handler(req, res) {
       // New package — public author is the username (or nothing when the user
       // has not set one); the email stays private in _ownerEmail.
       if (displayAuthor) bundleManifest.metadata.author = displayAuthor;
-      bundleManifest.metadata._ownerEmail = ownerEmail;
+      // Only a claim by the bundle's key makes this account the manager; a
+      // replayed bundle alone leaves the package unmanaged until claimed.
+      if (claim !== undefined) {
+        const refusal = await firstPublishClaimRefusal(
+          claim,
+          bundleManifest,
+          ownerEmail
+        );
+        if (refusal) {
+          return res
+            .status(400)
+            .json({ error: 'invalid_claim', message: refusal });
+        }
+        bundleManifest.metadata._ownerEmail = ownerEmail;
+      }
     }
 
     const badLinks = linkProblems(
