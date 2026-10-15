@@ -129,37 +129,28 @@ function verifyLog(...args) {
 }
 
 /**
- * Decode a public key: base64url (mero-sign), then multibase, then base58.
+ * Decode unpadded canonical base64url of exactly `bytes` bytes, the only form
+ * core accepts for keys and signatures.
  */
+function decodeStrictBase64url(text, bytes, label) {
+  const chars = Math.ceil((bytes * 4) / 3);
+  const decoded =
+    typeof text === 'string' &&
+    new RegExp(`^[A-Za-z0-9_-]{${chars}}$`).test(text)
+      ? Buffer.from(text, 'base64url')
+      : null;
+  if (
+    !decoded ||
+    decoded.length !== bytes ||
+    decoded.toString('base64url') !== text
+  ) {
+    throw new Error(`Invalid ${label} encoding`);
+  }
+  return decoded;
+}
+
 function decodePublicKey(publicKey) {
-  let decodedPubKey;
-  let pubKeyEncoding = 'base64url';
-  try {
-    decodedPubKey = base64urlDecode(publicKey);
-    if (decodedPubKey.length !== 32) decodedPubKey = null;
-  } catch {
-    decodedPubKey = null;
-  }
-  if (!decodedPubKey) {
-    try {
-      decodedPubKey = Buffer.from(multibase.decode(publicKey));
-      pubKeyEncoding = 'multibase';
-    } catch {
-      decodedPubKey = decodeBase58ToBytes(publicKey);
-      pubKeyEncoding = 'base58';
-    }
-  }
-  if (decodedPubKey.length !== 32) {
-    verifyLog('publicKey decode failed: length', decodedPubKey?.length);
-    throw new Error('Invalid public key length');
-  }
-  verifyLog(
-    'publicKey decoded:',
-    pubKeyEncoding,
-    'length',
-    decodedPubKey.length
-  );
-  return decodedPubKey;
+  return decodeStrictBase64url(publicKey, 32, 'public key');
 }
 
 /** The did:key form of an Ed25519 public key, as core derives `signerId`. */
@@ -190,8 +181,7 @@ function verifyStrict(ed25519Module, signature, message, publicKey) {
 }
 
 /**
- * Verify Ed25519 signature.
- * publicKey and signature may be base64url (mero-sign) or base58/multibase (legacy).
+ * Verify Ed25519 signature; publicKey and signature are unpadded base64url.
  * data must be the exact bytes that were signed (for mero-sign: 32-byte SHA-256 of canonical manifest).
  */
 async function verifySignature(publicKey, signature, data) {
@@ -202,30 +192,7 @@ async function verifySignature(publicKey, signature, data) {
   try {
     const decodedPubKey = decodePublicKey(publicKey);
 
-    // Decode signature: try base64url first (mero-sign), then base64, then base58
-    let decodedSig;
-    let sigEncoding = 'base64url';
-    try {
-      decodedSig = base64urlDecode(signature);
-      if (decodedSig.length !== 64) decodedSig = null;
-    } catch {
-      decodedSig = null;
-    }
-    if (!decodedSig) {
-      try {
-        decodedSig = Buffer.from(signature, 'base64');
-        if (decodedSig.length !== 64) throw new Error('Invalid length');
-        sigEncoding = 'base64';
-      } catch {
-        decodedSig = decodeBase58ToBytes(signature);
-        sigEncoding = 'base58';
-      }
-    }
-    if (decodedSig.length !== 64) {
-      verifyLog('signature decode failed: length', decodedSig?.length);
-      throw new Error('Invalid signature length');
-    }
-    verifyLog('signature decoded:', sigEncoding, 'length', decodedSig.length);
+    const decodedSig = decodeStrictBase64url(signature, 64, 'signature');
 
     const dataBuffer = Buffer.isBuffer(data) ? data : Buffer.from(data, 'utf8');
     verifyLog(
@@ -329,15 +296,15 @@ const MANIFEST_SIGNING_DOMAIN = Buffer.from(
  * 1. Remove signature and all _*-prefixed keys.
  * 2. RFC 8785 canonicalize -> canonical bytes.
  * 3. Signing payload = SHA-256(MANIFEST_SIGNING_DOMAIN || canonical bytes).
- * 4. Ed25519 verify(signature, payload, publicKey); publicKey/signature are base64url.
+ * 4. Ed25519 verify(signature, payload, publicKey); publicKey/signature are strict base64url.
  */
 async function verifyManifest(manifest) {
-  const normalized = normalizeSignature(manifest?.signature);
-  if (!normalized) {
+  const { algorithm, publicKey, signature } = manifest?.signature ?? {};
+  if (!algorithm || !publicKey || !signature) {
     throw new Error('Missing signature information');
   }
 
-  if ((normalized.alg || '').toLowerCase() !== 'ed25519') {
+  if (algorithm !== 'ed25519') {
     throw new Error('Unsupported signature algorithm');
   }
 
@@ -365,9 +332,6 @@ async function verifyManifest(manifest) {
     'signingPayloadHash(hex)',
     signingPayload.toString('hex')
   );
-
-  const publicKey = normalized.pubkey;
-  const signature = normalized.sig;
 
   const isValid = await verifySignature(publicKey, signature, signingPayload);
   if (!isValid) {

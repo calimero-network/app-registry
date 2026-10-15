@@ -142,4 +142,80 @@ describe.each(Object.entries(VERIFIERS))('%s', (_name, verifier) => {
     delete manifest.signerId;
     await expect(verifier.verifyManifest(manifest)).rejects.toThrow('signerId');
   });
+
+  describe('encodings core refuses', () => {
+    async function genuine(nonce = 0, tweak = sig => sig) {
+      const ed = await ed25519();
+      const secretKey = ed.utils.randomSecretKey();
+      const publicKey = Buffer.from(await ed.getPublicKeyAsync(secretKey));
+      const unsigned = { ...MANIFEST, nonce, signerId: didKey(publicKey) };
+      const sig = Buffer.from(
+        await ed.signAsync(signingPayload(unsigned), secretKey)
+      );
+      const { signature } = signed(publicKey, sig);
+      return { ...unsigned, signature: tweak(signature) };
+    }
+
+    // Flips the unused trailing bits of the last base64url character.
+    const withTrailingBits = text => {
+      const alphabet =
+        'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+      const last = alphabet.indexOf(text.at(-1));
+      return text.slice(0, -1) + alphabet[last | 1];
+    };
+
+    test('baseline: the helper manifest verifies', async () => {
+      await expect(verifier.verifyManifest(await genuine())).resolves.toBe(
+        true
+      );
+    });
+
+    test.each([
+      ['padded base64 key', s => ({ ...s, publicKey: `${s.publicKey}=` })],
+      [
+        'key with a junk character',
+        s => ({ ...s, publicKey: `${s.publicKey}!` }),
+      ],
+      [
+        'key with non-canonical trailing bits',
+        s => ({ ...s, publicKey: withTrailingBits(s.publicKey) }),
+      ],
+      [
+        'signature with non-canonical trailing bits',
+        s => ({ ...s, signature: withTrailingBits(s.signature) }),
+      ],
+      ['padded signature', s => ({ ...s, signature: `${s.signature}==` })],
+      ['uppercase algorithm', s => ({ ...s, algorithm: 'ED25519' })],
+      [
+        'alg/pubkey/sig aliases',
+        s => ({ alg: s.algorithm, pubkey: s.publicKey, sig: s.signature }),
+      ],
+    ])('refuses %s', async (_label, tweak) => {
+      await expect(
+        verifier.verifyManifest(await genuine(0, tweak))
+      ).rejects.toThrow();
+    });
+
+    test('refuses a standard-base64 signature containing + or /', async () => {
+      let manifest;
+      for (let nonce = 0; nonce < 500 && !manifest; nonce++) {
+        const candidate = await genuine(nonce);
+        const std = Buffer.from(
+          candidate.signature.signature,
+          'base64url'
+        ).toString('base64');
+        if (/[+/]/.test(std)) {
+          manifest = {
+            ...candidate,
+            signature: {
+              ...candidate.signature,
+              signature: std.replace(/=+$/, ''),
+            },
+          };
+        }
+      }
+      expect(manifest).toBeDefined();
+      await expect(verifier.verifyManifest(manifest)).rejects.toThrow();
+    });
+  });
 });

@@ -258,12 +258,12 @@ describe('push.js', () => {
     expect(store.has(`bundle:${PKG}/1.0.0`)).toBe(false);
   });
 
-  test('refuses the development key spelled with characters the decoder skips', async () => {
+  test('refuses the development key spelled with characters core does not accept', async () => {
     const signed = await signManifest(manifest('1.0.0'), devKeys);
     signed.signature.publicKey = `${signed.signature.publicKey}!!`;
     const res = await push(signed);
     expect(res.statusCode).toBe(400);
-    expect(res.body.error).toBe('dev_signing_key');
+    expect(res.body.error).toBe('invalid_signature');
   });
 
   test('refuses a manifest that names the development key as an owner', async () => {
