@@ -20,6 +20,12 @@ import { LocalConfig } from '../lib/local-config.js';
 import { LocalArtifactServer } from '../lib/local-artifacts.js';
 import { RemoteConfig } from '../lib/remote-config.js';
 import {
+  fetchAccountEmail,
+  loadSigningKey,
+  signClaim,
+  type PackageClaim,
+} from '../lib/package-claim.js';
+import {
   ServiceSource,
   parseServiceSpec,
   validateServiceName,
@@ -60,7 +66,8 @@ export const bundleCommand = new Command('bundle')
   .addCommand(createCreateCommand())
   .addCommand(createPushCommand())
   .addCommand(createGetCommand())
-  .addCommand(createEditCommand());
+  .addCommand(createEditCommand())
+  .addCommand(createClaimCommand());
 
 interface BundleManifestConfig {
   package?: string;
@@ -649,6 +656,10 @@ function createPushCommand(): Command {
       '--api-key <key>',
       'API key for authentication (overrides config file and env var)'
     )
+    .option(
+      '--key <key-file>',
+      'Signing key file; on a first publish, makes your account the package manager'
+    )
     .addHelpText(
       'after',
       `
@@ -880,7 +891,20 @@ Note:
             remoteConfig.getApiKey();
 
           RemoteConfig.assertApiKeyTransport(registryUrl, apiKey);
-          await pushToRemote(mpkPath, manifest, registryUrl, apiKey);
+          const claim = options.key
+            ? signClaim(
+                loadSigningKey(options.key),
+                manifest.package,
+                await fetchAccountEmail(registryUrl, apiKey),
+                registryUrl
+              )
+            : undefined;
+          if (claim) {
+            console.log(
+              '   --key only takes effect on a first publish; for an existing package run bundle claim'
+            );
+          }
+          await pushToRemote(mpkPath, manifest, registryUrl, apiKey, claim);
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
@@ -1121,7 +1145,8 @@ async function pushToRemote(
   bundlePath: string,
   manifest: BundleManifest,
   registryUrl: string,
-  apiKey?: string
+  apiKey?: string,
+  claim?: PackageClaim
 ): Promise<void> {
   try {
     console.log(`📤 Pushing to remote registry: ${registryUrl}`);
@@ -1158,6 +1183,7 @@ async function pushToRemote(
       migrations: manifest.migrations ?? [],
       _binary: bundleHex,
       _overwrite: true,
+      ...(claim ? { _claim: claim } : {}),
     };
 
     // 4. Prepare headers
@@ -1383,4 +1409,54 @@ async function extractManifest(
   }
 
   return null;
+}
+
+function createClaimCommand(): Command {
+  return new Command('claim')
+    .description(
+      'Become the manager of a published package by proving you hold one of its signing keys'
+    )
+    .argument('<package>', 'Package id, e.g. com.example.app')
+    .requiredOption('--key <key-file>', 'Signing key file of the package')
+    .option('--api-key <key>', 'API key (overrides config file and env var)')
+    .action(async (pkg: string, options, command: Command) => {
+      try {
+        const remoteConfig = new RemoteConfig();
+        const registryUrl =
+          command.optsWithGlobals().url ||
+          process.env.CALIMERO_REGISTRY_URL ||
+          remoteConfig.getRegistryUrl();
+        const apiKey =
+          options.apiKey ||
+          process.env.CALIMERO_API_KEY ||
+          remoteConfig.getApiKey();
+        RemoteConfig.assertApiKeyTransport(registryUrl, apiKey);
+        const claim = signClaim(
+          loadSigningKey(options.key),
+          pkg,
+          await fetchAccountEmail(registryUrl, apiKey),
+          registryUrl
+        );
+        const res = await fetch(
+          `${registryUrl.replace(/\/$/, '')}/api/v2/packages/${encodeURIComponent(pkg.toLowerCase())}/claim`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
+            },
+            body: JSON.stringify(claim),
+          }
+        );
+        const body = (await res.json().catch(() => ({}))) as ApiResponseBody;
+        if (!res.ok) {
+          throw new Error(body.message ?? body.error ?? `HTTP ${res.status}`);
+        }
+        console.log(`Your account now manages ${pkg.toLowerCase()}`);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.error('Failed to claim package:', message);
+        process.exit(1);
+      }
+    });
 }

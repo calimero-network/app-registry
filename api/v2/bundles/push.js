@@ -35,6 +35,11 @@ const {
 const {
   stampOwnerEmail,
 } = require('@calimero-network/registry-backend/src/lib/package-owner');
+const {
+  firstPublishManager,
+  managedBy,
+} = require('@calimero-network/registry-backend/src/lib/package-claim');
+const { registryOrigin } = require('#api-lib/request-origin');
 const { resolveUser, rejectUnauthenticated } = require('#api-lib/auth-helpers');
 const { getUserByEmail } = require('#api-lib/user-storage');
 const { isBot, isAdmin } = require('#api-lib/admin-storage');
@@ -101,6 +106,9 @@ module.exports = async function handler(req, res) {
         message: 'Missing body',
       });
     }
+
+    const claim = bundleManifest._claim;
+    delete bundleManifest._claim;
 
     if (!bundleManifest?.package || !bundleManifest?.appVersion) {
       return res.status(400).json({
@@ -260,17 +268,9 @@ module.exports = async function handler(req, res) {
         bundleManifest.package,
         oldestVersion
       );
-      const existingAuthor = manifestOldest?.metadata?.author;
-      if (existingAuthor) {
-        bundleManifest.metadata.author = existingAuthor;
-      } else if (ownerEmail) {
-        // Public author is the username only; the email is never promoted to
-        // `author`.
-        if (displayAuthor) bundleManifest.metadata.author = displayAuthor;
-      }
       // Ownership (_ownerEmail) is inherited from the existing versions, never
       // taken from the account pushing this version.
-      await stampOwnerEmail({
+      const owner = await stampOwnerEmail({
         store,
         manifest: bundleManifest,
         versions,
@@ -280,11 +280,34 @@ module.exports = async function handler(req, res) {
           [oldestVersion]: manifestOldest,
         },
       });
+      const existingAuthor = manifestOldest?.metadata?.author;
+      if (existingAuthor) {
+        bundleManifest.metadata.author = existingAuthor;
+      } else if (
+        displayAuthor &&
+        owner?.toLowerCase() === ownerEmail?.toLowerCase()
+      ) {
+        // Only the manager names a package; the email is never the author.
+        bundleManifest.metadata.author = displayAuthor;
+      }
     } else if (ownerEmail) {
-      // New package — public author is the username (or nothing when the user
-      // has not set one); the email stays private in _ownerEmail.
-      if (displayAuthor) bundleManifest.metadata.author = displayAuthor;
-      bundleManifest.metadata._ownerEmail = ownerEmail;
+      // A pushed bundle names no account, so the pusher manages the new package (and
+      // is its author) only with a claim by its key or under a staff-only reserved prefix.
+      const decision = await firstPublishManager({
+        claim,
+        manifest: bundleManifest,
+        account: ownerEmail,
+        registry: registryOrigin(),
+      });
+      if (decision.refusal) {
+        return res
+          .status(400)
+          .json({ error: 'invalid_claim', message: decision.refusal });
+      }
+      if (decision.manager) {
+        if (displayAuthor) bundleManifest.metadata.author = displayAuthor;
+        bundleManifest.metadata._ownerEmail = ownerEmail;
+      }
     }
 
     const badLinks = linkProblems(
@@ -330,11 +353,14 @@ module.exports = async function handler(req, res) {
 
     await store.storeBundleManifest(bundleManifest, overwrite);
 
-    await autolinkBotPackage(
-      { isBot, getUserByEmail, getPkg2Org, setPkg2Org },
-      ownerEmail,
-      bundleManifest.package
-    );
+    // A bot links only a package it manages, so a copied bundle cannot pull it into an org.
+    if (managedBy(bundleManifest, ownerEmail)) {
+      await autolinkBotPackage(
+        { isBot, getUserByEmail, getPkg2Org, setPkg2Org },
+        ownerEmail,
+        bundleManifest.package
+      );
+    }
 
     return res.status(201).json({
       message: 'Bundle published successfully',

@@ -79,6 +79,14 @@ jest.mock('../src/lib/blob-store', () => ({
 }));
 
 // Real key/ownership logic; only the signature check is stubbed.
+// These tests fake signatures; a claim on the first publish counts as valid.
+jest.mock('../src/lib/package-claim', () => ({
+  ...jest.requireActual('../src/lib/package-claim'),
+  firstPublishManager: jest.fn(async ({ claim }) => ({
+    manager: claim !== undefined,
+  })),
+}));
+
 jest.mock('../../../api/lib/verify', () => ({
   ...jest.requireActual('../../../api/lib/verify'),
   verifyManifest: jest.fn().mockResolvedValue(undefined),
@@ -173,7 +181,10 @@ beforeEach(async () => {
   await orgs.addOrgMember(ORG, ADMIN, 'admin');
   await orgs.addOrgMember(ORG, MEMBER, 'member');
   // First version: published by the author with the package key.
-  const first = await push(AUTHOR, manifest('1.0.0', ORIGINAL_KEY));
+  const first = await push(AUTHOR, {
+    ...manifest('1.0.0', ORIGINAL_KEY),
+    _claim: {},
+  });
   expect(first.status).toBe(201);
   await orgs.setPkg2Org(PKG, ORG);
 });

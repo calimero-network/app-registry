@@ -179,6 +179,14 @@ describe('PATCH locked fields', () => {
     expect(saved()).toEqual(stored);
   });
 
+  test('cannot rewrite the recorded manager', async () => {
+    const r = await patch({
+      metadata: { ...stored.metadata, _ownerEmail: 'someone@example.com' },
+    });
+    expect(r.statusCode).toBe(200);
+    expect(saved().metadata._ownerEmail).toBe(stored.metadata._ownerEmail);
+  });
+
   test('a metadata-only edit still succeeds', async () => {
     const r = await patch({});
     expect(r.statusCode).toBe(200);

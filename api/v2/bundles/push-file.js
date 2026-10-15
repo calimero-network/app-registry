@@ -46,6 +46,11 @@ const {
 const {
   stampOwnerEmail,
 } = require('@calimero-network/registry-backend/src/lib/package-owner');
+const {
+  firstPublishManager,
+  managedBy,
+} = require('@calimero-network/registry-backend/src/lib/package-claim');
+const { registryOrigin } = require('#api-lib/request-origin');
 const { resolveUser, rejectUnauthenticated } = require('#api-lib/auth-helpers');
 const { getUserByEmail } = require('#api-lib/user-storage');
 const { isBot, isAdmin } = require('#api-lib/admin-storage');
@@ -94,6 +99,11 @@ function parseMultipart(req, maxBytes = MAX_BUNDLE_BYTES) {
     }
 
     let found = false;
+    let upload = null;
+    const fields = {};
+    bb.on('field', (name, value) => {
+      fields[name] = value;
+    });
     bb.on('file', (_fieldname, file, info) => {
       if (found) {
         file.resume();
@@ -111,7 +121,7 @@ function parseMultipart(req, maxBytes = MAX_BUNDLE_BYTES) {
       });
       file.on('end', () => {
         if (!chunks || file.truncated) return;
-        resolve({ buffer: Buffer.concat(chunks), filename: info.filename });
+        upload = { buffer: Buffer.concat(chunks), filename: info.filename };
       });
       file.on('error', reject);
     });
@@ -119,6 +129,7 @@ function parseMultipart(req, maxBytes = MAX_BUNDLE_BYTES) {
     bb.on('error', reject);
     bb.on('finish', () => {
       if (!found) reject(new Error('No file found in multipart upload'));
+      else if (upload) resolve({ ...upload, fields });
     });
 
     req.pipe(bb);
@@ -176,15 +187,25 @@ module.exports = async function handler(req, res) {
     }
 
     // Parse multipart
-    let buffer, filename;
+    let buffer, filename, fields;
     try {
-      ({ buffer, filename } = await parseMultipart(req));
+      ({ buffer, filename, fields } = await parseMultipart(req));
     } catch (err) {
       const status = err.status === 413 ? 413 : 400;
       return res.status(status).json({
         error: status === 413 ? err.code : 'invalid_request',
         message: err.message,
       });
+    }
+    let claim;
+    if (fields.claim !== undefined) {
+      try {
+        claim = JSON.parse(fields.claim);
+      } catch {
+        return res
+          .status(400)
+          .json({ error: 'invalid_claim', message: 'claim must be JSON' });
+      }
     }
 
     if (!filename || !filename.toLowerCase().endsWith('.mpk')) {
@@ -339,23 +360,25 @@ module.exports = async function handler(req, res) {
         bundleManifest.package,
         oldestVersion
       );
-      const existingAuthor = manifestOldest?.metadata?.author;
-      if (existingAuthor) {
-        bundleManifest.metadata.author = existingAuthor;
-      } else if (ownerEmail) {
-        // Public author is the username only; the email is never promoted to
-        // `author`.
-        if (displayAuthor) bundleManifest.metadata.author = displayAuthor;
-      }
       // Ownership (_ownerEmail) is inherited from the existing versions, never
       // taken from the account pushing this version.
-      await stampOwnerEmail({
+      const owner = await stampOwnerEmail({
         store,
         manifest: bundleManifest,
         versions,
         publisherEmail: ownerEmail,
         known: { [oldestVersion]: manifestOldest },
       });
+      const existingAuthor = manifestOldest?.metadata?.author;
+      if (existingAuthor) {
+        bundleManifest.metadata.author = existingAuthor;
+      } else if (
+        displayAuthor &&
+        owner?.toLowerCase() === ownerEmail?.toLowerCase()
+      ) {
+        // Only the manager names a package; the email is never the author.
+        bundleManifest.metadata.author = displayAuthor;
+      }
 
       // Check ownership (a package key, or an organization admin/owner)
       const manifestLatest = await store.getBundleManifest(
@@ -387,10 +410,23 @@ module.exports = async function handler(req, res) {
         return res.status(versionRefusal.status).json(versionRefusal.body);
       }
     } else if (ownerEmail) {
-      // New package — public author is the username (or nothing when the user
-      // has not set one); the email stays private in _ownerEmail.
-      if (displayAuthor) bundleManifest.metadata.author = displayAuthor;
-      bundleManifest.metadata._ownerEmail = ownerEmail;
+      // A pushed bundle names no account, so the pusher manages the new package (and
+      // is its author) only with a claim by its key or under a staff-only reserved prefix.
+      const decision = await firstPublishManager({
+        claim,
+        manifest: bundleManifest,
+        account: ownerEmail,
+        registry: registryOrigin(),
+      });
+      if (decision.refusal) {
+        return res
+          .status(400)
+          .json({ error: 'invalid_claim', message: decision.refusal });
+      }
+      if (decision.manager) {
+        if (displayAuthor) bundleManifest.metadata.author = displayAuthor;
+        bundleManifest.metadata._ownerEmail = ownerEmail;
+      }
     }
 
     const badLinks = linkProblems(
@@ -436,11 +472,14 @@ module.exports = async function handler(req, res) {
     bundleManifest._binary = buffer.toString('hex');
     await store.storeBundleManifest(bundleManifest, overwrite);
 
-    await autolinkBotPackage(
-      { isBot, getUserByEmail, getPkg2Org, setPkg2Org },
-      ownerEmail,
-      bundleManifest.package
-    );
+    // A bot links only a package it manages, so a copied bundle cannot pull it into an org.
+    if (managedBy(bundleManifest, ownerEmail)) {
+      await autolinkBotPackage(
+        { isBot, getUserByEmail, getPkg2Org, setPkg2Org },
+        ownerEmail,
+        bundleManifest.package
+      );
+    }
 
     return res.status(201).json({
       message: 'Bundle published successfully',

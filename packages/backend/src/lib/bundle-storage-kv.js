@@ -318,6 +318,23 @@ class BundleStorageKV {
   }
 
   /**
+   * Record the managing account and public author of a stored version, leaving the rest as stored.
+   * @returns {Promise<boolean>} false when the version no longer exists.
+   */
+  async setManager(pkg, version, email, author) {
+    const key = `bundle:${pkg}/${version}`;
+    const data = await kv.get(key);
+    if (!data) return false;
+    const parsed = JSON.parse(data);
+    const metadata = { ...parsed.json.metadata, _ownerEmail: email };
+    if (author) metadata.author = author;
+    else delete metadata.author;
+    parsed.json.metadata = metadata;
+    await kv.set(key, JSON.stringify(parsed));
+    return true;
+  }
+
+  /**
    * Get V2 Bundle Manifest by package and version
    */
   async getBundleManifest(pkg, version) {

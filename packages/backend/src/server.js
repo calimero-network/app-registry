@@ -27,6 +27,7 @@ const {
   PACKAGE_NAME_REGEX,
   CATEGORIES,
   linkProblems,
+  stripReservedMetadata,
 } = require('./lib/metadata-policy');
 const { kv } = require('./lib/kv-client');
 const { countDownload } = require('./lib/download-count');
@@ -42,9 +43,15 @@ const {
   resolvePublishPermission,
   getPkg2Org,
   setPkg2Org,
+  deletePkg2Org,
   getOrgMemberRole,
   isOrgAdminOrOwner,
 } = require('./lib/org-storage');
+const {
+  applyClaim,
+  firstPublishManager,
+  managedBy,
+} = require('./lib/package-claim');
 const { verifySessionToken, verifyApiToken } = require('./lib/auth');
 const { getUserByEmail } = require('./lib/user-storage');
 const { isBot, isAdmin } = require('./lib/admin-storage');
@@ -630,8 +637,15 @@ async function buildServer() {
       //    author is always preserved from the existing manifest — it is set
       //    from the Google session at publish time and cannot be removed or
       //    changed via edit.
+      stripReservedMetadata(incoming);
       const mergedMetadata = incoming.metadata
-        ? { ...incoming.metadata, author: existing.metadata?.author }
+        ? {
+            ...incoming.metadata,
+            author: existing.metadata?.author,
+            ...(existing.metadata?._ownerEmail !== undefined
+              ? { _ownerEmail: existing.metadata._ownerEmail }
+              : {}),
+          }
         : existing.metadata;
       const updated = {
         ...existing,
@@ -807,6 +821,8 @@ async function buildServer() {
 
   // Shared: validate manifest, verify signature, check ownership, store. Returns { package, appVersion } or throws { statusCode, body }.
   async function processPushBody(bundleManifest, { userEmail, username } = {}) {
+    const claim = bundleManifest?._claim;
+    if (bundleManifest) delete bundleManifest._claim;
     if (
       !bundleManifest ||
       bundleManifest === null ||
@@ -886,6 +902,8 @@ async function buildServer() {
         },
       };
     }
+    // Server-owned metadata (_ownerEmail, _adminVerified) survives signing, so drop it here.
+    stripReservedMetadata(bundleManifest);
     const devKey = devSigningKeyRefusal(bundleManifest);
     if (devKey) throw { statusCode: devKey.status, body: devKey.body };
     const incomingKey = getPublicKeyFromManifest(bundleManifest);
@@ -936,24 +954,26 @@ async function buildServer() {
         bundleManifest.package,
         oldestVersion
       );
-      const existingAuthor = manifestOldest?.metadata?.author;
-      if (existingAuthor) {
-        bundleManifest.metadata.author = existingAuthor;
-      } else if (userEmail) {
-        // Public author is the username only; the email is never promoted to
-        // `author`.
-        if (displayAuthor) bundleManifest.metadata.author = displayAuthor;
-      }
       // Ownership (_ownerEmail) is inherited from the existing versions, never
       // taken from the account pushing this version. Mirrors the Vercel push
       // handlers.
-      await stampOwnerEmail({
+      const owner = await stampOwnerEmail({
         store: bundleStorage,
         manifest: bundleManifest,
         versions,
         publisherEmail: userEmail,
         known: { [oldestVersion]: manifestOldest },
       });
+      const existingAuthor = manifestOldest?.metadata?.author;
+      if (existingAuthor) {
+        bundleManifest.metadata.author = existingAuthor;
+      } else if (
+        displayAuthor &&
+        owner?.toLowerCase() === userEmail?.toLowerCase()
+      ) {
+        // Only the manager names a package; the email is never the author.
+        bundleManifest.metadata.author = displayAuthor;
+      }
       const manifestLatest = await bundleStorage.getBundleManifest(
         bundleManifest.package,
         latestVersion
@@ -994,10 +1014,24 @@ async function buildServer() {
         };
       }
     } else if (userEmail) {
-      // New package — public author is the username (or nothing); the email
-      // stays private in _ownerEmail for ownership checks.
-      if (displayAuthor) bundleManifest.metadata.author = displayAuthor;
-      bundleManifest.metadata._ownerEmail = userEmail;
+      // A pushed bundle names no account, so the pusher manages the new package (and
+      // is its author) only with a claim by its key or under a staff-only reserved prefix.
+      const decision = await firstPublishManager({
+        claim,
+        manifest: bundleManifest,
+        account: userEmail,
+        registry: new URL(config.auth.frontendUrl).origin,
+      });
+      if (decision.refusal) {
+        throw {
+          statusCode: 400,
+          body: { error: 'invalid_claim', message: decision.refusal },
+        };
+      }
+      if (decision.manager) {
+        if (displayAuthor) bundleManifest.metadata.author = displayAuthor;
+        bundleManifest.metadata._ownerEmail = userEmail;
+      }
     }
     const badLinks = linkProblems(
       bundleManifest.links,
@@ -1055,11 +1089,14 @@ async function buildServer() {
       process.env.ALLOW_BUNDLE_OVERWRITE === '1';
     await bundleStorage.storeBundleManifest(bundleManifest, overwrite);
 
-    await autolinkBotPackage(
-      { isBot, getUserByEmail, getPkg2Org, setPkg2Org },
-      userEmail,
-      bundleManifest.package
-    );
+    // A bot links only a package it manages, so a copied bundle cannot pull it into an org.
+    if (managedBy(bundleManifest, userEmail)) {
+      await autolinkBotPackage(
+        { isBot, getUserByEmail, getPkg2Org, setPkg2Org },
+        userEmail,
+        bundleManifest.package
+      );
+    }
 
     return {
       package: bundleManifest.package,
@@ -1114,6 +1151,24 @@ async function buildServer() {
   };
 
   server.post('/api/v2/bundles/push', pushBundleHandler);
+
+  server.post('/api/v2/packages/:package/claim', async (request, reply) => {
+    const authUser = await resolveAuthUser(request);
+    if (!authUser?.email) {
+      return reply.code(401).send({ error: 'unauthorized' });
+    }
+    if (await denyBot(authUser, reply)) return;
+    const result = await applyClaim({
+      store: bundleStorage,
+      packageName: String(request.params.package).toLowerCase(),
+      claim: request.body,
+      email: authUser.email,
+      username: authUser.username ?? null,
+      registry: new URL(config.auth.frontendUrl).origin,
+      unlinkOrg: deletePkg2Org,
+    });
+    return reply.code(result.status).send(result.body);
+  });
   server.options('/api/v2/bundles/push', async (_req, reply) =>
     reply.code(200).send()
   );
@@ -1157,10 +1212,21 @@ async function buildServer() {
         });
       }
       const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+      let claim;
+      if (data.fields?.claim?.value !== undefined) {
+        try {
+          claim = JSON.parse(data.fields.claim.value);
+        } catch {
+          return reply
+            .code(400)
+            .send({ error: 'invalid_claim', message: 'claim must be JSON' });
+        }
+      }
       const body = {
         ...manifest,
         _binary: buffer.toString('hex'),
         _overwrite: true,
+        ...(claim !== undefined ? { _claim: claim } : {}),
       };
 
       const authUser = await resolveAuthUser(request);

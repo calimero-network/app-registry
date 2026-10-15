@@ -78,6 +78,14 @@ jest.mock('../src/lib/blob-store', () => ({
 
 // The push handler verifies signatures via api/lib/verify; stub it so the test
 // exercises author handling rather than crypto.
+// These tests fake signatures; a claim on the first publish counts as valid.
+jest.mock('../src/lib/package-claim', () => ({
+  ...jest.requireActual('../src/lib/package-claim'),
+  firstPublishManager: jest.fn(async ({ claim }) => ({
+    manager: claim !== undefined,
+  })),
+}));
+
 jest.mock('../../../api/lib/verify', () => ({
   verifyManifest: jest.fn().mockResolvedValue(undefined),
   getPublicKeyFromManifest: jest.fn().mockReturnValue('mock-pubkey'),
@@ -263,6 +271,7 @@ describe('POST /api/v2/bundles/push never stores an email as author', () => {
           },
           wasm: { path: 'app.wasm', size: 100, hash: 'abc123' },
           _binary: '00',
+          _claim: {},
           signature: {
             algorithm: 'ed25519',
             publicKey: 'dGVzdC1wdWJrZXk',
@@ -297,6 +306,7 @@ describe('POST /api/v2/bundles/push never stores an email as author', () => {
       },
       wasm: { path: 'app.wasm', size: 100, hash: 'abc123' },
       _binary: '00',
+      _claim: {},
       signature: {
         algorithm: 'ed25519',
         publicKey: 'dGVzdC1wdWJrZXk',

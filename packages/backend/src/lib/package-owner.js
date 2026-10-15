@@ -1,13 +1,14 @@
 /**
  * Server-stamped package ownership (`metadata._ownerEmail`).
  *
- * `_ownerEmail` records the account that first published a package, and is
- * what lets that account manage it later (delete, yank, assets, org link). It
- * is set exactly once, on the first publish, and every later version copies it
- * from the versions already stored — never from whoever pushes the new
- * version. Publishing a new version is authorized by the signing key (or org
- * membership), which is a different question from which account manages the
- * package, so the pushing account must not change the recorded owner.
+ * `_ownerEmail` records the account that manages a package (delete, yank,
+ * assets, org link). It is set on a first publish that carries a claim by the
+ * bundle's key (see package-claim.js) or by a claim later, and every later
+ * version copies it from the versions already stored, never from whoever
+ * pushes the new version. Publishing a new version is authorized by the
+ * signing key (or org membership), which is a different question from which
+ * account manages the package, so the pushing account must not change the
+ * recorded owner.
  *
  * Shared by the Vercel push routes (push.js, push-file.js) and the Fastify dev
  * server so all publish paths stamp ownership the same way.
@@ -44,7 +45,8 @@ async function findExistingOwnerEmail(store, pkg, versions, known = {}) {
 /**
  * Stamp `_ownerEmail` on a manifest about to be stored.
  *
- * - First publish (no existing versions): the publishing account.
+ * - First publish (no existing versions): the publishing account. Push
+ *   handlers decide that through firstPublishManager instead.
  * - Later versions: inherited from the existing versions. When none of them
  *   records an owner (legacy data) it is left unset, so the package is managed
  *   by org and site admins rather than by whichever account pushed next.

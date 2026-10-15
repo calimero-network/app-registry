@@ -76,7 +76,11 @@ jest.mock('../../../api/lib/auth-helpers', () => {
 });
 
 const { TEST_ICON } = require('./helpers/publishable');
-const { generateKeypair, signBundle } = require('./helpers/ed25519-helper');
+const {
+  generateKeypair,
+  signBundle,
+  signClaim,
+} = require('./helpers/ed25519-helper');
 const pushHandler = require('../../../api/v2/bundles/push');
 const pushFileHandler = require('../../../api/v2/bundles/push-file');
 const orgs = require('../../../api/lib/org-storage');
@@ -196,10 +200,10 @@ beforeEach(() => {
 
 describe('a package with a recorded owner', () => {
   beforeEach(async () => {
-    const first = await push(
-      OWNER,
-      await signBundle(manifest('1.0.0'), packageKey)
-    );
+    const first = await push(OWNER, {
+      ...(await signBundle(manifest('1.0.0'), packageKey)),
+      _claim: await signClaim(packageKey, OWNER, PKG),
+    });
     expect(first.statusCode).toBe(201);
     expect(stored('1.0.0').metadata._ownerEmail).toBe(OWNER);
   });
