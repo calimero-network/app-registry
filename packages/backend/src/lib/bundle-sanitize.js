@@ -69,6 +69,12 @@ function exposeLinks(bundle) {
   };
 }
 
+/** The runtime floor a listing shows: snake_case first, trimmed, default 0.1.0. */
+function minRuntimeVersionOf(bundle) {
+  const raw = bundle.min_runtime_version ?? bundle.minRuntimeVersion ?? '0.1.0';
+  return raw != null && String(raw).trim() ? String(raw).trim() : '0.1.0';
+}
+
 function createBundleSanitizers(kv, review) {
   // The sanitiser is constructed with a bare `kv` in four places, so the
   // review module is resolved here when it is not injected. Tests pass their
@@ -81,10 +87,7 @@ function createBundleSanitizers(kv, review) {
    */
   async function sanitizeBundle(bundle, packageName) {
     if (!bundle || typeof bundle !== 'object') return bundle;
-    const raw =
-      bundle.min_runtime_version ?? bundle.minRuntimeVersion ?? '0.1.0';
-    const minRuntimeVersion =
-      raw != null && String(raw).trim() ? String(raw).trim() : '0.1.0';
+    const minRuntimeVersion = minRuntimeVersionOf(bundle);
 
     const meta = bundle.metadata ? { ...bundle.metadata } : {};
     const ownerEmail = (meta._ownerEmail || '').toLowerCase();
@@ -140,10 +143,7 @@ function createBundleSanitizers(kv, review) {
   /** Batch version for listings — 2 parallel Redis rounds instead of 4N sequential. */
   async function sanitizeBundles(rawItems) {
     const processed = rawItems.map(({ bundle, packageName }) => {
-      const raw =
-        bundle.min_runtime_version ?? bundle.minRuntimeVersion ?? '0.1.0';
-      const minRuntimeVersion =
-        raw != null && String(raw).trim() ? String(raw).trim() : '0.1.0';
+      const minRuntimeVersion = minRuntimeVersionOf(bundle);
       const meta = bundle.metadata ? { ...bundle.metadata } : {};
       const ownerEmail = (meta._ownerEmail || '').toLowerCase();
       delete meta._ownerEmail;
@@ -245,4 +245,4 @@ function createBundleSanitizers(kv, review) {
   return { sanitizeBundle, sanitizeBundles };
 }
 
-module.exports = { createBundleSanitizers };
+module.exports = { createBundleSanitizers, minRuntimeVersionOf };
