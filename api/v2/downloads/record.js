@@ -8,16 +8,17 @@
  *
  * Only published packages (and, when given, published versions) are counted,
  * using the same name/version rules as publishing. A given client is counted
- * at most once per package per DEDUPE_TTL_SECONDS, whatever the version; an
+ * at most once per package per hour, whatever the version; an
  * IPv6 client is its /64. Repeats still answer 200 so callers need no special handling.
  */
 
-const crypto = require('crypto');
-const net = require('net');
 const { kv } = require('#api-lib/kv-client');
 const {
   BundleStorageKV,
 } = require('@calimero-network/registry-backend/src/lib/bundle-storage-kv');
+const {
+  countDownload,
+} = require('@calimero-network/registry-backend/src/lib/download-count');
 const {
   isValidPackageName,
   isValidPackageVersion,
@@ -26,7 +27,6 @@ const {
 const MAX_BODY_BYTES = 1024;
 const MAX_PACKAGE_LENGTH = 255;
 const MAX_VERSION_LENGTH = 128;
-const DEDUPE_TTL_SECONDS = 3600;
 
 let storage;
 function getStorage() {
@@ -44,32 +44,6 @@ function clientIp(req) {
   const real = headers['x-real-ip'];
   if (typeof real === 'string' && real.trim()) return real.trim();
   return req.socket?.remoteAddress || 'unknown';
-}
-
-// One host usually holds a whole IPv6 /64, so counting each address would let it inflate counts.
-function clientNetwork(ip) {
-  const bare = ip.split('%')[0];
-  if (!net.isIPv6(bare)) return bare;
-  const mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/i.exec(bare);
-  if (mapped) return mapped[1];
-  const [head, tail = ''] = bare.split('::');
-  const groups = part => (part ? part.split(':') : []);
-  const known = groups(head);
-  const missing = 8 - known.length - groups(tail).length;
-  return [...known, ...Array(Math.max(missing, 0)).fill('0'), ...groups(tail)]
-    .slice(0, 4)
-    .map(group => parseInt(group, 16).toString(16))
-    .join(':');
-}
-
-function dedupeKey(ip, pkg) {
-  // Hash the client address so raw IPs are never stored.
-  const client = crypto
-    .createHash('sha256')
-    .update(clientNetwork(ip))
-    .digest('hex')
-    .slice(0, 32);
-  return `download-seen:${client}:${pkg}`;
 }
 
 function badRequest(res, message) {
@@ -138,14 +112,7 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    const firstSeen = await kv.setNXEx(
-      dedupeKey(clientIp(req), pkg),
-      '1',
-      DEDUPE_TTL_SECONDS
-    );
-    if (firstSeen) {
-      await kv.incr('downloads:total');
-      await kv.incr(`downloads:${pkg}`);
+    if (await countDownload(kv, clientIp(req), pkg)) {
       console.log('Download recorded', { package: pkg, version });
     }
     return res.status(200).json({ ok: true, package: pkg });
