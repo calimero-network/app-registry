@@ -182,6 +182,16 @@ describe.each([
     expect(user.username).toBe('half-done');
   });
 
+  it.each(['ca1imero', 'calimer0', 'the-cal1mer0-team', 'caIimero'])(
+    'refuses %s, a look-alike of calimero',
+    async name => {
+      seedProfile('U1');
+      await expect(claimUsername('U1', name)).rejects.toMatchObject({
+        code: 'blocked',
+      });
+    }
+  );
+
   it('does not reserve the name for an unknown user', async () => {
     await expect(claimUsername('nobody', 'free-name')).rejects.toMatchObject({
       code: 'not_found',
