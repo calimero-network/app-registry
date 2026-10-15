@@ -72,8 +72,11 @@ calimero-registry bundle edit <package> <version> --remote \
 # read a manifest
 calimero-registry bundle get <package> <version> [--local]
 
-# push a pre-built .mpk
-calimero-registry bundle push <bundle-file> [--local | --remote]
+# push a pre-built .mpk; on a first publish, --key makes your account its manager
+calimero-registry bundle push <bundle-file> [--local | --remote] [--key key.json]
+
+# become the manager of a published package by proving you hold its signing key
+calimero-registry bundle claim <package> --key key.json
 
 # assemble a bundle from a bare wasm (predates cargo mero)
 calimero-registry bundle create <wasm-file> [package] [version] \
@@ -90,6 +93,9 @@ cargo mero sign manifest.json --key my-key.json   # 2. sign
 calimero-registry bundle edit com.example.my-app 1.2.4 --remote \
   --manifest manifest.json               # 3. PATCH back
 ```
+
+A first publish makes no account the package's manager unless the push carries a claim signed by the bundle's key (`--key`).
+Without one, the package is published but nobody can manage it (delete, yank, assets, organization link) until a key holder runs `bundle claim`.
 
 `bundle create` and `bundle push` predate `cargo mero` and know nothing about multi-service bundles, icons, or embedded ABIs. Use them only for a bundle built outside the Rust toolchain; anything built from a Calimero app crate should go through `cargo mero bundle` and `cargo mero publish`.
 
