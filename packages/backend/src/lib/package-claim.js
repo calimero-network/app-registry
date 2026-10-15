@@ -58,14 +58,24 @@ async function claimRefusal(
     registry,
   });
   if (!(await verifySignature(claim.publicKey, claim.signature, payload))) {
-    return 'claim signature does not verify for this package, account and registry';
+    return `claim signature does not verify for this package, account and registry ${registry}`;
   }
   return null;
 }
 
+/** Whether `email` is the recorded manager of `manifest`. */
+function managedBy(manifest, email) {
+  const manager = manifest?.metadata?._ownerEmail;
+  return (
+    typeof manager === 'string' &&
+    typeof email === 'string' &&
+    manager.toLowerCase() === email.toLowerCase()
+  );
+}
+
 /**
  * Whether the account pushing a new package becomes its manager: with a claim
- * by a key of the bundle, or under a reserved prefix only staff and bots can create.
+ * by a key of the bundle, or under a reserved prefix only staff can create.
  * @returns {Promise<{ manager: boolean, refusal?: string }>}
  */
 async function firstPublishManager({ claim, manifest, account, registry }) {
@@ -122,16 +132,33 @@ async function applyClaim({
   }
 
   const manager = email.toLowerCase();
-  await unlinkOrg(packageName);
-  for (let attempt = 0; attempt < CLAIM_WRITE_ATTEMPTS; attempt++) {
-    let settled = true;
+  const author = username ?? null;
+  const unsettled = async () => {
+    const stale = [];
     for (const version of await store.getBundleVersions(packageName)) {
       const current = await store.getBundleManifest(packageName, version);
-      if (!current || current.metadata?._ownerEmail === manager) continue;
-      settled = false;
-      await store.setManager(packageName, version, manager, username);
+      if (!current) continue;
+      if (
+        current.metadata?._ownerEmail !== manager ||
+        (current.metadata?.author ?? null) !== author
+      ) {
+        stale.push(version);
+      }
     }
-    if (settled) return { status: 200, body: { package: packageName } };
+    return stale;
+  };
+
+  await unlinkOrg(packageName);
+  for (let attempt = 0; attempt < CLAIM_WRITE_ATTEMPTS; attempt++) {
+    const stale = await unsettled();
+    if (stale.length === 0)
+      return { status: 200, body: { package: packageName } };
+    for (const version of stale) {
+      await store.setManager(packageName, version, manager, author);
+    }
+  }
+  if ((await unsettled()).length === 0) {
+    return { status: 200, body: { package: packageName } };
   }
   return {
     status: 409,
@@ -144,6 +171,7 @@ async function applyClaim({
 
 module.exports = {
   applyClaim,
+  managedBy,
   CLAIM_DOMAIN,
   claimPayload,
   claimRefusal,

@@ -96,7 +96,8 @@ const {
   signClaim: helperSignClaim,
 } = require('./helpers/ed25519-helper');
 const pushHandler = require('../../../api/v2/bundles/push');
-const { claimRefusal } = require('../src/lib/package-claim');
+const { applyClaim, claimRefusal } = require('../src/lib/package-claim');
+const { registryOrigin } = require('../../../api/lib/request-origin');
 const { buildServer } = require('../src/server');
 const pushFileHandler = require('../../../api/v2/bundles/push-file');
 const claimHandler = require('../../../api/v2/packages/[package]/claim');
@@ -379,6 +380,13 @@ describe('POST /api/v2/packages/:package/claim', () => {
     ],
     ['malformed', async () => ({ publicKey: 'x', signature: 'y' })],
     [
+      'dated in the future',
+      () =>
+        signClaim(packageKey, HOLDER, {
+          issuedAt: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+        }),
+    ],
+    [
       'for another registry',
       () =>
         signClaim(packageKey, HOLDER, {
@@ -483,6 +491,46 @@ describe('the self-hosted server', () => {
     store.set('apitoken:tok-holder', JSON.stringify({ email: HOLDER }));
   });
 
+  test('never stores a manager email the publisher signed into the manifest', async () => {
+    const forged = {
+      ...manifest('1.0.0'),
+      metadata: {
+        ...manifest('1.0.0').metadata,
+        _ownerEmail: 'victim@calimero.network',
+      },
+    };
+    const res = await server.inject({
+      method: 'POST',
+      url: '/api/v2/bundles/push',
+      headers: TOKEN,
+      payload: await signBundle(forged, packageKey),
+    });
+    expect(res.statusCode).toBe(201);
+    expect(stored('1.0.0').metadata._ownerEmail).toBeUndefined();
+  });
+
+  test('refuses a claim from a bot', async () => {
+    await server.inject({
+      method: 'POST',
+      url: '/api/v2/bundles/push',
+      headers: TOKEN,
+      payload: await signBundle(manifest('1.0.0'), packageKey),
+    });
+    const BOT = 'bot-x@bots.example.com';
+    mockBots.add(BOT);
+    store.set('apitoken:tok-bot', JSON.stringify({ email: BOT }));
+    const res = await server.inject({
+      method: 'POST',
+      url: `/api/v2/packages/${PKG}/claim`,
+      headers: { authorization: 'Bearer tok-bot' },
+      payload: await signClaim(packageKey, BOT, {
+        registry: 'http://localhost:3000',
+      }),
+    });
+    expect(res.statusCode).toBe(403);
+    expect(stored('1.0.0').metadata._ownerEmail).toBeUndefined();
+  });
+
   test('publishes a new package unmanaged without a claim', async () => {
     const res = await server.inject({
       method: 'POST',
@@ -522,5 +570,130 @@ describe('the self-hosted server', () => {
     });
     expect(res.statusCode).toBe(200);
     expect(stored('1.0.0').metadata._ownerEmail).toBe(SQUATTER);
+  });
+});
+
+describe('first publish by a bot', () => {
+  const BOT = 'bot-squat@bots.example.com';
+
+  test("an unclaimed package is not linked to the bot's org", async () => {
+    mockBots.add(BOT);
+    mockProfiles.set(BOT, { email: BOT, username: 'bot-squat', botOrg: ORG });
+    const res = await push(
+      BOT,
+      await signBundle(manifest('1.0.0'), packageKey)
+    );
+    expect(res.statusCode).toBe(201);
+    expect(store.has(`pkg2org:${PKG}`)).toBe(false);
+  });
+
+  test('a claimed package is linked as before', async () => {
+    mockBots.add(BOT);
+    mockProfiles.set(BOT, { email: BOT, username: 'bot-squat', botOrg: ORG });
+    const res = await push(
+      BOT,
+      await signBundle(manifest('1.0.0'), packageKey),
+      await signClaim(packageKey, BOT)
+    );
+    expect(res.statusCode).toBe(201);
+    expect(store.get(`pkg2org:${PKG}`)).toBe(ORG);
+  });
+});
+
+describe('push-file claim field', () => {
+  test('a claim that is not JSON is refused', async () => {
+    const bundle = await signBundle(manifest('1.0.0'), packageKey);
+    const boundary = 'badclaim';
+    const body = Buffer.concat([
+      Buffer.from(
+        `--${boundary}\r\nContent-Disposition: form-data; name="claim"\r\n\r\nnot json\r\n` +
+          `--${boundary}\r\nContent-Disposition: form-data; name="bundle"; filename="b.mpk"\r\nContent-Type: application/octet-stream\r\n\r\n`
+      ),
+      Buffer.from(bundle._binary, 'hex'),
+      Buffer.from(`\r\n--${boundary}--\r\n`),
+    ]);
+    const req = Readable.from([body]);
+    req.method = 'POST';
+    req.headers = {
+      'content-type': `multipart/form-data; boundary=${boundary}`,
+      'content-length': String(body.length),
+      'x-test-user': HOLDER,
+    };
+    const res = makeRes();
+    await pushFileHandler(req, res);
+    expect(res.statusCode).toBe(400);
+    expect(res.body.error).toBe('invalid_claim');
+    expect(stored('1.0.0')).toBeNull();
+  });
+});
+
+describe('registryOrigin', () => {
+  const saved = process.env.FRONTEND_URL;
+  afterEach(() => {
+    if (saved === undefined) delete process.env.FRONTEND_URL;
+    else process.env.FRONTEND_URL = saved;
+  });
+
+  test('is the origin of FRONTEND_URL, whatever its path', () => {
+    process.env.FRONTEND_URL = 'https://registry.example.com/app/';
+    expect(registryOrigin()).toBe('https://registry.example.com');
+  });
+});
+
+describe('applyClaim under concurrent writes', () => {
+  const OLD = 'old@example.com';
+
+  /** A store whose versions another writer resets to OLD the first `reverts` times they are written. */
+  function racingStore(reverts) {
+    const versions = {
+      '1.0.0': { metadata: { _ownerEmail: OLD, author: 'old' } },
+      '1.1.0': { metadata: { _ownerEmail: OLD, author: 'old' } },
+    };
+    for (const [v, m] of Object.entries(versions)) {
+      Object.assign(m, {
+        ...manifest(v),
+        metadata: { ...manifest(v).metadata, ...m.metadata },
+        signature: {
+          algorithm: 'ed25519',
+          publicKey: Buffer.from(packageKey.publicKey).toString('base64url'),
+          signature: 'x',
+        },
+      });
+    }
+    let left = reverts;
+    return {
+      getBundleVersions: async () => ['1.1.0', '1.0.0'],
+      getBundleManifest: async (_pkg, v) => structuredClone(versions[v]),
+      setManager: async (_pkg, v, email, author) => {
+        if (left > 0) {
+          left -= 1;
+          return true;
+        }
+        versions[v].metadata._ownerEmail = email;
+        versions[v].metadata.author = author;
+        return true;
+      },
+    };
+  }
+
+  const apply = async store =>
+    applyClaim({
+      store,
+      packageName: PKG,
+      claim: await signClaim(packageKey, HOLDER),
+      email: HOLDER,
+      username: 'holder',
+      registry: 'https://apps.calimero.network',
+      unlinkOrg: async () => {},
+    });
+
+  test('re-applies itself when a concurrent write restores the old manager', async () => {
+    const res = await apply(racingStore(1));
+    expect(res.status).toBe(200);
+  });
+
+  test('reports a conflict when the package never settles', async () => {
+    const res = await apply(racingStore(1000));
+    expect(res.status).toBe(409);
   });
 });

@@ -48,6 +48,7 @@ const {
 } = require('@calimero-network/registry-backend/src/lib/package-owner');
 const {
   firstPublishManager,
+  managedBy,
 } = require('@calimero-network/registry-backend/src/lib/package-claim');
 const { registryOrigin } = require('#api-lib/request-origin');
 const { resolveUser, rejectUnauthenticated } = require('#api-lib/auth-helpers');
@@ -409,8 +410,8 @@ module.exports = async function handler(req, res) {
         return res.status(versionRefusal.status).json(versionRefusal.body);
       }
     } else if (ownerEmail) {
-      // A pushed bundle names no account, so the pusher manages the new package
-      // (and is its public author) only with a claim by the bundle's key.
+      // A pushed bundle names no account, so the pusher manages the new package (and
+      // is its author) only with a claim by its key or under a staff-only reserved prefix.
       const decision = await firstPublishManager({
         claim,
         manifest: bundleManifest,
@@ -471,11 +472,14 @@ module.exports = async function handler(req, res) {
     bundleManifest._binary = buffer.toString('hex');
     await store.storeBundleManifest(bundleManifest, overwrite);
 
-    await autolinkBotPackage(
-      { isBot, getUserByEmail, getPkg2Org, setPkg2Org },
-      ownerEmail,
-      bundleManifest.package
-    );
+    // A bot links only a package it manages, so a copied bundle cannot pull it into an org.
+    if (managedBy(bundleManifest, ownerEmail)) {
+      await autolinkBotPackage(
+        { isBot, getUserByEmail, getPkg2Org, setPkg2Org },
+        ownerEmail,
+        bundleManifest.package
+      );
+    }
 
     return res.status(201).json({
       message: 'Bundle published successfully',

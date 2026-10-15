@@ -456,6 +456,7 @@ A first publish records a manager (and public author) only when the push carries
 The exception is a `com.calimero.*` or `network.calimero.*` package, which only staff, site admins and bots can create: its publisher becomes the manager without a claim.
 An unmanaged package can still be published to with its key; only site admins can delete it, yank versions or upload assets, and nobody can link it to an organization.
 A key holder becomes the manager and author at any time with `calimero-registry bundle claim <package> --key key.json`, which also removes any organization link.
+A bot account links a package it pushes to its organization only when it is the package manager.
 
 Both push endpoints also accept a version signed with another key when the publishing account is an **admin or owner** of the org linked to the package; the package's existing key set is kept as it was. The browser upload endpoint, `POST /api/v2/bundles/push-file`, additionally rejects a version that is not greater than the latest published one.
 `push` leaves version ordering to the caller, which is what `--bump` is for.

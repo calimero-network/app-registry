@@ -5,9 +5,10 @@
  * assets, org link). It is set on a first publish that carries a claim by the
  * bundle's key (see package-claim.js) or by a claim later, and every later
  * version copies it from the versions already stored, never from whoever
- * pushes the new version. Publishing a new version is authorized by the signing key (or org
- * membership), which is a different question from which account manages the
- * package, so the pushing account must not change the recorded owner.
+ * pushes the new version. Publishing a new version is authorized by the
+ * signing key (or org membership), which is a different question from which
+ * account manages the package, so the pushing account must not change the
+ * recorded owner.
  *
  * Shared by the Vercel push routes (push.js, push-file.js) and the Fastify dev
  * server so all publish paths stamp ownership the same way.

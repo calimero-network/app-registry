@@ -27,6 +27,7 @@ const {
   PACKAGE_NAME_REGEX,
   CATEGORIES,
   linkProblems,
+  stripReservedMetadata,
 } = require('./lib/metadata-policy');
 const { kv } = require('./lib/kv-client');
 const { countDownload } = require('./lib/download-count');
@@ -46,7 +47,11 @@ const {
   getOrgMemberRole,
   isOrgAdminOrOwner,
 } = require('./lib/org-storage');
-const { applyClaim, firstPublishManager } = require('./lib/package-claim');
+const {
+  applyClaim,
+  firstPublishManager,
+  managedBy,
+} = require('./lib/package-claim');
 const { verifySessionToken, verifyApiToken } = require('./lib/auth');
 const { getUserByEmail } = require('./lib/user-storage');
 const { isBot, isAdmin } = require('./lib/admin-storage');
@@ -632,8 +637,15 @@ async function buildServer() {
       //    author is always preserved from the existing manifest — it is set
       //    from the Google session at publish time and cannot be removed or
       //    changed via edit.
+      stripReservedMetadata(incoming);
       const mergedMetadata = incoming.metadata
-        ? { ...incoming.metadata, author: existing.metadata?.author }
+        ? {
+            ...incoming.metadata,
+            author: existing.metadata?.author,
+            ...(existing.metadata?._ownerEmail !== undefined
+              ? { _ownerEmail: existing.metadata._ownerEmail }
+              : {}),
+          }
         : existing.metadata;
       const updated = {
         ...existing,
@@ -890,6 +902,8 @@ async function buildServer() {
         },
       };
     }
+    // Server-owned metadata (_ownerEmail, _adminVerified) survives signing, so drop it here.
+    stripReservedMetadata(bundleManifest);
     const devKey = devSigningKeyRefusal(bundleManifest);
     if (devKey) throw { statusCode: devKey.status, body: devKey.body };
     const incomingKey = getPublicKeyFromManifest(bundleManifest);
@@ -1000,8 +1014,8 @@ async function buildServer() {
         };
       }
     } else if (userEmail) {
-      // A pushed bundle names no account, so the pusher manages the new package
-      // (and is its public author) only with a claim by the bundle's key.
+      // A pushed bundle names no account, so the pusher manages the new package (and
+      // is its author) only with a claim by its key or under a staff-only reserved prefix.
       const decision = await firstPublishManager({
         claim,
         manifest: bundleManifest,
@@ -1075,11 +1089,14 @@ async function buildServer() {
       process.env.ALLOW_BUNDLE_OVERWRITE === '1';
     await bundleStorage.storeBundleManifest(bundleManifest, overwrite);
 
-    await autolinkBotPackage(
-      { isBot, getUserByEmail, getPkg2Org, setPkg2Org },
-      userEmail,
-      bundleManifest.package
-    );
+    // A bot links only a package it manages, so a copied bundle cannot pull it into an org.
+    if (managedBy(bundleManifest, userEmail)) {
+      await autolinkBotPackage(
+        { isBot, getUserByEmail, getPkg2Org, setPkg2Org },
+        userEmail,
+        bundleManifest.package
+      );
+    }
 
     return {
       package: bundleManifest.package,
@@ -1140,9 +1157,7 @@ async function buildServer() {
     if (!authUser?.email) {
       return reply.code(401).send({ error: 'unauthorized' });
     }
-    if (await isBot(authUser.email)) {
-      return reply.code(403).send({ error: 'forbidden' });
-    }
+    if (await denyBot(authUser, reply)) return;
     const result = await applyClaim({
       store: bundleStorage,
       packageName: String(request.params.package).toLowerCase(),
