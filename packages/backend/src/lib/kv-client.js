@@ -93,11 +93,7 @@ if (isStorageBlocked()) {
       return await redisClient.setNX(key, value);
     },
 
-    /**
-     * SET key value NX EX ttlSeconds — set only if absent, expiring after
-     * `ttlSeconds`. Returns true if the key was set, false if it already
-     * existed.
-     */
+    /** SET NX EX: true if the key was set, false if it already existed. */
     async setNXEx(key, value, ttlSeconds) {
       await this._ensureConnected();
       const reply = await redisClient.set(key, value, {

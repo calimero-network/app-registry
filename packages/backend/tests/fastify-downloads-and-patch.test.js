@@ -1,7 +1,6 @@
 /**
- * Self-hosted Fastify server matches the Vercel handlers: a client is counted
- * once per package per hour on every download path, and PATCH refuses changes
- * to the fields a node reads from the signed manifest.
+ * The Fastify server matches the Vercel handlers: one download count per client
+ * per package per hour, and PATCH refuses changes to locked manifest fields.
  */
 
 const fs = require('fs');

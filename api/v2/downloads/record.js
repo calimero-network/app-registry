@@ -7,9 +7,9 @@
  * No auth; call after a successful artifact download/install.
  *
  * Only published packages (and, when given, published versions) are counted,
- * using the same name/version rules as publishing. A given client is counted
- * at most once per package per hour, whatever the version; an
- * IPv6 client is its /64. Repeats still answer 200 so callers need no special handling.
+ * using the same name/version rules as publishing.
+ * A client (an IPv6 client is its /64) is counted at most once per package per
+ * hour, whatever the version; repeats still answer 200.
  */
 
 const { kv } = require('#api-lib/kv-client');

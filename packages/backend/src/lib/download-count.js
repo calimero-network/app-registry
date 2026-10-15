@@ -20,7 +20,7 @@ function clientNetwork(ip) {
 }
 
 function dedupeKey(ip, pkg) {
-  // Hash the client address so raw IPs are never stored.
+  // Hash the client address so the raw IP is not stored as is.
   const client = crypto
     .createHash('sha256')
     .update(clientNetwork(ip))

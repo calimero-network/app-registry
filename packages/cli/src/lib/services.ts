@@ -227,9 +227,8 @@ export function collectBundleFiles(manifest: BundleManifest): string[] {
 }
 
 /**
- * Refuse any file that is missing, is not a regular file, or resolves outside
- * `dir` through a symlink, so packing a directory reads nothing else.
- * @throws Error naming the first offending file.
+ * Refuse any file that is missing, not a regular file, or symlinked outside
+ * `dir`. @throws Error naming the first offending file.
  */
 export function assertFilesInsideDir(dir: string, files: string[]): void {
   const root = fs.realpathSync(dir);
