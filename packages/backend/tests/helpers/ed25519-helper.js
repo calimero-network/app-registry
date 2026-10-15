@@ -9,6 +9,7 @@ const os = require('os');
 const path = require('path');
 const tar = require('tar');
 const canonicalize = require('canonicalize');
+const multibase = require('multibase');
 
 const ed25519 = () => import('@noble/ed25519');
 
@@ -38,11 +39,18 @@ function signingPayload(manifest) {
     .digest();
 }
 
+/** The did:key `signerId` cargo-mero stamps into a manifest before signing. */
+function didKey(publicKey) {
+  const prefixed = Buffer.concat([Buffer.from([0xed, 0x01]), publicKey]);
+  return `did:key:${Buffer.from(multibase.encode('base58btc', prefixed))}`;
+}
+
 async function signManifest(manifest, { secretKey, publicKey }) {
   const ed = await ed25519();
-  const signature = await ed.signAsync(signingPayload(manifest), secretKey);
+  const unsigned = { signerId: didKey(Buffer.from(publicKey)), ...manifest };
+  const signature = await ed.signAsync(signingPayload(unsigned), secretKey);
   return {
-    ...manifest,
+    ...unsigned,
     signature: {
       algorithm: 'ed25519',
       publicKey: Buffer.from(publicKey).toString('base64url'),
@@ -80,4 +88,10 @@ async function signBundle(manifest, keys) {
   }
 }
 
-module.exports = { generateKeypair, signManifest, signBundle };
+module.exports = {
+  didKey,
+  generateKeypair,
+  signManifest,
+  signBundle,
+  signingPayload,
+};

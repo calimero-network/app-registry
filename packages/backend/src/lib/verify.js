@@ -2,7 +2,7 @@
 let ed25519;
 const crypto = require('crypto');
 const canonicalize = require('canonicalize');
-const { multibase } = require('multibase');
+const multibase = require('multibase');
 
 // Load @noble/ed25519. It is ESM-only: require() works under Jest and plain
 // Node 24, but Vercel's function loader (/opt/rust/nodejs.js) refuses it with
@@ -129,6 +129,67 @@ function verifyLog(...args) {
 }
 
 /**
+ * Decode a public key: base64url (mero-sign), then multibase, then base58.
+ */
+function decodePublicKey(publicKey) {
+  let decodedPubKey;
+  let pubKeyEncoding = 'base64url';
+  try {
+    decodedPubKey = base64urlDecode(publicKey);
+    if (decodedPubKey.length !== 32) decodedPubKey = null;
+  } catch {
+    decodedPubKey = null;
+  }
+  if (!decodedPubKey) {
+    try {
+      decodedPubKey = Buffer.from(multibase.decode(publicKey));
+      pubKeyEncoding = 'multibase';
+    } catch {
+      decodedPubKey = decodeBase58ToBytes(publicKey);
+      pubKeyEncoding = 'base58';
+    }
+  }
+  if (decodedPubKey.length !== 32) {
+    verifyLog('publicKey decode failed: length', decodedPubKey?.length);
+    throw new Error('Invalid public key length');
+  }
+  verifyLog(
+    'publicKey decoded:',
+    pubKeyEncoding,
+    'length',
+    decodedPubKey.length
+  );
+  return decodedPubKey;
+}
+
+/** The did:key form of an Ed25519 public key, as core derives `signerId`. */
+function signerIdForPublicKey(publicKey) {
+  const prefixed = Buffer.concat([Buffer.from([0xed, 0x01]), publicKey]);
+  return `did:key:${Buffer.from(multibase.encode('base58btc', prefixed)).toString()}`;
+}
+
+/**
+ * Same rules as ed25519-dalek `verify_strict`, which nodes use: canonical and
+ * not small-order `A` and `R`, canonical `S`, cofactorless equation.
+ */
+function verifyStrict(ed25519Module, signature, message, publicKey) {
+  for (const bytes of [publicKey, signature.subarray(0, 32)]) {
+    let point;
+    try {
+      point = ed25519Module.Point.fromBytes(bytes, false);
+    } catch {
+      return false;
+    }
+    if (point.isSmallOrder()) return false;
+  }
+  const key = crypto.createPublicKey({
+    key: { kty: 'OKP', crv: 'Ed25519', x: publicKey.toString('base64url') },
+    format: 'jwk',
+  });
+  return crypto.verify(null, message, key, signature);
+}
+
+/**
  * Verify Ed25519 signature.
  * publicKey and signature may be base64url (mero-sign) or base58/multibase (legacy).
  * data must be the exact bytes that were signed (for mero-sign: 32-byte SHA-256 of canonical manifest).
@@ -139,34 +200,7 @@ async function verifySignature(publicKey, signature, data) {
   const ed25519Module = await initEd25519();
   verifyLog('initEd25519 OK');
   try {
-    // Decode public key: try base64url first (mero-sign), then multibase, then base58
-    let decodedPubKey;
-    let pubKeyEncoding = 'base64url';
-    try {
-      decodedPubKey = base64urlDecode(publicKey);
-      if (decodedPubKey.length !== 32) decodedPubKey = null;
-    } catch {
-      decodedPubKey = null;
-    }
-    if (!decodedPubKey) {
-      try {
-        decodedPubKey = Buffer.from(multibase.decode(publicKey));
-        pubKeyEncoding = 'multibase';
-      } catch {
-        decodedPubKey = decodeBase58ToBytes(publicKey);
-        pubKeyEncoding = 'base58';
-      }
-    }
-    if (decodedPubKey.length !== 32) {
-      verifyLog('publicKey decode failed: length', decodedPubKey?.length);
-      throw new Error('Invalid public key length');
-    }
-    verifyLog(
-      'publicKey decoded:',
-      pubKeyEncoding,
-      'length',
-      decodedPubKey.length
-    );
+    const decodedPubKey = decodePublicKey(publicKey);
 
     // Decode signature: try base64url first (mero-sign), then base64, then base58
     let decodedSig;
@@ -201,15 +235,14 @@ async function verifySignature(publicKey, signature, data) {
       dataBuffer.length === 32 ? dataBuffer.toString('hex') : '(not 32 bytes)'
     );
 
-    // @noble/ed25519 exports verify/verifyAsync at top level (no .ed25519)
-    const verifyFn = ed25519Module.verifyAsync ?? ed25519Module.verify;
-    if (typeof verifyFn !== 'function') {
-      throw verifierUnavailable(new Error('no verify/verifyAsync export'));
+    if (typeof ed25519Module.Point?.fromBytes !== 'function') {
+      throw verifierUnavailable(new Error('no Point export'));
     }
-    const ok = await verifyFn(
-      new Uint8Array(decodedSig),
-      new Uint8Array(dataBuffer),
-      new Uint8Array(decodedPubKey)
+    const ok = verifyStrict(
+      ed25519Module,
+      Buffer.from(decodedSig),
+      dataBuffer,
+      Buffer.from(decodedPubKey)
     );
     verifyLog('verify result:', ok);
     return ok;
@@ -342,6 +375,13 @@ async function verifyManifest(manifest) {
     throw new Error('Invalid signature');
   }
   verifyLog('manifest signature valid');
+
+  const expectedSignerId = signerIdForPublicKey(decodePublicKey(publicKey));
+  if (manifest.signerId !== expectedSignerId) {
+    throw new Error(
+      `signerId must be the signing key's did:key (${expectedSignerId})`
+    );
+  }
 
   return true;
 }

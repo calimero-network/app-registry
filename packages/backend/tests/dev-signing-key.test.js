@@ -283,7 +283,7 @@ describe('push.js', () => {
       await signManifest(manifest('1.0.0', { signerId: devSignerId }), ownKeys)
     );
     expect(res.statusCode).toBe(400);
-    expect(res.body.error).toBe('dev_signing_key');
+    expect(res.body.error).toBe('invalid_signature');
   });
 });
 
