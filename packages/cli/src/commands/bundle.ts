@@ -27,6 +27,7 @@ import {
   serviceAbiPath,
   assertUniqueServiceNames,
   collectBundleFiles,
+  assertFilesInsideDir,
 } from '../lib/services.js';
 
 /**
@@ -790,14 +791,11 @@ Note:
             process.exit(1);
           }
 
-          // Verify every referenced file exists before packing.
-          for (const f of archiveFiles) {
-            if (!fs.existsSync(path.join(fullPath, f))) {
-              console.error(
-                `❌ Bundle file referenced by manifest not found: ${f}`
-              );
-              process.exit(1);
-            }
+          try {
+            assertFilesInsideDir(fullPath, archiveFiles);
+          } catch (e) {
+            console.error(`❌ ${e instanceof Error ? e.message : String(e)}`);
+            process.exit(1);
           }
 
           await tar.create(
