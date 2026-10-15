@@ -30,18 +30,20 @@ export function loadSigningKey(keyFile: string): crypto.KeyObject {
   });
 }
 
-/** Signs a claim that `account` may manage `packageName`, as the registry verifies it. */
+/** Signs a claim that `account` may manage `packageName` on the registry at `registryUrl`. */
 export function signClaim(
   key: crypto.KeyObject,
   packageName: string,
   account: string,
+  registryUrl: string,
   issuedAt = new Date().toISOString()
 ): PackageClaim {
   // Keys in sorted order with plain string values: JSON.stringify is the RFC 8785 form.
   const canonical = JSON.stringify({
     account: account.toLowerCase(),
     issuedAt,
-    package: packageName,
+    package: packageName.toLowerCase(),
+    registry: new URL(registryUrl).origin,
   });
   const payload = crypto
     .createHash('sha256')

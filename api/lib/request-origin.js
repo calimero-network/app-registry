@@ -48,6 +48,11 @@ function isLocalOrigin(origin) {
   }
 }
 
+/** The origin this registry is served from; package claims are bound to it. */
+function registryOrigin() {
+  return originOf(process.env.FRONTEND_URL || DEFAULT_FRONTEND_URL);
+}
+
 function allowedOrigins(req) {
   const allowed = new Set();
   const add = value => {
@@ -108,6 +113,7 @@ function rejectCrossOriginCookieWrite(req, res) {
 }
 
 module.exports = {
+  registryOrigin,
   CROSS_ORIGIN_FORBIDDEN,
   allowedOrigins,
   requestOrigin,

@@ -9,7 +9,7 @@ const VECTOR = {
   seed: 'BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc',
   publicKey: '6kpsY-KcUgq-9VB7Ey7F-ZVHdq6-vnuSQh7qaRRG0iw',
   signature:
-    'r2OG9Q6Av6rGz9jiEBOhYTp2il8rIg9JN2t5iXlX9NQFO6tKTdZkwwGEb-VVYUXMP9LPdbBSc4VSz0oetJRcAA',
+    'OOaq945kfdJU7rnoVCahCJRAdSjZB-lEg6lv0qxxVMU5EfkVPqrwcz9RaMFmT1gh0ChcTTjnY9d1oyu9n3FRBg',
   issuedAt: '2026-10-15T00:00:00.000Z',
 };
 
@@ -21,8 +21,9 @@ describe('signClaim', () => {
       fs.writeFileSync(keyFile, JSON.stringify({ private_key: VECTOR.seed }));
       const claim = signClaim(
         loadSigningKey(keyFile),
-        'com.acme.claimed',
+        'Com.Acme.Claimed',
         'Holder@Example.com',
+        'https://apps.calimero.network/api',
         VECTOR.issuedAt
       );
       expect(claim).toEqual({

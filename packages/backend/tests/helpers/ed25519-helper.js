@@ -89,13 +89,19 @@ async function signBundle(manifest, keys) {
 }
 
 /** A claim that `account` may manage `pkg`, as `bundle push --key` signs it. */
-async function signClaim(keys, account, pkg, issuedAt) {
+async function signClaim(
+  keys,
+  account,
+  pkg,
+  issuedAt,
+  registry = 'https://apps.calimero.network'
+) {
   const ed = await ed25519();
   const at = issuedAt ?? new Date().toISOString();
   const payload = crypto
     .createHash('sha256')
     .update(Buffer.from('calimero.registry.package-claim.v1\0'))
-    .update(canonicalize({ account, issuedAt: at, package: pkg }))
+    .update(canonicalize({ account, issuedAt: at, package: pkg, registry }))
     .digest();
   return {
     publicKey: Buffer.from(keys.publicKey).toString('base64url'),

@@ -1,21 +1,18 @@
 /**
- * POST /api/v2/packages/:package/claim
- * Body: { publicKey, signature, issuedAt } signed by one of the package's
- * owner keys over the package and the caller's account email.
- *
- * Makes the calling account the package's manager on every version and drops
- * any organization link, which the previous manager made.
+ * POST /api/v2/packages/:package/claim with { publicKey, signature, issuedAt }:
+ * a key holder makes their account the manager and author, dropping any org link.
  */
 
 const {
   BundleStorageKV,
 } = require('@calimero-network/registry-backend/src/lib/bundle-storage-kv');
 const {
-  claimRefusal,
+  applyClaim,
 } = require('@calimero-network/registry-backend/src/lib/package-claim');
-const { isAllowedOwner } = require('#api-lib/verify');
 const { requireAuth } = require('#api-lib/auth-helpers');
 const { deletePkg2Org } = require('#api-lib/org-storage');
+const { getUserByEmail } = require('#api-lib/user-storage');
+const { registryOrigin } = require('#api-lib/request-origin');
 
 let storage;
 const getStorage = () => (storage ??= new BundleStorageKV());
@@ -31,36 +28,17 @@ module.exports = async function handler(req, res) {
   const user = await requireAuth(req, res);
   if (!user) return;
 
-  const pkg = String(req.query.package || '').toLowerCase();
-  const store = getStorage();
   try {
-    const versions = await store.getBundleVersions(pkg);
-    if (!versions?.length) {
-      return res.status(404).json({ error: 'not_found' });
-    }
-    const latest = await store.getBundleManifest(pkg, versions[0]);
-    const claim = req.body;
-    if (!isAllowedOwner(latest, claim?.publicKey)) {
-      return res.status(403).json({
-        error: 'not_owner',
-        message: 'The claim must be signed by an owner key of the package.',
-      });
-    }
-    const refusal = await claimRefusal(claim, {
-      packageName: pkg,
-      account: user.email,
+    const result = await applyClaim({
+      store: getStorage(),
+      packageName: String(req.query.package || '').toLowerCase(),
+      claim: req.body,
+      email: user.email,
+      username: (await getUserByEmail(user.email))?.username ?? null,
+      registry: registryOrigin(),
+      unlinkOrg: deletePkg2Org,
     });
-    if (refusal) {
-      return res.status(400).json({ error: 'invalid_claim', message: refusal });
-    }
-
-    for (const version of versions) {
-      await store.setOwnerEmail(pkg, version, user.email.toLowerCase());
-    }
-    await deletePkg2Org(pkg);
-    return res
-      .status(200)
-      .json({ package: pkg, owner: user.email.toLowerCase() });
+    return res.status(result.status).json(result.body);
   } catch (error) {
     if (error?.code === 'verifier_unavailable') {
       return res.status(500).json({ error: 'verifier_unavailable' });

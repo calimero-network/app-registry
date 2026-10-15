@@ -318,15 +318,20 @@ class BundleStorageKV {
   }
 
   /**
-   * Record which account manages a stored version, leaving everything else as stored.
+   * Record the managing account and public author of a stored version, leaving the rest as stored.
+   * @returns {Promise<boolean>} false when the version no longer exists.
    */
-  async setOwnerEmail(pkg, version, email) {
+  async setManager(pkg, version, email, author) {
     const key = `bundle:${pkg}/${version}`;
     const data = await kv.get(key);
-    if (!data) return;
+    if (!data) return false;
     const parsed = JSON.parse(data);
-    parsed.json.metadata = { ...parsed.json.metadata, _ownerEmail: email };
+    const metadata = { ...parsed.json.metadata, _ownerEmail: email };
+    if (author) metadata.author = author;
+    else delete metadata.author;
+    parsed.json.metadata = metadata;
     await kv.set(key, JSON.stringify(parsed));
+    return true;
   }
 
   /**

@@ -95,7 +95,7 @@ calimero-registry bundle edit com.example.my-app 1.2.4 --remote \
 ```
 
 A first publish makes no account the package's manager unless the push carries a claim signed by the bundle's key (`--key`).
-Without one, the package is published but only site admins can manage it (delete, yank, assets, organization link) until a key holder runs `bundle claim`.
+Without one, the package is published unmanaged until a key holder runs `bundle claim`; see PUBLISHING.md in the repository root.
 
 `bundle create` and `bundle push` predate `cargo mero` and know nothing about multi-service bundles, icons, or embedded ABIs. Use them only for a bundle built outside the Rust toolchain; anything built from a Calimero app crate should go through `cargo mero bundle` and `cargo mero publish`.
 

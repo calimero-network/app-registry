@@ -97,6 +97,7 @@ const {
 } = require('./helpers/ed25519-helper');
 const pushHandler = require('../../../api/v2/bundles/push');
 const { claimRefusal } = require('../src/lib/package-claim');
+const { buildServer } = require('../src/server');
 const pushFileHandler = require('../../../api/v2/bundles/push-file');
 const claimHandler = require('../../../api/v2/packages/[package]/claim');
 const {
@@ -146,8 +147,8 @@ function makeRes() {
   };
 }
 
-const signClaim = (keys, account, { pkg = PKG, issuedAt } = {}) =>
-  helperSignClaim(keys, account, pkg, issuedAt);
+const signClaim = (keys, account, { pkg = PKG, issuedAt, registry } = {}) =>
+  helperSignClaim(keys, account, pkg, issuedAt, registry);
 
 async function push(email, body, claim) {
   const res = makeRes();
@@ -226,14 +227,40 @@ beforeEach(() => {
 });
 
 describe('first publish', () => {
-  test('without a claim, publishes the package with no managing account', async () => {
+  test('without a claim, publishes the package with no managing account or author', async () => {
     const res = await push(
       SQUATTER,
       await signBundle(manifest('1.0.0'), packageKey)
     );
     expect(res.statusCode).toBe(201);
     expect(stored('1.0.0').metadata._ownerEmail).toBeUndefined();
+    expect(stored('1.0.0').metadata.author).toBeUndefined();
     expect(stored('1.0.0')._claim).toBeUndefined();
+  });
+
+  test('a later version of an unmanaged package does not name its pusher as author', async () => {
+    await push(SQUATTER, await signBundle(manifest('1.0.0'), packageKey));
+    const res = await push(
+      SQUATTER,
+      await signBundle(manifest('1.1.0'), packageKey)
+    );
+    expect(res.statusCode).toBe(201);
+    expect(stored('1.1.0').metadata.author).toBeUndefined();
+    expect(stored('1.1.0').metadata._ownerEmail).toBeUndefined();
+  });
+
+  test('a reserved-prefix package created by staff is managed by its publisher', async () => {
+    const staff = 'someone@calimero.network';
+    const reserved = {
+      ...manifest('1.0.0'),
+      package: 'com.calimero.claimtest',
+    };
+    const res = await push(staff, await signBundle(reserved, packageKey));
+    expect(res.statusCode).toBe(201);
+    const raw = JSON.parse(
+      store.get('bundle:com.calimero.claimtest/1.0.0')
+    ).json;
+    expect(raw.metadata._ownerEmail).toBe(staff);
   });
 
   test('with a claim by the signing key naming the pusher, binds the pusher', async () => {
@@ -244,6 +271,7 @@ describe('first publish', () => {
     );
     expect(res.statusCode).toBe(201);
     expect(stored('1.0.0').metadata._ownerEmail).toBe(HOLDER);
+    expect(stored('1.0.0').metadata.author).toBe('holder');
     expect(stored('1.0.0')._claim).toBeUndefined();
   });
 
@@ -259,6 +287,20 @@ describe('first publish', () => {
       () =>
         signClaim(packageKey, HOLDER, {
           issuedAt: new Date(Date.now() - 20 * 60 * 1000).toISOString(),
+        }),
+    ],
+    [
+      'dated in the future',
+      () =>
+        signClaim(packageKey, HOLDER, {
+          issuedAt: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+        }),
+    ],
+    [
+      'for another registry',
+      () =>
+        signClaim(packageKey, HOLDER, {
+          registry: 'https://registry.example.com',
         }),
     ],
   ])('a claim %s is refused', async (_label, makeClaim) => {
@@ -316,6 +358,8 @@ describe('POST /api/v2/packages/:package/claim', () => {
     expect(res.statusCode).toBe(200);
     expect(stored('1.0.0').metadata._ownerEmail).toBe(HOLDER);
     expect(stored('1.1.0').metadata._ownerEmail).toBe(HOLDER);
+    expect(stored('1.0.0').metadata.author).toBe('holder');
+    expect(stored('1.1.0').metadata.author).toBe('holder');
     expect(store.has(`pkg2org:${PKG}`)).toBe(false);
     expect(sets.get(`org:${ORG}:packages`).has(PKG)).toBe(false);
   });
@@ -334,6 +378,13 @@ describe('POST /api/v2/packages/:package/claim', () => {
         }),
     ],
     ['malformed', async () => ({ publicKey: 'x', signature: 'y' })],
+    [
+      'for another registry',
+      () =>
+        signClaim(packageKey, HOLDER, {
+          registry: 'https://registry.example.com',
+        }),
+    ],
   ])('a claim %s changes nothing', async (_label, makeClaim) => {
     const res = await claim(HOLDER, await makeClaim());
     expect([400, 403]).toContain(res.statusCode);
@@ -367,7 +418,7 @@ describe('the claim the CLI signs', () => {
   const VECTOR = {
     publicKey: '6kpsY-KcUgq-9VB7Ey7F-ZVHdq6-vnuSQh7qaRRG0iw',
     signature:
-      'r2OG9Q6Av6rGz9jiEBOhYTp2il8rIg9JN2t5iXlX9NQFO6tKTdZkwwGEb-VVYUXMP9LPdbBSc4VSz0oetJRcAA',
+      'OOaq945kfdJU7rnoVCahCJRAdSjZB-lEg6lv0qxxVMU5EfkVPqrwcz9RaMFmT1gh0ChcTTjnY9d1oyu9n3FRBg',
     issuedAt: '2026-10-15T00:00:00.000Z',
   };
 
@@ -375,8 +426,101 @@ describe('the claim the CLI signs', () => {
     const refusal = await claimRefusal(VECTOR, {
       packageName: 'com.acme.claimed',
       account: 'holder@example.com',
+      registry: 'https://apps.calimero.network',
       now: Date.parse(VECTOR.issuedAt),
     });
     expect(refusal).toBeNull();
+  });
+});
+
+describe('a package signed with the shared development key', () => {
+  // The development key's private half is public, so it can never claim.
+  const DEV_SEED = Buffer.from([
+    0x8c, 0xb7, 0xae, 0x25, 0x1b, 0x4d, 0xa5, 0x5a, 0xec, 0xc3, 0x87, 0x5f,
+    0x4c, 0x0a, 0x71, 0x2c, 0xe2, 0xb3, 0x4c, 0xb0, 0x6d, 0x47, 0x71, 0xe7,
+    0x13, 0xf2, 0xbb, 0x32, 0x89, 0xd0, 0xf7, 0xb4,
+  ]);
+
+  test('cannot be claimed', async () => {
+    const ed = await import('@noble/ed25519');
+    const devKeys = {
+      secretKey: new Uint8Array(DEV_SEED),
+      publicKey: await ed.getPublicKeyAsync(new Uint8Array(DEV_SEED)),
+    };
+    const devPubkey = Buffer.from(devKeys.publicKey).toString('base64url');
+    store.set(
+      `bundle:${PKG}/1.0.0`,
+      JSON.stringify({
+        json: {
+          ...manifest('1.0.0'),
+          metadata: { ...manifest('1.0.0').metadata, _ownerEmail: SQUATTER },
+          signature: {
+            algorithm: 'ed25519',
+            publicKey: devPubkey,
+            signature: 'x',
+          },
+        },
+      })
+    );
+    sets.set(`bundle-versions:${PKG}`, new Set(['1.0.0']));
+    const res = await claim(HOLDER, await signClaim(devKeys, HOLDER));
+    expect(res.statusCode).toBe(400);
+    expect(stored('1.0.0').metadata._ownerEmail).toBe(SQUATTER);
+  });
+});
+
+describe('the self-hosted server', () => {
+  let server;
+  const TOKEN = { authorization: 'Bearer tok-holder' };
+
+  beforeAll(async () => {
+    server = await buildServer();
+  });
+  afterAll(async () => {
+    if (server) await server.close();
+  });
+  beforeEach(() => {
+    store.set('apitoken:tok-holder', JSON.stringify({ email: HOLDER }));
+  });
+
+  test('publishes a new package unmanaged without a claim', async () => {
+    const res = await server.inject({
+      method: 'POST',
+      url: '/api/v2/bundles/push',
+      headers: TOKEN,
+      payload: await signBundle(manifest('1.0.0'), packageKey),
+    });
+    expect(res.statusCode).toBe(201);
+    expect(stored('1.0.0').metadata._ownerEmail).toBeUndefined();
+    expect(stored('1.0.0')._claim).toBeUndefined();
+  });
+
+  test('records the pusher with a claim, and the claim route moves management', async () => {
+    const first = await server.inject({
+      method: 'POST',
+      url: '/api/v2/bundles/push',
+      headers: TOKEN,
+      payload: {
+        ...(await signBundle(manifest('1.0.0'), packageKey)),
+        _claim: await signClaim(packageKey, HOLDER, {
+          registry: 'http://localhost:3000',
+        }),
+      },
+    });
+    expect(first.statusCode).toBe(201);
+    expect(stored('1.0.0').metadata._ownerEmail).toBe(HOLDER);
+    expect(stored('1.0.0')._claim).toBeUndefined();
+
+    store.set('apitoken:tok-other', JSON.stringify({ email: SQUATTER }));
+    const res = await server.inject({
+      method: 'POST',
+      url: `/api/v2/packages/${PKG}/claim`,
+      headers: { authorization: 'Bearer tok-other' },
+      payload: await signClaim(packageKey, SQUATTER, {
+        registry: 'http://localhost:3000',
+      }),
+    });
+    expect(res.statusCode).toBe(200);
+    expect(stored('1.0.0').metadata._ownerEmail).toBe(SQUATTER);
   });
 });

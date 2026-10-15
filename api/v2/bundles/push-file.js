@@ -47,8 +47,9 @@ const {
   stampOwnerEmail,
 } = require('@calimero-network/registry-backend/src/lib/package-owner');
 const {
-  firstPublishClaimRefusal,
+  firstPublishManager,
 } = require('@calimero-network/registry-backend/src/lib/package-claim');
+const { registryOrigin } = require('#api-lib/request-origin');
 const { resolveUser, rejectUnauthenticated } = require('#api-lib/auth-helpers');
 const { getUserByEmail } = require('#api-lib/user-storage');
 const { isBot, isAdmin } = require('#api-lib/admin-storage');
@@ -358,23 +359,25 @@ module.exports = async function handler(req, res) {
         bundleManifest.package,
         oldestVersion
       );
-      const existingAuthor = manifestOldest?.metadata?.author;
-      if (existingAuthor) {
-        bundleManifest.metadata.author = existingAuthor;
-      } else if (ownerEmail) {
-        // Public author is the username only; the email is never promoted to
-        // `author`.
-        if (displayAuthor) bundleManifest.metadata.author = displayAuthor;
-      }
       // Ownership (_ownerEmail) is inherited from the existing versions, never
       // taken from the account pushing this version.
-      await stampOwnerEmail({
+      const owner = await stampOwnerEmail({
         store,
         manifest: bundleManifest,
         versions,
         publisherEmail: ownerEmail,
         known: { [oldestVersion]: manifestOldest },
       });
+      const existingAuthor = manifestOldest?.metadata?.author;
+      if (existingAuthor) {
+        bundleManifest.metadata.author = existingAuthor;
+      } else if (
+        displayAuthor &&
+        owner?.toLowerCase() === ownerEmail?.toLowerCase()
+      ) {
+        // Only the manager names a package; the email is never the author.
+        bundleManifest.metadata.author = displayAuthor;
+      }
 
       // Check ownership (a package key, or an organization admin/owner)
       const manifestLatest = await store.getBundleManifest(
@@ -406,22 +409,21 @@ module.exports = async function handler(req, res) {
         return res.status(versionRefusal.status).json(versionRefusal.body);
       }
     } else if (ownerEmail) {
-      // New package — public author is the username (or nothing when the user
-      // has not set one); the email stays private in _ownerEmail.
-      if (displayAuthor) bundleManifest.metadata.author = displayAuthor;
-      // Only a claim by the bundle's key makes this account the manager; a
-      // replayed bundle alone leaves the package unmanaged until claimed.
-      if (claim !== undefined) {
-        const refusal = await firstPublishClaimRefusal(
-          claim,
-          bundleManifest,
-          ownerEmail
-        );
-        if (refusal) {
-          return res
-            .status(400)
-            .json({ error: 'invalid_claim', message: refusal });
-        }
+      // A pushed bundle names no account, so the pusher manages the new package
+      // (and is its public author) only with a claim by the bundle's key.
+      const decision = await firstPublishManager({
+        claim,
+        manifest: bundleManifest,
+        account: ownerEmail,
+        registry: registryOrigin(),
+      });
+      if (decision.refusal) {
+        return res
+          .status(400)
+          .json({ error: 'invalid_claim', message: decision.refusal });
+      }
+      if (decision.manager) {
+        if (displayAuthor) bundleManifest.metadata.author = displayAuthor;
         bundleManifest.metadata._ownerEmail = ownerEmail;
       }
     }

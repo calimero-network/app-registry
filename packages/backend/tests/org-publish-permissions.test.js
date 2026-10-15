@@ -81,7 +81,10 @@ jest.mock('../src/lib/blob-store', () => ({
 // Real key/ownership logic; only the signature check is stubbed.
 // These tests fake signatures; a claim on the first publish counts as valid.
 jest.mock('../src/lib/package-claim', () => ({
-  firstPublishClaimRefusal: jest.fn().mockResolvedValue(null),
+  ...jest.requireActual('../src/lib/package-claim'),
+  firstPublishManager: jest.fn(async ({ claim }) => ({
+    manager: claim !== undefined,
+  })),
 }));
 
 jest.mock('../../../api/lib/verify', () => ({

@@ -895,9 +895,15 @@ Note:
             ? signClaim(
                 loadSigningKey(options.key),
                 manifest.package,
-                await fetchAccountEmail(registryUrl, apiKey)
+                await fetchAccountEmail(registryUrl, apiKey),
+                registryUrl
               )
             : undefined;
+          if (claim) {
+            console.log(
+              '   --key only takes effect on a first publish; for an existing package run bundle claim'
+            );
+          }
           await pushToRemote(mpkPath, manifest, registryUrl, apiKey, claim);
         }
       } catch (error) {
@@ -1428,10 +1434,11 @@ function createClaimCommand(): Command {
         const claim = signClaim(
           loadSigningKey(options.key),
           pkg,
-          await fetchAccountEmail(registryUrl, apiKey)
+          await fetchAccountEmail(registryUrl, apiKey),
+          registryUrl
         );
         const res = await fetch(
-          `${registryUrl.replace(/\/$/, '')}/api/v2/packages/${encodeURIComponent(pkg)}/claim`,
+          `${registryUrl.replace(/\/$/, '')}/api/v2/packages/${encodeURIComponent(pkg.toLowerCase())}/claim`,
           {
             method: 'POST',
             headers: {
@@ -1445,10 +1452,10 @@ function createClaimCommand(): Command {
         if (!res.ok) {
           throw new Error(body.message ?? body.error ?? `HTTP ${res.status}`);
         }
-        console.log(`✅ Your account now manages ${pkg}`);
+        console.log(`Your account now manages ${pkg.toLowerCase()}`);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        console.error('❌ Failed to claim package:', message);
+        console.error('Failed to claim package:', message);
         process.exit(1);
       }
     });
