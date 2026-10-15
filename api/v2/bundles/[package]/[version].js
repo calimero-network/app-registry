@@ -6,6 +6,7 @@
  *   signature from one of the version's owner keys)
  */
 
+const { isDeepStrictEqual } = require('util');
 const {
   BundleStorageKV,
 } = require('@calimero-network/registry-backend/src/lib/bundle-storage-kv');
@@ -116,6 +117,28 @@ function sameOwners(a, b) {
   return x.length === y.length && x.every((k, i) => k === y[i]);
 }
 
+// Fields a node reads from the signed manifest in the stored bundle; the listing must not diverge from them.
+const LOCKED_FIELDS = [
+  'version',
+  'minRuntimeVersion',
+  'handlers',
+  'buildInfo',
+  'interfaces',
+  'abi',
+  'services',
+];
+
+function lockedFieldChanges(body, existing) {
+  // GET fills in the default, so a GET-edit-sign round trip carries it.
+  const value = (manifest, field) =>
+    field === 'minRuntimeVersion'
+      ? (manifest.minRuntimeVersion ?? '0.1.0')
+      : manifest[field];
+  return LOCKED_FIELDS.filter(
+    field => !isDeepStrictEqual(value(body, field), value(existing, field))
+  );
+}
+
 async function handlePatch(req, res, pkg, version) {
   // A signed manifest alone is not enough: every signed manifest of a version
   // stays valid forever, so the edit also needs a logged-in account that may
@@ -220,6 +243,14 @@ async function handlePatch(req, res, pkg, version) {
     return res.status(400).json({
       error: 'invalid_manifest',
       message: 'wasm (path, hash, size) cannot be changed via PATCH',
+    });
+  }
+
+  const locked = lockedFieldChanges(body, existing);
+  if (locked.length > 0) {
+    return res.status(400).json({
+      error: 'invalid_manifest',
+      message: `${locked.join(', ')} cannot be changed via PATCH`,
     });
   }
 

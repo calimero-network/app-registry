@@ -183,6 +183,24 @@ describe('PATCH /api/v2/bundles/:pkg/:version — what may change', () => {
     expect(r.status).toHaveBeenCalledWith(400);
   });
 
+  test.each([
+    ['abi', { abi: { methods: [] } }],
+    ['minRuntimeVersion', { minRuntimeVersion: '9.9.9' }],
+    ['services', { services: [{ name: 'svc' }] }],
+    ['version', { version: '2.0' }],
+  ])('changing %s is refused', async (_field, overrides) => {
+    const r = await patch(AUTHOR, edit(overrides));
+    expect(r.status).toHaveBeenCalledWith(400);
+    expect(saved()).toEqual(stored);
+  });
+
+  test('dropping a signed field is refused', async () => {
+    const body = edit();
+    delete body.version;
+    const r = await patch(AUTHOR, body);
+    expect(r.status).toHaveBeenCalledWith(400);
+  });
+
   test('the same owners in another order is not a change', async () => {
     mockKVData.set(
       KEY,
