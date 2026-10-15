@@ -20,7 +20,8 @@ function lockedFieldChanges(body, existing) {
   const floor = minRuntimeVersionOf(existing);
   return LOCKED_FIELDS.filter(field =>
     field === 'minRuntimeVersion'
-      ? RUNTIME_FLOOR_SPELLINGS.some(
+      ? minRuntimeVersionOf(body) !== floor ||
+        RUNTIME_FLOOR_SPELLINGS.some(
           key =>
             body[key] !== undefined &&
             minRuntimeVersionOf({ [key]: body[key] }) !== floor

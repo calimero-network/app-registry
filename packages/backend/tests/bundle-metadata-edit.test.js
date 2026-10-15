@@ -203,6 +203,14 @@ describe('PATCH /api/v2/bundles/:pkg/:version — what may change', () => {
     expect(saved()).toEqual(stored);
   });
 
+  test('dropping a stored minRuntimeVersion is refused', async () => {
+    const floored = { ...stored, minRuntimeVersion: '1.2.0' };
+    mockKVData.set(KEY, JSON.stringify({ json: floored }));
+    const r = await patch(AUTHOR, edit());
+    expect(r.status).toHaveBeenCalledWith(400);
+    expect(saved()).toEqual(floored);
+  });
+
   test('a GET-then-PATCH round trip with only a description change is accepted', async () => {
     const { sanitizeBundle } = createBundleSanitizers(mockKv, {
       isApproved: async () => false,
