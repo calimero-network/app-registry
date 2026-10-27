@@ -215,6 +215,40 @@ describe('verifyBundleBinary', () => {
     );
   });
 
+  test('a hostile frontend path or service name is a 400, not a crash', async () => {
+    const hostile = { toString: 1 };
+    const hash = sha256(Buffer.from('x'));
+    for (const extra of [
+      {
+        frontend: {
+          entry: 'frontend/index.html',
+          files: [{ path: hostile, hash }],
+        },
+      },
+      { services: [{ name: hostile, wasm: { path: hostile, hash } }] },
+    ]) {
+      const { manifest, mpk } = await signedBundle(keys, { extra });
+      await expect(verifyBundleBinary(manifest, mpk)).rejects.toBeInstanceOf(
+        BundleIntegrityError
+      );
+    }
+  });
+
+  test('a frontend alone is not a bundle: it still needs a wasm', async () => {
+    const { manifest, files } = await frontendBundle(keys);
+    const unsigned = { ...manifest };
+    delete unsigned.wasm;
+    delete unsigned.abi;
+    delete unsigned.signature;
+    const signed = await signManifest(unsigned, keys);
+    const rest = { ...files, 'manifest.json': JSON.stringify(signed) };
+    delete rest['app.wasm'];
+    delete rest['abi.json'];
+    await expect(verifyBundleBinary(signed, pack(rest))).rejects.toThrow(
+      /references no wasm artifact/
+    );
+  });
+
   test('refuses an archive whose manifest.json was rewritten', async () => {
     const { manifest, files } = await signedBundle(keys);
     const wasm = crypto.randomBytes(256);

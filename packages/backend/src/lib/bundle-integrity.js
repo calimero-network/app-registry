@@ -192,20 +192,22 @@ function referencedArtifacts(manifest) {
   add('abi', manifest.abi);
   if (Array.isArray(manifest.services)) {
     for (const svc of manifest.services) {
-      add(`service "${svc?.name}" wasm`, svc?.wasm);
-      add(`service "${svc?.name}" abi`, svc?.abi);
+      // A hostile name must not throw from inside a template literal.
+      const name = typeof svc?.name === 'string' ? svc.name : '?';
+      add(`service "${name}" wasm`, svc?.wasm);
+      add(`service "${name}" abi`, svc?.abi);
     }
   }
   const frontendFiles = manifest.frontend?.files;
   if (Array.isArray(frontendFiles)) {
     for (const file of frontendFiles) {
+      add('frontend file', file); // first: it refuses a path that is not a string
       // The node serves only paths under FRONTEND_ROOT; anything else could alias a wasm or abi.
-      if (!String(file?.path).startsWith(FRONTEND_ROOT)) {
+      if (!file.path.startsWith(FRONTEND_ROOT)) {
         throw new BundleIntegrityError(
-          `Manifest frontend file path "${file?.path}" is not under ${FRONTEND_ROOT}`
+          `Manifest frontend file path "${file.path}" is not under ${FRONTEND_ROOT}`
         );
       }
-      add('frontend file', file);
     }
   }
   return refs;
@@ -263,7 +265,7 @@ async function verifyBundleBinary(manifest, buffer) {
   }
 
   const refs = referencedArtifacts(inner);
-  if (refs.length === 0) {
+  if (!refs.some(ref => ref.label.endsWith('wasm'))) {
     throw new BundleIntegrityError(
       'Bundle manifest references no wasm artifact'
     );
