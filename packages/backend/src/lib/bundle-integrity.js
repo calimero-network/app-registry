@@ -12,9 +12,9 @@
  *      signature as the pushed one, and it must verify on its own. Ed25519
  *      signatures cannot be moved to a different message, so this proves the
  *      archive's manifest is the manifest the publisher signed.
- *   2. Every artifact that signed manifest references (wasm, abi, and each
- *      service's wasm/abi) must be in the archive with a matching sha256 and
- *      size.
+ *   2. Every artifact that signed manifest references (wasm, abi, each
+ *      service's wasm/abi, and each frontend file) must be in the archive with
+ *      a matching sha256 and size.
  *   3. Nothing else may be in it: no unreferenced files, no duplicate paths,
  *      no links or devices. A file the manifest does not hash is a file an
  *      attacker could change.
@@ -32,6 +32,7 @@ const { verifyManifest, normalizeSignature } = require('./verify');
 // Hard ceilings so a small gzip cannot expand into an unbounded buffer.
 const MAX_UNPACKED_BYTES = 512 * 1024 * 1024;
 const MAX_ENTRIES = 1000;
+const FRONTEND_ROOT = 'frontend/'; // every bundled frontend file lives here, as the node requires
 
 class BundleIntegrityError extends Error {
   constructor(message) {
@@ -193,6 +194,18 @@ function referencedArtifacts(manifest) {
     for (const svc of manifest.services) {
       add(`service "${svc?.name}" wasm`, svc?.wasm);
       add(`service "${svc?.name}" abi`, svc?.abi);
+    }
+  }
+  const frontendFiles = manifest.frontend?.files;
+  if (Array.isArray(frontendFiles)) {
+    for (const file of frontendFiles) {
+      // The node serves only paths under FRONTEND_ROOT; anything else could alias a wasm or abi.
+      if (!String(file?.path).startsWith(FRONTEND_ROOT)) {
+        throw new BundleIntegrityError(
+          `Manifest frontend file path "${file?.path}" is not under ${FRONTEND_ROOT}`
+        );
+      }
+      add('frontend file', file);
     }
   }
   return refs;

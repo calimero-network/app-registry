@@ -129,6 +129,25 @@ async function signedBundle(keys, { version = '1.0.0', extra = {} } = {}) {
   return { manifest, files, mpk: pack(files) };
 }
 
+/** A signed bundle that also ships a frontend, listed under `frontend.files` as cargo-mero writes it. */
+async function frontendBundle(keys, scriptPath = 'frontend/assets/app.js') {
+  const html = Buffer.from(
+    '<!doctype html><script src="assets/app.js"></script>'
+  );
+  const js = Buffer.from('console.log(1)');
+  const art = (p, b) => ({ path: p, hash: sha256(b), size: b.length });
+  const { manifest, files } = await signedBundle(keys, {
+    extra: {
+      frontend: {
+        entry: 'frontend/index.html',
+        files: [art('frontend/index.html', html), art(scriptPath, js)],
+      },
+    },
+  });
+  const all = { ...files, 'frontend/index.html': html, [scriptPath]: js };
+  return { manifest, files: all, mpk: pack(all) };
+}
+
 describe('verifyBundleBinary', () => {
   let keys;
   beforeAll(async () => {
@@ -173,6 +192,26 @@ describe('verifyBundleBinary', () => {
     const evil = pack({ ...files, 'frontend/index.js': 'alert(1)' });
     await expect(verifyBundleBinary(manifest, evil)).rejects.toThrow(
       /does not reference/
+    );
+  });
+
+  test('accepts the frontend files its signed manifest lists', async () => {
+    const { manifest, mpk } = await frontendBundle(keys);
+    await expect(verifyBundleBinary(manifest, mpk)).resolves.toBeTruthy();
+  });
+
+  test('refuses a swapped frontend file', async () => {
+    const { manifest, files } = await frontendBundle(keys);
+    const evil = pack({ ...files, 'frontend/assets/app.js': 'alert(1)' });
+    await expect(verifyBundleBinary(manifest, evil)).rejects.toThrow(
+      /frontend file \(frontend\/assets\/app\.js\) does not match its signed/
+    );
+  });
+
+  test('refuses a frontend file outside frontend/', async () => {
+    const { manifest, mpk } = await frontendBundle(keys, 'app.js');
+    await expect(verifyBundleBinary(manifest, mpk)).rejects.toThrow(
+      /frontend file path "app\.js" is not under frontend\//
     );
   });
 
@@ -335,6 +374,15 @@ describe('storeBundleManifest never replaces a published binary', () => {
     mockBlobs.clear();
     jest.clearAllMocks();
     storage = new BundleStorageKV();
+  });
+
+  test('a bundle with a frontend is stored with its binary', async () => {
+    const { manifest, mpk } = await frontendBundle(keys);
+    await storage.storeBundleManifest({
+      ...manifest,
+      _binary: mpk.toString('hex'),
+    });
+    expect(mockBlobs.get('com.example.integrity/1.0.0').equals(mpk)).toBe(true);
   });
 
   test('a replay with other bytes is refused before anything is written', async () => {
