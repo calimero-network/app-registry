@@ -35,6 +35,10 @@ const {
 const {
   stampOwnerEmail,
 } = require('@calimero-network/registry-backend/src/lib/package-owner');
+const { resolveStagedUpload } = require('#api-lib/staged-upload');
+const {
+  deleteUpload,
+} = require('@calimero-network/registry-backend/src/lib/blob-store');
 const { resolveUser, rejectUnauthenticated } = require('#api-lib/auth-helpers');
 const { getUserByEmail } = require('#api-lib/user-storage');
 const { isBot, isAdmin } = require('#api-lib/admin-storage');
@@ -69,6 +73,7 @@ module.exports = async function handler(req, res) {
   if (req.method !== 'POST')
     return res.status(405).json({ error: 'Method not allowed' });
 
+  let stagedObject;
   try {
     // A publish needs an account (Bearer token for CLI/cargo-mero, session
     // cookie for web). The signature proves who BUILT the bundle, not who is
@@ -109,11 +114,17 @@ module.exports = async function handler(req, res) {
       });
     }
 
+    const staged = await resolveStagedUpload(bundleManifest, user.email);
+    stagedObject = staged.object;
+    if (staged.refusal) {
+      return res.status(staged.refusal.status).json(staged.refusal.body);
+    }
+
     if (typeof bundleManifest._binary !== 'string' || !bundleManifest._binary) {
       return res.status(400).json({
         error: 'missing_binary',
         message:
-          'Missing _binary: send the whole .mpk as hex in `_binary` (cargo mero publish does this), or upload it to /api/v2/bundles/push-file.',
+          'Missing _binary: send the whole .mpk as hex in `_binary` (cargo mero publish does this), upload it to /api/v2/bundles/upload-url and send `_upload: { object }`, or upload it to /api/v2/bundles/push-file.',
       });
     }
 
@@ -351,5 +362,11 @@ module.exports = async function handler(req, res) {
       error: 'internal_error',
       message: 'Internal error',
     });
+  } finally {
+    if (stagedObject) {
+      await deleteUpload(stagedObject).catch(err =>
+        console.error('Staged upload cleanup failed:', err)
+      );
+    }
   }
 };
