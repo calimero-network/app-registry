@@ -15,7 +15,7 @@ const { storageVar } = require('@calimero-network/registry-shared/storage-env');
 const bucketName = () => storageVar('GCS_BUCKET');
 const prefix = () => process.env.GCS_PREFIX || 'bundles';
 
-const MAX_BUNDLE_BYTES = 100 * 1024 * 1024;
+const MAX_BUNDLE_BYTES = 50 * 1024 * 1024;
 const UPLOAD_URL_TTL_MS = 15 * 60 * 1000;
 const UPLOAD_CONTENT_TYPE = 'application/gzip';
 

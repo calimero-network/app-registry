@@ -34,6 +34,12 @@ jest.mock('../../../api/lib/auth-helpers', () => {
   return { ...actual, resolveUser: async () => mockCurrentUser };
 });
 
+let mockTrusted = true;
+jest.mock('../../../api/lib/admin-storage', () => ({
+  isBot: jest.fn(async () => mockTrusted === 'bot'),
+  isAdmin: jest.fn(async () => mockTrusted === 'admin'),
+}));
+
 // In-memory bucket: name -> { data, size }
 const mockObjects = new Map();
 const mockGetSignedUrl = jest.fn(async () => [
@@ -66,6 +72,7 @@ jest.mock('@google-cloud/storage', () => ({
 const { MAX_BUNDLE_BYTES } = require('../src/lib/blob-store');
 const uploadUrlHandler = require('../../../api/v2/bundles/upload-url');
 const pushHandler = require('../../../api/v2/bundles/push');
+const { kv: apiKv } = require('../../../api/lib/kv-client');
 const { TEST_ICON } = require('./helpers/publishable');
 
 const EMAIL = 'dev@example.com';
@@ -111,8 +118,10 @@ const refusedWith = (res, status, error) => {
   expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error }));
 };
 
-beforeEach(() => {
+beforeEach(async () => {
   jest.clearAllMocks();
+  await apiKv._clear();
+  mockTrusted = 'bot';
   process.env.GCS_BUCKET = 'test-bucket';
   mockObjects.clear();
   mockCurrentUser = { email: EMAIL };
@@ -135,6 +144,36 @@ describe('POST /api/v2/bundles/upload-url', () => {
     const res = await call();
     expect(res.status).toHaveBeenCalledWith(401);
     expect(mockGetSignedUrl).not.toHaveBeenCalled();
+  });
+
+  test('refuses a signed-in account that is not bot, admin or staff', async () => {
+    mockTrusted = false;
+    const res = await call();
+    refusedWith(res, 403, 'forbidden');
+    expect(mockGetSignedUrl).not.toHaveBeenCalled();
+  });
+
+  test.each([['bot'], ['admin']])('allows a %s account', async kind => {
+    mockTrusted = kind;
+    expect((await call()).status).toHaveBeenCalledWith(200);
+  });
+
+  test('allows a staff account', async () => {
+    mockTrusted = false;
+    mockCurrentUser = { email: 'someone@calimero.network' };
+    expect((await call()).status).toHaveBeenCalledWith(200);
+  });
+
+  test('grants 100 per hour per account, then 429', async () => {
+    for (let i = 0; i < 100; i++) {
+      expect((await call()).status).toHaveBeenCalledWith(200);
+    }
+    const res = await call();
+    refusedWith(res, 429, 'rate_limited');
+    expect(res.setHeader).toHaveBeenCalledWith('Retry-After', '3600');
+    expect(mockGetSignedUrl).toHaveBeenCalledTimes(100);
+    mockCurrentUser = { email: 'other@example.com' };
+    expect((await call()).status).toHaveBeenCalledWith(200);
   });
 
   test('rejects other methods', async () => {
@@ -234,6 +273,10 @@ describe('push with _upload', () => {
       400,
       'upload_not_found'
     );
+  });
+
+  test('the staged cap is 50 MiB', () => {
+    expect(MAX_BUNDLE_BYTES).toBe(50 * 1024 * 1024);
   });
 
   test('oversize staging object is 413', async () => {

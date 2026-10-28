@@ -84,7 +84,8 @@ paths:
     post:
       summary: Get a signed URL to upload a bundle straight to storage
       description: >
-        For bundles too large for a function request body. PUT the raw .mpk to
+        Limited to bot, admin and staff accounts (403 otherwise), 100 grants
+        per hour per account (429), objects up to 50 MiB. For bundles too large for a function request body. PUT the raw .mpk to
         `url` with `headers` replayed verbatim before `expiresAt`, then push
         the manifest with `_upload: { object }` instead of `_binary`. The
         bucket needs no CORS for CLI/CI uploads; an optional lifecycle rule

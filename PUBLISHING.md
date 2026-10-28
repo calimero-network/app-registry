@@ -434,7 +434,7 @@ Have the script accept a `--print-release` flag: a CI cache key needs the pinned
 The whole `.mpk` rides along under a `_binary` field; `_`-prefixed keys are stripped before signature verification, so attaching it does not disturb what was signed.
 
 Vercel rejects request bodies over 4.5 MB, which a hex-encoded `.mpk` of about 2.3 MiB or more exceeds.
-For those, `POST /api/v2/bundles/upload-url` (same auth) returns `{ url, object, method, headers, expiresAt }`.
+For those, `POST /api/v2/bundles/upload-url` (bot, admin or staff accounts only, 100 per hour each; the object may be up to 50 MiB) returns `{ url, object, method, headers, expiresAt }`.
 `PUT` the raw `.mpk` to `url` with `headers` replayed verbatim before `expiresAt` (15 minutes), then push the manifest with `_upload: { object }` in place of `_binary`.
 Sending both is `400 invalid_upload`; an object from another account is refused the same way.
 The staging object is deleted after the push.
