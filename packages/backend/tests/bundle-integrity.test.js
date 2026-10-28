@@ -106,8 +106,10 @@ function rawTar(entries) {
 }
 
 /** A signed manifest plus the .mpk it describes, the way cargo-mero ships it. */
-async function signedBundle(keys, { version = '1.0.0', extra = {} } = {}) {
-  const wasm = crypto.randomBytes(256);
+async function signedBundle(
+  keys,
+  { version = '1.0.0', extra = {}, wasm = crypto.randomBytes(256) } = {}
+) {
   const abi = Buffer.from('{"methods":[]}');
   const manifest = await signManifest(
     {
@@ -417,6 +419,28 @@ describe('storeBundleManifest never replaces a published binary', () => {
       _binary: mpk.toString('hex'),
     });
     expect(mockBlobs.get('com.example.integrity/1.0.0').equals(mpk)).toBe(true);
+  });
+
+  test('a bundle over 4 MiB is stored with its binary', async () => {
+    const wasm = crypto.randomBytes(4 * 1024 * 1024);
+    const { manifest, mpk } = await signedBundle(keys, { wasm });
+    await storage.storeBundleManifest({
+      ...manifest,
+      _binary: mpk.toString('hex'),
+    });
+    expect(mockBlobs.get('com.example.integrity/1.0.0').equals(mpk)).toBe(true);
+  });
+
+  test.each([
+    ['odd length', 'abc'],
+    ['a non-hex character', 'abzz'],
+    ['empty', ''],
+  ])('a binary with %s is refused', async (_why, hex) => {
+    const { manifest } = await signedBundle(keys);
+    await expect(
+      storage.storeBundleManifest({ ...manifest, _binary: hex })
+    ).rejects.toBeInstanceOf(BundleIntegrityError);
+    expect(blob.putBinary).not.toHaveBeenCalled();
   });
 
   test('a replay with other bytes is refused before anything is written', async () => {
