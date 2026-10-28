@@ -15,6 +15,10 @@ const { storageVar } = require('@calimero-network/registry-shared/storage-env');
 const bucketName = () => storageVar('GCS_BUCKET');
 const prefix = () => process.env.GCS_PREFIX || 'bundles';
 
+const MAX_BUNDLE_BYTES = 100 * 1024 * 1024;
+const UPLOAD_URL_TTL_MS = 15 * 60 * 1000;
+const UPLOAD_CONTENT_TYPE = 'application/gzip';
+
 /**
  * Lazily build (and cache) the GCS client + bucket handle. The cache is keyed by
  * bucket name so a changed GCS_BUCKET rebuilds rather than reusing a stale handle.
@@ -128,6 +132,61 @@ async function deleteBinary(pkgVersionKey, { ifGeneration } = {}) {
     });
 }
 
+/** Thrown by getUpload when a staged object exceeds MAX_BUNDLE_BYTES. */
+class UploadTooLargeError extends Error {
+  constructor() {
+    super(`Upload exceeds ${MAX_BUNDLE_BYTES} bytes`);
+    this.name = 'UploadTooLargeError';
+  }
+}
+
+/**
+ * V4 signed PUT for a staging object. The size cap is a signed extension
+ * header, so GCS itself refuses a larger body; the client must replay `headers`.
+ */
+async function signedUploadUrl(object) {
+  const headers = {
+    'Content-Type': UPLOAD_CONTENT_TYPE,
+    'x-goog-content-length-range': `0,${MAX_BUNDLE_BYTES}`,
+  };
+  const expires = Date.now() + UPLOAD_URL_TTL_MS;
+  const [url] = await getBucket()
+    .file(object)
+    .getSignedUrl({
+      version: 'v4',
+      action: 'write',
+      expires,
+      contentType: UPLOAD_CONTENT_TYPE,
+      extensionHeaders: {
+        'x-goog-content-length-range': headers['x-goog-content-length-range'],
+      },
+    });
+  return {
+    url,
+    method: 'PUT',
+    headers,
+    expiresAt: new Date(expires).toISOString(),
+  };
+}
+
+/** Staged upload as a Buffer, or null when missing. Throws UploadTooLargeError. */
+async function getUpload(object) {
+  const file = getBucket().file(object);
+  try {
+    const [meta] = await file.getMetadata();
+    if (Number(meta.size) > MAX_BUNDLE_BYTES) throw new UploadTooLargeError();
+    const [contents] = await file.download();
+    return contents;
+  } catch (err) {
+    if (isNotFound(err)) return null;
+    throw err;
+  }
+}
+
+async function deleteUpload(object) {
+  await getBucket().file(object).delete({ ignoreNotFound: true });
+}
+
 /** Test hook: drop the cached client so a later call rebuilds from current env. */
 function _resetForTests() {
   _storage = undefined;
@@ -137,6 +196,11 @@ function _resetForTests() {
 
 module.exports = {
   BlobExistsError,
+  UploadTooLargeError,
+  MAX_BUNDLE_BYTES,
+  signedUploadUrl,
+  getUpload,
+  deleteUpload,
   putBinary,
   getBinary,
   deleteBinary,

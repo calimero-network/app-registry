@@ -63,7 +63,9 @@ paths:
         '201':
           description: Bundle created successfully
         '400':
-          description: Invalid bundle manifest
+          description: >
+            Invalid bundle manifest, or `_upload` is invalid (`invalid_upload`,
+            `upload_not_found`). `_upload: { object }` replaces `_binary`.
         '403':
           description: Not the package owner (only signer or a key in manifest.owners can push)
           content:
@@ -78,6 +80,40 @@ paths:
                     type: string
         '409':
           description: Bundle already exists
+  /api/v2/bundles/upload-url:
+    post:
+      summary: Get a signed URL to upload a bundle straight to storage
+      description: >
+        For bundles too large for a function request body. PUT the raw .mpk to
+        `url` with `headers` replayed verbatim before `expiresAt`, then push
+        the manifest with `_upload: { object }` instead of `_binary`. The
+        bucket needs no CORS for CLI/CI uploads; an optional lifecycle rule
+        deleting `uploads/` after 1 day clears abandoned uploads.
+      responses:
+        '200':
+          description: Signed upload URL
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  url:
+                    type: string
+                  object:
+                    type: string
+                    description: Pass as `_upload.object` to push
+                  method:
+                    type: string
+                    example: PUT
+                  headers:
+                    type: object
+                    additionalProperties:
+                      type: string
+                  expiresAt:
+                    type: string
+                    format: date-time
+        '401':
+          description: Login required
   /api/v2/bundles/{package}/{version}:
     get:
       summary: Get specific bundle
