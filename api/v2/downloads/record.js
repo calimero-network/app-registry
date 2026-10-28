@@ -14,6 +14,7 @@
 
 const crypto = require('crypto');
 const { kv } = require('#api-lib/kv-client');
+const { isPrivatePackage } = require('#api-lib/package-records');
 const {
   BundleStorageKV,
 } = require('@calimero-network/registry-backend/src/lib/bundle-storage-kv');
@@ -111,9 +112,13 @@ module.exports = async function handler(req, res) {
 
   try {
     const store = getStorage();
-    const exists = version
-      ? await store.bundleExists(pkg, version)
-      : (await store.getBundleVersions(pkg)).length > 0;
+    // A private package is answered like a missing one: this endpoint is
+    // anonymous, so counting it would confirm the name exists.
+    const exists =
+      !(await isPrivatePackage(pkg)) &&
+      (version
+        ? await store.bundleExists(pkg, version)
+        : (await store.getBundleVersions(pkg)).length > 0);
     if (!exists) {
       return res.status(404).json({
         error: 'not_found',

@@ -14,7 +14,11 @@ const {
 } = require('@calimero-network/registry-backend/src/lib/metadata-policy');
 const { isBot, isAdmin } = require('#api-lib/admin-storage');
 const { kv } = require('#api-lib/kv-client');
-const { resolveUser, rejectUnauthenticated } = require('#api-lib/auth-helpers');
+const {
+  resolveUser,
+  rejectUnauthenticated,
+  hasCloudScope,
+} = require('#api-lib/auth-helpers');
 
 const RATE_LIMIT = 100; // grants per account per window; a full Release publishes ~25 apps from one bot
 const RATE_WINDOW_SECONDS = 3600;
@@ -29,20 +33,21 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const user = await resolveUser(req);
+    const user = await resolveUser(req, { allowCloud: true });
     if (!user?.email) return rejectUnauthenticated(req, res);
 
     // Any Google account can sign in; an open endpoint would let anyone park large objects in the bucket.
+    // A Cloud token with the `publish` scope is accepted: Cloud orgs are
+    // vetted by the Cloud manager, and the rate limit below still applies.
     const email = user.email;
-    if (!(
-      isStaffEmail(email) ||
-      (await isBot(email)) ||
-      (await isAdmin(email))
-    )) {
+    const allowed = user.cloud
+      ? hasCloudScope(user, 'publish')
+      : isStaffEmail(email) || (await isBot(email)) || (await isAdmin(email));
+    if (!allowed) {
       return res.status(403).json({
         error: 'forbidden',
         message:
-          'Direct upload is limited to bot, admin and staff accounts; publish with _binary or /push-file.',
+          'Direct upload is limited to bot, admin and staff accounts and Cloud tokens with the publish scope; publish with _binary or /push-file.',
       });
     }
 

@@ -14,6 +14,26 @@ const {
   buildBundleListing,
 } = require('@calimero-network/registry-backend/src/lib/bundle-listing');
 const { resolveUser, rejectUnauthenticated } = require('#api-lib/auth-helpers');
+const { readGate, classifyPackages } = require('#api-lib/package-records');
+
+const resolveViewer = req =>
+  resolveUser(req, { allowCloud: true }).catch(() => null);
+
+/**
+ * Private packages (api/lib/package-records.js) are left out of every listing
+ * unless the caller may read them, and a response that contains one is
+ * `private, no-store` — it must never land in the shared edge cache.
+ *
+ * ⚠️ THE EDGE CACHE CANNOT TELL CALLERS APART. An anonymous listing is cached
+ * at the CDN for EDGE_FRESH_SECONDS by URL, so an authenticated caller asking
+ * the same URL may be answered from that cache without the function running.
+ * Callers that want their org's private packages pass `include_private=1`:
+ * a distinct URL that is always answered `no-store`.
+ */
+function wantsPrivate(query) {
+  const value = query?.include_private;
+  return value === '1' || value === 'true';
+}
 
 // Singleton storage instance (shared Redis connection with the sibling bundle
 // endpoints — this handler used to open a second one of its own).
@@ -55,7 +75,9 @@ async function wantsFresh(req) {
   const value = req.query?.fresh;
   if (value !== '1' && value !== 'true') return false;
   if (req.query?.package) return true;
-  return !!(await resolveUser(req));
+  // A Cloud read JWT counts: the Cloud manager lists an org's packages with
+  // `?fresh=1` (see docs/cloud-integration.md).
+  return !!(await resolveViewer(req));
 }
 
 function wantsMine(query) {
@@ -104,6 +126,8 @@ module.exports = async function handler(req, res) {
     const { package: pkg, version, developer, author } = req.query || {};
 
     if (pkg && version) {
+      const access = await readGate(req, pkg, resolveViewer);
+      if (!access.allowed) return res.status(404).json({ error: 'not_found' });
       const raw = await store.getBundleManifest(pkg, version);
       if (!raw) return res.status(404).json({ error: 'not_found' });
       const [downloadCount, yankFlag] = await Promise.all([
@@ -112,6 +136,17 @@ module.exports = async function handler(req, res) {
       ]);
       const downloads = downloadCount ? parseInt(downloadCount, 10) : 0;
       const sanitized = await sanitizeBundle(raw, pkg);
+      if (access.private) {
+        res.setHeader('Cache-Control', 'private, no-store');
+        return res.status(200).json([
+          {
+            ...sanitized,
+            yanked: yankFlag === '1',
+            downloads,
+            visibility: 'private',
+          },
+        ]);
+      }
       return sendCached(
         res,
         [{ ...sanitized, yanked: yankFlag === '1', downloads }],
@@ -155,13 +190,22 @@ module.exports = async function handler(req, res) {
     // either way is an API decision affecting the frontend and CLI. Both
     // behaviours are pinned in tests/bundle-listing-parity.test.js.
     const wantAllVersions = all_versions === 'true' && !!pkg;
-    const entries = await store.listBundleManifests({
+    const allEntries = await store.listBundleManifests({
       package: pkg || null,
       allVersions: wantAllVersions,
       includeYanked: true,
       skipYanked: true,
       keepAllYanked: !!(developer || author || owner),
     });
+
+    const viewer = owner || (await resolveViewer(req));
+    const { hidden, visiblePrivate } = await classifyPackages(
+      allEntries.map(e => e.packageName),
+      viewer
+    );
+    const entries = hidden.size
+      ? allEntries.filter(e => !hidden.has(e.packageName))
+      : allEntries;
 
     // Filtering, sanitization, download counts and ordering are shared with
     // the Fastify copy, so the two cannot disagree on how a listing entry is
@@ -173,7 +217,16 @@ module.exports = async function handler(req, res) {
       author,
       owner,
     });
+    if (visiblePrivate.size) {
+      for (const bundle of bundles) {
+        if (visiblePrivate.has(bundle?.package)) bundle.visibility = 'private';
+      }
+    }
     if (owner) return res.status(200).json(bundles);
+    if (visiblePrivate.size || wantsPrivate(req.query)) {
+      res.setHeader('Cache-Control', 'private, no-store');
+      return res.status(200).json(bundles);
+    }
     return sendCached(res, bundles, { fresh });
   } catch (error) {
     console.error('List Error:', error);

@@ -2,6 +2,11 @@
  * V2 Bundle Push API
  * POST /api/v2/bundles/push
  * Requires signature; verifies and enforces package ownership (same key as existing versions).
+ *
+ * Accepts a registry account (session / API token) or a Calimero Cloud JWT
+ * with the `publish` scope. Visibility comes from `_visibility` in the body or
+ * the `X-Registry-Visibility` header: a Cloud publish defaults to private, a
+ * registry publish to public (see api/lib/package-records.js publishGate).
  */
 
 const {
@@ -39,7 +44,17 @@ const { resolveStagedUpload } = require('#api-lib/staged-upload');
 const {
   deleteUpload,
 } = require('@calimero-network/registry-backend/src/lib/blob-store');
-const { resolveUser, rejectUnauthenticated } = require('#api-lib/auth-helpers');
+const {
+  resolveUser,
+  rejectUnauthenticated,
+  hasCloudScope,
+} = require('#api-lib/auth-helpers');
+const {
+  publishGate,
+  finishPublish,
+  manifestDigest,
+  bundleDigest,
+} = require('#api-lib/package-records');
 const { getUserByEmail } = require('#api-lib/user-storage');
 const { isBot, isAdmin } = require('#api-lib/admin-storage');
 const {
@@ -80,9 +95,15 @@ module.exports = async function handler(req, res) {
     // sending it — a public signed manifest can be replayed by anyone — so an
     // anonymous push is refused before anything else. Bots are accounts too
     // and may publish, hence resolveUser rather than requireAuth.
-    const user = await resolveUser(req);
+    const user = await resolveUser(req, { allowCloud: true });
     if (!user?.email) {
       return rejectUnauthenticated(req, res);
+    }
+    if (user.cloud && !hasCloudScope(user, 'publish')) {
+      return res.status(403).json({
+        error: 'insufficient_scope',
+        message: 'This Cloud token lacks the "publish" scope.',
+      });
     }
 
     const declared = Number(req.headers?.['content-length']);
@@ -167,6 +188,8 @@ module.exports = async function handler(req, res) {
 
     const devKey = devSigningKeyRefusal(bundleManifest);
     if (devKey) return res.status(devKey.status).json(devKey.body);
+    // Of what was signed, before the server rewrites any metadata below.
+    const signedDigest = manifestDigest(bundleManifest);
 
     const ownerEmail = user.email;
     const profile = await getUserByEmail(user.email);
@@ -222,10 +245,13 @@ module.exports = async function handler(req, res) {
       const reservedPrefix = reservedPackagePrefix(bundleManifest.package);
       if (reservedPrefix) {
         const email = user?.email;
+        // A Cloud token is never staff: reserved prefixes stay reserved to
+        // registry accounts, whatever email the token names.
         const allowed =
-          isStaffEmail(email) ||
-          (!!email && (await isAdmin(email))) ||
-          (!!email && (await isBot(email)));
+          !user.cloud &&
+          (isStaffEmail(email) ||
+            (!!email && (await isAdmin(email))) ||
+            (!!email && (await isBot(email))));
         if (!allowed) {
           return res.status(403).json({
             error: 'reserved_prefix',
@@ -235,19 +261,23 @@ module.exports = async function handler(req, res) {
       }
     }
 
+    let manifestLatest = null;
     if (versions.length > 0) {
       const latestVersion = versions[0];
-      const manifestLatest = await store.getBundleManifest(
+      manifestLatest = await store.getBundleManifest(
         bundleManifest.package,
         latestVersion
       );
-      // A package key, or an admin/owner of the package's organization.
-      const permission = await resolvePublishPermission(
-        manifestLatest,
-        incomingKey,
-        bundleManifest.package,
-        user?.email
-      );
+      // A package key, or an admin/owner of the package's organization. A
+      // Cloud publish is checked by publishGate instead (org + pinned key).
+      const permission = user.cloud
+        ? { allowed: true, viaOrg: false }
+        : await resolvePublishPermission(
+            manifestLatest,
+            incomingKey,
+            bundleManifest.package,
+            user?.email
+          );
       if (!permission.allowed) {
         return res.status(403).json({
           error: 'not_owner',
@@ -335,6 +365,24 @@ module.exports = async function handler(req, res) {
     }
     bundleManifest._publishedAt = new Date().toISOString();
 
+    // Org, namespace, visibility and quotas.
+    const gate = await publishGate({
+      user,
+      pkg: bundleManifest.package,
+      versions,
+      latestManifest: manifestLatest,
+      incomingKey,
+      installSize: bundleManifest._installSize || 0,
+      manifest: bundleManifest,
+      headers: req.headers,
+    });
+    if (gate.refusal) {
+      return res.status(gate.refusal.status).json(gate.refusal.body);
+    }
+    const { plan } = gate;
+    // Transient: never stored on the manifest.
+    delete bundleManifest._visibility;
+
     const overwrite =
       process.env.ALLOW_BUNDLE_OVERWRITE === 'true' ||
       process.env.ALLOW_BUNDLE_OVERWRITE === '1';
@@ -347,12 +395,26 @@ module.exports = async function handler(req, res) {
       bundleManifest.package
     );
 
+    const record = await finishPublish(plan, {
+      user,
+      incomingKey,
+      ownerEmail: bundleManifest.metadata?._ownerEmail || ownerEmail,
+      version: bundleManifest.appVersion,
+      installSize: bundleManifest._installSize,
+      digests: {
+        manifest: signedDigest,
+        bundle: bundleDigest(bundleManifest._binary),
+      },
+    });
+
+    const warnings = [...policy.warnings, ...plan.warnings];
     return res.status(201).json({
       message: 'Bundle published successfully',
       package: bundleManifest.package,
       version: bundleManifest.appVersion,
       installSize: bundleManifest._installSize,
-      ...(policy.warnings.length ? { warnings: policy.warnings } : {}),
+      visibility: record?.visibility || plan.visibility,
+      ...(warnings.length ? { warnings } : {}),
     });
   } catch (error) {
     const refused = storeRefusal(error);

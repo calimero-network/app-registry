@@ -36,6 +36,7 @@ const {
 const { kv } = require('#api-lib/kv-client');
 const { resolveUser, canManagePackage } = require('#api-lib/auth-helpers');
 const { isAdmin } = require('#api-lib/admin-storage');
+const { readGate } = require('#api-lib/package-records');
 
 let storage;
 const getStorage = () => (storage ??= new BundleStorageKV());
@@ -54,6 +55,17 @@ module.exports = async function handler(req, res) {
   }
 
   try {
+    // ⚠️ PRIVATE PACKAGES ARE ABSENT, NOT FORBIDDEN, to anyone who may not
+    // read them — the same 404 as a name that was never published.
+    const access = await readGate(req, pkg, r =>
+      resolveUser(r, { allowCloud: true })
+    );
+    if (!access.allowed) {
+      return res
+        .status(404)
+        .json({ error: 'not_found', message: `No such package: ${pkg}` });
+    }
+    if (access.private) res.setHeader('Cache-Control', 'private, no-store');
     const store = getStorage();
     const versions = await store.getBundleVersions(pkg);
     if (!versions?.length) {
@@ -104,6 +116,7 @@ module.exports = async function handler(req, res) {
 
     return res.status(200).json({
       package: pkg,
+      visibility: access.private ? 'private' : 'public',
       version,
       versions,
       yankedVersions,

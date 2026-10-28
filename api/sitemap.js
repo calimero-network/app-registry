@@ -21,6 +21,7 @@
 const {
   BundleStorageKV,
 } = require('@calimero-network/registry-backend/src/lib/bundle-storage-kv');
+const { privatePackages } = require('#api-lib/package-records');
 const { kv } = require('@calimero-network/registry-backend/src/lib/kv-client');
 const {
   buildBundleListing,
@@ -100,11 +101,14 @@ ${urls.map(renderUrl).join('\n')}
 
 /** Latest published version per package, newest publish date first. */
 async function listPackages() {
-  const entries = await getStorage().listBundleManifests({
+  const listed = await getStorage().listBundleManifests({
     package: null,
     allVersions: false,
     skipYanked: true,
   });
+  // Private packages are never advertised.
+  const hidden = await privatePackages(listed.map(e => e.packageName));
+  const entries = listed.filter(e => !hidden.has(e.packageName));
   const bundles = await buildBundleListing({ entries, kv });
 
   const seen = new Set();
