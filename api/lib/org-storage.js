@@ -2,6 +2,7 @@
  * Organization storage (Redis) for NPM-style organizations.
  * Members are identified by email address (not pubkey).
  * Keys: org:{org_id}, org:by_slug:{slug}, org:{org_id}:members, org:{org_id}:roles, pkg2org:{package}
+ * Cloud: org:by_cloud:{cloud_org_id} -> org_id; the org document carries `cloud_org_id`.
  */
 
 const { kv } = require('./kv-client');
@@ -14,6 +15,7 @@ const ROLES_SUFFIX = ':roles';
 const PKG2ORG_PREFIX = 'pkg2org:';
 const MEMBER2ORGS_PREFIX = 'member2orgs:';
 const ORG_PACKAGES_SUFFIX = ':packages';
+const ORG_BY_CLOUD_PREFIX = 'org:by_cloud:';
 
 function _normEmail(email) {
   return (email && typeof email === 'string' ? email : '').toLowerCase();
@@ -333,6 +335,118 @@ async function deleteOrg(orgId) {
   if (org?.slug) {
     await kv.del(ORG_BY_SLUG_PREFIX + org.slug);
   }
+  if (org?.cloud_org_id) {
+    if ((await kv.get(ORG_BY_CLOUD_PREFIX + org.cloud_org_id)) === orgId) {
+      await kv.del(ORG_BY_CLOUD_PREFIX + org.cloud_org_id);
+    }
+  }
+}
+
+// ── Calimero Cloud org linkage ──────────────────────────────────────────────
+//
+// A Cloud org (identified by the `org` claim of a Cloud JWT) maps to exactly
+// one registry org, whose document carries `cloud_org_id`. Membership of a
+// Cloud-linked org lives in Cloud — the registry trusts the role in the JWT —
+// so these orgs normally have no registry members.
+
+const CLOUD_ORG_ID_RE = /^[A-Za-z0-9_-]{1,128}$/;
+const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/;
+
+/** @returns {Promise<string|null>} registry org id linked to a Cloud org */
+async function getOrgIdByCloudOrg(cloudOrgId) {
+  if (!cloudOrgId || typeof cloudOrgId !== 'string') return null;
+  const raw = await kv.get(ORG_BY_CLOUD_PREFIX + cloudOrgId);
+  if (raw === null || raw === undefined) return null;
+  return typeof raw === 'string' ? raw : String(raw);
+}
+
+/** @returns {Promise<object|null>} registry org document linked to a Cloud org */
+async function getOrgByCloudOrg(cloudOrgId) {
+  const orgId = await getOrgIdByCloudOrg(cloudOrgId);
+  return orgId ? getOrg(orgId) : null;
+}
+
+/**
+ * Link an existing registry org to a Cloud org (migration / admin path).
+ * Refuses to re-point a Cloud org that is already linked elsewhere.
+ */
+async function linkCloudOrg(orgId, cloudOrgId) {
+  if (!CLOUD_ORG_ID_RE.test(String(cloudOrgId || ''))) {
+    throw new Error('invalid cloud org id');
+  }
+  const org = await getOrg(orgId);
+  if (!org) throw new Error(`org ${orgId} not found`);
+  const existing = await getOrgIdByCloudOrg(cloudOrgId);
+  if (existing && existing !== orgId) {
+    throw new Error(`cloud org ${cloudOrgId} is already linked to ${existing}`);
+  }
+  if (org.cloud_org_id && org.cloud_org_id !== cloudOrgId) {
+    throw new Error(`org ${orgId} is already linked to ${org.cloud_org_id}`);
+  }
+  await kv.set(ORG_BY_CLOUD_PREFIX + cloudOrgId, orgId);
+  await setOrg({ ...org, cloud_org_id: cloudOrgId });
+  return { ...org, cloud_org_id: cloudOrgId };
+}
+
+/** A slug for a new Cloud-backed org that collides with nothing. */
+async function freeCloudSlug(orgSlug, cloudOrgId) {
+  const {
+    isReservedOrgSlug,
+  } = require('@calimero-network/registry-shared/org-slugs');
+  const base = String(orgSlug || '').toLowerCase();
+  const tail = cloudOrgId
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '')
+    .slice(0, 8);
+  const candidates = [];
+  // ⚠️ NEVER ADOPT AN EXISTING REGISTRY ORG BY SLUG. A Cloud org called
+  // "acme" is not the registry org "acme" until an admin links them; it gets
+  // a fresh, non-colliding slug instead.
+  if (SLUG_RE.test(base) && !isReservedOrgSlug(base)) {
+    candidates.push(base, `${base}-cloud`, `${base}-${tail || 'cloud'}`);
+  }
+  candidates.push(`cloud-${tail || 'org'}`);
+  for (const slug of candidates) {
+    if (!SLUG_RE.test(slug) || isReservedOrgSlug(slug)) continue;
+    if (!(await getOrgIdBySlug(slug))) return slug;
+  }
+  return `cloud-${Date.now().toString(36)}`;
+}
+
+/**
+ * The registry org for a Cloud org, created on first use. Idempotent and
+ * race-safe: concurrent first publishes converge on one org through SETNX on
+ * the `org:by_cloud:` index.
+ *
+ * @param {string} cloudOrgId - the JWT `org` claim
+ * @param {string|null} orgSlug - the JWT `org_slug` claim (display only)
+ * @returns {Promise<object>} org document
+ */
+async function ensureCloudOrg(cloudOrgId, orgSlug) {
+  if (!CLOUD_ORG_ID_RE.test(String(cloudOrgId || ''))) {
+    throw new Error('invalid cloud org id');
+  }
+  const linked = await getOrgByCloudOrg(cloudOrgId);
+  if (linked) return linked;
+
+  const orgId = `cloud-${cloudOrgId}`;
+  const won = await kv.setNX(ORG_BY_CLOUD_PREFIX + cloudOrgId, orgId);
+  if (!won) {
+    const winner = await getOrgByCloudOrg(cloudOrgId);
+    if (winner) return winner;
+  }
+  const existing = await getOrg(orgId);
+  if (existing) return existing;
+  const slug = await freeCloudSlug(orgSlug, cloudOrgId);
+  const org = {
+    id: orgId,
+    name: orgSlug || slug,
+    slug,
+    cloud_org_id: cloudOrgId,
+    metadata: { source: 'cloud' },
+  };
+  await setOrg(org);
+  return (await getOrg(orgId)) || org;
 }
 
 const PUBLISHER_NOT_IN_PACKAGE_MESSAGE =
@@ -449,6 +563,10 @@ module.exports = {
   deletePkg2Org,
   getPackagesByOrg,
   deleteOrg,
+  getOrgIdByCloudOrg,
+  getOrgByCloudOrg,
+  linkCloudOrg,
+  ensureCloudOrg,
   isAllowedToPublish,
   publisherBelongsToPackage,
   resolvePublishPermission,

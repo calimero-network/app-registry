@@ -27,9 +27,16 @@ const {
 } = require('#api-lib/verify');
 const {
   requireAuth,
+  resolveUser,
   canManagePackage,
   NOT_OWNER_MESSAGE,
 } = require('#api-lib/auth-helpers');
+const {
+  readGate,
+  packageOrgId,
+  isPrivatePackage,
+} = require('#api-lib/package-records');
+const { appendAudit } = require('#api-lib/org-audit');
 const { kv } = require('#api-lib/kv-client');
 const {
   storageVar,
@@ -180,6 +187,9 @@ async function handlePatch(req, res, pkg, version) {
   }
 
   if (!(await canManagePackage(pkg, existing, user))) {
+    if (await isPrivatePackage(pkg)) {
+      return res.status(404).json({ error: 'not_found' });
+    }
     return res.status(403).json({
       error: 'not_owner',
       message: NOT_OWNER_MESSAGE,
@@ -314,7 +324,7 @@ module.exports = async function handler(req, res) {
   }
 
   if (req.method === 'DELETE') {
-    const user = await requireAuth(req, res);
+    const user = await requireAuth(req, res, { allowCloud: true });
     if (!user) return;
 
     const store = getStorage();
@@ -337,6 +347,10 @@ module.exports = async function handler(req, res) {
     }
 
     if (!(await canManagePackage(pkg, existing, user))) {
+      // A private package is not confirmed to someone who may not manage it.
+      if (await isPrivatePackage(pkg)) {
+        return res.status(404).json({ error: 'not_found' });
+      }
       return res.status(403).json({
         error: 'not_owner',
         message: NOT_OWNER_MESSAGE,
@@ -344,9 +358,16 @@ module.exports = async function handler(req, res) {
     }
 
     try {
+      const orgId = await packageOrgId(pkg).catch(() => null);
       await store.deleteBundleVersion(pkg, version);
       // Clean up yank flag so a future re-publish of the same semver starts fresh.
       await kv.del(`bundle-yanked:${pkg}/${version}`).catch(() => {});
+      await appendAudit(orgId, {
+        type: 'delete_version',
+        package: pkg,
+        version,
+        user,
+      });
       return res.status(200).json({ message: `Deleted ${pkg}@${version}` });
     } catch (error) {
       console.error('DELETE version error:', error);
@@ -380,6 +401,13 @@ module.exports = async function handler(req, res) {
   const { sanitizeBundle } = createBundleSanitizers(kv);
 
   try {
+    // A private package the caller may not read is answered exactly like one
+    // that does not exist.
+    const access = await readGate(req, pkg, r =>
+      resolveUser(r, { allowCloud: true })
+    );
+    if (!access.allowed) return res.status(404).json({ error: 'not_found' });
+    if (access.private) res.setHeader('Cache-Control', 'private, no-store');
     const data = await readKv.get(`bundle:${pkg}/${version}`);
     if (!data) return res.status(404).json({ error: 'not_found' });
     const raw = JSON.parse(data).json;
@@ -393,6 +421,7 @@ module.exports = async function handler(req, res) {
       ...sanitized,
       yanked: yankFlag === '1',
       downloads,
+      ...(access.private ? { visibility: 'private' } : {}),
     });
   } catch (error) {
     console.error('Get Error:', error);

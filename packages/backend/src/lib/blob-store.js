@@ -118,6 +118,36 @@ async function getBinary(pkgVersionKey) {
   }
 }
 
+/**
+ * Open a bundle binary as a stream, for serving without buffering it.
+ *
+ * Resolves `{ stream, size, generation }`, or null when the bucket is not
+ * configured or the object does not exist (callers then fall back to the
+ * legacy Redis copy). The read is pinned to the generation the metadata
+ * reported, so `size` (sent as Content-Length) always matches the bytes
+ * streamed even if the object were replaced mid-download.
+ */
+async function openBinaryStream(pkgVersionKey) {
+  if (!bucketName()) return null;
+  const file = getBucket().file(objectKey(pkgVersionKey));
+  let meta;
+  try {
+    [meta] = await file.getMetadata();
+  } catch (err) {
+    if (isNotFound(err)) return null;
+    throw err;
+  }
+  const generation = meta?.generation ?? null;
+  const pinned = generation
+    ? getBucket().file(objectKey(pkgVersionKey), { generation })
+    : file;
+  return {
+    stream: pinned.createReadStream(),
+    size: Number(meta?.size),
+    generation,
+  };
+}
+
 async function deleteBinary(pkgVersionKey, { ifGeneration } = {}) {
   // Mirror getBinary: no bucket configured → nothing to delete (don't throw, so
   // callers like deleteBundleVersion can still clean up Redis + indexes).
@@ -203,6 +233,7 @@ module.exports = {
   deleteUpload,
   putBinary,
   getBinary,
+  openBinaryStream,
   deleteBinary,
   objectKey,
   _resetForTests,

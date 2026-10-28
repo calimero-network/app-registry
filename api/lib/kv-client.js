@@ -159,6 +159,23 @@ if (isStorageBlocked()) {
       return await redisClient.hDel(key, ...fields);
     },
 
+    // List operations — the per-org audit log is an append-only list.
+    async rPush(key, ...values) {
+      await this._ensureConnected();
+      const list = values.flat().map(v => String(v));
+      return list.length ? await redisClient.rPush(key, list) : 0;
+    },
+
+    async lRange(key, start, stop) {
+      await this._ensureConnected();
+      return await redisClient.lRange(key, start, stop);
+    },
+
+    async lLen(key) {
+      await this._ensureConnected();
+      return await redisClient.lLen(key);
+    },
+
     // Set operations (node-redis expects members as variadic args, not a single array)
     async sAdd(key, ...members) {
       await this._ensureConnected();
@@ -219,6 +236,7 @@ if (isStorageBlocked()) {
   const mockSets = new Map();
   const mockHashes = new Map();
   const mockExpiry = new Map();
+  const mockLists = new Map();
 
   kvClient = {
     // String operations
@@ -306,6 +324,26 @@ if (isStorageBlocked()) {
       return removed;
     },
 
+    // List operations
+    async rPush(key, ...values) {
+      if (!mockLists.has(key)) mockLists.set(key, []);
+      const list = mockLists.get(key);
+      values.flat().forEach(v => list.push(String(v)));
+      return list.length;
+    },
+
+    async lRange(key, start, stop) {
+      const list = mockLists.get(key) || [];
+      const len = list.length;
+      const from = start < 0 ? Math.max(len + start, 0) : start;
+      const to = stop < 0 ? len + stop : Math.min(stop, len - 1);
+      return to < from ? [] : list.slice(from, to + 1);
+    },
+
+    async lLen(key) {
+      return (mockLists.get(key) || []).length;
+    },
+
     // Set operations
     async sAdd(key, ...members) {
       const list = members.flat().map(m => String(m));
@@ -362,6 +400,7 @@ if (isStorageBlocked()) {
       mockSets.clear();
       mockHashes.clear();
       mockExpiry.clear();
+      mockLists.clear();
       return 'OK';
     },
   };
