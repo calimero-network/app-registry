@@ -133,8 +133,8 @@ Vercel caps a function's **request** body at 4.5 MB, so `push` with
 Anything larger must use `POST /api/v2/bundles/upload-url` (signed PUT
 straight to GCS, up to 50 MiB) and then `push` with
 `_upload: {object}`. Cloud publish tokens may use `upload-url`.
-**mdma's console upload (`push-file`) therefore fails with 413 above 4.5 MB
-on Vercel; it should switch to `upload-url` + `push` for large bundles.**
+mdma's console upload uses `push-file` up to 4 MB and `upload-url` + `push`
+above that (it refuses anything over 50 MiB before calling the registry).
 
 ## 4. Visibility changes
 
