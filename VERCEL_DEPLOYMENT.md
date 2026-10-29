@@ -126,6 +126,11 @@ Detection is automatic via `process.env.VERCEL` environment variable.
 - Configures build and deployment settings
 - Sets up rewrites for SPA routing
 - Configures CORS headers
+- Pins the functions to `fra1` (Frankfurt), the region Redis runs in
+  (Redis Cloud, `eu-central-1`). A request waits on several Redis round
+  trips in a row, so the functions must sit beside Redis: on Vercel's
+  default `iad1` each trip crossed the Atlantic. If Redis ever moves, move
+  `regions` with it.
 
 ### `packages/backend/src/lib/kv-client.js`
 

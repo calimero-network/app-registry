@@ -36,6 +36,16 @@ describe('vercel.json function config', () => {
   });
 });
 
+// Every Redis read is a network round trip, and a listing waits on several in
+// a row. Redis (Redis Cloud, eu-central-1) is in Frankfurt; left to Vercel's
+// default the functions ran in iad1 (Washington), so each of those trips
+// crossed the Atlantic, ~85ms apiece. Move Redis and this has to move with it.
+describe('vercel.json function region', () => {
+  test('functions run in the same region as Redis', () => {
+    expect(config.regions).toEqual(['fra1']);
+  });
+});
+
 describe('vercel.json git deployments', () => {
   test('only main deploys automatically', () => {
     expect(config.git.deploymentEnabled).toEqual({
