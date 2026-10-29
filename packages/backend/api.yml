@@ -1,7 +1,23 @@
 openapi: 3.0.0
 info:
   title: Calimero Registry V2 API
-  description: V2 Bundle API for Calimero Registry (MPK format)
+  description: >
+    V2 Bundle API for Calimero Registry (MPK format).
+
+
+    Two kinds of caller authenticate: registry accounts (Google session
+    cookie, or `Authorization: Bearer <API token>`) and Calimero Cloud, with
+    short-lived Cloud JWTs minted by the Cloud manager (`cloudJwt`). A Cloud
+    JWT is not a registry account: it is accepted only on the operations that
+    list it under `security`, and is otherwise treated as unauthenticated.
+    Each such operation names the Cloud scope (`publish` or `read`; `publish`
+    implies `read`) and, where it matters, the Cloud org roles it needs in
+    `x-cloud-jwt`. See docs/cloud-integration.md for the full contract.
+
+
+    Private packages (those of a Cloud org) are absent for everyone who may
+    not read them: the same `404` or missing listing entry as a package that
+    was never published, never a `403`.
   version: 2.0.0
 servers:
   - url: http://localhost:8080
@@ -26,6 +42,21 @@ paths:
   /api/v2/bundles:
     get:
       summary: List all bundles
+      description: >
+        Anonymous callers see public packages only. A caller who may read a
+        private package (a Cloud token with `read` of the owning org, a
+        registry member of the owning org, the account that first published
+        it, a site admin) also sees it, with `visibility: "private"` on its
+        entry; other callers do not see it at all. Public responses are
+        edge-cached (`s-maxage=30`) by URL; any response containing a private
+        package is `Cache-Control: private, no-store`.
+      security:
+        - {}
+        - cloudJwt: []
+        - registryToken: []
+        - sessionCookie: []
+      x-cloud-jwt:
+        scope: read
       parameters:
         - name: package
           in: query
@@ -36,12 +67,36 @@ paths:
           in: query
           schema:
             type: string
-          description: Filter by version (requires package)
+          description: >
+            Filter by version (requires package). Answers a one-element array,
+            or `404 {"error": "not_found"}` when the bundle does not exist or
+            is a private package the caller may not read.
         - name: developer
           in: query
           schema:
             type: string
           description: Filter by developer pubkey
+        - name: fresh
+          in: query
+          schema:
+            type: string
+            enum: ['1', 'true']
+          description: >
+            Bypass the edge cache and answer `no-store`. Honoured with
+            `package`, or for an authenticated caller (a Cloud read JWT
+            counts); otherwise ignored. An authenticated caller must use a URL
+            no anonymous visitor uses, since the edge cache keys on the URL
+            only: the Cloud manager lists an org's packages, private ones
+            included, with `?fresh=1`.
+        - name: include_private
+          in: query
+          schema:
+            type: string
+            enum: ['1', 'true']
+          description: >
+            Ask for the caller's readable private packages on a URL that is
+            always answered `private, no-store`, never from the shared edge
+            cache.
       responses:
         '200':
           description: List of bundles
@@ -50,9 +105,34 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/BundleManifest'
+                  $ref: '#/components/schemas/BundleListEntry'
+        '404':
+          description: >
+            With `package` and `version`: no such bundle, or a private package
+            the caller may not read.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v2/bundles/push:
     post:
       summary: Push a new bundle
+      description: >
+        A registry account or a Cloud JWT with the `publish` scope. Cloud
+        publishes are further checked for namespace ownership (a Cloud org's
+        first publish claims an unclaimed namespace), package ownership, the
+        pinned signer, and per-org quotas. The request body carries at most
+        ~4.5 MB (`_binary` hex at most ~2.2 MB); larger bundles go through
+        `POST /api/v2/bundles/upload-url` and are pushed with
+        `_upload: { object }` instead of `_binary`.
+      security:
+        - cloudJwt: []
+        - registryToken: []
+        - sessionCookie: []
+      x-cloud-jwt:
+        scope: publish
+      parameters:
+        - $ref: '#/components/parameters/RegistryVisibility'
       requestBody:
         required: true
         content:
@@ -62,34 +142,104 @@ paths:
       responses:
         '201':
           description: Bundle created successfully
-        '400':
-          description: >
-            Invalid bundle manifest, or `_upload` is invalid (`invalid_upload`,
-            `upload_not_found`). `_upload: { object }` replaces `_binary`.
-        '403':
-          description: Not the package owner (only signer or a key in manifest.owners can push)
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-                    example: not_owner
-                  message:
-                    type: string
+                $ref: '#/components/schemas/PushResponse'
+        '400':
+          description: >
+            Invalid bundle manifest, or `_upload` is invalid (`invalid_upload`,
+            `upload_not_found`), or `invalid_visibility`. `_upload: { object }`
+            replaces `_binary`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/PublishForbidden'
         '409':
-          description: Bundle already exists
+          description: >
+            Bundle already exists, or `namespace_conflict` (a Cloud publish of
+            a new package into a namespace that already holds someone else's
+            packages).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          $ref: '#/components/responses/TooLarge'
+  /api/v2/bundles/push-file:
+    post:
+      summary: Push a new bundle as a multipart .mpk upload
+      description: >
+        Same checks and responses as `POST /api/v2/bundles/push`, with the
+        `.mpk` in the multipart field `bundle` (at most ~4.5 MB request body).
+        `_visibility` is not available here; use `X-Registry-Visibility`.
+      security:
+        - cloudJwt: []
+        - registryToken: []
+        - sessionCookie: []
+      x-cloud-jwt:
+        scope: publish
+      parameters:
+        - $ref: '#/components/parameters/RegistryVisibility'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - bundle
+              properties:
+                bundle:
+                  type: string
+                  format: binary
+      responses:
+        '201':
+          description: Bundle created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PushResponse'
+        '400':
+          description: Invalid multipart request or bundle
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/PublishForbidden'
+        '409':
+          description: Bundle already exists, or `namespace_conflict`
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          $ref: '#/components/responses/TooLarge'
   /api/v2/bundles/upload-url:
     post:
       summary: Get a signed URL to upload a bundle straight to storage
       description: >
-        Limited to bot, admin and staff accounts (403 otherwise), 100 grants
-        per hour per account (429), objects up to 50 MiB. For bundles too large for a function request body. PUT the raw .mpk to
-        `url` with `headers` replayed verbatim before `expiresAt`, then push
-        the manifest with `_upload: { object }` instead of `_binary`. The
-        bucket needs no CORS for CLI/CI uploads; an optional lifecycle rule
-        deleting `uploads/` after 1 day clears abandoned uploads.
+        Limited to bot, admin and staff accounts and to Cloud JWTs with the
+        `publish` scope (403 otherwise), 100 grants per hour per account
+        (429), objects up to 50 MiB. For bundles too large for a function
+        request body. PUT the raw .mpk to `url` with `headers` replayed
+        verbatim before `expiresAt`, then push the manifest with
+        `_upload: { object }` instead of `_binary`. The bucket needs no CORS
+        for CLI/CI uploads; an optional lifecycle rule deleting `uploads/`
+        after 1 day clears abandoned uploads.
+      security:
+        - cloudJwt: []
+        - registryToken: []
+        - sessionCookie: []
+      x-cloud-jwt:
+        scope: publish
       responses:
         '200':
           description: Signed upload URL
@@ -114,10 +264,38 @@ paths:
                     type: string
                     format: date-time
         '401':
-          description: Login required
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: >
+            `forbidden`: not a bot, admin or staff account, or a Cloud token
+            without the `publish` scope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: '`rate_limited`: more than 100 grants this hour'
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /api/v2/bundles/{package}/{version}:
     get:
       summary: Get specific bundle
+      description: >
+        A private package is answered only to a caller who may read it, with
+        `visibility: "private"` and `Cache-Control: private, no-store`.
+      security:
+        - {}
+        - cloudJwt: []
+        - registryToken: []
+        - sessionCookie: []
+      x-cloud-jwt:
+        scope: read
       parameters:
         - name: package
           in: path
@@ -135,12 +313,202 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/BundleManifest'
+                $ref: '#/components/schemas/BundleListEntry'
         '404':
-          description: Bundle not found
+          description: >
+            Bundle not found, or a private package the caller may not read
+            (indistinguishable).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v2/packages/{package}/visibility:
+    parameters:
+      - name: package
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      summary: Get a package's visibility
+      description: >
+        For callers who may manage the package: a Cloud JWT with `publish`
+        and role `owner` or `admin` of the package's Cloud org, or a registry
+        account that is the package author, an admin/owner of its org, or a
+        site admin. Always `Cache-Control: private, no-store`.
+      security:
+        - cloudJwt: []
+        - registryToken: []
+        - sessionCookie: []
+      x-cloud-jwt:
+        scope: publish
+        roles: [owner, admin]
+      responses:
+        '200':
+          description: Current visibility
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PackageVisibility'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: >
+            `not_owner` (public package the caller may not manage) or
+            `bot_forbidden`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          $ref: '#/components/responses/PackageNotFound'
+    put:
+      summary: Change a package's visibility
+      description: >
+        public -> private takes effect at once (`200`). private -> public is a
+        request (`202`): it joins the admin review queue
+        (`GET /api/admin/review-queue`) and the package stays private until
+        `PATCH /api/admin/packages/{package}` approves it; a site admin's own
+        request applies at once. `private` while a public request is pending
+        cancels the request. Same callers as `GET`.
+      security:
+        - cloudJwt: []
+        - registryToken: []
+        - sessionCookie: []
+      x-cloud-jwt:
+        scope: publish
+        roles: [owner, admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - visibility
+              properties:
+                visibility:
+                  $ref: '#/components/schemas/Visibility'
+      responses:
+        '200':
+          description: Visibility changed (or unchanged)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PackageVisibility'
+        '202':
+          description: >
+            Request to make the package public recorded; it stays private
+            until an admin approves it.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PackageVisibility'
+                  - type: object
+                    properties:
+                      message:
+                        type: string
+              example:
+                package: com.acme.app
+                visibility: private
+                pending_visibility: public
+                org_id: cloud-org_acme
+                created_at: '2026-10-28T12:00:00.000Z'
+                message: Making a package public needs an admin review; it stays private until approved.
+        '400':
+          description: '`invalid_visibility`: not "public" or "private"'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: >
+            `not_owner` (public package the caller may not manage) or
+            `bot_forbidden`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          $ref: '#/components/responses/PackageNotFound'
+  /api/v2/orgs/{orgId}/audit:
+    get:
+      summary: Read an org's audit log
+      description: >
+        The org's append-only audit log, newest first: publishes, visibility
+        changes, requests and decisions, yanks, deletes. For a Cloud JWT of
+        that org with role `owner` or `admin` (any scope), a registry account
+        that is an admin/owner of the org, or a site admin. Always
+        `Cache-Control: private, no-store`.
+      security:
+        - cloudJwt: []
+        - registryToken: []
+        - sessionCookie: []
+      x-cloud-jwt:
+        scope: read
+        roles: [owner, admin]
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The registry org id, or the Cloud org id linked to it
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: Audit events
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditLog'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: '`forbidden` (not an admin or owner of the org) or `bot_forbidden`'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: '`not_found`: no such organization'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /artifacts/{path}:
     get:
       summary: Serve bundle artifacts (MPK, WASM)
+      description: >
+        Public packages are open. A private package needs cluster basic auth
+        (the userinfo of a Cloud cluster's `--registry-url`, checked with the
+        Cloud manager), a Cloud JWT with `read` of the owning org, or a
+        registry session/API token of someone who may read it. Private
+        downloads are `Cache-Control: private, no-store`,
+        `Vary: Authorization`. Never redirects.
+      security:
+        - {}
+        - clusterBasic: []
+        - cloudJwt: []
+        - registryToken: []
+        - sessionCookie: []
+      x-cloud-jwt:
+        scope: read
       parameters:
         - name: path
           in: path
@@ -152,9 +520,218 @@ paths:
         '200':
           description: Artifact file
         '404':
-          description: Artifact not found
+          description: >
+            `artifact_not_found`: no such artifact, or a private package the
+            caller may not read (byte-identical).
+        '503':
+          description: >
+            `authorize_unavailable`: the Cloud manager could not be asked
+            whether cluster credentials may download a private package (fail
+            closed, `Retry-After: 5`).
 components:
+  securitySchemes:
+    registryToken:
+      type: http
+      scheme: bearer
+      description: A registry account's API token.
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: app_registry_session
+      description: A registry account's Google sign-in session.
+    cloudJwt:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >
+        A short-lived Calimero Cloud JWT (EdDSA or RS256, keys at the Cloud
+        manager's JWKS), with `iss`, `aud`, `sub`, `org`, `scope`, `iat` and
+        `exp` required, and optionally `email`, `org_slug`, `role` (`owner`,
+        `admin`, `developer`), `via` and `key_id`. `scope` is `publish` or
+        `read` (space-separated or an array); `publish` implies `read`. The
+        scope and roles each operation needs are in its `x-cloud-jwt`.
+    clusterBasic:
+      type: http
+      scheme: basic
+      description: >
+        A Cloud cluster's credential from the userinfo of its
+        `--registry-url`, for private artifact downloads only.
+  parameters:
+    RegistryVisibility:
+      name: X-Registry-Visibility
+      in: header
+      required: false
+      schema:
+        $ref: '#/components/schemas/Visibility'
+      description: >
+        Visibility of a NEW package (`_visibility` in a JSON body does the
+        same). Defaults to `private` for a Cloud publish and `public` for a
+        registry account. A later version never changes it; a differing
+        request returns a warning.
+  responses:
+    Unauthorized:
+      description: '`unauthorized`: login required or provide a token'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    PublishForbidden:
+      description: >
+        `insufficient_scope` (Cloud token without `publish`), `not_owner`
+        (only the signer, a key in manifest.owners, or for Cloud the owning
+        org may push), `signer_mismatch` (Cloud: not a pinned signer),
+        `namespace_owned` (another org owns the namespace), `reserved_prefix`.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    TooLarge:
+      description: >
+        `payload_too_large`, or `quota_exceeded` (Cloud org quotas:
+        `max_bundle_bytes`, `max_versions_per_package`, `max_total_bytes`;
+        `limit` is the exceeded quota's value).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    PackageNotFound:
+      description: >
+        `not_found`: no such package, or a private package the caller may not
+        manage (indistinguishable).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
   schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          example: not_found
+        message:
+          type: string
+        limit:
+          type: integer
+          description: "`quota_exceeded` only: the exceeded quota's value"
+    Visibility:
+      type: string
+      enum:
+        - public
+        - private
+    PushResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Bundle published successfully
+        package:
+          type: string
+        version:
+          type: string
+        installSize:
+          type: integer
+        visibility:
+          $ref: '#/components/schemas/Visibility'
+        warnings:
+          type: array
+          items:
+            type: string
+    BundleListEntry:
+      allOf:
+        - $ref: '#/components/schemas/BundleManifest'
+        - type: object
+          properties:
+            yanked:
+              type: boolean
+            downloads:
+              type: integer
+            visibility:
+              type: string
+              enum:
+                - private
+              description: >
+                Present (`private`) only on a private package's entry, which
+                only callers who may read it receive. Public entries omit it.
+    PackageVisibility:
+      type: object
+      properties:
+        package:
+          type: string
+        visibility:
+          $ref: '#/components/schemas/Visibility'
+        pending_visibility:
+          type: string
+          enum:
+            - public
+          description: Present while a request to make the package public awaits review
+        org_id:
+          type: string
+          nullable: true
+          description: Absent for a package with no record (public)
+        created_at:
+          type: string
+          format: date-time
+          nullable: true
+    AuditLog:
+      type: object
+      properties:
+        org_id:
+          type: string
+          example: cloud-org_acme
+        cloud_org_id:
+          type: string
+          nullable: true
+          example: org_acme
+        total:
+          type: integer
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuditEvent'
+    AuditEvent:
+      type: object
+      properties:
+        id:
+          type: string
+        at:
+          type: string
+          format: date-time
+        type:
+          type: string
+          enum:
+            - publish
+            - visibility_change
+            - visibility_request
+            - visibility_decision
+            - yank
+            - unyank
+            - delete_version
+            - delete_package
+        org_id:
+          type: string
+        package:
+          type: string
+        version:
+          type: string
+        actor:
+          type: object
+          properties:
+            id:
+              type: string
+            via:
+              type: string
+              enum:
+                - cloud
+                - api_key
+                - registry
+            cloud_org_id:
+              type: string
+            role:
+              type: string
+        details:
+          type: object
+          additionalProperties: true
     BundleManifest:
       type: object
       required:
@@ -217,6 +794,11 @@ components:
               type: string
             signedAt:
               type: string
+        _visibility:
+          $ref: '#/components/schemas/Visibility'
+          description: >
+            Push only, outside the signature like every `_` key: visibility of
+            a new package (same as the `X-Registry-Visibility` header).
     BundleArtifact:
       type: object
       description: A file packed in the bundle, referenced by its in-bundle path.
