@@ -3,6 +3,12 @@
  *
  * Provides a unified interface for Redis that works in both
  * production (Vercel Marketplace Redis) and development (mock in-memory store).
+ *
+ * ⚠️ THE ONE CLIENT. The serverless routes reach it through api/lib/kv-client.js,
+ * which only re-exports this module. There used to be two implementations, so
+ * a function that touched both (the bundle listing, the bundle detail route)
+ * opened two Redis connections, and paid a second TLS connect on every cold
+ * start before it could answer. Add a command here, not beside it.
  */
 
 const { createClient } = require('redis');
@@ -98,6 +104,20 @@ if (isStorageBlocked()) {
       return keys.length ? await redisClient.mGet(keys) : [];
     },
 
+    /**
+     * SET key value NX EX ttlSeconds — set only if absent, expiring after
+     * `ttlSeconds`. Returns true if the key was set, false if it already
+     * existed.
+     */
+    async setNXEx(key, value, ttlSeconds) {
+      await this._ensureConnected();
+      const reply = await redisClient.set(key, value, {
+        NX: true,
+        EX: ttlSeconds,
+      });
+      return reply === 'OK';
+    },
+
     async del(key) {
       await this._ensureConnected();
       return await redisClient.del(key);
@@ -136,6 +156,23 @@ if (isStorageBlocked()) {
     async hDel(key, ...fields) {
       await this._ensureConnected();
       return await redisClient.hDel(key, ...fields);
+    },
+
+    // List operations — the per-org audit log is an append-only list.
+    async rPush(key, ...values) {
+      await this._ensureConnected();
+      const list = values.flat().map(v => String(v));
+      return list.length ? await redisClient.rPush(key, list) : 0;
+    },
+
+    async lRange(key, start, stop) {
+      await this._ensureConnected();
+      return await redisClient.lRange(key, start, stop);
+    },
+
+    async lLen(key) {
+      await this._ensureConnected();
+      return await redisClient.lLen(key);
     },
 
     // Set operations (node-redis expects members as variadic args, not a single array)
@@ -197,6 +234,8 @@ if (isStorageBlocked()) {
   const mockStore = new Map();
   const mockSets = new Map();
   const mockHashes = new Map();
+  const mockExpiry = new Map();
+  const mockLists = new Map();
 
   kvClient = {
     // String operations
@@ -230,9 +269,22 @@ if (isStorageBlocked()) {
       });
     },
 
+    async setNXEx(key, value, ttlSeconds) {
+      const expiresAt = mockExpiry.get(key);
+      if (expiresAt !== undefined && expiresAt <= Date.now()) {
+        mockStore.delete(key);
+        mockExpiry.delete(key);
+      }
+      if (mockStore.has(key)) return false;
+      mockStore.set(key, value);
+      mockExpiry.set(key, Date.now() + ttlSeconds * 1000);
+      return true;
+    },
+
     async del(key) {
       const existed = mockStore.has(key);
       mockStore.delete(key);
+      mockExpiry.delete(key);
       return existed ? 1 : 0;
     },
 
@@ -276,6 +328,26 @@ if (isStorageBlocked()) {
         }
       });
       return removed;
+    },
+
+    // List operations
+    async rPush(key, ...values) {
+      if (!mockLists.has(key)) mockLists.set(key, []);
+      const list = mockLists.get(key);
+      values.flat().forEach(v => list.push(String(v)));
+      return list.length;
+    },
+
+    async lRange(key, start, stop) {
+      const list = mockLists.get(key) || [];
+      const len = list.length;
+      const from = start < 0 ? Math.max(len + start, 0) : start;
+      const to = stop < 0 ? len + stop : Math.min(stop, len - 1);
+      return to < from ? [] : list.slice(from, to + 1);
+    },
+
+    async lLen(key) {
+      return (mockLists.get(key) || []).length;
     },
 
     // Set operations
@@ -333,6 +405,8 @@ if (isStorageBlocked()) {
       mockStore.clear();
       mockSets.clear();
       mockHashes.clear();
+      mockExpiry.clear();
+      mockLists.clear();
       return 'OK';
     },
   };

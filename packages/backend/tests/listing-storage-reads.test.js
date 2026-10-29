@@ -247,9 +247,14 @@ describe('GET /api/stats', () => {
     await statsHandler(req, res);
 
     expect(res.body.publishedBundles).toBe(300);
-    expect(commandsFor('get')).toHaveLength(0);
+    // Package records (`pkg:<name>`, for the private-package filter) share
+    // this client and are read once per package; manifests must not be.
+    const manifestGets = commandsFor('get').filter(([, key]) =>
+      key.startsWith('bundle:')
+    );
+    expect(manifestGets).toHaveLength(0);
     expect(commandsFor('mGet').length).toBeLessThanOrEqual(2);
-    expect(calls.length).toBeLessThanOrEqual(1 + 10 + 2);
+    expect(calls.length).toBeLessThanOrEqual(1 + 10 + 2 + 10);
   });
 
   test('a storage failure is not cached', async () => {

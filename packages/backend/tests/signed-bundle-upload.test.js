@@ -15,6 +15,13 @@ const mockKv = {
   sIsMember: jest.fn(),
 };
 jest.mock('../src/lib/kv-client', () => ({ kv: mockKv }));
+// The bundle store reads through the stubbed client above; everything else
+// (staging records, audit) gets a real in-memory store. api/lib/kv-client now
+// re-exports the backend client, so it has to be pointed at the real one here
+// or it would inherit the stub too.
+jest.mock('../../../api/lib/kv-client', () =>
+  jest.requireActual('../src/lib/kv-client')
+);
 
 jest.mock('../src/lib/bundle-integrity', () => ({
   ...jest.requireActual('../src/lib/bundle-integrity'),

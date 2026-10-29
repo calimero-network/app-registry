@@ -132,6 +132,8 @@ Detection is automatic via `process.env.VERCEL` environment variable.
 - Wrapper for Vercel KV
 - Provides mock storage for local dev
 - Auto-detects production vs development
+- The only Redis client: `api/lib/kv-client.js` re-exports it, so each
+  function instance opens one connection
 
 ### `packages/backend/src/lib/v1-storage-kv.js`
 
