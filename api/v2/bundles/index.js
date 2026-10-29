@@ -199,24 +199,30 @@ module.exports = async function handler(req, res) {
     });
 
     const viewer = owner || (await resolveViewer(req));
-    const { hidden, visiblePrivate } = await classifyPackages(
-      allEntries.map(e => e.packageName),
-      viewer
-    );
-    const entries = hidden.size
-      ? allEntries.filter(e => !hidden.has(e.packageName))
-      : allEntries;
 
     // Filtering, sanitization, download counts and ordering are shared with
     // the Fastify copy, so the two cannot disagree on how a listing entry is
     // built. They still differ on which versions they select — see above.
-    const bundles = await buildBundleListing({
-      entries,
-      kv,
-      developer,
-      author,
-      owner,
-    });
+    //
+    // Privacy classification needs only the names, so it runs alongside the
+    // build instead of ahead of it; a hidden package is dropped from the
+    // finished listing, which is the same set the old pre-filter produced.
+    const [{ hidden, visiblePrivate }, built] = await Promise.all([
+      classifyPackages(
+        allEntries.map(e => e.packageName),
+        viewer
+      ),
+      buildBundleListing({
+        entries: allEntries,
+        kv,
+        developer,
+        author,
+        owner,
+      }),
+    ]);
+    const bundles = hidden.size
+      ? built.filter(b => !hidden.has(b?.package))
+      : built;
     if (visiblePrivate.size) {
       for (const bundle of bundles) {
         if (visiblePrivate.has(bundle?.package)) bundle.visibility = 'private';

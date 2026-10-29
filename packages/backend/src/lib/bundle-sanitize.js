@@ -102,28 +102,34 @@ function createBundleSanitizers(kv, review) {
     // the trusted-publisher default, with a decline winning over all of them.
     // The admin route still mirrors the decision onto the manifest for older
     // consumers, but this must not depend on it.
-    const verified = pkg ? await review.isApproved(pkg) : false;
+    const approval = pkg ? review.isApproved(pkg) : false;
 
     // The publisher. Independent: a package by an unverified publisher can be
-    // verified, and a verified publisher's new package is not.
-    let publisherVerified = ownerEmail.endsWith('@calimero.network');
-    if (!publisherVerified && ownerEmail) {
+    // verified, and a verified publisher's new package is not. Resolved
+    // alongside the review rather than after it — each is a chain of reads.
+    async function isPublisherVerified() {
+      if (ownerEmail.endsWith('@calimero.network')) return true;
+      if (!ownerEmail) return false;
       const userId = await kv.get(`email2user:${ownerEmail}`);
-      if (userId) {
-        const userRaw = await kv.get(`user:${userId}`);
-        if (userRaw) {
-          try {
-            if (JSON.parse(userRaw).verified) publisherVerified = true;
-          } catch {
-            /* skip */
-          }
-        }
-        if (!publisherVerified) {
-          const adminVerified = await kv.get(`admin_verified:user:${userId}`);
-          if (adminVerified === '1') publisherVerified = true;
+      if (!userId) return false;
+      const [userRaw, adminVerified] = await Promise.all([
+        kv.get(`user:${userId}`),
+        kv.get(`admin_verified:user:${userId}`),
+      ]);
+      if (userRaw) {
+        try {
+          if (JSON.parse(userRaw).verified) return true;
+        } catch {
+          /* skip */
         }
       }
+      return adminVerified === '1';
     }
+
+    const [verified, publisherVerified] = await Promise.all([
+      approval,
+      isPublisherVerified(),
+    ]);
 
     return {
       ...bundle,
@@ -137,7 +143,7 @@ function createBundleSanitizers(kv, review) {
     };
   }
 
-  /** Batch version for listings — 2 parallel Redis rounds instead of 4N sequential. */
+  /** Batch version for listings — a fixed number of pipelined rounds, not 4N sequential. */
   async function sanitizeBundles(rawItems) {
     const processed = rawItems.map(({ bundle, packageName }) => {
       const raw =
@@ -175,28 +181,40 @@ function createBundleSanitizers(kv, review) {
     // `admin_verified:package:*` directly, which skips both the newer
     // `pkg-review` record AND the trusted-publisher default — so the listing
     // would disagree with the app page about the very same package.
-    const [pkgApprovedVals, userIdVals] = await Promise.all([
+    //
+    // The user records hang off email2user, not off the review, so that chain
+    // runs alongside the approvals instead of waiting for them to finish.
+    async function lookUpUsers() {
+      const userIdVals = await Promise.all(
+        uniqueEmails.map(e => kv.get(`email2user:${e}`))
+      );
+      const emailToUserId = Object.fromEntries(
+        uniqueEmails.map((e, i) => [e, userIdVals[i]])
+      );
+      const uniqueUserIds = [
+        ...new Set(Object.values(emailToUserId).filter(Boolean)),
+      ];
+      const [userVals, userAdminVerifiedVals] = uniqueUserIds.length
+        ? await Promise.all([
+            Promise.all(uniqueUserIds.map(id => kv.get(`user:${id}`))),
+            Promise.all(
+              uniqueUserIds.map(id => kv.get(`admin_verified:user:${id}`))
+            ),
+          ])
+        : [[], []];
+      return { emailToUserId, uniqueUserIds, userVals, userAdminVerifiedVals };
+    }
+
+    const [
+      pkgApprovedVals,
+      { emailToUserId, uniqueUserIds, userVals, userAdminVerifiedVals },
+    ] = await Promise.all([
       Promise.all(uniquePackages.map(p => review.isApproved(p))),
-      Promise.all(uniqueEmails.map(e => kv.get(`email2user:${e}`))),
+      lookUpUsers(),
     ]);
     const pkgApprovedMap = Object.fromEntries(
       uniquePackages.map((p, i) => [p, pkgApprovedVals[i]])
     );
-    const emailToUserId = Object.fromEntries(
-      uniqueEmails.map((e, i) => [e, userIdVals[i]])
-    );
-
-    const uniqueUserIds = [
-      ...new Set(Object.values(emailToUserId).filter(Boolean)),
-    ];
-    const [userVals, userAdminVerifiedVals] = uniqueUserIds.length
-      ? await Promise.all([
-          Promise.all(uniqueUserIds.map(id => kv.get(`user:${id}`))),
-          Promise.all(
-            uniqueUserIds.map(id => kv.get(`admin_verified:user:${id}`))
-          ),
-        ])
-      : [[], []];
     const userMap = Object.fromEntries(
       uniqueUserIds.map((id, i) => {
         try {
