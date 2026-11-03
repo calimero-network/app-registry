@@ -11,6 +11,12 @@ const {
   canManagePackage,
   NOT_OWNER_MESSAGE,
 } = require('#api-lib/auth-helpers');
+const {
+  packageOrgId,
+  deletePackageRecord,
+  isPrivatePackage,
+} = require('#api-lib/package-records');
+const { appendAudit } = require('#api-lib/org-audit');
 
 let storage;
 function getStorage() {
@@ -36,7 +42,7 @@ module.exports = async function handler(req, res) {
     return res.status(400).json({ error: 'missing_params' });
   }
 
-  const user = await requireAuth(req, res);
+  const user = await requireAuth(req, res, { allowCloud: true });
   if (!user) return;
 
   const store = getStorage();
@@ -72,6 +78,10 @@ module.exports = async function handler(req, res) {
   }
 
   if (!(await canManagePackage(pkg, latest, user))) {
+    // A private package is not confirmed to someone who may not manage it.
+    if (await isPrivatePackage(pkg)) {
+      return res.status(404).json({ error: 'not_found' });
+    }
     return res.status(403).json({
       error: 'not_owner',
       message: NOT_OWNER_MESSAGE,
@@ -79,7 +89,15 @@ module.exports = async function handler(req, res) {
   }
 
   try {
+    const orgId = await packageOrgId(pkg).catch(() => null);
     await store.deletePackage(pkg);
+    await deletePackageRecord(pkg);
+    await appendAudit(orgId, {
+      type: 'delete_package',
+      package: pkg,
+      user,
+      details: { versions },
+    });
     return res.status(200).json({ message: `Deleted package ${pkg}` });
   } catch (error) {
     console.error('DELETE package error:', error);
