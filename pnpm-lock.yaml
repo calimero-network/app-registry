@@ -104,8 +104,8 @@ importers:
         specifier: ^10.1.2
         version: 10.1.2
       '@fastify/rate-limit':
-        specifier: ^11.2.0
-        version: 11.2.0
+        specifier: ^11.2.1
+        version: 11.2.2
       '@fastify/swagger':
         specifier: ^9.9.0
         version: 9.9.0
@@ -1447,8 +1447,8 @@ packages:
       ipaddr.js: 2.5.0
     dev: false
 
-  /@fastify/rate-limit@11.2.0:
-    resolution: {integrity: sha512-X7osJd4XSvMoejYrnJkSZYYjY1eNYoBqhjlzf1RakC2204qExFqZFTKj5+T7VuzA/iUI9Z3UoSqQRkB2HpG0oQ==}
+  /@fastify/rate-limit@11.2.2:
+    resolution: {integrity: sha512-Ynxk9BU82Y5Ux7NOk9NqyZpTMdFes8EY8quXrN6ePDsbtG4G9Afb3l9mD8Vw2nv0hXg0iFjV+gkdABReFPlShw==}
     dependencies:
       '@lukeed/ms': 2.0.2
       fastify-plugin: 6.0.0
