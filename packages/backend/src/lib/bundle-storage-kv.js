@@ -216,7 +216,13 @@ class BundleStorageKV {
     // the manifest signed, before anything is written.
     let binary = null;
     if (_binary !== undefined && _binary !== null) {
-      if (typeof _binary !== 'string' || !/^([0-9a-fA-F]{2})+$/.test(_binary)) {
+      // A repeated group overflows V8's regex stack on a multi-megabyte bundle; look for a bad character instead.
+      if (
+        typeof _binary !== 'string' ||
+        _binary.length === 0 ||
+        _binary.length % 2 !== 0 ||
+        /[^0-9a-fA-F]/.test(_binary)
+      ) {
         throw new BundleIntegrityError('Bundle binary must be a hex string');
       }
       binary = Buffer.from(_binary, 'hex');
