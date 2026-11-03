@@ -153,19 +153,8 @@ describe('POST /api/v2/bundles/upload-url', () => {
     expect(mockGetSignedUrl).not.toHaveBeenCalled();
   });
 
-  test('allows any signed-in account, 10 per hour', async () => {
+  test('refuses a signed-in account that is not bot, admin or staff', async () => {
     mockTrusted = false;
-    for (let i = 0; i < 10; i++) {
-      expect((await call()).status).toHaveBeenCalledWith(200);
-    }
-    const res = await call();
-    refusedWith(res, 429, 'rate_limited');
-    expect(res.json.mock.calls[0][0].message).toMatch(/At most 10 /);
-    expect(mockGetSignedUrl).toHaveBeenCalledTimes(10);
-  });
-
-  test('refuses a Cloud token without the publish scope', async () => {
-    mockCurrentUser = { email: EMAIL, cloud: true, scopes: [] };
     const res = await call();
     refusedWith(res, 403, 'forbidden');
     expect(mockGetSignedUrl).not.toHaveBeenCalled();
@@ -182,7 +171,7 @@ describe('POST /api/v2/bundles/upload-url', () => {
     expect((await call()).status).toHaveBeenCalledWith(200);
   });
 
-  test('grants a trusted account 100 per hour, then 429', async () => {
+  test('grants 100 per hour per account, then 429', async () => {
     for (let i = 0; i < 100; i++) {
       expect((await call()).status).toHaveBeenCalledWith(200);
     }

@@ -226,9 +226,9 @@ paths:
     post:
       summary: Get a signed URL to upload a bundle straight to storage
       description: >
-        Any signed-in account, 10 grants per hour (429); bot, admin and staff
-        accounts and Cloud JWTs get 100. A Cloud JWT needs the `publish`
-        scope (403 otherwise). Objects up to 50 MiB. For bundles too large for a function
+        Limited to bot, admin and staff accounts and to Cloud JWTs with the
+        `publish` scope (403 otherwise), 100 grants per hour per account
+        (429), objects up to 50 MiB. For bundles too large for a function
         request body. PUT the raw .mpk to `url` with `headers` replayed
         verbatim before `expiresAt`, then push the manifest with
         `_upload: { object }` instead of `_binary`. The bucket needs no CORS
