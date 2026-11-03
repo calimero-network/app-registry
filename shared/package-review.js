@@ -86,7 +86,13 @@ function createPackageReview(kv, { publisherOf } = {}) {
    *                    decidedAt: string|null, reason: string, legacy: boolean}>}
    */
   async function getReview(pkg) {
-    const raw = await kv.get(reviewKey(pkg));
+    // Both keys in one round trip: the legacy key is only consulted when there
+    // is no valid record, but reading it up front costs nothing on a pipelined
+    // connection, while reading it after would cost a serial one per listing.
+    const [raw, legacy] = await Promise.all([
+      kv.get(reviewKey(pkg)),
+      kv.get(legacyKey(pkg)),
+    ]);
     if (raw) {
       try {
         const rec = JSON.parse(raw);
@@ -108,7 +114,7 @@ function createPackageReview(kv, { publisherOf } = {}) {
       }
     }
 
-    if ((await kv.get(legacyKey(pkg))) === '1') {
+    if (legacy === '1') {
       return {
         state: 'approved',
         decidedBy: null,
