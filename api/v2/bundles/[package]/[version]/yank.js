@@ -18,6 +18,8 @@ const {
   NOT_OWNER_MESSAGE,
 } = require('#api-lib/auth-helpers');
 const { kv } = require('#api-lib/kv-client');
+const { packageOrgId, isPrivatePackage } = require('#api-lib/package-records');
+const { appendAudit } = require('#api-lib/org-audit');
 
 // Scoped packages (@org/name) are allowed; bare path traversal sequences are not.
 const PKG_RE = /^(?:@[\w.-]+\/)?[\w.+-]+$/;
@@ -48,7 +50,7 @@ module.exports = async function handler(req, res) {
     });
   }
 
-  const user = await requireAuth(req, res);
+  const user = await requireAuth(req, res, { allowCloud: true });
   if (!user) return;
 
   const body = req.body || {};
@@ -70,6 +72,10 @@ module.exports = async function handler(req, res) {
   if (!existing) return res.status(404).json({ error: 'not_found' });
 
   if (!(await canManagePackage(pkg, existing, user))) {
+    // A private package is not confirmed to someone who may not manage it.
+    if (await isPrivatePackage(pkg)) {
+      return res.status(404).json({ error: 'not_found' });
+    }
     return res.status(403).json({
       error: 'not_owner',
       message: NOT_OWNER_MESSAGE,
@@ -84,6 +90,12 @@ module.exports = async function handler(req, res) {
     } else {
       await kv.del(yankKey);
     }
+    await appendAudit(await packageOrgId(pkg).catch(() => null), {
+      type: body.yanked ? 'yank' : 'unyank',
+      package: pkg,
+      version,
+      user,
+    });
     return res.status(200).json({ package: pkg, version, yanked: body.yanked });
   } catch (e) {
     console.error('yank: KV write failed', e);
