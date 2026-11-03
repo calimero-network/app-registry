@@ -23,6 +23,10 @@ const { kv } = require('#api-lib/kv-client');
 const semver = require('semver');
 const review = require('#api-lib/package-review');
 const {
+  pendingVisibilityRequests,
+  getPackageRecords,
+} = require('#api-lib/package-records');
+const {
   listAssets,
 } = require('@calimero-network/registry-backend/src/lib/asset-store');
 
@@ -49,10 +53,24 @@ module.exports = async function handler(req, res) {
     // so the expensive manifest reads only happen for packages that are
     // actually in the queue, which is normally a handful of the whole
     // registry.
-    const assetsByPkg = await Promise.all(all.map(pkg => listAssets(pkg)));
+    const [assetsByPkg, visibilityQueue] = await Promise.all([
+      Promise.all(all.map(pkg => listAssets(pkg))),
+      pendingVisibilityRequests(),
+    ]);
+    // A private package asking to go public is in the queue whether or not
+    // it has pictures: going public is the decision being asked for.
+    const wantsPublic = new Set(visibilityQueue);
+    const records = await getPackageRecords(all);
+    // A private package that is not asking to go public shows its pictures to
+    // its own org only, so there is nothing to moderate yet.
+    const isPrivate = pkg => records.get(pkg)?.visibility === 'private';
     const withAssets = all
       .map((pkg, i) => ({ pkg, assets: assetsByPkg[i] }))
-      .filter(entry => entry.assets.length > 0);
+      .filter(entry =>
+        wantsPublic.has(entry.pkg)
+          ? true
+          : entry.assets.length > 0 && !isPrivate(entry.pkg)
+      );
 
     const reviews = await Promise.all(
       withAssets.map(entry => review.getReview(entry.pkg))
@@ -79,7 +97,8 @@ module.exports = async function handler(req, res) {
           // all. Those carry assets nobody reviewed under this system, so
           // they go in the queue once; declining is a decision and records a
           // date, which takes them out of it.
-          (rec.legacy && rec.state === 'approved');
+          (rec.legacy && rec.state === 'approved') ||
+          wantsPublic.has(entry.pkg);
         return waiting ? { ...entry, rec, newestAsset } : null;
       })
       .filter(Boolean);
@@ -136,6 +155,12 @@ module.exports = async function handler(req, res) {
         decidedBy: rec.decidedBy,
         reason: rec.reason,
         newestAssetAt: newestAsset || null,
+        // Set when the owner asked to make this private package public; an
+        // `approve` grants it, a `decline` refuses it.
+        visibilityRequest:
+          records.get(pkg)?.visibility_request && wantsPublic.has(pkg)
+            ? records.get(pkg).visibility_request
+            : null,
         assets: assets.map(a => {
           const base = `/api/v2/packages/${encodeURIComponent(pkg)}/assets/${a.id}/raw`;
           return {

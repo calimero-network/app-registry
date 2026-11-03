@@ -112,6 +112,19 @@ const ROUTES = [
     '../../../../api/v2/packages/[package]/index',
   ],
   ['get', '/api/admin/review-queue', '../../../../api/admin/review-queue'],
+
+  // Cloud private packages: visibility and the per-org audit log.
+  [
+    'get',
+    '/api/v2/packages/:package/visibility',
+    '../../../../api/v2/packages/[package]/visibility',
+  ],
+  [
+    'put',
+    '/api/v2/packages/:package/visibility',
+    '../../../../api/v2/packages/[package]/visibility',
+  ],
+  ['get', '/api/v2/orgs/:orgId/audit', '../../../../api/v2/orgs/[orgId]/audit'],
 ];
 
 module.exports = async function serverlessMount(server) {

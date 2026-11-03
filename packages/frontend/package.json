@@ -26,8 +26,8 @@
     "canonicalize": "^2.1.0",
     "clsx": "^2.1.1",
     "lucide-react": "^1.48.0",
-    "react": "^19.3.0",
-    "react-dom": "^19.3.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
     "react-router-dom": "^7.18.4",
     "tailwind-merge": "^3.7.0"
   },
@@ -40,7 +40,7 @@
     "@types/react-dom": "^19.3.0",
     "@typescript-eslint/eslint-plugin": "^7.0.0",
     "@typescript-eslint/parser": "^8.63.0",
-    "@vitejs/plugin-react": "^6.1.1",
+    "@vitejs/plugin-react": "^6.1.2",
     "@vitest/ui": "^5.0.2",
     "eslint": "^10.0.1",
     "eslint-config-prettier": "^10.1.8",
@@ -50,7 +50,7 @@
     "postcss": "^8.5.28",
     "tailwindcss": "^4.3.3",
     "typescript": "^5.9.3",
-    "vite": "^8.3.1",
+    "vite": "^8.3.3",
     "vitest": "^5.0.2"
   },
   "engines": {
