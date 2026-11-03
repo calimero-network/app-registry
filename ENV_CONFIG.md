@@ -19,6 +19,9 @@ VERCEL=1                    # Set automatically by Vercel (enables Redis)
 # indexes and counters stay in Redis. Objects are written to {GCS_PREFIX}/{package}/{version}.mpk
 GCS_BUCKET=calimero-app-registry  # Bucket name (required to read/write binaries)
 GCS_PREFIX=bundles                # Object key prefix (default: bundles)
+# Direct uploads (POST /api/v2/bundles/upload-url) stage .mpk files under uploads/ in the
+# same bucket via signed URLs. CLI/CI uploads need no bucket CORS. Optionally add a lifecycle
+# rule deleting objects under uploads/ after 1 day to sweep abandoned uploads.
 GCS_PROJECT_ID=                   # GCP project id (optional if inferable from creds)
 # Service-account credentials. On Vercel (no key file on disk) use inline creds:
 GCS_CLIENT_EMAIL=                 # service-account email
@@ -35,6 +38,26 @@ ALLOW_BUNDLE_OVERWRITE=false # If true/1, push can overwrite existing package@ve
 
 # CORS Configuration
 CORS_ORIGIN=http://localhost:1420,https://app.calimero.network
+```
+
+### Calimero Cloud (optional)
+
+Unset, Cloud JWTs are ignored and every package behaves as before. Outside
+production the `PREVIEW_`-prefixed form of each is read instead. Contract:
+[docs/cloud-integration.md](docs/cloud-integration.md).
+
+```bash
+CLOUD_JWKS_URL=https://<mdma>/.well-known/jwks.json   # Cloud manager's JWT keys
+CLOUD_ISSUER=cloud.calimero.network                  # expected iss
+CLOUD_AUDIENCE=registry                              # expected aud (default)
+CLOUD_JWT_MAX_TTL_SECONDS=3600                       # max exp - iat (default)
+CLOUD_AUTHORIZE_URL=https://<mdma>/internal/registry/authorize
+CLOUD_AUTHORIZE_HMAC_SECRET=...                      # shared with mdma (MDMA_REGISTRY_AUTHORIZE_HMAC_SECRET)
+CLOUD_AUTHORIZE_TIMEOUT_MS=3000                      # default
+CLOUD_PUBLISHED_URL=                                 # default: authorize URL with /published
+CLOUD_QUOTA_MAX_BUNDLE_BYTES=104857600               # 100 MiB default
+CLOUD_QUOTA_MAX_VERSIONS_PER_PACKAGE=200             # default
+CLOUD_QUOTA_MAX_TOTAL_BYTES=5368709120               # 5 GiB per org default
 ```
 
 ### Frontend Configuration
