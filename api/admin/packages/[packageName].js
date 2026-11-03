@@ -5,6 +5,10 @@
  *
  * Actions: 'approve' | 'decline' | 'verify' | 'unverify' | 'delete_version'.
  *
+ * 'approve' / 'decline' also settle a pending private -> public visibility
+ * request (PUT /api/v2/packages/:pkg/visibility), which is how such a request
+ * goes through the same review queue as assets.
+ *
  * ⚠️ `verify`/`unverify` ARE KEPT, AND THEY ARE NOT ALIASES. Approval is a
  * three-state decision now (pending / approved / declined) because a boolean
  * could not tell "reviewed and rejected" from "never looked at" — a declined
@@ -17,6 +21,12 @@ const { requireAdmin } = require('#api-lib/auth-helpers');
 const { kv } = require('#api-lib/kv-client');
 const { setAdminVerified } = require('#api-lib/admin-storage');
 const review = require('#api-lib/package-review');
+const {
+  packageOrgId,
+  deletePackageRecord,
+  decideVisibilityRequest,
+} = require('#api-lib/package-records');
+const { appendAudit } = require('#api-lib/org-audit');
 const {
   BundleStorageKV,
 } = require('@calimero-network/registry-backend/src/lib/bundle-storage-kv');
@@ -39,7 +49,15 @@ module.exports = async function handler(req, res) {
     // drift: it removes every bundle/version, the download counter, the review
     // decision, all assets and the org link, and tombstones the name so it
     // cannot later be silently re-registered and inherit the old trust.
+    const orgId = await packageOrgId(packageName).catch(() => null);
     await getStorage().deletePackage(packageName);
+    await deletePackageRecord(packageName);
+    await appendAudit(orgId, {
+      type: 'delete_package',
+      package: packageName,
+      user: admin,
+      via: 'admin',
+    });
     return res.status(204).end();
   }
 
@@ -51,7 +69,15 @@ module.exports = async function handler(req, res) {
       // Shared per-version delete: clears manifest, binary, blob and interface
       // indexes, drops the package from bundles:all when it empties, and
       // tombstones "<pkg>/<version>" so that exact release cannot be replayed.
+      const orgId = await packageOrgId(packageName).catch(() => null);
       await getStorage().deleteBundleVersion(packageName, version);
+      await appendAudit(orgId, {
+        type: 'delete_version',
+        package: packageName,
+        version,
+        user: admin,
+        via: 'admin',
+      });
       // Preserve the counter cleanup the manual path did when a package empties.
       const remaining = await kv.sMembers(`bundle-versions:${packageName}`);
       if (!remaining.length) {
@@ -92,7 +118,29 @@ module.exports = async function handler(req, res) {
         reason: (req.body || {}).reason || '',
       });
       await stampManifest(state === 'approved');
-      return res.status(200).json({ ok: true, state });
+      const decided = await decideVisibilityRequest(packageName, {
+        approve: state === 'approved',
+        by: admin.email || null,
+        reason: (req.body || {}).reason || '',
+      });
+      if (decided) {
+        await appendAudit(decided.org_id, {
+          type: 'visibility_decision',
+          package: packageName,
+          user: admin,
+          via: 'admin',
+          details: {
+            to: 'public',
+            approved: state === 'approved',
+            visibility: decided.visibility,
+          },
+        });
+      }
+      return res.status(200).json({
+        ok: true,
+        state,
+        ...(decided ? { visibility: decided.visibility } : {}),
+      });
     }
 
     if (action === 'verify' || action === 'unverify') {

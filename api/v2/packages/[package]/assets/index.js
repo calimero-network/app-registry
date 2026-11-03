@@ -30,6 +30,7 @@ const {
 } = require('#api-lib/auth-helpers');
 const { isAdmin } = require('#api-lib/admin-storage');
 const { resolveUser } = require('#api-lib/auth-helpers');
+const { readGate } = require('#api-lib/package-records');
 
 let storage;
 const getStorage = () => (storage ??= new BundleStorageKV());
@@ -86,6 +87,16 @@ module.exports = async function handler(req, res) {
 
   // ── GET: moderation-gated read ──
   if (req.method === 'GET') {
+    // A private package's assets are as invisible as the package itself.
+    const access = await readGate(req, pkg, r =>
+      resolveUser(r, { allowCloud: true })
+    );
+    if (!access.allowed) {
+      return res
+        .status(404)
+        .json({ error: 'not_found', message: 'No such package.' });
+    }
+    if (access.private) res.setHeader('Cache-Control', 'private, no-store');
     // ⚠️ THE APPROVAL CHECK COMES FIRST, AND THAT IS A PERFORMANCE FIX.
     //
     // assetVisibility() returns on `approved` without ever reading isOwner or
