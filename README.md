@@ -160,6 +160,12 @@ Org membership decides **who may operate the package's registry entry**. It does
 
 So a package has one signing key, and the org governs who may use it. Hold it as an organization secret (`MERO_SIGN_KEY`) and let a **bot account** publish with it, which keeps releases off any individual's credentials. Membership is still what you revoke: removing someone stops them uploading immediately, with no key rotation, which is the property a shared key on its own does not give you.
 
+### Calimero Cloud orgs and private packages
+
+The registry is also Calimero Cloud's package registry. A Cloud org publishes with a short-lived Cloud JWT (minted by the Cloud manager; `Authorization: Bearer <jwt>`, scope `publish` or `read`) instead of a registry API token. Its packages are **private** by default: they are left out of every listing and read, and answer `404` to anyone outside the org. Cloud clusters download them with the per-cluster credential in their `--registry-url`, which the registry checks with the Cloud manager. An org also owns the namespace of its first package (`com.acme.app` claims `com.acme`), every Cloud publish counts against per-org quotas, and every publish, visibility change, yank and delete lands in the org's audit log (`GET /api/v2/orgs/:id/audit`). Making a private package public (`PUT /api/v2/packages/:pkg/visibility`) goes through the admin review queue.
+
+The full contract, including the endpoints the Cloud manager exposes, is [docs/cloud-integration.md](docs/cloud-integration.md). Packages published without Cloud behave exactly as before.
+
 ### Getting started with orgs
 
 1. **Sign in** with Google at the registry web UI

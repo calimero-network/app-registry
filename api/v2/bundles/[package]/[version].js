@@ -27,18 +27,20 @@ const {
 } = require('#api-lib/verify');
 const {
   requireAuth,
+  resolveUser,
   canManagePackage,
   NOT_OWNER_MESSAGE,
 } = require('#api-lib/auth-helpers');
 const {
   lockedFieldChanges,
 } = require('@calimero-network/registry-backend/src/lib/manifest-lock');
-const { kv } = require('#api-lib/kv-client');
 const {
-  storageVar,
-  isStorageBlocked,
-  createUnavailableKv,
-} = require('@calimero-network/registry-shared/storage-env');
+  readGate,
+  packageOrgId,
+  isPrivatePackage,
+} = require('#api-lib/package-records');
+const { appendAudit } = require('#api-lib/org-audit');
+const { kv } = require('#api-lib/kv-client');
 const {
   createBundleSanitizers,
 } = require('@calimero-network/registry-backend/src/lib/bundle-sanitize');
@@ -47,64 +49,6 @@ let storage;
 function getStorage() {
   if (!storage) storage = new BundleStorageKV();
   return storage;
-}
-
-let kvClient;
-
-async function getKV() {
-  if (kvClient) return kvClient;
-
-  if (isStorageBlocked()) {
-    kvClient = createUnavailableKv();
-    return kvClient;
-  }
-
-  const redisUrl = storageVar('REDIS_URL');
-  const isProduction = process.env.VERCEL === '1' || !!redisUrl;
-
-  if (isProduction && redisUrl) {
-    const { createClient } = require('redis');
-    const redisClient = createClient({ url: redisUrl });
-    redisClient.on('error', err => console.error('Redis error:', err));
-
-    kvClient = {
-      _connected: false,
-      _connecting: null,
-      async _ensureConnected() {
-        if (this._connected) return;
-        if (this._connecting) {
-          await this._connecting;
-          return;
-        }
-        this._connecting = redisClient
-          .connect()
-          .then(() => {
-            this._connected = true;
-            this._connecting = null;
-          })
-          .catch(error => {
-            this._connected = false;
-            this._connecting = null;
-            throw error;
-          });
-        await this._connecting;
-      },
-      async get(key) {
-        await this._ensureConnected();
-        return await redisClient.get(key);
-      },
-    };
-    return kvClient;
-  }
-
-  // Mock for development
-  const mockStore = new Map();
-  kvClient = {
-    async get(key) {
-      return mockStore.get(key) ?? null;
-    },
-  };
-  return kvClient;
 }
 
 /** owners[] as a sorted list of strings, so order does not count as a change. */
@@ -183,6 +127,9 @@ async function handlePatch(req, res, pkg, version) {
   }
 
   if (!(await canManagePackage(pkg, existing, user))) {
+    if (await isPrivatePackage(pkg)) {
+      return res.status(404).json({ error: 'not_found' });
+    }
     return res.status(403).json({
       error: 'not_owner',
       message: NOT_OWNER_MESSAGE,
@@ -325,7 +272,7 @@ module.exports = async function handler(req, res) {
   }
 
   if (req.method === 'DELETE') {
-    const user = await requireAuth(req, res);
+    const user = await requireAuth(req, res, { allowCloud: true });
     if (!user) return;
 
     const store = getStorage();
@@ -348,6 +295,10 @@ module.exports = async function handler(req, res) {
     }
 
     if (!(await canManagePackage(pkg, existing, user))) {
+      // A private package is not confirmed to someone who may not manage it.
+      if (await isPrivatePackage(pkg)) {
+        return res.status(404).json({ error: 'not_found' });
+      }
       return res.status(403).json({
         error: 'not_owner',
         message: NOT_OWNER_MESSAGE,
@@ -355,9 +306,16 @@ module.exports = async function handler(req, res) {
     }
 
     try {
+      const orgId = await packageOrgId(pkg).catch(() => null);
       await store.deleteBundleVersion(pkg, version);
       // Clean up yank flag so a future re-publish of the same semver starts fresh.
       await kv.del(`bundle-yanked:${pkg}/${version}`).catch(() => {});
+      await appendAudit(orgId, {
+        type: 'delete_version',
+        package: pkg,
+        version,
+        user,
+      });
       return res.status(200).json({ message: `Deleted ${pkg}@${version}` });
     } catch (error) {
       console.error('DELETE version error:', error);
@@ -368,21 +326,6 @@ module.exports = async function handler(req, res) {
     }
   }
 
-  // Named apart from the imported `kv`: this used to be `let kv`, which put the
-  // module-level import in a temporal dead zone for the whole handler, so the
-  // DELETE branch's kv.del() threw and reported 500 on a delete that had
-  // already succeeded.
-  let readKv;
-  try {
-    readKv = await getKV();
-  } catch (e) {
-    console.error('KV init failed:', e);
-    return res.status(500).json({
-      error: 'kv_init_failed',
-      message: 'Internal error',
-    });
-  }
-
   // Privacy: the raw manifest carries internal `_`-prefixed metadata
   // (notably `metadata._ownerEmail`). Run it through the shared sanitizer —
   // the same one the listing endpoint and the Fastify detail route use — so
@@ -391,12 +334,19 @@ module.exports = async function handler(req, res) {
   const { sanitizeBundle } = createBundleSanitizers(kv);
 
   try {
-    const data = await readKv.get(`bundle:${pkg}/${version}`);
+    // A private package the caller may not read is answered exactly like one
+    // that does not exist.
+    const access = await readGate(req, pkg, r =>
+      resolveUser(r, { allowCloud: true })
+    );
+    if (!access.allowed) return res.status(404).json({ error: 'not_found' });
+    if (access.private) res.setHeader('Cache-Control', 'private, no-store');
+    const data = await kv.get(`bundle:${pkg}/${version}`);
     if (!data) return res.status(404).json({ error: 'not_found' });
     const raw = JSON.parse(data).json;
     const [downloadCount, yankFlag] = await Promise.all([
-      readKv.get(`downloads:${(pkg || '').toLowerCase()}`),
-      readKv.get(`bundle-yanked:${pkg}/${version}`),
+      kv.get(`downloads:${(pkg || '').toLowerCase()}`),
+      kv.get(`bundle-yanked:${pkg}/${version}`),
     ]);
     const downloads = downloadCount ? parseInt(downloadCount, 10) : 0;
     const sanitized = await sanitizeBundle(raw, pkg);
@@ -404,6 +354,7 @@ module.exports = async function handler(req, res) {
       ...sanitized,
       yanked: yankFlag === '1',
       downloads,
+      ...(access.private ? { visibility: 'private' } : {}),
     });
   } catch (error) {
     console.error('Get Error:', error);

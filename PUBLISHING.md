@@ -131,6 +131,21 @@ Useful `bundle` flags:
 
 ---
 
+## Publishing to a Calimero Cloud org
+
+A Cloud org publishes with a Cloud JWT rather than a registry API token: trade an org API key for one at the Cloud manager (`POST /api/v2/registry/token {"org", "scope": "publish"}`), then send it as `Authorization: Bearer <jwt>` to the same endpoints. It lives 10 minutes, so mint one per publish.
+
+- New packages are **private** unless you ask otherwise: `_visibility: "public"` in the JSON body, or the `X-Registry-Visibility: public` header. A private package is invisible to everyone outside the org and installable only by the org's clusters.
+- Your org's first package claims its namespace (`com.acme.app` claims `com.acme`; `acme.app` claims `acme`). Nobody else can publish under it.
+- Every later version must be signed with the package's pinned key (its first signer, or a key in `owners[]`).
+- Per-org quotas apply (bundle size, versions per package, total bytes); a refusal is `413 quota_exceeded` with the limit.
+- To go public later: `PUT /api/v2/packages/<pkg>/visibility {"visibility": "public"}` as an org owner or admin. A registry admin reviews it first.
+- Bundles over ~4 MB: request a signed upload with `POST /api/v2/bundles/upload-url`, PUT the `.mpk` there, then `POST /api/v2/bundles/push` with `_upload: {object}` (Vercel caps request bodies at 4.5 MB).
+
+See [docs/cloud-integration.md](docs/cloud-integration.md) for the details.
+
+---
+
 ## Publishing from CI
 
 Releasing by hand means someone has to remember to do it, with the production key on their laptop.
@@ -432,6 +447,12 @@ Have the script accept a `--print-release` flag: a CI cache key needs the pinned
 
 `cargo mero publish` sends the manifest to `POST /api/v2/bundles/push` with `Authorization: Bearer $CALIMERO_API_KEY`.
 The whole `.mpk` rides along under a `_binary` field; `_`-prefixed keys are stripped before signature verification, so attaching it does not disturb what was signed.
+
+Vercel rejects request bodies over 4.5 MB, which a hex-encoded `.mpk` of about 2.3 MiB or more exceeds.
+For those, `POST /api/v2/bundles/upload-url` (bot, admin or staff accounts only, 100 per hour each; the object may be up to 50 MiB) returns `{ url, object, method, headers, expiresAt }`.
+`PUT` the raw `.mpk` to `url` with `headers` replayed verbatim before `expiresAt` (15 minutes), then push the manifest with `_upload: { object }` in place of `_binary`.
+Sending both is `400 invalid_upload`; an object from another account is refused the same way.
+The staging object is deleted after the push.
 
 | Check                                                                                                          | Failure                 |
 | -------------------------------------------------------------------------------------------------------------- | ----------------------- |

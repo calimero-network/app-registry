@@ -6,6 +6,7 @@
 const {
   BundleStorageKV,
 } = require('@calimero-network/registry-backend/src/lib/bundle-storage-kv');
+const { privatePackages } = require('#api-lib/package-records');
 
 // Singleton storage instance
 let storage;
@@ -22,7 +23,10 @@ module.exports = async (req, res) => {
     const store = getStorage();
 
     // Optimized: Get all bundle keys in parallel (O(packages) queries instead of O(packages × versions))
-    const bundleKeys = await store.getAllBundleKeys();
+    const allKeys = await store.getAllBundleKeys();
+    // Public numbers count public packages only.
+    const hidden = await privatePackages(allKeys.map(k => k.package));
+    const bundleKeys = allKeys.filter(k => !hidden.has(k.package));
 
     // Count total bundles (all versions)
     const totalBundles = bundleKeys.length;
