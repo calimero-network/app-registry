@@ -188,7 +188,6 @@ describe('PATCH /api/v2/bundles/:pkg/:version — what may change', () => {
     ['minRuntimeVersion', { minRuntimeVersion: '9.9.9' }],
     ['services', { services: [{ name: 'svc' }] }],
     ['version', { version: '2.0' }],
-    ['signerId', { signerId: 'did:key:z6MkOther' }],
     [
       'min_runtime_version (snake_case)',
       { minRuntimeVersion: '0.1.0', min_runtime_version: '99.0.0' },
@@ -201,6 +200,22 @@ describe('PATCH /api/v2/bundles/:pkg/:version — what may change', () => {
     const r = await patch(AUTHOR, edit(overrides));
     expect(r.status).toHaveBeenCalledWith(400);
     expect(saved()).toEqual(stored);
+  });
+
+  test('changing a stored signerId is refused', async () => {
+    const signedBy = { ...stored, signerId: 'did:key:z6MkStored' };
+    mockKVData.set(KEY, JSON.stringify({ json: signedBy }));
+    const r = await patch(AUTHOR, edit({ signerId: 'did:key:z6MkOther' }));
+    expect(r.status).toHaveBeenCalledWith(400);
+    expect(saved()).toEqual(signedBy);
+  });
+
+  test('dropping a stored signerId is refused', async () => {
+    const signedBy = { ...stored, signerId: 'did:key:z6MkStored' };
+    mockKVData.set(KEY, JSON.stringify({ json: signedBy }));
+    const r = await patch(AUTHOR, edit());
+    expect(r.status).toHaveBeenCalledWith(400);
+    expect(saved()).toEqual(signedBy);
   });
 
   test('dropping a stored minRuntimeVersion is refused', async () => {

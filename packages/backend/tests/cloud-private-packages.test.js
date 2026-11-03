@@ -854,6 +854,31 @@ describe('node downloads (HTTP, basic auth via userinfo)', () => {
     expect(mdma.calls).toBe(0);
   });
 
+  test('a download names the runtime floor, 0.1.0 when the manifest has none', async () => {
+    const res = await download('org.example.open', '1.0.0');
+    expect(res.status).toBe(200);
+    expect(res.headers['x-min-runtime-version']).toBe('0.1.0');
+  });
+
+  test.each([
+    ['minRuntimeVersion', { minRuntimeVersion: '0.7.2' }],
+    ['min_runtime_version', { min_runtime_version: '0.7.2' }],
+  ])('a download names a %s floor', async (_spelling, floor) => {
+    const bundle = await signBundle(
+      { ...manifestFor('org.example.floor', '1.0.0'), ...floor },
+      keysOther
+    );
+    const pushed = await call(pushHandler, {
+      method: 'POST',
+      headers: bearer(await legacyToken('dev@example.org')),
+      body: bundle,
+    });
+    expect(pushed.statusCode).toBe(201);
+    const res = await download('org.example.floor', '1.0.0');
+    expect(res.status).toBe(200);
+    expect(res.headers['x-min-runtime-version']).toBe('0.7.2');
+  });
+
   test('no credentials: the same 404 as a package that does not exist', async () => {
     const hidden = await download('com.acme.secret', '1.0.0');
     const absent = await download('com.acme.nothing', '1.0.0');

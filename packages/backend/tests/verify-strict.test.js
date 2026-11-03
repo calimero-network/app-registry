@@ -133,6 +133,39 @@ describe.each(Object.entries(VERIFIERS))('%s', (_name, verifier) => {
     ).rejects.toThrow('signerId');
   });
 
+  test('refuses a manifest whose signed field was changed after signing', async () => {
+    const ed = await ed25519();
+    const secretKey = ed.utils.randomSecretKey();
+    const publicKey = Buffer.from(await ed.getPublicKeyAsync(secretKey));
+    const unsigned = { ...MANIFEST, signerId: didKey(publicKey) };
+    const signature = await ed.signAsync(signingPayload(unsigned), secretKey);
+    const manifest = signed(publicKey, signature);
+    await expect(verifier.verifyManifest(manifest)).resolves.toBe(true);
+    await expect(
+      verifier.verifyManifest({ ...manifest, appVersion: '9.9.9' })
+    ).rejects.toThrow();
+  });
+
+  test('ignores `_`-prefixed server fields when verifying', async () => {
+    const ed = await ed25519();
+    const secretKey = ed.utils.randomSecretKey();
+    const publicKey = Buffer.from(await ed.getPublicKeyAsync(secretKey));
+    const unsigned = { ...MANIFEST, signerId: didKey(publicKey) };
+    const signature = await ed.signAsync(signingPayload(unsigned), secretKey);
+    const manifest = {
+      ...signed(publicKey, signature),
+      _publishedAt: '2026-01-01T00:00:00.000Z',
+      _binary: 'abcd',
+    };
+    await expect(verifier.verifyManifest(manifest)).resolves.toBe(true);
+  });
+
+  test('refuses a manifest with no signature block', async () => {
+    await expect(
+      verifier.verifyManifest({ ...MANIFEST, signerId: 'did:key:z6Mk' })
+    ).rejects.toThrow();
+  });
+
   test('refuses a manifest without a signerId', async () => {
     const ed = await ed25519();
     const secretKey = ed.utils.randomSecretKey();
@@ -190,6 +223,34 @@ describe.each(Object.entries(VERIFIERS))('%s', (_name, verifier) => {
         'alg/pubkey/sig aliases',
         s => ({ alg: s.algorithm, pubkey: s.publicKey, sig: s.signature }),
       ],
+      [
+        'a standard-base64 (padded) key',
+        s => ({
+          ...s,
+          publicKey: Buffer.from(s.publicKey, 'base64url').toString('base64'),
+        }),
+      ],
+      [
+        'a multibase base58btc key',
+        s => ({
+          ...s,
+          publicKey: Buffer.from(
+            require('multibase').encode(
+              'base58btc',
+              Buffer.from(s.publicKey, 'base64url')
+            )
+          ).toString(),
+        }),
+      ],
+      [
+        'a hex key',
+        s => ({
+          ...s,
+          publicKey: Buffer.from(s.publicKey, 'base64url').toString('hex'),
+        }),
+      ],
+      ['another algorithm', s => ({ ...s, algorithm: 'secp256k1' })],
+      ['a missing signature value', s => ({ ...s, signature: undefined })],
     ])('refuses %s', async (_label, tweak) => {
       await expect(
         verifier.verifyManifest(await genuine(0, tweak))
