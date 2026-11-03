@@ -17,32 +17,34 @@ const { getPkg2Org, getOrg } = require('./org-storage');
  * point of the gate is that the default is deny.
  */
 async function publisherOf(pkg) {
-  let email = '';
-  try {
-    const versions = await kv.sMembers(`bundle-versions:${pkg}`);
-    if (versions?.length) {
+  // The two lookups are independent, so they share round trips instead of
+  // queueing behind each other: the listing waits on this for every package.
+  const emailOf = async () => {
+    try {
+      const versions = await kv.sMembers(`bundle-versions:${pkg}`);
+      if (!versions?.length) return '';
       // Any version will do: the author is stable per package.
       const raw = await kv.get(`bundle:${pkg}/${versions[0]}`);
-      if (raw) {
-        const meta = JSON.parse(raw)?.json?.metadata || {};
-        email = meta._ownerEmail || '';
-      }
+      if (!raw) return '';
+      const meta = JSON.parse(raw)?.json?.metadata || {};
+      return meta._ownerEmail || '';
+    } catch {
+      return ''; /* not trusted */
     }
-  } catch {
-    /* not trusted */
-  }
+  };
 
-  let orgSlug = '';
-  try {
-    const orgId = await getPkg2Org(pkg);
-    if (orgId) {
+  const orgSlugOf = async () => {
+    try {
+      const orgId = await getPkg2Org(pkg);
+      if (!orgId) return '';
       const org = await getOrg(orgId);
-      orgSlug = org?.slug || orgId || '';
+      return org?.slug || orgId || '';
+    } catch {
+      return ''; /* not trusted */
     }
-  } catch {
-    /* not trusted */
-  }
+  };
 
+  const [email, orgSlug] = await Promise.all([emailOf(), orgSlugOf()]);
   return { email, orgSlug };
 }
 

@@ -22,6 +22,7 @@ const {
 } = require('@calimero-network/registry-backend/src/lib/asset-visibility');
 const { resolveUser, canManagePackage } = require('#api-lib/auth-helpers');
 const { isAdmin } = require('#api-lib/admin-storage');
+const { readGate } = require('#api-lib/package-records');
 
 let storage;
 const getStorage = () => (storage ??= new BundleStorageKV());
@@ -52,6 +53,13 @@ module.exports = async function handler(req, res) {
   //
   // Now: ask first. Identity — and the manifest that ownership needs — is
   // resolved only on the branch where the asset is NOT public.
+  // A private package's images are as invisible as the package: one record
+  // read for every request, identity only when the package is private.
+  const access = await readGate(req, pkg, r =>
+    resolveUser(r, { allowCloud: true })
+  );
+  if (!access.allowed) return res.status(404).json({ error: 'not_found' });
+
   const publicVis = await assetVisibility({ pkg });
   let vis = publicVis;
 
@@ -88,8 +96,9 @@ module.exports = async function handler(req, res) {
   // own browser may keep it: it is their file, and the id never points at
   // different bytes (a re-upload is a new random id). `no-store` here meant
   // the owner re-downloaded the full original every time they opened it.
-  const cacheControl =
-    vis.state === 'approved'
+  const cacheControl = access.private
+    ? 'private, no-store'
+    : vis.state === 'approved'
       ? 'public, max-age=31536000, immutable'
       : 'private, max-age=3600';
 
