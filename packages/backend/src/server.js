@@ -29,6 +29,8 @@ const {
   linkProblems,
 } = require('./lib/metadata-policy');
 const { kv } = require('./lib/kv-client');
+const { countDownload } = require('./lib/download-count');
+const { lockedFieldChanges } = require('./lib/manifest-lock');
 const {
   verifyManifest,
   getPublicKeyFromManifest,
@@ -374,10 +376,7 @@ async function buildServer() {
           });
         }
         const canonicalPkg = pkg.toLowerCase();
-        await Promise.all([
-          kv.incr('downloads:total').catch(() => {}),
-          kv.incr(`downloads:${canonicalPkg}`).catch(() => {}),
-        ]);
+        await countDownload(kv, request.ip, canonicalPkg).catch(() => {});
         const normalized = await sanitizeBundle(bundle);
         normalized.yanked =
           (await kv.get(`bundle-yanked:${pkg}/${version}`)) === '1';
@@ -476,10 +475,7 @@ async function buildServer() {
 
       // Count installs: this endpoint is called exactly once per install click in the desktop app
       const canonicalPkg = pkg.toLowerCase();
-      await Promise.all([
-        kv.incr('downloads:total').catch(() => {}),
-        kv.incr(`downloads:${canonicalPkg}`).catch(() => {}),
-      ]);
+      await countDownload(kv, request.ip, canonicalPkg).catch(() => {});
       normalized.yanked =
         (await kv.get(`bundle-yanked:${pkg}/${version}`)) === '1';
       normalized.downloads =
@@ -612,6 +608,14 @@ async function buildServer() {
         });
       }
 
+      const locked = lockedFieldChanges(incoming, existing);
+      if (locked.length > 0) {
+        return reply.code(400).send({
+          error: 'invalid_manifest',
+          message: `${locked.join(', ')} cannot be changed via PATCH`,
+        });
+      }
+
       const badLinks = linkProblems(incoming.links, incoming.frontendAliases);
       if (badLinks.length > 0) {
         return reply.code(400).send({
@@ -634,7 +638,6 @@ async function buildServer() {
         metadata: mergedMetadata,
         links: incoming.links ?? existing.links,
         frontendAliases: incoming.frontendAliases ?? existing.frontendAliases,
-        interfaces: incoming.interfaces ?? existing.interfaces,
         signature: incoming.signature,
       };
 
@@ -1226,10 +1229,7 @@ async function buildServer() {
       const pkg = pathParts[0];
       const canonicalPkg = pkg.toLowerCase();
       try {
-        await Promise.all([
-          kv.incr('downloads:total'),
-          kv.incr(`downloads:${canonicalPkg}`),
-        ]);
+        await countDownload(kv, request.ip, canonicalPkg);
         request.log.info(
           { pkg, artifactPath },
           'download counted (artifact requested)'

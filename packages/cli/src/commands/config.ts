@@ -14,8 +14,11 @@ function createConfigSetCommand(): Command {
   return new Command('set')
     .description('Set a configuration value')
     .argument('<key>', 'Configuration key (registry-url, api-key)')
-    .argument('<value>', 'Configuration value')
-    .action((key, value) => {
+    .argument(
+      '[value]',
+      'Configuration value; for api-key, omit it to read the key from stdin'
+    )
+    .action(async (key, value) => {
       try {
         const config = new RemoteConfig();
 
@@ -23,6 +26,7 @@ function createConfigSetCommand(): Command {
           case 'registry-url':
           case 'registryUrl':
           case 'url':
+            if (!value) throw new Error('registry-url needs a value');
             config.setRegistryUrl(value);
             console.log(
               chalk.green(`✅ Registry URL set to: ${chalk.bold(value)}`)
@@ -31,7 +35,7 @@ function createConfigSetCommand(): Command {
 
           case 'api-key':
           case 'apiKey':
-            config.setApiKey(value);
+            config.setApiKey(value ?? (await readApiKey()));
             console.log(chalk.green('✅ API key set successfully'));
             console.log(
               chalk.yellow(
@@ -53,6 +57,19 @@ function createConfigSetCommand(): Command {
         process.exit(1);
       }
     });
+}
+
+// A key passed as an argument lands in shell history and the process list.
+async function readApiKey(): Promise<string> {
+  if (process.stdin.isTTY) process.stderr.write('Paste the API key: ');
+  let input = '';
+  for await (const chunk of process.stdin) {
+    input += chunk;
+    if (process.stdin.isTTY && input.includes('\n')) break;
+  }
+  const key = input.trim();
+  if (!key) throw new Error('No API key on stdin');
+  return key;
 }
 
 function createConfigGetCommand(): Command {

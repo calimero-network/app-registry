@@ -7,6 +7,9 @@
  */
 
 const { kv } = require('./kv-client');
+const {
+  isReservedOrgName,
+} = require('@calimero-network/registry-shared/org-slugs');
 
 const USER_PREFIX = 'user:';
 const USERNAME_PREFIX = 'username:';
@@ -65,6 +68,7 @@ const BLOCKED_TERMS = new Set([
 ]);
 
 function containsBlockedTerm(username) {
+  if (isReservedOrgName(username)) return true;
   const lower = username.toLowerCase().replace(/[-_]/g, '');
   for (const term of BLOCKED_TERMS) {
     if (lower.includes(term)) return true;

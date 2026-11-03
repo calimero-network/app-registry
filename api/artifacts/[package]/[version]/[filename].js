@@ -25,6 +25,9 @@
 const {
   BundleStorageKV,
 } = require('@calimero-network/registry-backend/src/lib/bundle-storage-kv');
+const {
+  minRuntimeVersionOf,
+} = require('@calimero-network/registry-backend/src/lib/bundle-sanitize');
 const blob = require('@calimero-network/registry-backend/src/lib/blob-store');
 const { kv } = require('@calimero-network/registry-backend/src/lib/kv-client');
 const { resolveUser } = require('#api-lib/auth-helpers');
@@ -196,12 +199,7 @@ module.exports = async function handler(req, res) {
     if (!manifest) return notFound();
 
     // Expose min_runtime_version for runtime compatibility (Rust expects this)
-    const minRuntimeVersion =
-      manifest?.minRuntimeVersion ?? manifest?.min_runtime_version;
-    const minRuntimeVersionHeader =
-      minRuntimeVersion != null && String(minRuntimeVersion).trim()
-        ? String(minRuntimeVersion).trim()
-        : '0.1.0';
+    const minRuntimeVersionHeader = minRuntimeVersionOf(manifest);
 
     // SECURITY: `filename` comes from the URL. A raw quote or control char would
     // break out of the quoted header value (header injection). Strip anything

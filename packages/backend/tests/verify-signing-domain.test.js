@@ -56,11 +56,13 @@ describe.each(Object.entries(VERIFIERS))('%s', (_name, verifier) => {
   });
 
   test('accepts a signature over the tagged payload', async () => {
-    const manifest = withSignature({
-      publicKey: VECTOR.publicKey,
-      signature: VECTOR.signature,
-    });
-    await expect(verifier.verifyManifest(manifest)).resolves.toBe(true);
+    await expect(
+      verifier.verifySignature(
+        VECTOR.publicKey,
+        VECTOR.signature,
+        Buffer.from(VECTOR.payload, 'hex')
+      )
+    ).resolves.toBe(true);
   });
 
   test('refuses a signature over the bare SHA-256 of the canonical bytes', async () => {

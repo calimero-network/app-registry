@@ -11,6 +11,8 @@
  * `bundle` command wires them to the filesystem.
  */
 
+import fs from 'fs';
+import path from 'path';
 import type { BundleManifest } from './local-storage.js';
 
 /** Source-file references for a service, as authored on the CLI or in a manifest config file. */
@@ -222,4 +224,24 @@ export function collectBundleFiles(manifest: BundleManifest): string[] {
   files.forEach(assertSafeBundlePath);
   // De-dupe while preserving order (a malformed manifest could repeat a path).
   return [...new Set(files)];
+}
+
+/**
+ * Refuse any file that is missing, not a regular file, or symlinked outside
+ * `dir`. @throws Error naming the first offending file.
+ */
+export function assertFilesInsideDir(dir: string, files: string[]): void {
+  const root = fs.realpathSync(dir);
+  for (const f of files) {
+    const full = path.join(dir, f);
+    const inside =
+      fs.existsSync(full) &&
+      fs.lstatSync(full).isFile() &&
+      fs.realpathSync(full) === path.join(root, f);
+    if (!inside) {
+      throw new Error(
+        `Bundle file referenced by manifest is missing, not a regular file, or outside the bundle directory: ${f}`
+      );
+    }
+  }
 }

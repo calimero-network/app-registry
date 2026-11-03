@@ -1489,7 +1489,7 @@ tar -xzf cargo-mero.tar.gz -C "\${CARGO_HOME:-$HOME/.cargo}/bin"`}</CodeBlock>
 
 # save the defaults once
 calimero-registry config set registry-url https://apps.calimero.network
-calimero-registry config set api-key <token>
+calimero-registry config set api-key   # paste the token when asked
 
 # or per-session, the same variables cargo mero reads
 export CALIMERO_REGISTRY_URL=https://apps.calimero.network

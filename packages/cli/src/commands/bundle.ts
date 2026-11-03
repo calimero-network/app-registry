@@ -27,6 +27,7 @@ import {
   serviceAbiPath,
   assertUniqueServiceNames,
   collectBundleFiles,
+  assertFilesInsideDir,
 } from '../lib/services.js';
 
 /**
@@ -660,7 +661,7 @@ Examples:
 Configuration:
   Set defaults using the config command:
   $ calimero-registry config set registry-url https://apps.calimero.network
-  $ calimero-registry config set api-key your-api-key
+  $ calimero-registry config set api-key   # paste the key when asked
   
   Or use environment variables:
   $ export CALIMERO_REGISTRY_URL=https://apps.calimero.network
@@ -790,14 +791,11 @@ Note:
             process.exit(1);
           }
 
-          // Verify every referenced file exists before packing.
-          for (const f of archiveFiles) {
-            if (!fs.existsSync(path.join(fullPath, f))) {
-              console.error(
-                `❌ Bundle file referenced by manifest not found: ${f}`
-              );
-              process.exit(1);
-            }
+          try {
+            assertFilesInsideDir(fullPath, archiveFiles);
+          } catch (e) {
+            console.error(`${e instanceof Error ? e.message : String(e)}`);
+            process.exit(1);
           }
 
           await tar.create(

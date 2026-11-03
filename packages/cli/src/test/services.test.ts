@@ -1,4 +1,7 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
 import {
   parseServiceSpec,
   validateServiceName,
@@ -8,6 +11,7 @@ import {
   assertUniqueServiceNames,
   assertSafeBundlePath,
   collectBundleFiles,
+  assertFilesInsideDir,
 } from '../lib/services.js';
 import type { BundleManifest } from '../lib/local-storage.js';
 
@@ -249,5 +253,48 @@ describe('assertSafeBundlePath', () => {
       /Unsafe bundle path/
     );
     expect(() => assertSafeBundlePath('')).toThrow(/Unsafe bundle path/);
+  });
+});
+
+describe('assertFilesInsideDir', () => {
+  let root: string;
+  let bundle: string;
+
+  beforeEach(() => {
+    root = fs.mkdtempSync(path.join(os.tmpdir(), 'bundle-dir-'));
+    bundle = path.join(root, 'bundle');
+    fs.mkdirSync(bundle);
+    fs.mkdirSync(path.join(root, 'outside'));
+    fs.writeFileSync(path.join(root, 'outside', 'svc.wasm'), 'secret');
+    fs.writeFileSync(path.join(bundle, 'app.wasm'), 'wasm');
+  });
+
+  afterEach(() => fs.rmSync(root, { recursive: true, force: true }));
+
+  it('accepts regular files inside the directory', () => {
+    expect(() => assertFilesInsideDir(bundle, ['app.wasm'])).not.toThrow();
+  });
+
+  it('refuses a file reached through a symlinked directory', () => {
+    fs.symlinkSync(path.join(root, 'outside'), path.join(bundle, 'services'));
+    expect(() =>
+      assertFilesInsideDir(bundle, ['app.wasm', 'services/svc.wasm'])
+    ).toThrow(/services\/svc.wasm/);
+  });
+
+  it('refuses a symlinked file', () => {
+    fs.symlinkSync(
+      path.join(root, 'outside', 'svc.wasm'),
+      path.join(bundle, 'abi.json')
+    );
+    expect(() => assertFilesInsideDir(bundle, ['abi.json'])).toThrow(
+      /abi.json/
+    );
+  });
+
+  it('refuses a missing file', () => {
+    expect(() => assertFilesInsideDir(bundle, ['gone.wasm'])).toThrow(
+      /gone.wasm/
+    );
   });
 });

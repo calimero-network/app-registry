@@ -262,13 +262,6 @@ if (isStorageBlocked()) {
       return true; // Key was set
     },
 
-    async mGet(keys) {
-      return keys.map(key => {
-        const value = mockStore.get(key);
-        return value !== undefined ? value : null;
-      });
-    },
-
     async setNXEx(key, value, ttlSeconds) {
       const expiresAt = mockExpiry.get(key);
       if (expiresAt !== undefined && expiresAt <= Date.now()) {
@@ -279,6 +272,13 @@ if (isStorageBlocked()) {
       mockStore.set(key, value);
       mockExpiry.set(key, Date.now() + ttlSeconds * 1000);
       return true;
+    },
+
+    async mGet(keys) {
+      return keys.map(key => {
+        const value = mockStore.get(key);
+        return value !== undefined ? value : null;
+      });
     },
 
     async del(key) {

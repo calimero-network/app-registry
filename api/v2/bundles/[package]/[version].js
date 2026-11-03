@@ -32,6 +32,9 @@ const {
   NOT_OWNER_MESSAGE,
 } = require('#api-lib/auth-helpers');
 const {
+  lockedFieldChanges,
+} = require('@calimero-network/registry-backend/src/lib/manifest-lock');
+const {
   readGate,
   packageOrgId,
   isPrivatePackage,
@@ -167,6 +170,14 @@ async function handlePatch(req, res, pkg, version) {
     return res.status(400).json({
       error: 'invalid_manifest',
       message: 'wasm (path, hash, size) cannot be changed via PATCH',
+    });
+  }
+
+  const locked = lockedFieldChanges(body, existing);
+  if (locked.length > 0) {
+    return res.status(400).json({
+      error: 'invalid_manifest',
+      message: `${locked.join(', ')} cannot be changed via PATCH`,
     });
   }
 
