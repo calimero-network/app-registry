@@ -95,8 +95,8 @@ importers:
         specifier: workspace:*
         version: link:../../shared
       '@fastify/cookie':
-        specifier: ^11.1.2
-        version: 11.1.2
+        specifier: ^11.1.3
+        version: 11.1.5
       '@fastify/cors':
         specifier: ^11.3.0
         version: 11.3.0
@@ -1392,8 +1392,8 @@ packages:
     resolution: {integrity: sha512-yXSS27qPExaXeuLvMRMXOLtpipzfQYNjG3FkunDWKGfMYjKuhFXko9CVzqxm8jcF+lmtS9Fd89QNdh9XDjnbNg==}
     dev: false
 
-  /@fastify/cookie@11.1.2:
-    resolution: {integrity: sha512-Dtrpk/YOGUsbRMvP/8ZqPpwnMRv0qSqodFdoQ2B589Obc7jw4s4Qla+cV72Bsm7WsZJnqlYFX/i7uSBq0xzg6g==}
+  /@fastify/cookie@11.1.5:
+    resolution: {integrity: sha512-hs7e0otf7n/lJMpt63EFdQb5/u8kO6DeexEtLPVTybSdItC6SwJ1O0vtTyWvKNR70LZcHLlsUr/y3jFpqtyWRA==}
     dependencies:
       cookie: 2.0.1
       fastify-plugin: 6.0.0
