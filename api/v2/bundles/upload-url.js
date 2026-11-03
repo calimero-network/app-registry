@@ -20,7 +20,11 @@ const {
   hasCloudScope,
 } = require('#api-lib/auth-helpers');
 
-const RATE_LIMIT = 100; // grants per account per window; a full Release publishes ~25 apps from one bot
+// Grants per account per window. A full Release publishes ~25 apps from one
+// bot; any other signed-in publisher gets a smaller allowance, enough to ship
+// a few bundles an hour without letting one account park gigabytes in the bucket.
+const TRUSTED_RATE_LIMIT = 100;
+const RATE_LIMIT = 10;
 const RATE_WINDOW_SECONDS = 3600;
 
 module.exports = async function handler(req, res) {
@@ -36,29 +40,32 @@ module.exports = async function handler(req, res) {
     const user = await resolveUser(req, { allowCloud: true });
     if (!user?.email) return rejectUnauthenticated(req, res);
 
-    // Any Google account can sign in; an open endpoint would let anyone park large objects in the bucket.
-    // A Cloud token with the `publish` scope is accepted: Cloud orgs are
-    // vetted by the Cloud manager, and the rate limit below still applies.
+    // Any signed-in account may publish, and a bundle with its frontend is
+    // past the 4.5 MB a function body takes, so every publisher gets direct
+    // upload. A Cloud token still needs the `publish` scope. Bot, admin and
+    // staff accounts and Cloud tokens get the larger allowance.
     const email = user.email;
-    const allowed = user.cloud
-      ? hasCloudScope(user, 'publish')
-      : isStaffEmail(email) || (await isBot(email)) || (await isAdmin(email));
-    if (!allowed) {
+    if (user.cloud && !hasCloudScope(user, 'publish')) {
       return res.status(403).json({
         error: 'forbidden',
-        message:
-          'Direct upload is limited to bot, admin and staff accounts and Cloud tokens with the publish scope; publish with _binary or /push-file.',
+        message: 'Direct upload with a Cloud token needs the publish scope.',
       });
     }
+    const trusted =
+      user.cloud ||
+      isStaffEmail(email) ||
+      (await isBot(email)) ||
+      (await isAdmin(email));
+    const limit = trusted ? TRUSTED_RATE_LIMIT : RATE_LIMIT;
 
     const owner = crypto.createHash('sha256').update(email).digest('hex');
     const key = `upload-url-rate:${owner}`;
     await kv.setNXEx(key, '0', RATE_WINDOW_SECONDS);
-    if ((await kv.incr(key)) > RATE_LIMIT) {
+    if ((await kv.incr(key)) > limit) {
       res.setHeader('Retry-After', String(RATE_WINDOW_SECONDS));
       return res.status(429).json({
         error: 'rate_limited',
-        message: `At most ${RATE_LIMIT} upload URLs per hour; try again later.`,
+        message: `At most ${limit} upload URLs per hour; try again later.`,
       });
     }
 
