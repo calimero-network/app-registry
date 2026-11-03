@@ -21,30 +21,30 @@ module.exports = function packageReviewFor(kv) {
   if (cache.has(kv)) return cache.get(kv);
 
   async function publisherOf(pkg) {
-    let email = '';
-    try {
-      const versions = await kv.sMembers(`bundle-versions:${pkg}`);
-      if (versions?.length) {
+    // Independent lookups, issued together so they share round trips.
+    const emailOf = async () => {
+      try {
+        const versions = await kv.sMembers(`bundle-versions:${pkg}`);
+        if (!versions?.length) return '';
         const raw = await kv.get(`bundle:${pkg}/${versions[0]}`);
-        if (raw) {
-          email = JSON.parse(raw)?.json?.metadata?._ownerEmail || '';
-        }
+        return (raw && JSON.parse(raw)?.json?.metadata?._ownerEmail) || '';
+      } catch {
+        return ''; /* any failure means "not trusted" — the default is deny */
       }
-    } catch {
-      /* any failure means "not trusted" — the default is deny */
-    }
+    };
 
-    let orgSlug = '';
-    try {
-      const orgId = await kv.get(`pkg2org:${pkg}`);
-      if (orgId) {
+    const orgSlugOf = async () => {
+      try {
+        const orgId = await kv.get(`pkg2org:${pkg}`);
+        if (!orgId) return '';
         const raw = await kv.get(`org:${orgId}`);
-        orgSlug = (raw && JSON.parse(raw)?.slug) || orgId;
+        return (raw && JSON.parse(raw)?.slug) || orgId;
+      } catch {
+        return ''; /* same */
       }
-    } catch {
-      /* same */
-    }
+    };
 
+    const [email, orgSlug] = await Promise.all([emailOf(), orgSlugOf()]);
     return { email, orgSlug };
   }
 
