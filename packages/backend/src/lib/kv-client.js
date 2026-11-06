@@ -21,6 +21,7 @@ const {
   isStorageBlocked,
   createUnavailableKv,
 } = require('@calimero-network/registry-shared/storage-env');
+const { withIconDedup } = require('./icon-dedup');
 
 const redisUrl = storageVar('REDIS_URL');
 const isProduction = process.env.VERCEL === '1' || redisUrl;
@@ -413,7 +414,7 @@ if (isStorageBlocked()) {
 }
 
 module.exports = {
-  kv: kvClient,
+  kv: withIconDedup(kvClient),
   isDevelopment,
   isProduction,
 };
