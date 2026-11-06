@@ -30,6 +30,10 @@ const TOMBSTONE_SET = 'bundle-tombstones';
 
 const MGET_CHUNK = 1000;
 
+// A binary with no manifest younger than this may be a publish still between
+// its upload and its manifest write; older, it is an orphan of a failed one.
+const ORPHAN_BLOB_AGE_MS = 10 * 60 * 1000;
+
 async function getMany(keys) {
   if (typeof kv.mGet !== 'function') {
     return Promise.all(keys.map(key => kv.get(key)));
@@ -249,28 +253,61 @@ class BundleStorageKV {
           createOnly: !overwrite,
         });
       } catch (err) {
-        if (err?.code === 'blob_exists') throw alreadyExists();
-        throw err;
+        if (err?.code !== 'blob_exists') throw err;
+        // No manifest (checked above) but a binary: an orphan, left when the
+        // manifest write failed after the upload (e.g. Redis out of memory),
+        // which would otherwise block this version for good. Replace it,
+        // but only once it is old enough not to be a concurrent publish
+        // between its upload and its manifest write, and only that exact
+        // object.
+        const orphan = await blob.statBinary(key);
+        if (
+          !orphan?.generation ||
+          Date.now() - orphan.updated.getTime() < ORPHAN_BLOB_AGE_MS ||
+          (await kv.get(bundleKey))
+        ) {
+          throw alreadyExists();
+        }
+        try {
+          createdGeneration = await blob.putBinary(key, binary, {
+            ifGeneration: orphan.generation,
+          });
+        } catch (err2) {
+          if (err2?.code === 'blob_exists') throw alreadyExists();
+          throw err2;
+        }
       }
     }
+
+    // A failed manifest write must not leave the binary behind: it would
+    // block a retry of this version (see above).
+    const undoBlob = async () => {
+      if (createdGeneration) {
+        await blob
+          .deleteBinary(key, { ifGeneration: createdGeneration })
+          .catch(() => {});
+      }
+    };
 
     if (overwrite) {
       // Direct set - will overwrite
       await kv.set(bundleKey, JSON.stringify(manifestData));
     } else {
       // 1. Atomic check-and-set: Store manifest only if it doesn't exist
-      const wasSet = await kv.setNX(bundleKey, JSON.stringify(manifestData));
+      let wasSet;
+      try {
+        wasSet = await kv.setNX(bundleKey, JSON.stringify(manifestData));
+      } catch (err) {
+        await undoBlob();
+        throw err;
+      }
 
       // setNX returns boolean: true if key was set, false if key already exists
       // Handle both boolean (node-redis v4+) and integer (legacy) return types
       if (!wasSet || wasSet === 0) {
         // Lost a race to a concurrent publish of the same version after our
         // blob was created. Remove only the object generation WE created.
-        if (createdGeneration) {
-          await blob
-            .deleteBinary(key, { ifGeneration: createdGeneration })
-            .catch(() => {});
-        }
+        await undoBlob();
         throw alreadyExists();
       }
     }
