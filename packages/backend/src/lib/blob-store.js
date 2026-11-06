@@ -85,21 +85,50 @@ const isPreconditionFailed = err =>
  * it atomically when an object is already there (BlobExistsError). Published
  * binaries are immutable; only an explicit overwrite may replace one.
  */
-async function putBinary(pkgVersionKey, buffer, { createOnly = false } = {}) {
+async function putBinary(
+  pkgVersionKey,
+  buffer,
+  { createOnly = false, ifGeneration } = {}
+) {
   const file = getBucket().file(objectKey(pkgVersionKey));
+  // `ifGeneration` replaces only that exact object (an orphan, see
+  // statBinary); anything else there is refused like createOnly.
+  const match = ifGeneration ? ifGeneration : createOnly ? 0 : undefined;
   try {
     await file.save(buffer, {
       contentType: 'application/gzip',
       resumable: false,
-      ...(createOnly ? { preconditionOpts: { ifGenerationMatch: 0 } } : {}),
+      ...(match !== undefined
+        ? { preconditionOpts: { ifGenerationMatch: match } }
+        : {}),
     });
   } catch (err) {
-    if (createOnly && isPreconditionFailed(err)) {
+    if (match !== undefined && isPreconditionFailed(err)) {
       throw new BlobExistsError(objectKey(pkgVersionKey));
     }
     throw err;
   }
   return file.metadata?.generation ?? null;
+}
+
+/**
+ * `{ generation, updated }` (updated: a Date) of a bundle binary, or null when
+ * there is none or no bucket is configured.
+ */
+async function statBinary(pkgVersionKey) {
+  if (!bucketName()) return null;
+  try {
+    const [meta] = await getBucket()
+      .file(objectKey(pkgVersionKey))
+      .getMetadata();
+    return {
+      generation: meta?.generation ?? null,
+      updated: new Date(meta?.updated || meta?.timeCreated || 0),
+    };
+  } catch (err) {
+    if (isNotFound(err)) return null;
+    throw err;
+  }
 }
 
 async function getBinary(pkgVersionKey) {
@@ -232,6 +261,7 @@ module.exports = {
   getUpload,
   deleteUpload,
   putBinary,
+  statBinary,
   getBinary,
   openBinaryStream,
   deleteBinary,

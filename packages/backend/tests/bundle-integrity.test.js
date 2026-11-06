@@ -41,16 +41,27 @@ jest.mock('../src/lib/kv-client', () => ({
 }));
 
 const mockBlobs = new Map();
+// When each mock blob was written; a test backdates one to make it an orphan.
+const mockBlobTimes = new Map();
 jest.mock('../src/lib/blob-store', () => ({
-  putBinary: jest.fn(async (key, buf, { createOnly } = {}) => {
-    if (createOnly && mockBlobs.has(key)) {
+  putBinary: jest.fn(async (key, buf, { createOnly, ifGeneration } = {}) => {
+    if (
+      (createOnly && mockBlobs.has(key)) ||
+      (ifGeneration && !mockBlobs.has(key))
+    ) {
       const err = new Error(`Blob ${key} already exists`);
       err.code = 'blob_exists';
       throw err;
     }
     mockBlobs.set(key, buf);
-    return '1';
+    mockBlobTimes.set(key, new Date());
+    return ifGeneration ? '2' : '1';
   }),
+  statBinary: jest.fn(async key =>
+    mockBlobs.has(key)
+      ? { generation: '1', updated: mockBlobTimes.get(key) || new Date() }
+      : null
+  ),
   getBinary: jest.fn(async key => mockBlobs.get(key) || null),
   deleteBinary: jest.fn(async key => {
     mockBlobs.delete(key);
@@ -408,6 +419,7 @@ describe('storeBundleManifest never replaces a published binary', () => {
     mockKVData.clear();
     mockKVSets.clear();
     mockBlobs.clear();
+    mockBlobTimes.clear();
     jest.clearAllMocks();
     storage = new BundleStorageKV();
   });
@@ -502,6 +514,45 @@ describe('storeBundleManifest never replaces a published binary', () => {
     ).rejects.toThrow(/already exists/);
     expect(mockBlobs.get('com.example.integrity/1.0.0')).toBe(original);
     expect(mockKVData.has('bundle:com.example.integrity/1.0.0')).toBe(false);
+  });
+
+  test('an old binary with no manifest (a failed publish) is replaced', async () => {
+    const { manifest, mpk } = await signedBundle(keys);
+    mockBlobs.set('com.example.integrity/1.0.0', Buffer.from('orphan'));
+    mockBlobTimes.set(
+      'com.example.integrity/1.0.0',
+      new Date(Date.now() - 60 * 60 * 1000)
+    );
+    await storage.storeBundleManifest({
+      ...manifest,
+      _binary: mpk.toString('hex'),
+    });
+    expect(blob.putBinary).toHaveBeenLastCalledWith(
+      'com.example.integrity/1.0.0',
+      expect.any(Buffer),
+      { ifGeneration: '1' }
+    );
+    expect(mockBlobs.get('com.example.integrity/1.0.0').equals(mpk)).toBe(true);
+    expect(mockKVData.has('bundle:com.example.integrity/1.0.0')).toBe(true);
+  });
+
+  test('a failed manifest write removes the blob it uploaded', async () => {
+    const { manifest, mpk } = await signedBundle(keys);
+    const { kv } = require('../src/lib/kv-client');
+    kv.setNX.mockImplementationOnce(async () => {
+      throw new Error('OOM command not allowed');
+    });
+    await expect(
+      storage.storeBundleManifest({
+        ...manifest,
+        _binary: mpk.toString('hex'),
+      })
+    ).rejects.toThrow(/OOM/);
+    expect(blob.deleteBinary).toHaveBeenCalledWith(
+      'com.example.integrity/1.0.0',
+      { ifGeneration: '1' }
+    );
+    expect(mockBlobs.has('com.example.integrity/1.0.0')).toBe(false);
   });
 
   test('losing the setNX race removes only the blob this call created', async () => {
