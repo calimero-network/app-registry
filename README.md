@@ -106,10 +106,10 @@ A node runs the same check again before it installs a bundle.
 
 There are two push endpoints, and they do not authorize the same way:
 
-| Endpoint                         | Used by                                   | Authorization for an existing package                                                                           |
-| -------------------------------- | ----------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| `POST /api/v2/bundles/push`      | `calimero-registry`, CI scripts           | Signing key matches the package's signer. A key in `owners[]` is also accepted, but **do not use it**&nbsp;[^1] |
-| `POST /api/v2/bundles/push-file` | Browser upload                            | The same                                                                                                        |
+| Endpoint                         | Used by                         | Authorization for an existing package                                                                           |
+| -------------------------------- | ------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `POST /api/v2/bundles/push`      | `calimero-registry`, CI scripts | Signing key matches the package's signer. A key in `owners[]` is also accepted, but **do not use it**&nbsp;[^1] |
+| `POST /api/v2/bundles/push-file` | Browser upload                  | The same                                                                                                        |
 
 Both also accept a version signed with another key when the publishing account is an **admin or owner** of the org linked to the package (plain members publish with a package key). Such a version does not change the package's key set: the keys allowed before it stay allowed after it, and the admin's own key is not added, so their access ends with their role.
 
