@@ -30,7 +30,34 @@ if (missing.length) {
   process.exit(1);
 }
 
-const { Storage } = require('@google-cloud/storage');
+// Never print a credential: a malformed REDIS_URL fails with an error that
+// carries the whole URL, password included. Only messages are printed, with
+// any `user:password@` and the env secrets themselves masked.
+const SECRETS = ['REDIS_URL', 'GCS_PRIVATE_KEY']
+  .map(name => process.env[name])
+  .filter(Boolean);
+function redact(text) {
+  let out = String(text).replace(/\/\/[^/@\s]+@/g, '//***@');
+  for (const secret of SECRETS) out = out.split(secret).join('***');
+  return out;
+}
+
+// Before anything touches Redis: the client parses REDIS_URL while it loads,
+// and a crash there would otherwise print the URL.
+function die(err) {
+  console.error(`prune failed: ${redact(err?.message ?? err)}`);
+  process.exit(1);
+}
+process.on('uncaughtException', die);
+process.on('unhandledRejection', die);
+
+const path = require('path');
+// A backend dependency, not the root's: resolve it from there.
+const { Storage } = require(
+  require.resolve('@google-cloud/storage', {
+    paths: [path.join(__dirname, '../packages/backend')],
+  })
+);
 const { kv } = require('../packages/backend/src/lib/kv-client');
 const {
   BundleStorageKV,
@@ -38,6 +65,7 @@ const {
 } = require('../packages/backend/src/lib/bundle-storage-kv');
 
 const APPLY = process.argv.includes('--apply');
+
 // A binary younger than this may belong to a publish still in flight.
 const ORPHAN_MIN_AGE_MS = 60 * 60 * 1000;
 
@@ -96,7 +124,7 @@ async function main() {
       await f
         .delete({ ifGenerationMatch: f.metadata.generation })
         .catch(err =>
-          console.warn(`  could not delete ${f.name}: ${err.message}`)
+          console.warn(`  could not delete ${f.name}: ${redact(err.message)}`)
         );
     }
   }
@@ -107,7 +135,4 @@ async function main() {
   await kv.quit?.();
 }
 
-main().catch(err => {
-  console.error(err);
-  process.exit(1);
-});
+main().catch(die);

@@ -645,7 +645,9 @@ class BundleStorageKV {
         deleted.push(version);
       } catch (err) {
         // eslint-disable-next-line no-console
-        console.error(`prune: could not delete ${pkg}@${version}`, err);
+        console.error(
+          `prune: could not delete ${pkg}@${version}: ${err?.message}`
+        );
       }
     }
     return deleted;
