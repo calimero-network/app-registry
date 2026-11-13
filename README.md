@@ -4,7 +4,11 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![pnpm](https://img.shields.io/badge/pnpm-workspace-orange.svg)](https://pnpm.io/workspaces)
 
-A monorepo for the Calimero Registry — a self-sovereign application registry for publishing, discovering, and managing WebAssembly apps that run inside Calimero nodes. Every bundle is cryptographically signed; the registry validates the signature on every upload and nodes re-verify on install.
+**The app store for Calimero: where signed apps are published, and where clusters install them from.**
+
+[Calimero](https://github.com/calimero-network/core) is an app backend, like Firebase, that runs every app inside attested Intel TDX hardware so nobody operating the servers can read its data. This registry is how an app gets there: a developer signs a `.mpk` package with their own key, publishes it here, and a cluster installs it on request. The registry checks the signature on every upload, pins each package to its signer, and the node checks the signature again before it installs.
+
+Live at [apps.calimero.network](https://apps.calimero.network). It is also Calimero Cloud's package registry (see [Calimero Cloud orgs](#calimero-cloud-orgs-and-private-packages)).
 
 ---
 
@@ -26,7 +30,7 @@ app-registry/
 | [frontend](./packages/frontend) | Web UI - browse, upload, org management    | React, TypeScript, Vite  |
 | [cli](./packages/cli)           | Org management, metadata edits             | TypeScript, Commander.js |
 
-Apps are built and published with [`cargo mero`](https://github.com/calimero-network/core/tree/master/tools/cargo-mero), which lives in the `core` repo. Nothing in this monorepo builds bundles.
+Apps are built and signed with core's tools (`mero-app-build`, `mero-sign` and `scripts/pack-component.py`; see [Packaging & signing](https://calimero-network.github.io/core/build/packaging-signing/)). Nothing in this monorepo builds bundles.
 
 ---
 
@@ -52,40 +56,36 @@ pnpm dev:all
 
 ### Bundle format
 
-Apps are distributed as `.mpk` files - gzip-compressed tar archives. A single-service app keeps its wasm at the root; a workspace shipping several services puts each under `services/`:
+A `.mpk` is a gzip-compressed tar holding a signed `manifest.json` and a `calimero:app` WebAssembly component:
 
 ```
-bundle.mpk                        bundle.mpk  (multi-service)
-├── manifest.json                 ├── manifest.json
-├── app.wasm                      └── services/
-└── abi.json                          ├── registry.wasm
-                                      ├── registry-abi.json
-                                      ├── docs.wasm
-                                      └── docs-abi.json
+bundle.mpk
+├── manifest.json     # package, version, minRuntimeVersion, artifact hashes, signature
+├── app.wasm          # the calimero:app component, with its ABI embedded
+├── compute.wasm      # optional: compute methods
+├── frontend/         # optional: the app's web build, served by the node
+└── pipelines/        # optional: pipeline YAML files
 ```
 
-Every service carries its own ABI, and the ABI is also embedded in the wasm as the `calimero_abi_v1` custom section, which is what a node reads to plan a state migration on upgrade.
+The ABI travels inside the component (its `calimero:abi` section), which is what a node reads to check an upgrade.
 
 ### Publish workflow
 
-Bundle metadata comes from a `[package.metadata.calimero]` table in the app's `Cargo.toml`, so there is no `manifest.json` to hand-write.
-
 ```
-1. cargo mero key generate -o key.json          # one-time, keep it out of git
+1. mero-sign generate-key --output key.json      # one-time; keep it out of git
 
-2. cargo mero bundle --key key.json --bump patch
-   # → compiles every service to wasm32, embeds the ABI, size-optimizes
-   # → writes and signs manifest.json, packs dist/<package>-<version>.mpk
-   # → --bump asks the registry for the highest published version
+2. mero-app-build path/to/app --out app.wasm      # build the component
+   python3 -I scripts/pack-component.py --wasm app.wasm --package com.example.app \
+     --app-version 1.0.0 --key key.json --out dist/com.example.app-1.0.0.mpk
+   # → writes and signs manifest.json, packs the .mpk (run from a core checkout)
 
-3. export CALIMERO_API_KEY=<token>              # Organizations page → CLI Access
-   cargo mero publish dist/<package>-<version>.mpk
-   # → POST /api/v2/bundles/push
+3. export CALIMERO_API_KEY=<token>               # Organizations page → CLI Access
+   calimero-registry bundle push dist/com.example.app-1.0.0.mpk --remote
    # → registry validates the Ed25519 signature and the signer's ownership
    # → app visible in the UI
 ```
 
-For CI, bumping the version in `Cargo.toml` is the release; see [PUBLISHING.md](PUBLISHING.md).
+Large bundles go through `POST /api/v2/bundles/upload-url` (the archive goes straight to storage), then `POST /api/v2/bundles/push` with the manifest; the [apps repository's `publish-bundle.sh`](https://github.com/calimero-network/apps/blob/master/scripts/publish-bundle.sh) does this. For CI, see [PUBLISHING.md](PUBLISHING.md).
 
 ### Signature verification
 
@@ -98,7 +98,7 @@ Every manifest is verified using:
 
 A signature over the bare SHA-256 of the canonical bytes is refused.
 
-The same process runs on the node side when the Calimero Desktop app installs a bundle.
+A node runs the same check again before it installs a bundle.
 
 ---
 
@@ -108,12 +108,12 @@ There are two push endpoints, and they do not authorize the same way:
 
 | Endpoint                         | Used by                                   | Authorization for an existing package                                                                           |
 | -------------------------------- | ----------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| `POST /api/v2/bundles/push`      | `cargo mero publish`, `calimero-registry` | Signing key matches the package's signer. A key in `owners[]` is also accepted, but **do not use it**&nbsp;[^1] |
+| `POST /api/v2/bundles/push`      | `calimero-registry`, CI scripts           | Signing key matches the package's signer. A key in `owners[]` is also accepted, but **do not use it**&nbsp;[^1] |
 | `POST /api/v2/bundles/push-file` | Browser upload                            | The same                                                                                                        |
 
 Both also accept a version signed with another key when the publishing account is an **admin or owner** of the org linked to the package (plain members publish with a package key). Such a version does not change the package's key set: the keys allowed before it stay allowed after it, and the admin's own key is not added, so their access ends with their role.
 
-Both require a valid Ed25519 signature, and both refuse the well-known dev key. `push-file` additionally rejects a version that is not greater than the latest published one; `push` leaves version ordering to the caller, which is why `cargo mero bundle --bump` exists.
+Both require a valid Ed25519 signature, and both refuse the well-known dev key. `push-file` additionally rejects a version that is not greater than the latest published one; `push` leaves version ordering to the caller, so a CI script asks the registry for the latest version first.
 
 The rest is common ground. Both push endpoints gate ownership behind `versions.length > 0`, so neither applies it - nor `push-file`'s increasing-version rule - to a package's first version. Deleting is a third endpoint again:
 
@@ -128,7 +128,7 @@ The rest is common ground. Both push endpoints gate ownership behind `versions.l
 A delete takes effect immediately, but `GET /api/v2/bundles` is cached at the CDN and nothing purges it, so a listing can trail the registry by up to a minute - long enough for a deleted package to look like it survived. Add `fresh=1` when a read has to reflect a write that just happened; the site does this automatically for a while after any change you make. `fresh=1` is honoured for a single-package read (`?package=<name>`) from anyone, and for any other listing only when the request is signed in.
 
 [^1]:
-    `owners[]` predates the identity model below and `cargo mero` never writes it.
+    `owners[]` predates the identity model below and core's signing tools never write it.
     A key listed there does publish: the endpoint accepts it and stores the version. `ApplicationId` comes from `package` and `signerId`, so that version belongs to a different application, which no node with the original installed will ever see.
 
 ### App identity is package + signer
@@ -177,7 +177,7 @@ The full contract, including the endpoints the Cloud manager exposes, is [docs/c
    ```
 4. **Add members** by email from the web UI or CLI
 5. **Link packages** from the web UI or CLI (must be the original package author or org admin)
-6. **Members upload bundles** signed with their own key, and the registry checks their email against the org
+6. **Members upload bundles** signed with the package's key, and the registry checks their email against the org
 
 ### Org CLI commands
 
@@ -203,18 +203,7 @@ calimero-registry org packages unlink <org-id> com.my-org.app
 
 ## CLI reference
 
-Building and publishing is `cargo mero`:
-
-```bash
-cargo mero new <name>                       # scaffold an app
-cargo mero build                            # compile to wasm32, embed the ABI
-cargo mero test                             # node-free test suite
-cargo mero bundle --key <file> [--bump patch|minor|major]
-cargo mero publish <mpk>                    # needs CALIMERO_API_KEY
-cargo mero key generate -o <file>
-cargo mero key derive-signer-id -k <file>
-cargo mero sign <manifest.json> --key <file>
-```
+Building and signing is core's `mero-app-build` and `mero-sign` ([Packaging & signing](https://calimero-network.github.io/core/build/packaging-signing/)).
 
 `calimero-registry` covers what talks to the registry rather than to your app:
 
@@ -314,7 +303,6 @@ pnpm test:coverage
 The registry frontend ships a built-in **Docs** page (`/docs`) covering:
 
 - The bundle format and the manifest, single- and multi-service
-- The `cargo mero` workflow, from scaffold to published bundle
 - Signing keys, `signerId` derivation, and why app identity is package + signer
 - Publishing from the terminal, from the browser, and from CI
 - Organizations: setup, membership, bot accounts, package linking, revocation
@@ -325,9 +313,9 @@ The registry frontend ships a built-in **Docs** page (`/docs`) covering:
 
 ## Links
 
-- [Official docs](https://docs.calimero.network)
+- [Calimero docs](https://calimero-network.github.io/core/)
 - [Publishing guide](PUBLISHING.md) - building, signing, and releasing from CI
-- [cargo mero](https://github.com/calimero-network/core/tree/master/tools/cargo-mero) - the app toolchain
+- [Packaging & signing](https://calimero-network.github.io/core/build/packaging-signing/) - building and signing an app with core's tools
 - [GitHub](https://github.com/calimero-network/app-registry)
 - [Issues](https://github.com/calimero-network/app-registry/issues)
 - [Contributing](CONTRIBUTING.md)
