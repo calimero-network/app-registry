@@ -30,6 +30,18 @@ const TOMBSTONE_SET = 'bundle-tombstones';
 
 const MGET_CHUNK = 1000;
 
+// Every publish keeps only this many newest versions of its package; older
+// ones are deleted (manifest, binary, indexes) so a package republished on
+// every SDK bump cannot grow Redis and the bucket without bound. 0 disables.
+const DEFAULT_KEEP_VERSIONS = 5;
+
+function keepVersions(env = process.env) {
+  const raw = env.BUNDLE_KEEP_VERSIONS;
+  if (raw === undefined || raw === '') return DEFAULT_KEEP_VERSIONS;
+  const n = Number(raw);
+  return Number.isInteger(n) && n >= 0 ? n : DEFAULT_KEEP_VERSIONS;
+}
+
 // A binary with no manifest younger than this may be a publish still between
 // its upload and its manifest write; older, it is an orphan of a failed one.
 const ORPHAN_BLOB_AGE_MS = 10 * 60 * 1000;
@@ -581,6 +593,7 @@ class BundleStorageKV {
     // Remove manifest and binary
     await kv.del(`bundle:${key}`);
     await kv.del(`binary:${key}`); // clears legacy Redis copy if present
+    await kv.del(`bundle-yanked:${key}`);
     await blob.deleteBinary(key); // clears GCS object
 
     // Remove from version set
@@ -617,6 +630,28 @@ class BundleStorageKV {
   }
 
   /**
+   * Delete every version of `pkg` older than its newest `keep` (semver order,
+   * as getBundleVersions returns them). Returns the deleted versions. One
+   * failed delete is logged and skipped, never thrown: pruning runs after a
+   * publish has already succeeded and must not fail it.
+   */
+  async pruneOldVersions(pkg, keep = keepVersions()) {
+    if (!keep) return [];
+    const stale = (await this.getBundleVersions(pkg)).slice(keep);
+    const deleted = [];
+    for (const version of stale) {
+      try {
+        await this.deleteBundleVersion(pkg, version);
+        deleted.push(version);
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error(`prune: could not delete ${pkg}@${version}`, err);
+      }
+    }
+    return deleted;
+  }
+
+  /**
    * Delete all versions of a bundle package AND everything else keyed by it, so
    * nothing the package owned outlives it and gets re-attached to a same-named
    * republish. This is the one cleanup routine both delete paths (the
@@ -646,4 +681,4 @@ class BundleStorageKV {
   }
 }
 
-module.exports = { BundleStorageKV };
+module.exports = { BundleStorageKV, keepVersions, DEFAULT_KEEP_VERSIONS };

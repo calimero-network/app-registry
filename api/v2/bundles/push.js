@@ -389,6 +389,12 @@ module.exports = async function handler(req, res) {
 
     await store.storeBundleManifest(bundleManifest, overwrite);
 
+    // Keep the package to its newest BUNDLE_KEEP_VERSIONS (default 5).
+    await store.pruneOldVersions(bundleManifest.package).catch(err =>
+      // eslint-disable-next-line no-console
+      console.error('prune after publish failed', err)
+    );
+
     await autolinkBotPackage(
       { isBot, getUserByEmail, getPkg2Org, setPkg2Org },
       ownerEmail,
