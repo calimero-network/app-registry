@@ -78,7 +78,7 @@ class BundleStorageKV {
    * @param {Boolean} overwrite Whether to overwrite existing manifest
    * @throws {Error} If bundle already exists and overwrite is false
    */
-  async storeBundleManifest(manifest, overwrite = false) {
+  async storeBundleManifest(manifest, overwrite = false, { beforeWrite } = {}) {
     const key = `${manifest.package}/${manifest.appVersion}`;
 
     // Strip binary from manifest before storing JSON metadata
@@ -254,6 +254,10 @@ class BundleStorageKV {
     if (!overwrite && (await kv.get(bundleKey))) {
       throw alreadyExists();
     }
+
+    // Every check above has passed: this publish will be written. Callers
+    // free space here (makeRoomFor), so a refused bundle never costs a version.
+    if (beforeWrite) await beforeWrite();
 
     // Upload the binary BEFORE writing the manifest, so a manifest can never
     // exist in Redis without its blob in the bucket. Without `overwrite` the
@@ -630,13 +634,28 @@ class BundleStorageKV {
   }
 
   /**
+   * Make room for a new version BEFORE it is stored, so a publish never needs
+   * the space of keep + 1 versions (on a full Redis that extra version is the
+   * write that fails). Leaves keep - 1 existing versions; the new one makes
+   * keep. Never empties the package: deleting its last version retires the
+   * name (deleteBundleVersion), which would refuse every later publish. Does
+   * nothing for a version that already exists (a refused duplicate or an
+   * overwrite), since that publish adds nothing.
+   */
+  async makeRoomFor(pkg, version, keep = keepVersions()) {
+    if (!keep) return [];
+    if (await this.bundleExists(pkg, version)) return [];
+    return this.pruneOldVersions(pkg, Math.max(keep - 1, 1));
+  }
+
+  /**
    * Delete every version of `pkg` older than its newest `keep` (semver order,
-   * as getBundleVersions returns them). Returns the deleted versions. One
-   * failed delete is logged and skipped, never thrown: pruning runs after a
-   * publish has already succeeded and must not fail it.
+   * as getBundleVersions returns them). Returns the deleted versions. Always
+   * leaves at least one version (see makeRoomFor). One failed delete is logged
+   * and skipped, never thrown: a prune must not fail the publish around it.
    */
   async pruneOldVersions(pkg, keep = keepVersions()) {
-    if (!keep) return [];
+    if (!keep || keep < 1) return [];
     const stale = (await this.getBundleVersions(pkg)).slice(keep);
     const deleted = [];
     for (const version of stale) {

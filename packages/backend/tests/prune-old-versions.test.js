@@ -66,3 +66,46 @@ describe('keepVersions', () => {
     expect(keepVersions({ BUNDLE_KEEP_VERSIONS: 'lots' })).toBe(5);
   });
 });
+
+describe('makeRoomFor', () => {
+  it('leaves keep - 1 versions so the new one makes keep', async () => {
+    const store = storeWith(['5', '4', '3', '2', '1']);
+    store.bundleExists = jest.fn(async () => false);
+    expect(await store.makeRoomFor('com.x', '6', 5)).toEqual(['1']);
+  });
+
+  it('never deletes the last version (that would retire the name)', async () => {
+    const store = storeWith(['2', '1']);
+    store.bundleExists = jest.fn(async () => false);
+    expect(await store.makeRoomFor('com.x', '3', 1)).toEqual(['1']);
+    expect(store.deleteBundleVersion).not.toHaveBeenCalledWith('com.x', '2');
+  });
+
+  it('does nothing for a version that already exists', async () => {
+    const store = storeWith(['5', '4', '3', '2', '1']);
+    store.bundleExists = jest.fn(async () => true);
+    expect(await store.makeRoomFor('com.x', '5', 5)).toEqual([]);
+    expect(store.deleteBundleVersion).not.toHaveBeenCalled();
+  });
+
+  it('does nothing when disabled', async () => {
+    const store = storeWith(['5', '4', '3', '2', '1']);
+    store.bundleExists = jest.fn(async () => false);
+    expect(await store.makeRoomFor('com.x', '6', 0)).toEqual([]);
+  });
+});
+
+describe('storeBundleManifest beforeWrite', () => {
+  it('is not called for a bundle refused by its own checks', async () => {
+    const store = new BundleStorageKV();
+    const beforeWrite = jest.fn();
+    await expect(
+      store.storeBundleManifest(
+        { package: 'com.x', appVersion: '1.0.0', _binary: 'not hex' },
+        false,
+        { beforeWrite }
+      )
+    ).rejects.toThrow();
+    expect(beforeWrite).not.toHaveBeenCalled();
+  });
+});
