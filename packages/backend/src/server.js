@@ -1053,7 +1053,24 @@ async function buildServer() {
     const overwrite =
       process.env.ALLOW_BUNDLE_OVERWRITE === 'true' ||
       process.env.ALLOW_BUNDLE_OVERWRITE === '1';
-    await bundleStorage.storeBundleManifest(bundleManifest, overwrite);
+    // Keep the package to its newest BUNDLE_KEEP_VERSIONS (default 5): make
+    // room once the bundle has passed every check and before it is written,
+    // so a full Redis still has space for it; then trim again (keep = 1, or a
+    // publish racing this one).
+    await bundleStorage.storeBundleManifest(bundleManifest, overwrite, {
+      beforeWrite: () =>
+        bundleStorage
+          .makeRoomFor(bundleManifest.package, bundleManifest.appVersion)
+          .catch(err =>
+            // eslint-disable-next-line no-console
+            console.error(`prune before publish failed: ${err?.message}`)
+          ),
+    });
+
+    await bundleStorage.pruneOldVersions(bundleManifest.package).catch(err =>
+      // eslint-disable-next-line no-console
+      console.error(`prune after publish failed: ${err?.message}`)
+    );
 
     await autolinkBotPackage(
       { isBot, getUserByEmail, getPkg2Org, setPkg2Org },

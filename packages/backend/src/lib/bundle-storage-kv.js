@@ -30,6 +30,18 @@ const TOMBSTONE_SET = 'bundle-tombstones';
 
 const MGET_CHUNK = 1000;
 
+// Every publish keeps only this many newest versions of its package; older
+// ones are deleted (manifest, binary, indexes) so a package republished on
+// every SDK bump cannot grow Redis and the bucket without bound. 0 disables.
+const DEFAULT_KEEP_VERSIONS = 5;
+
+function keepVersions(env = process.env) {
+  const raw = env.BUNDLE_KEEP_VERSIONS;
+  if (raw === undefined || raw === '') return DEFAULT_KEEP_VERSIONS;
+  const n = Number(raw);
+  return Number.isInteger(n) && n >= 0 ? n : DEFAULT_KEEP_VERSIONS;
+}
+
 // A binary with no manifest younger than this may be a publish still between
 // its upload and its manifest write; older, it is an orphan of a failed one.
 const ORPHAN_BLOB_AGE_MS = 10 * 60 * 1000;
@@ -66,7 +78,7 @@ class BundleStorageKV {
    * @param {Boolean} overwrite Whether to overwrite existing manifest
    * @throws {Error} If bundle already exists and overwrite is false
    */
-  async storeBundleManifest(manifest, overwrite = false) {
+  async storeBundleManifest(manifest, overwrite = false, { beforeWrite } = {}) {
     const key = `${manifest.package}/${manifest.appVersion}`;
 
     // Strip binary from manifest before storing JSON metadata
@@ -242,6 +254,10 @@ class BundleStorageKV {
     if (!overwrite && (await kv.get(bundleKey))) {
       throw alreadyExists();
     }
+
+    // Every check above has passed: this publish will be written. Callers
+    // free space here (makeRoomFor), so a refused bundle never costs a version.
+    if (beforeWrite) await beforeWrite();
 
     // Upload the binary BEFORE writing the manifest, so a manifest can never
     // exist in Redis without its blob in the bucket. Without `overwrite` the
@@ -581,6 +597,7 @@ class BundleStorageKV {
     // Remove manifest and binary
     await kv.del(`bundle:${key}`);
     await kv.del(`binary:${key}`); // clears legacy Redis copy if present
+    await kv.del(`bundle-yanked:${key}`);
     await blob.deleteBinary(key); // clears GCS object
 
     // Remove from version set
@@ -617,6 +634,45 @@ class BundleStorageKV {
   }
 
   /**
+   * Make room for a new version BEFORE it is stored, so a publish never needs
+   * the space of keep + 1 versions (on a full Redis that extra version is the
+   * write that fails). Leaves keep - 1 existing versions; the new one makes
+   * keep. Never empties the package: deleting its last version retires the
+   * name (deleteBundleVersion), which would refuse every later publish. Does
+   * nothing for a version that already exists (a refused duplicate or an
+   * overwrite), since that publish adds nothing.
+   */
+  async makeRoomFor(pkg, version, keep = keepVersions()) {
+    if (!keep) return [];
+    if (await this.bundleExists(pkg, version)) return [];
+    return this.pruneOldVersions(pkg, Math.max(keep - 1, 1));
+  }
+
+  /**
+   * Delete every version of `pkg` older than its newest `keep` (semver order,
+   * as getBundleVersions returns them). Returns the deleted versions. Always
+   * leaves at least one version (see makeRoomFor). One failed delete is logged
+   * and skipped, never thrown: a prune must not fail the publish around it.
+   */
+  async pruneOldVersions(pkg, keep = keepVersions()) {
+    if (!keep || keep < 1) return [];
+    const stale = (await this.getBundleVersions(pkg)).slice(keep);
+    const deleted = [];
+    for (const version of stale) {
+      try {
+        await this.deleteBundleVersion(pkg, version);
+        deleted.push(version);
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error(
+          `prune: could not delete ${pkg}@${version}: ${err?.message}`
+        );
+      }
+    }
+    return deleted;
+  }
+
+  /**
    * Delete all versions of a bundle package AND everything else keyed by it, so
    * nothing the package owned outlives it and gets re-attached to a same-named
    * republish. This is the one cleanup routine both delete paths (the
@@ -646,4 +702,4 @@ class BundleStorageKV {
   }
 }
 
-module.exports = { BundleStorageKV };
+module.exports = { BundleStorageKV, keepVersions, DEFAULT_KEEP_VERSIONS };
