@@ -1,5 +1,5 @@
 /**
- * GET /api/v2/orgs/:orgId/invitations — pending invitations (admin/owner)
+ * GET /api/orgs/:orgId/invitations — pending invitations (admin/owner)
  */
 
 const { getOrg } = require('#api-lib/org-storage');

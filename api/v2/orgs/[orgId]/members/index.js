@@ -1,6 +1,6 @@
 /**
- * GET  /api/v2/orgs/:orgId/members — list members
- * POST /api/v2/orgs/:orgId/members — invite a member by username
+ * GET  /api/orgs/:orgId/members — list members
+ * POST /api/orgs/:orgId/members — invite a member by username
  */
 
 const {

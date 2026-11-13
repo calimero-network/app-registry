@@ -1,6 +1,6 @@
 /**
  * V2 Bundle Listing API
- * GET /api/v2/bundles
+ * GET /api/bundles
  */
 
 const {

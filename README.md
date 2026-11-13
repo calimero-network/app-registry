@@ -80,7 +80,7 @@ Bundle metadata comes from a `[package.metadata.calimero]` table in the app's `C
 
 3. export CALIMERO_API_KEY=<token>              # Organizations page → CLI Access
    cargo mero publish dist/<package>-<version>.mpk
-   # → POST /api/v2/bundles/push
+   # → POST /api/bundles/push
    # → registry validates the Ed25519 signature and the signer's ownership
    # → app visible in the UI
 ```
@@ -102,14 +102,25 @@ The same process runs on the node side when the Calimero Desktop app installs a 
 
 ---
 
+### API paths
+
+The HTTP API is unversioned: `/api/bundles`, `/api/orgs`, `/api/packages`,
+`/api/invitations` and `/api/downloads` are the canonical paths. Every one of
+them is also served under `/api/v2/...`, a **deprecated alias** kept for clients
+already in the field (released `meroctl`, the desktop app, Cloud's registry
+sync). Responses to an `/api/v2/...` request carry a `Deprecation` header; new
+code should use the unversioned paths. The handlers live under `api/v2/` and
+`vercel.json` rewrites the unversioned paths onto them (the Fastify dev server
+does the same, see `packages/backend/src/lib/api-alias.js`).
+
 ## Ownership and publishing rights
 
 There are two push endpoints, and they do not authorize the same way:
 
-| Endpoint                         | Used by                                   | Authorization for an existing package                                                                           |
-| -------------------------------- | ----------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| `POST /api/v2/bundles/push`      | `cargo mero publish`, `calimero-registry` | Signing key matches the package's signer. A key in `owners[]` is also accepted, but **do not use it**&nbsp;[^1] |
-| `POST /api/v2/bundles/push-file` | Browser upload                            | The same                                                                                                        |
+| Endpoint                      | Used by                                   | Authorization for an existing package                                                                           |
+| ----------------------------- | ----------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `POST /api/bundles/push`      | `cargo mero publish`, `calimero-registry` | Signing key matches the package's signer. A key in `owners[]` is also accepted, but **do not use it**&nbsp;[^1] |
+| `POST /api/bundles/push-file` | Browser upload                            | The same                                                                                                        |
 
 Both also accept a version signed with another key when the publishing account is an **admin or owner** of the org linked to the package (plain members publish with a package key). Such a version does not change the package's key set: the keys allowed before it stay allowed after it, and the admin's own key is not added, so their access ends with their role.
 
@@ -117,15 +128,15 @@ Both require a valid Ed25519 signature, and both refuse the well-known dev key. 
 
 The rest is common ground. Both push endpoints gate ownership behind `versions.length > 0`, so neither applies it - nor `push-file`'s increasing-version rule - to a package's first version. Deleting is a third endpoint again:
 
-| Scenario       | Endpoint                                     | Authorization                                                                  |
-| -------------- | -------------------------------------------- | ------------------------------------------------------------------------------ |
-| First publish  | either push endpoint                         | Any signed request. The account behind the token or session becomes the author |
-| Delete version | `DELETE /api/v2/bundles/<package>/<version>` | Signed in as `metadata.author` (or `_ownerEmail`)                              |
-| Delete package | `DELETE /api/v2/bundles/<package>`           | The same, for every version at once                                            |
+| Scenario       | Endpoint                                  | Authorization                                                                  |
+| -------------- | ----------------------------------------- | ------------------------------------------------------------------------------ |
+| First publish  | either push endpoint                      | Any signed request. The account behind the token or session becomes the author |
+| Delete version | `DELETE /api/bundles/<package>/<version>` | Signed in as `metadata.author` (or `_ownerEmail`)                              |
+| Delete package | `DELETE /api/bundles/<package>`           | The same, for every version at once                                            |
 
 `metadata.author` is set server-side on first publish and carried forward from the oldest version onto every later one, so a manifest cannot set or change it.
 
-A delete takes effect immediately, but `GET /api/v2/bundles` is cached at the CDN and nothing purges it, so a listing can trail the registry by up to a minute - long enough for a deleted package to look like it survived. Add `fresh=1` when a read has to reflect a write that just happened; the site does this automatically for a while after any change you make. `fresh=1` is honoured for a single-package read (`?package=<name>`) from anyone, and for any other listing only when the request is signed in.
+A delete takes effect immediately, but `GET /api/bundles` is cached at the CDN and nothing purges it, so a listing can trail the registry by up to a minute - long enough for a deleted package to look like it survived. Add `fresh=1` when a read has to reflect a write that just happened; the site does this automatically for a while after any change you make. `fresh=1` is honoured for a single-package read (`?package=<name>`) from anyone, and for any other listing only when the request is signed in.
 
 [^1]:
     `owners[]` predates the identity model below and `cargo mero` never writes it.
@@ -162,7 +173,7 @@ So a package has one signing key, and the org governs who may use it. Hold it as
 
 ### Calimero Cloud orgs and private packages
 
-The registry is also Calimero Cloud's package registry. A Cloud org publishes with a short-lived Cloud JWT (minted by the Cloud manager; `Authorization: Bearer <jwt>`, scope `publish` or `read`) instead of a registry API token. Its packages are **private** by default: they are left out of every listing and read, and answer `404` to anyone outside the org. Cloud clusters download them with the per-cluster credential in their `--registry-url`, which the registry checks with the Cloud manager. An org also owns the namespace of its first package (`com.acme.app` claims `com.acme`), every Cloud publish counts against per-org quotas, and every publish, visibility change, yank and delete lands in the org's audit log (`GET /api/v2/orgs/:id/audit`). Making a private package public (`PUT /api/v2/packages/:pkg/visibility`) goes through the admin review queue.
+The registry is also Calimero Cloud's package registry. A Cloud org publishes with a short-lived Cloud JWT (minted by the Cloud manager; `Authorization: Bearer <jwt>`, scope `publish` or `read`) instead of a registry API token. Its packages are **private** by default: they are left out of every listing and read, and answer `404` to anyone outside the org. Cloud clusters download them with the per-cluster credential in their `--registry-url`, which the registry checks with the Cloud manager. An org also owns the namespace of its first package (`com.acme.app` claims `com.acme`), every Cloud publish counts against per-org quotas, and every publish, visibility change, yank and delete lands in the org's audit log (`GET /api/orgs/:id/audit`). Making a private package public (`PUT /api/packages/:pkg/visibility`) goes through the admin review queue.
 
 The full contract, including the endpoints the Cloud manager exposes, is [docs/cloud-integration.md](docs/cloud-integration.md). Packages published without Cloud behave exactly as before.
 

@@ -356,96 +356,99 @@ export class LocalRegistryServer {
       return { message: 'Sample data seeded successfully' };
     });
 
-    // V2 Bundle API endpoints
-    this.server.get('/api/v2/bundles', async (request, reply) => {
-      const query = request.query as {
-        package?: string;
-        version?: string;
-        developer?: string;
-      };
+    // Bundle API endpoints, at the canonical unversioned paths and at the
+    // deprecated `/api/v2` alias the hosted registry still serves.
+    for (const base of ['/api', '/api/v2']) {
+      this.server.get(`${base}/bundles`, async (request, reply) => {
+        const query = request.query as {
+          package?: string;
+          version?: string;
+          developer?: string;
+        };
 
-      const { package: pkg, version, developer } = query;
+        const { package: pkg, version, developer } = query;
 
-      // If specific package and version requested, return single bundle
-      if (pkg && version) {
-        const manifest = this.dataStore.getBundleManifest(pkg, version);
-        if (!manifest) {
-          return reply.code(404).send({
-            error: 'bundle_not_found',
-            message: `Bundle ${pkg}@${version} not found`,
-          });
-        }
-        return [manifest];
-      }
-
-      // Get all bundles
-      const allBundles = this.dataStore.getAllBundles();
-      const bundles = [];
-
-      for (const bundle of allBundles) {
-        // Filter by package if specified
-        if (pkg && bundle.package !== pkg) {
-          continue;
+        // If specific package and version requested, return single bundle
+        if (pkg && version) {
+          const manifest = this.dataStore.getBundleManifest(pkg, version);
+          if (!manifest) {
+            return reply.code(404).send({
+              error: 'bundle_not_found',
+              message: `Bundle ${pkg}@${version} not found`,
+            });
+          }
+          return [manifest];
         }
 
-        // Filter by developer pubkey if specified
-        if (developer) {
-          const bundlePubkey = bundle.signature?.pubkey;
-          if (!bundlePubkey || bundlePubkey !== developer) {
+        // Get all bundles
+        const allBundles = this.dataStore.getAllBundles();
+        const bundles = [];
+
+        for (const bundle of allBundles) {
+          // Filter by package if specified
+          if (pkg && bundle.package !== pkg) {
             continue;
+          }
+
+          // Filter by developer pubkey if specified
+          if (developer) {
+            const bundlePubkey = bundle.signature?.pubkey;
+            if (!bundlePubkey || bundlePubkey !== developer) {
+              continue;
+            }
+          }
+
+          bundles.push(bundle);
+        }
+
+        // Sort by package name, then by version (descending)
+        bundles.sort((a, b) => {
+          const pkgCompare = a.package.localeCompare(b.package);
+          if (pkgCompare !== 0) return pkgCompare;
+          // For same package, sort by version descending
+          return b.appVersion.localeCompare(a.appVersion, undefined, {
+            numeric: true,
+          });
+        });
+
+        // If filtering by package, return all versions
+        // Otherwise, return only latest version per package
+        if (pkg) {
+          return bundles;
+        }
+
+        // Group by package and return only latest version
+        const latestByPackage = new Map<string, BundleManifest>();
+        for (const bundle of bundles) {
+          const existing = latestByPackage.get(bundle.package);
+          if (!existing || bundle.appVersion > existing.appVersion) {
+            latestByPackage.set(bundle.package, bundle);
           }
         }
 
-        bundles.push(bundle);
-      }
-
-      // Sort by package name, then by version (descending)
-      bundles.sort((a, b) => {
-        const pkgCompare = a.package.localeCompare(b.package);
-        if (pkgCompare !== 0) return pkgCompare;
-        // For same package, sort by version descending
-        return b.appVersion.localeCompare(a.appVersion, undefined, {
-          numeric: true,
-        });
+        return Array.from(latestByPackage.values());
       });
 
-      // If filtering by package, return all versions
-      // Otherwise, return only latest version per package
-      if (pkg) {
-        return bundles;
-      }
+      this.server.get(
+        `${base}/bundles/:package/:version`,
+        async (request, reply) => {
+          const { package: pkg, version } = request.params as {
+            package: string;
+            version: string;
+          };
 
-      // Group by package and return only latest version
-      const latestByPackage = new Map<string, BundleManifest>();
-      for (const bundle of bundles) {
-        const existing = latestByPackage.get(bundle.package);
-        if (!existing || bundle.appVersion > existing.appVersion) {
-          latestByPackage.set(bundle.package, bundle);
+          const manifest = this.dataStore.getBundleManifest(pkg, version);
+
+          if (!manifest) {
+            return reply.code(404).send({
+              error: 'manifest_not_found',
+              message: `Manifest not found for ${pkg}@${version}`,
+            });
+          }
+
+          return manifest;
         }
-      }
-
-      return Array.from(latestByPackage.values());
-    });
-
-    this.server.get(
-      '/api/v2/bundles/:package/:version',
-      async (request, reply) => {
-        const { package: pkg, version } = request.params as {
-          package: string;
-          version: string;
-        };
-
-        const manifest = this.dataStore.getBundleManifest(pkg, version);
-
-        if (!manifest) {
-          return reply.code(404).send({
-            error: 'manifest_not_found',
-            message: `Manifest not found for ${pkg}@${version}`,
-          });
-        }
-
-        return manifest;
-      }
-    );
+      );
+    }
   }
 }

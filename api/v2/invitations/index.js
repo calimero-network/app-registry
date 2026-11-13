@@ -1,5 +1,5 @@
 /**
- * GET /api/v2/invitations — the caller's pending organization invitations
+ * GET /api/invitations — the caller's pending organization invitations
  */
 
 const { requireAuth } = require('#api-lib/auth-helpers');

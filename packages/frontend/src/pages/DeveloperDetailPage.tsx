@@ -31,7 +31,7 @@ export default function DeveloperDetailPage() {
   const { data: allBundles = [], isLoading } = useQuery({
     queryKey: ['bundles-all'],
     queryFn: async () => {
-      const response = await api.get('/v2/bundles');
+      const response = await api.get('/bundles');
       return (Array.isArray(response.data) ? response.data : []) as V2Bundle[];
     },
   });

@@ -1,6 +1,6 @@
 /**
  * V2 Bundle Push-File API (multipart .mpk upload)
- * POST /api/v2/bundles/push-file
+ * POST /api/bundles/push-file
  * Accepts a multipart/form-data request with a "bundle" field containing a .mpk file.
  * Extracts manifest.json from the .mpk archive, verifies signature, and stores in KV.
  */

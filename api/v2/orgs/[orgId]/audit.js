@@ -1,5 +1,5 @@
 /**
- * GET /api/v2/orgs/:orgId/audit?limit=50&offset=0
+ * GET /api/orgs/:orgId/audit?limit=50&offset=0
  *
  * The org's append-only audit log (api/lib/org-audit.js), newest first:
  * publishes, visibility changes and requests, yanks, deletes.

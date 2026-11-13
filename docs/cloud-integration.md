@@ -55,18 +55,18 @@ working unchanged.
 
 ### Where a Cloud JWT is accepted
 
-| Endpoint                                                                               | Scope   | Role         |
-| -------------------------------------------------------------------------------------- | ------- | ------------ |
-| `POST /api/v2/bundles/push` (JSON, `_binary` or `_upload`)                             | publish | any          |
-| `POST /api/v2/bundles/push-file` (multipart field `bundle`)                            | publish | any          |
-| `POST /api/v2/bundles/upload-url` (staged upload, 50 MiB)                              | publish | any          |
-| `GET/PUT /api/v2/packages/:pkg/visibility`                                             | publish | owner, admin |
-| `POST /api/v2/bundles/:pkg/:ver/yank`                                                  | publish | owner, admin |
-| `DELETE /api/v2/bundles/:pkg`, `DELETE /api/v2/bundles/:pkg/:ver`                      | publish | owner, admin |
-| `GET /api/v2/bundles` (listing, `?fresh=1` / `?include_private=1`), `?package&version` | read    | any          |
-| `GET /api/v2/bundles/:pkg/:ver`, `GET /api/v2/packages/:pkg`, assets                   | read    | any          |
-| `GET /artifacts/:pkg/:ver/:file`                                                       | read    | any          |
-| `GET /api/v2/orgs/:id/audit`                                                           | any     | owner, admin |
+| Endpoint                                                                            | Scope   | Role         |
+| ----------------------------------------------------------------------------------- | ------- | ------------ |
+| `POST /api/bundles/push` (JSON, `_binary` or `_upload`)                             | publish | any          |
+| `POST /api/bundles/push-file` (multipart field `bundle`)                            | publish | any          |
+| `POST /api/bundles/upload-url` (staged upload, 50 MiB)                              | publish | any          |
+| `GET/PUT /api/packages/:pkg/visibility`                                             | publish | owner, admin |
+| `POST /api/bundles/:pkg/:ver/yank`                                                  | publish | owner, admin |
+| `DELETE /api/bundles/:pkg`, `DELETE /api/bundles/:pkg/:ver`                         | publish | owner, admin |
+| `GET /api/bundles` (listing, `?fresh=1` / `?include_private=1`), `?package&version` | read    | any          |
+| `GET /api/bundles/:pkg/:ver`, `GET /api/packages/:pkg`, assets                      | read    | any          |
+| `GET /artifacts/:pkg/:ver/:file`                                                    | read    | any          |
+| `GET /api/orgs/:id/audit`                                                           | any     | owner, admin |
 
 "Org" always means: the Cloud org in the token is the one linked to the
 package's registry org.
@@ -130,7 +130,7 @@ Response `201` gains `visibility`.
 
 Vercel caps a function's **request** body at 4.5 MB, so `push` with
 `_binary` (hex) carries at most ~2.2 MB and `push-file` at most ~4.5 MB.
-Anything larger must use `POST /api/v2/bundles/upload-url` (signed PUT
+Anything larger must use `POST /api/bundles/upload-url` (signed PUT
 straight to GCS, up to 50 MiB) and then `push` with
 `_upload: {object}`. Cloud publish tokens may use `upload-url`.
 mdma's console upload uses `push-file` up to 4 MB and `upload-url` + `push`
@@ -138,7 +138,7 @@ above that (it refuses anything over 50 MiB before calling the registry).
 
 ## 4. Visibility changes
 
-`PUT /api/v2/packages/:pkg/visibility {"visibility": "public"|"private"}`
+`PUT /api/packages/:pkg/visibility {"visibility": "public"|"private"}`
 (`GET` returns the current state):
 
 - public -> private: immediate, `200`.
@@ -157,7 +157,7 @@ Private packages are absent — the same `404` / missing entry as a name never
 published — for everyone except: a Cloud token with `read` of the owning
 org, a registry member of the owning org, the account that first published
 it, and site admins. This applies to the listing, `?package&version`,
-`/api/v2/bundles/:pkg/:ver`, `/api/v2/packages/:pkg`, assets, the sitemap,
+`/api/bundles/:pkg/:ver`, `/api/packages/:pkg`, assets, the sitemap,
 `/api/stats`, download counting and the artifact URL.
 
 Caching: public responses are unchanged (`s-maxage=30`). Any response that
@@ -233,11 +233,11 @@ X-Registry-Timestamp / X-Registry-Signature   # same scheme and secret as author
 mdma answers 2xx. Delivery is best effort: awaited with a 2 s timeout, never
 fails the publish, not retried. mdma must treat it as idempotent and, to
 recover a missed notification, can always reconcile from
-`GET /api/v2/bundles?fresh=1` and the org audit log.
+`GET /api/bundles?fresh=1` and the org audit log.
 
 ## 8. Audit log
 
-`GET /api/v2/orgs/:id/audit?limit=50&offset=0` — `:id` is the registry org id
+`GET /api/orgs/:id/audit?limit=50&offset=0` — `:id` is the registry org id
 or the Cloud org id. Owner/admin Cloud tokens of that org, registry org
 admins/owners, site admins. Newest first:
 

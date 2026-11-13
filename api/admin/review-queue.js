@@ -162,7 +162,7 @@ module.exports = async function handler(req, res) {
             ? records.get(pkg).visibility_request
             : null,
         assets: assets.map(a => {
-          const base = `/api/v2/packages/${encodeURIComponent(pkg)}/assets/${a.id}/raw`;
+          const base = `/api/packages/${encodeURIComponent(pkg)}/assets/${a.id}/raw`;
           return {
             id: a.id,
             kind: a.kind,

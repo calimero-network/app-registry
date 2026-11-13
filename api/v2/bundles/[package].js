@@ -1,6 +1,6 @@
 /**
  * V2 Bundle Package API
- * DELETE /api/v2/bundles/:package - Delete an entire package (all versions)
+ * DELETE /api/bundles/:package - Delete an entire package (all versions)
  */
 
 const {

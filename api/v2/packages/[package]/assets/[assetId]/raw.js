@@ -1,5 +1,5 @@
 /**
- * GET /api/v2/packages/:package/assets/:assetId/raw
+ * GET /api/packages/:package/assets/:assetId/raw
  *
  * Serves the bytes.
  *

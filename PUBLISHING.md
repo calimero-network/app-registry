@@ -139,8 +139,8 @@ A Cloud org publishes with a Cloud JWT rather than a registry API token: trade a
 - Your org's first package claims its namespace (`com.acme.app` claims `com.acme`; `acme.app` claims `acme`). Nobody else can publish under it.
 - Every later version must be signed with the package's pinned key (its first signer, or a key in `owners[]`).
 - Per-org quotas apply (bundle size, versions per package, total bytes); a refusal is `413 quota_exceeded` with the limit.
-- To go public later: `PUT /api/v2/packages/<pkg>/visibility {"visibility": "public"}` as an org owner or admin. A registry admin reviews it first.
-- Bundles over ~4 MB: request a signed upload with `POST /api/v2/bundles/upload-url`, PUT the `.mpk` there, then `POST /api/v2/bundles/push` with `_upload: {object}` (Vercel caps request bodies at 4.5 MB).
+- To go public later: `PUT /api/packages/<pkg>/visibility {"visibility": "public"}` as an org owner or admin. A registry admin reviews it first.
+- Bundles over ~4 MB: request a signed upload with `POST /api/bundles/upload-url`, PUT the `.mpk` there, then `POST /api/bundles/push` with `_upload: {object}` (Vercel caps request bodies at 4.5 MB).
 
 See [docs/cloud-integration.md](docs/cloud-integration.md) for the details.
 
@@ -167,7 +167,7 @@ push to the default branch touching logic/Cargo.toml
       │
       ▼  read [workspace.package] version + the calimero package id
       │
-      ▼  GET /api/v2/bundles/<package>/<version>
+      ▼  GET /api/bundles/<package>/<version>
       │     404 → publish        200 → already released, stop
       │     anything else → fail (never republish on a blind guess)
       │
@@ -268,7 +268,7 @@ jobs:
           # An unreachable registry must not read as "not published": that
           # would republish blind. Only a definite 404 means new.
           code=$(curl -s -o /dev/null -w '%{http_code}' --retry 3 --max-time 30 \
-            "$CALIMERO_REGISTRY_URL/api/v2/bundles/$PACKAGE/$VERSION" || echo "000")
+            "$CALIMERO_REGISTRY_URL/api/bundles/$PACKAGE/$VERSION" || echo "000")
           case "$code" in
             200) echo "publish=false" >> "$GITHUB_OUTPUT"; exit 0 ;;
             404) : ;;
@@ -283,7 +283,7 @@ jobs:
           # another one closely would otherwise compare against the version
           # that was latest a minute ago.
           latest=$(curl -fsS --retry 3 --max-time 30 \
-            "$CALIMERO_REGISTRY_URL/api/v2/bundles?package=$PACKAGE&fresh=1" \
+            "$CALIMERO_REGISTRY_URL/api/bundles?package=$PACKAGE&fresh=1" \
             | jq -er '.[0].appVersion // ""') || {
               echo "::error::could not read the published versions"; exit 1; }
 
@@ -345,7 +345,7 @@ jobs:
           # failure as an empty listing skips the one check this step exists
           # for, which is the same trap as the version probe above.
           if ! listing=$(curl -fsS --retry 3 --retry-delay 2 --max-time 30 \
-              "$CALIMERO_REGISTRY_URL/api/v2/bundles?package=$PACKAGE"); then
+              "$CALIMERO_REGISTRY_URL/api/bundles?package=$PACKAGE"); then
             echo "::error::could not reach the registry to verify the signer"
             exit 1
           fi
@@ -384,8 +384,8 @@ If you would rather keep pre-releases out of the registry entirely, narrow the v
 
 ### The gate answers one question
 
-`GET /api/v2/bundles/<package>/<version>` asks whether **this exact version** exists, which is what makes the job idempotent across re-runs.
-It does not ask whether the version is newer than what is already out, and neither does `POST /api/v2/bundles/push`; only the browser upload enforces that.
+`GET /api/bundles/<package>/<version>` asks whether **this exact version** exists, which is what makes the job idempotent across re-runs.
+It does not ask whether the version is newer than what is already out, and neither does `POST /api/bundles/push`; only the browser upload enforces that.
 
 So the `check` job compares as well, and refuses a version that would slot below the latest - a reverted or badly merged `Cargo.toml` produces a version the registry has never seen, and publishing cannot be undone.
 
@@ -445,11 +445,11 @@ Have the script accept a `--print-release` flag: a CI cache key needs the pinned
 
 ## What the registry checks
 
-`cargo mero publish` sends the manifest to `POST /api/v2/bundles/push` with `Authorization: Bearer $CALIMERO_API_KEY`.
+`cargo mero publish` sends the manifest to `POST /api/bundles/push` with `Authorization: Bearer $CALIMERO_API_KEY`.
 The whole `.mpk` rides along under a `_binary` field; `_`-prefixed keys are stripped before signature verification, so attaching it does not disturb what was signed.
 
 Vercel rejects request bodies over 4.5 MB, which a hex-encoded `.mpk` of about 2.3 MiB or more exceeds.
-For those, `POST /api/v2/bundles/upload-url` (any signed-in account: 10 per hour, or 100 for bot, admin and staff accounts and Cloud tokens with the `publish` scope; the object may be up to 50 MiB) returns `{ url, object, method, headers, expiresAt }`.
+For those, `POST /api/bundles/upload-url` (any signed-in account: 10 per hour, or 100 for bot, admin and staff accounts and Cloud tokens with the `publish` scope; the object may be up to 50 MiB) returns `{ url, object, method, headers, expiresAt }`.
 `PUT` the raw `.mpk` to `url` with `headers` replayed verbatim before `expiresAt` (15 minutes), then push the manifest with `_upload: { object }` in place of `_binary`.
 Sending both is `400 invalid_upload`; an object from another account is refused the same way.
 The staging object is deleted after the push.
@@ -469,7 +469,7 @@ The staging object is deleted after the push.
     The registry would accept that publish; every node with the app installed would not see it.
     That is why the CI step above compares the signer directly and refuses a mismatch - deliberately stricter than the endpoint, because the endpoint's answer is not the one that matters on the other end.
 
-Both push endpoints also accept a version signed with another key when the publishing account is an **admin or owner** of the org linked to the package; the package's existing key set is kept as it was. The browser upload endpoint, `POST /api/v2/bundles/push-file`, additionally rejects a version that is not greater than the latest published one.
+Both push endpoints also accept a version signed with another key when the publishing account is an **admin or owner** of the org linked to the package; the package's existing key set is kept as it was. The browser upload endpoint, `POST /api/bundles/push-file`, additionally rejects a version that is not greater than the latest published one.
 `push` leaves version ordering to the caller, which is what `--bump` is for.
 
 ---
@@ -500,7 +500,7 @@ The same flow is available from the app page in the web UI, which hands you the 
 
 **`403 not_owner`**
 The signing key is not the one that published the package.
-Compare `cargo mero key derive-signer-id -k your-key.json` against the package's `signerId` from `GET /api/v2/bundles?package=<package>`.
+Compare `cargo mero key derive-signer-id -k your-key.json` against the package's `signerId` from `GET /api/bundles?package=<package>`.
 There is no way to transfer a package to a new key: a different key is a different application.
 
 **The registry refused a dev-signed bundle**

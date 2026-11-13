@@ -130,7 +130,7 @@ export async function stubRegistry(page: Page, bundles = BUNDLES) {
       },
     })
   );
-  await page.route('**/api/v2/bundles**', route =>
+  await page.route('**/api/bundles**', route =>
     route.fulfill({ json: bundles })
   );
 }

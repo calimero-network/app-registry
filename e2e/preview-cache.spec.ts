@@ -26,7 +26,7 @@ const PNG = Buffer.from(
 );
 
 const base = (id: string) =>
-  `/api/v2/packages/${encodeURIComponent(PKG)}/assets/${id}/raw`;
+  `/api/packages/${encodeURIComponent(PKG)}/assets/${id}/raw`;
 
 const IDS = ['a1', 'a2', 'a3', 'a4', 'a5'];
 
@@ -39,25 +39,23 @@ async function stubAssets(page: Page, { hold = [] as string[] } = {}) {
   const fullHits = new Map<string, number>();
   const thumbHits = new Map<string, number>();
 
-  await page.route(
-    `**/api/v2/packages/${encodeURIComponent(PKG)}/assets`,
-    route =>
-      route.fulfill({
-        json: {
-          assets: IDS.map((id, i) => ({
-            id,
-            url: base(id),
-            thumbUrl: `${base(id)}?variant=thumb`,
-            alt: `shot ${i + 1}`,
-            kind: 'image',
-            order: i,
-            width: 1600,
-            height: 900,
-          })),
-          state: 'approved',
-          pendingApproval: false,
-        },
-      })
+  await page.route(`**/api/packages/${encodeURIComponent(PKG)}/assets`, route =>
+    route.fulfill({
+      json: {
+        assets: IDS.map((id, i) => ({
+          id,
+          url: base(id),
+          thumbUrl: `${base(id)}?variant=thumb`,
+          alt: `shot ${i + 1}`,
+          kind: 'image',
+          order: i,
+          width: 1600,
+          height: 900,
+        })),
+        state: 'approved',
+        pendingApproval: false,
+      },
+    })
   );
 
   await page.route('**/assets/*/raw**', async (route: Route) => {
