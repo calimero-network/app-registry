@@ -92,7 +92,7 @@ Install core's `meroctl` (`curl -fsSL https://raw.githubusercontent.com/calimero
    # → app visible in the UI
 ```
 
-`meroctl app publish --org <org>` publishes as a Calimero Cloud organization instead; a Cloud package starts private unless you pass `--public`. A request body is capped at 4.5 MB, so larger bundles go through `POST /api/v2/bundles/upload-url` (the archive goes straight to storage), then `POST /api/v2/bundles/push` with the manifest; the [apps repository's `publish-bundle.sh`](https://github.com/calimero-network/apps/blob/main/scripts/publish-bundle.sh) does this. For CI, see [PUBLISHING.md](PUBLISHING.md).
+`meroctl app publish --org <org>` publishes as a Calimero Cloud organization instead; a Cloud package starts private unless you pass `--public`. A request body is capped at 4.5 MB and `meroctl app publish` sends the whole `.mpk` hex-encoded, so it handles bundles up to about 2.2 MB. Larger bundles go through `POST /api/v2/bundles/upload-url` (the archive goes straight to storage), then `POST /api/v2/bundles/push` with the manifest; the [apps repository's `publish-bundle.sh`](https://github.com/calimero-network/apps/blob/main/scripts/publish-bundle.sh) does this. For CI, see [PUBLISHING.md](PUBLISHING.md).
 
 ### Signature verification
 
@@ -120,9 +120,9 @@ There are two push endpoints, and they do not authorize the same way:
 
 Both also accept a version signed with another key when the publishing account is an **admin or owner** of the org linked to the package (plain members publish with a package key). Such a version does not change the package's key set: the keys allowed before it stay allowed after it, and the admin's own key is not added, so their access ends with their role.
 
-Both require a valid Ed25519 signature, and both refuse the well-known dev key. `push-file` additionally rejects a version that is not greater than the latest published one; `push` leaves version ordering to the caller, so a CI script asks the registry for the latest version first.
+Both require a valid Ed25519 signature, and both refuse the well-known dev key. Both also reject a version that is not greater than the latest published one (`400 version_not_allowed`), so a CI script asks the registry for the latest version first.
 
-The rest is common ground. Both push endpoints gate ownership behind `versions.length > 0`, so neither applies it - nor `push-file`'s increasing-version rule - to a package's first version. Deleting is a third endpoint again:
+The rest is common ground. Both push endpoints gate ownership behind `versions.length > 0`, so neither applies it - nor the increasing-version rule - to a package's first version. Deleting is a third endpoint again:
 
 | Scenario       | Endpoint                                     | Authorization                                                                  |
 | -------------- | -------------------------------------------- | ------------------------------------------------------------------------------ |
