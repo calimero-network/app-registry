@@ -1,11 +1,11 @@
 /**
  * V2 Bundle Yank API
- * POST /api/v2/bundles/:package/:version/yank  { yanked: true }   — mark unsupported
- * POST /api/v2/bundles/:package/:version/yank  { yanked: false }  — restore
+ * POST /api/bundles/:package/:version/yank  { yanked: true }   — mark unsupported
+ * POST /api/bundles/:package/:version/yank  { yanked: false }  — restore
  *
  * The package author, an admin or owner of the organization the package belongs
  * to, or a site admin can yank/unyank.
- * Yanked versions remain accessible at GET /api/v2/bundles/:package/:version
+ * Yanked versions remain accessible at GET /api/bundles/:package/:version
  * so existing installs are not broken.
  */
 

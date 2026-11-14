@@ -43,13 +43,13 @@ async function signedInAs(
     })
   );
   if (org) {
-    await page.route('**/api/v2/orgs/*/members**', route =>
+    await page.route('**/api/orgs/*/members**', route =>
       route.fulfill({ json: { members: org.members } })
     );
-    await page.route('**/api/v2/packages/*/org**', route =>
+    await page.route('**/api/packages/*/org**', route =>
       route.fulfill({ json: { id: 'org-1', name: 'Calimero' } })
     );
-    await page.route('**/api/v2/orgs/by-package**', route =>
+    await page.route('**/api/orgs/by-package**', route =>
       route.fulfill({ json: { id: 'org-1', name: 'Calimero' } })
     );
   }
@@ -136,7 +136,7 @@ test('several picked images queue and upload ONE AT A TIME, in order', async ({
   const order: number[] = [];
   let release: (() => void) | null = null;
 
-  await page.route(`**/api/v2/packages/*/assets`, async route => {
+  await page.route(`**/api/packages/*/assets`, async route => {
     const req = route.request();
     if (req.method() === 'POST') {
       inFlight += 1;
@@ -223,7 +223,7 @@ test('a pick larger than the free slots queues only what fits', async ({
     height: 1,
   }));
   let posts = 0;
-  await page.route(`**/api/v2/packages/*/assets`, async route => {
+  await page.route(`**/api/packages/*/assets`, async route => {
     if (route.request().method() === 'POST') {
       posts += 1;
       // Never answer, so the queue stays on screen for the assertion.

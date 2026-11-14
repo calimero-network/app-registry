@@ -26,7 +26,7 @@ export const api = axios.create({
   withCredentials: true, // send cookies (session) with requests
 });
 
-// GET /api/v2/bundles is cached at the edge and nothing can purge it (Vercel
+// GET /api/bundles is cached at the edge and nothing can purge it (Vercel
 // offers no purge API outside Next.js), so a listing can lag the registry by
 // the length of that cache window — see api/v2/bundles/index.js. Fine for
 // browsing, wrong for whoever just changed something: delete a package, get
@@ -48,7 +48,8 @@ function isCachedListingRead(config: {
   const path = String(config.url || '')
     .split('?')[0]
     .replace(/\/+$/, '');
-  return path === '/v2/bundles' || path === 'v2/bundles';
+  // The deprecated `/v2/bundles` spelling is the same cached endpoint.
+  return /^\/?(v2\/)?bundles$/.test(path);
 }
 
 /** Anything that changes what a listing should say: push, yank, delete, verify. */
@@ -61,7 +62,8 @@ function isListingMutation(config?: {
     return false;
   const path = String(config?.url || '');
   return (
-    /^\/?v2\/bundles(\/|$)/.test(path) || /^\/?admin\/packages(\/|$)/.test(path)
+    /^\/?(v2\/)?bundles(\/|$)/.test(path) ||
+    /^\/?admin\/packages(\/|$)/.test(path)
   );
 }
 
@@ -199,7 +201,7 @@ api.interceptors.response.use(
 
     // Friendly message when the API cannot be reached at all
     if (error.code === 'ERR_NETWORK' || !error.response) {
-      if (requestUrl.includes('/v2/bundles/push-file')) {
+      if (requestUrl.includes('/bundles/push-file')) {
         error.message = originalMessage.includes('ERR_UPLOAD_FILE_CHANGED')
           ? 'The selected .mpk file changed on disk. Re-select the rebuilt file and try again.'
           : 'Upload failed before the server responded. If you rebuilt the .mpk, re-select it and try again.';
@@ -291,15 +293,15 @@ export const getApps = async (params?: {
   name?: string;
 }): Promise<AppSummary[]> => {
   // Use V2 Bundle API
-  const v2Params: Record<string, string> = {};
+  const listingParams: Record<string, string> = {};
   if (params?.dev) {
-    v2Params.developer = params.dev;
+    listingParams.developer = params.dev;
   }
   if (params?.name) {
-    v2Params.package = params.name;
+    listingParams.package = params.name;
   }
 
-  const response = await api.get('/v2/bundles', { params: v2Params });
+  const response = await api.get('/bundles', { params: listingParams });
   const bundles = Array.isArray(response.data) ? response.data : [];
 
   return bundles.map(toAppSummary);
@@ -314,7 +316,7 @@ export const getMyPackages = async (params: {
   if (username) queries.push({ author: username });
 
   const responses = await Promise.all(
-    queries.map(query => api.get('/v2/bundles', { params: query }))
+    queries.map(query => api.get('/bundles', { params: query }))
   );
 
   const bundles = responses.flatMap(response =>
@@ -336,7 +338,7 @@ export const getMyPackages = async (params: {
 
 export const getAppVersions = async (appId: string): Promise<VersionInfo[]> => {
   // Use V2 Bundle API - get all bundles for this package (including yanked)
-  const response = await api.get('/v2/bundles', {
+  const response = await api.get('/bundles', {
     params: { package: appId, all_versions: 'true' },
   });
   const bundles = Array.isArray(response.data) ? response.data : [];
@@ -359,7 +361,7 @@ export const getAppManifest = async (
   semver: string
 ): Promise<AppManifest> => {
   // Use V2 Bundle API
-  const response = await api.get(`/v2/bundles/${appId}/${semver}`);
+  const response = await api.get(`/bundles/${appId}/${semver}`);
   const bundle = response.data;
 
   // Transform V2 BundleManifest to frontend AppManifest format
@@ -439,7 +441,7 @@ export const getBundleManifestRaw = async (
   version: string
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): Promise<Record<string, any>> => {
-  const response = await api.get(`/v2/bundles/${packageName}/${version}`);
+  const response = await api.get(`/bundles/${packageName}/${version}`);
   return response.data;
 };
 
@@ -450,7 +452,7 @@ export const yankBundleVersion = async (
   yanked: boolean
 ): Promise<void> => {
   await api.post(
-    `/v2/bundles/${encodeURIComponent(packageName)}/${encodeURIComponent(version)}/yank`,
+    `/bundles/${encodeURIComponent(packageName)}/${encodeURIComponent(version)}/yank`,
     { yanked }
   );
 };
@@ -461,13 +463,13 @@ export const deleteBundleVersion = async (
   version: string
 ): Promise<void> => {
   await api.delete(
-    `/v2/bundles/${encodeURIComponent(packageName)}/${encodeURIComponent(version)}`
+    `/bundles/${encodeURIComponent(packageName)}/${encodeURIComponent(version)}`
   );
 };
 
 /** Delete an entire package (all versions). Requires login as the package author. */
 export const deletePackage = async (packageName: string): Promise<void> => {
-  await api.delete(`/v2/bundles/${encodeURIComponent(packageName)}`);
+  await api.delete(`/bundles/${encodeURIComponent(packageName)}`);
 };
 
 /** Push a .mpk bundle file to the registry (multipart). Returns { package, version } on success. */
@@ -476,7 +478,7 @@ export const pushBundleFile = async (
 ): Promise<{ package: string; version: string }> => {
   const form = new FormData();
   form.append('bundle', file);
-  const response = await api.post('/v2/bundles/push-file', form, {
+  const response = await api.post('/bundles/push-file', form, {
     timeout: 120000,
   });
   return {
@@ -490,7 +492,7 @@ export const pushBundleFile = async (
 /** List orgs the given member (email) belongs to. */
 export const getOrgsByMember = async (memberEmail: string): Promise<Org[]> => {
   if (!memberEmail?.trim()) return [];
-  const response = await api.get<Org[]>('/v2/orgs', {
+  const response = await api.get<Org[]>('/orgs', {
     params: { member: memberEmail.trim() },
   });
   return Array.isArray(response.data) ? response.data : [];
@@ -501,7 +503,7 @@ export const getOrgByPackage = async (
   packageName: string
 ): Promise<Org | null> => {
   if (!packageName?.trim()) return null;
-  const response = await api.get<Org | null>('/v2/orgs', {
+  const response = await api.get<Org | null>('/orgs', {
     params: { package: packageName.trim() },
   });
   return response.data ?? null;
@@ -509,7 +511,7 @@ export const getOrgByPackage = async (
 
 /** Get a single org by id. */
 export const getOrg = async (orgId: string): Promise<Org | null> => {
-  const response = await api.get<Org>(`/v2/orgs/${encodeURIComponent(orgId)}`);
+  const response = await api.get<Org>(`/orgs/${encodeURIComponent(orgId)}`);
   return response.data ?? null;
 };
 
@@ -518,7 +520,7 @@ export const getOrgMembers = async (
   orgId: string
 ): Promise<{ members: OrgMember[] }> => {
   const response = await api.get<{ members: OrgMember[] }>(
-    `/v2/orgs/${encodeURIComponent(orgId)}/members`
+    `/orgs/${encodeURIComponent(orgId)}/members`
   );
   return {
     members: Array.isArray(response.data?.members) ? response.data.members : [],
@@ -530,7 +532,7 @@ export const getOrgPackages = async (
   orgId: string
 ): Promise<OrgPackageList> => {
   const response = await api.get<OrgPackageList>(
-    `/v2/orgs/${encodeURIComponent(orgId)}/packages`
+    `/orgs/${encodeURIComponent(orgId)}/packages`
   );
   return {
     packages: Array.isArray(response.data?.packages)
@@ -543,7 +545,7 @@ export const getOrgPackages = async (
 
 /** Create org. Requires Google login. Creator becomes first admin. */
 export const createOrg = async (name: string, slug: string): Promise<Org> => {
-  const response = await api.post<Org>('/v2/orgs', {
+  const response = await api.post<Org>('/orgs', {
     name: name.trim(),
     slug: slug.toLowerCase().trim(),
   });
@@ -556,7 +558,7 @@ export const updateOrg = async (
   updates: { name?: string; metadata?: OrgMetadata }
 ): Promise<Org> => {
   const response = await api.patch<Org>(
-    `/v2/orgs/${encodeURIComponent(orgId)}`,
+    `/orgs/${encodeURIComponent(orgId)}`,
     updates
   );
   return response.data;
@@ -569,7 +571,7 @@ export const addOrgMember = async (
   role: 'admin' | 'member' = 'member'
 ): Promise<{ invited: boolean }> => {
   const response = await api.post(
-    `/v2/orgs/${encodeURIComponent(orgId)}/members`,
+    `/orgs/${encodeURIComponent(orgId)}/members`,
     {
       username: username.trim().replace(/^@+/, ''),
       role,
@@ -584,7 +586,7 @@ export const removeOrgMember = async (
   member: string
 ): Promise<void> => {
   await api.delete(
-    `/v2/orgs/${encodeURIComponent(orgId)}/members/${encodeURIComponent(member)}`
+    `/orgs/${encodeURIComponent(orgId)}/members/${encodeURIComponent(member)}`
   );
 };
 
@@ -593,7 +595,7 @@ export const getOrgInvitations = async (
   orgId: string
 ): Promise<OrgInvitation[]> => {
   const response = await api.get<{ invitations: OrgInvitation[] }>(
-    `/v2/orgs/${encodeURIComponent(orgId)}/invitations`
+    `/orgs/${encodeURIComponent(orgId)}/invitations`
   );
   return Array.isArray(response.data?.invitations)
     ? response.data.invitations
@@ -606,14 +608,14 @@ export const revokeOrgInvitation = async (
   username: string
 ): Promise<void> => {
   await api.delete(
-    `/v2/orgs/${encodeURIComponent(orgId)}/invitations/${encodeURIComponent(username)}`
+    `/orgs/${encodeURIComponent(orgId)}/invitations/${encodeURIComponent(username)}`
   );
 };
 
 /** The signed-in user's pending org invitations. */
 export const getMyOrgInvitations = async (): Promise<MyOrgInvitation[]> => {
   const response = await api.get<{ invitations: MyOrgInvitation[] }>(
-    '/v2/invitations'
+    '/invitations'
   );
   return Array.isArray(response.data?.invitations)
     ? response.data.invitations
@@ -625,7 +627,7 @@ export const respondToOrgInvitation = async (
   orgId: string,
   action: 'accept' | 'decline'
 ): Promise<void> => {
-  await api.post(`/v2/invitations/${encodeURIComponent(orgId)}/${action}`);
+  await api.post(`/invitations/${encodeURIComponent(orgId)}/${action}`);
 };
 
 /** Link package to org (admin only; must be package author). */
@@ -633,7 +635,7 @@ export const linkOrgPackage = async (
   orgId: string,
   packageName: string
 ): Promise<void> => {
-  await api.post(`/v2/orgs/${encodeURIComponent(orgId)}/packages`, {
+  await api.post(`/orgs/${encodeURIComponent(orgId)}/packages`, {
     package: packageName.trim(),
   });
 };
@@ -644,13 +646,13 @@ export const unlinkOrgPackage = async (
   packageName: string
 ): Promise<void> => {
   await api.delete(
-    `/v2/orgs/${encodeURIComponent(orgId)}/packages/${encodeURIComponent(packageName)}`
+    `/orgs/${encodeURIComponent(orgId)}/packages/${encodeURIComponent(packageName)}`
   );
 };
 
 /** Delete an org and all its data (admin only). */
 export const deleteOrg = async (orgId: string): Promise<void> => {
-  await api.delete(`/v2/orgs/${encodeURIComponent(orgId)}`);
+  await api.delete(`/orgs/${encodeURIComponent(orgId)}`);
 };
 
 // ——— API Tokens ———
@@ -740,9 +742,7 @@ export interface PackageAssets {
 }
 
 export const getPackageAssets = async (pkg: string): Promise<PackageAssets> => {
-  const { data } = await api.get(
-    `/v2/packages/${encodeURIComponent(pkg)}/assets`
-  );
+  const { data } = await api.get(`/packages/${encodeURIComponent(pkg)}/assets`);
   return {
     assets: Array.isArray(data?.assets) ? data.assets : [],
     state: data?.state === 'approved' ? 'approved' : 'pending',
@@ -774,7 +774,7 @@ export const uploadPackageAsset = async (
     }),
     prepareImage(file),
   ]);
-  const res = await api.post(`/v2/packages/${encodeURIComponent(pkg)}/assets`, {
+  const res = await api.post(`/packages/${encodeURIComponent(pkg)}/assets`, {
     data,
     alt,
     thumb: prepared.thumb ?? undefined,
@@ -785,17 +785,16 @@ export const uploadPackageAsset = async (
 };
 
 export const deletePackageAsset = async (pkg: string, id: string) => {
-  await api.delete(`/v2/packages/${encodeURIComponent(pkg)}/assets/${id}`);
+  await api.delete(`/packages/${encodeURIComponent(pkg)}/assets/${id}`);
 };
 
 export const reorderPackageAssets = async (
   pkg: string,
   assets: { id: string; alt?: string }[]
 ): Promise<PackageAsset[]> => {
-  const res = await api.patch(
-    `/v2/packages/${encodeURIComponent(pkg)}/assets`,
-    { assets }
-  );
+  const res = await api.patch(`/packages/${encodeURIComponent(pkg)}/assets`, {
+    assets,
+  });
   return res.data.assets;
 };
 

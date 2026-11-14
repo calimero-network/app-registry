@@ -207,7 +207,7 @@ curl 'http://localhost:8082/apps?id=network.calimero.meropass&version=0.1.1'
 
 ## Future Considerations
 
-1. **API Versioning**: If we change the format again, use `/api/v2/` prefix
+1. **API Versioning**: The API is unversioned (`/api/...`); `/api/v2/...` stays as a deprecated alias for deployed clients. If the format changes incompatibly, add new paths and keep the old ones answering as an alias until clients have moved
 2. **Deprecation**: If we ever want to remove query param support, announce 6 months in advance
 3. **Documentation**: Always document the primary format (path-based) in user-facing docs
 

@@ -1,7 +1,7 @@
 /**
- * GET    /api/v2/orgs/:orgId — get org (public)
- * PATCH  /api/v2/orgs/:orgId — update org (admin or owner)
- * DELETE /api/v2/orgs/:orgId — delete org (owner only)
+ * GET    /api/orgs/:orgId — get org (public)
+ * PATCH  /api/orgs/:orgId — update org (admin or owner)
+ * DELETE /api/orgs/:orgId — delete org (owner only)
  */
 
 const {

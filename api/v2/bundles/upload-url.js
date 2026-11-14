@@ -1,6 +1,6 @@
 /**
  * V2 Bundle Upload URL API
- * POST /api/v2/bundles/upload-url
+ * POST /api/bundles/upload-url
  * Returns a signed URL to PUT a .mpk straight to storage (Vercel caps function
  * request bodies at 4.5 MB); reference the returned `object` as `_upload` in push.
  */

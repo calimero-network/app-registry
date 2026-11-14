@@ -1,6 +1,6 @@
 /**
- * GET /api/v2/orgs — list orgs (query: member=<email> or package=<name>)
- * POST /api/v2/orgs — create org (session or Bearer token; body: name, slug)
+ * GET /api/orgs — list orgs (query: member=<email> or package=<name>)
+ * POST /api/orgs — create org (session or Bearer token; body: name, slug)
  */
 
 const {

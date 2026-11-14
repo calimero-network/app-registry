@@ -2,7 +2,7 @@
 /**
  * The post-mutation listing freshness window in lib/api.ts.
  *
- * GET /api/v2/bundles is cached at the edge and nothing invalidates it, so a
+ * GET /api/bundles is cached at the edge and nothing invalidates it, so a
  * client that has just deleted (or pushed, or yanked) something can be shown a
  * listing that still contains it. That looked like the delete had failed. The
  * fix is client-side because Vercel has no purge API for plain functions: a
@@ -49,7 +49,7 @@ function stubAdapter(config: {
 
 /** Params the Nth listing GET actually went out with. */
 function listingParams(index = 0) {
-  const listings = calls.filter(c => c.url === '/v2/bundles');
+  const listings = calls.filter(c => c.url === '/bundles');
   return listings[index]?.params ?? {};
 }
 
@@ -71,35 +71,35 @@ afterEach(() => {
 
 describe('listing reads outside the window', () => {
   it('are left cacheable', async () => {
-    await api.get('/v2/bundles');
+    await api.get('/bundles');
     expect(listingParams()).not.toHaveProperty('fresh');
   });
 
   it('are left cacheable after a read of something else', async () => {
-    await api.get('/v2/orgs');
-    await api.get('/v2/bundles');
+    await api.get('/orgs');
+    await api.get('/bundles');
     expect(listingParams()).not.toHaveProperty('fresh');
   });
 });
 
 describe('a mutation opens the window', () => {
   it.each([
-    ['deleting a package', 'delete', '/v2/bundles/com.example.app'],
-    ['deleting a version', 'delete', '/v2/bundles/com.example.app/1.0.0'],
-    ['yanking a version', 'post', '/v2/bundles/com.example.app/1.0.0/yank'],
-    ['pushing a bundle', 'post', '/v2/bundles/push-file'],
+    ['deleting a package', 'delete', '/bundles/com.example.app'],
+    ['deleting a version', 'delete', '/bundles/com.example.app/1.0.0'],
+    ['yanking a version', 'post', '/bundles/com.example.app/1.0.0/yank'],
+    ['pushing a bundle', 'post', '/bundles/push-file'],
     ['an admin delete', 'delete', '/admin/packages/com.example.app'],
     ['an admin verify', 'patch', '/admin/packages/com.example.app'],
   ])('%s makes the next listing uncached', async (_label, method, url) => {
     await api.request({ method, url });
-    await api.get('/v2/bundles');
+    await api.get('/bundles');
 
     expect(listingParams()).toMatchObject({ fresh: '1' });
   });
 
   it('keeps the caller’s own params', async () => {
-    await api.delete('/v2/bundles/com.example.app');
-    await api.get('/v2/bundles', {
+    await api.delete('/bundles/com.example.app');
+    await api.get('/bundles', {
       params: { package: 'com.example.app', all_versions: 'true' },
     });
 
@@ -110,14 +110,22 @@ describe('a mutation opens the window', () => {
     });
   });
 
-  it('covers a reload, not just the navigation after the delete', async () => {
+  it('covers the deprecated /v2 spelling of the same endpoints', async () => {
     await api.delete('/v2/bundles/com.example.app');
+    await api.get('/v2/bundles');
+
+    const legacy = calls.filter(c => c.url === '/v2/bundles');
+    expect(legacy[0]?.params).toMatchObject({ fresh: '1' });
+  });
+
+  it('covers a reload, not just the navigation after the delete', async () => {
+    await api.delete('/bundles/com.example.app');
 
     // A fresh module registry is what a reload looks like from here; the window
     // has to live somewhere that survives it.
     vi.resetModules();
     const reloaded = (await import('@/lib/api')).api;
-    await reloaded.get('/v2/bundles');
+    await reloaded.get('/bundles');
 
     expect(listingParams()).toMatchObject({ fresh: '1' });
   });
@@ -125,24 +133,24 @@ describe('a mutation opens the window', () => {
 
 describe('the window is not opened by', () => {
   it('a read', async () => {
-    await api.get('/v2/bundles/com.example.app/1.0.0');
-    await api.get('/v2/bundles');
+    await api.get('/bundles/com.example.app/1.0.0');
+    await api.get('/bundles');
     expect(listingParams()).not.toHaveProperty('fresh');
   });
 
   it('a mutation elsewhere in the API', async () => {
-    await api.post('/v2/orgs', { id: 'org' });
-    await api.get('/v2/bundles');
+    await api.post('/orgs', { id: 'org' });
+    await api.get('/bundles');
     expect(listingParams()).not.toHaveProperty('fresh');
   });
 
   it('a failed mutation', async () => {
     // 403, not 401: a 401 would send this through the refresh-and-retry path.
     status = 403;
-    await expect(api.delete('/v2/bundles/com.example.app')).rejects.toThrow();
+    await expect(api.delete('/bundles/com.example.app')).rejects.toThrow();
 
     status = 200;
-    await api.get('/v2/bundles');
+    await api.get('/bundles');
     expect(listingParams()).not.toHaveProperty('fresh');
   });
 });
@@ -150,14 +158,14 @@ describe('the window is not opened by', () => {
 describe('the window expires', () => {
   it('so browsing goes back to the cached listing', async () => {
     vi.useFakeTimers();
-    await api.delete('/v2/bundles/com.example.app');
+    await api.delete('/bundles/com.example.app');
 
     vi.advanceTimersByTime(89_000);
-    await api.get('/v2/bundles');
+    await api.get('/bundles');
     expect(listingParams(0)).toMatchObject({ fresh: '1' });
 
     vi.advanceTimersByTime(2_000);
-    await api.get('/v2/bundles');
+    await api.get('/bundles');
     expect(listingParams(1)).not.toHaveProperty('fresh');
 
     // And it stops re-reading a dead key.

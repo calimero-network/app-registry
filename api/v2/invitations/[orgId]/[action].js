@@ -1,6 +1,6 @@
 /**
- * POST /api/v2/invitations/:orgId/accept  — join the organization
- * POST /api/v2/invitations/:orgId/decline — discard the invitation
+ * POST /api/invitations/:orgId/accept  — join the organization
+ * POST /api/invitations/:orgId/decline — discard the invitation
  */
 
 const { requireAuth } = require('#api-lib/auth-helpers');

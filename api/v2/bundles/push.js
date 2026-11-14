@@ -1,6 +1,6 @@
 /**
  * V2 Bundle Push API
- * POST /api/v2/bundles/push
+ * POST /api/bundles/push
  * Requires signature; verifies and enforces package ownership (same key as existing versions).
  *
  * Accepts a registry account (session / API token) or a Calimero Cloud JWT
@@ -145,7 +145,7 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({
         error: 'missing_binary',
         message:
-          'Missing _binary: send the whole .mpk as hex in `_binary` (cargo mero publish does this), upload it to /api/v2/bundles/upload-url and send `_upload: { object }`, or upload it to /api/v2/bundles/push-file.',
+          'Missing _binary: send the whole .mpk as hex in `_binary` (cargo mero publish does this), upload it to /api/bundles/upload-url and send `_upload: { object }`, or upload it to /api/bundles/push-file.',
       });
     }
 

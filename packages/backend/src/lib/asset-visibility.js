@@ -24,7 +24,7 @@
  * ⚠️ PRIVATE MUST MEAN PRIVATE AT THE BYTES. Hiding a pending asset from the
  * API while its GCS object stays publicly readable is not moderation: object
  * names are guessable and the URL never expires. Assets are therefore always
- * served THROUGH the API (`/api/v2/packages/:pkg/assets/:id/raw`), which
+ * served THROUGH the API (`/api/packages/:pkg/assets/:id/raw`), which
  * applies this check on every read. Nothing ever hands out a bucket URL.
  */
 

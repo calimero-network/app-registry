@@ -1,5 +1,5 @@
 /**
- * DELETE /api/v2/orgs/:orgId/packages/:packageName — unlink package (org admin or owner, package owner, or site admin)
+ * DELETE /api/orgs/:orgId/packages/:packageName — unlink package (org admin or owner, package owner, or site admin)
  */
 
 const {

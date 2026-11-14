@@ -144,16 +144,16 @@ Useful `pack` flags:
 
 Note the variable: `meroctl` reads `CALIMERO_REGISTRY_API_KEY`, while `calimero-registry` reads `CALIMERO_API_KEY`.
 
-There is no `--bump`: the version is the crate's (or `--app-version`), and the registry refuses one that is not greater than the latest published (`400 version_not_allowed`). To let the registry choose the next version instead, read the latest from `GET /api/v2/bundles?package=<package>` and pass `--app-version`; the apps repository's [`scripts/registry-release.sh`](https://github.com/calimero-network/apps/blob/main/scripts/registry-release.sh) `next-version` does this.
+There is no `--bump`: the version is the crate's (or `--app-version`), and the registry refuses one that is not greater than the latest published (`400 version_not_allowed`). To let the registry choose the next version instead, read the latest from `GET /api/bundles?package=<package>` and pass `--app-version`; the apps repository's [`scripts/registry-release.sh`](https://github.com/calimero-network/apps/blob/main/scripts/registry-release.sh) `next-version` does this.
 
 ### Large bundles
 
 `meroctl app publish` sends the whole `.mpk` hex-encoded in `_binary`, and Vercel caps a request body at 4.5 MB, so a bundle over about 2.2 MB (a frontend usually takes it there) cannot be published that way.
 Upload it to storage first and push the manifest with a reference to it:
 
-1. `POST /api/v2/bundles/upload-url` with the same `Authorization: Bearer` token returns `{ object, url, method, headers, expiresAt }`.
+1. `POST /api/bundles/upload-url` with the same `Authorization: Bearer` token returns `{ object, url, method, headers, expiresAt }`.
 2. `PUT` the raw `.mpk` to `url` with `headers` replayed verbatim, before `expiresAt`.
-3. `POST /api/v2/bundles/push` with the signed `manifest.json` from the `.mpk` plus `_upload: { "object": <object> }` in place of `_binary`.
+3. `POST /api/bundles/push` with the signed `manifest.json` from the `.mpk` plus `_upload: { "object": <object> }` in place of `_binary`.
 
 The apps repository's [`scripts/publish-bundle.sh`](https://github.com/calimero-network/apps/blob/main/scripts/publish-bundle.sh) does exactly this (`CALIMERO_API_KEY` and `CALIMERO_REGISTRY_URL`).
 Limits are under [What the registry checks](#what-the-registry-checks).
@@ -173,7 +173,7 @@ With `--org`, `meroctl` first trades the org key for a short-lived Cloud JWT at 
 - Your org's first package claims its namespace (`com.acme.app` claims `com.acme`; `acme.app` claims `acme`). Nobody else can publish under it.
 - Every later version must be signed with the package's pinned key (its first signer, or a key in `owners[]`).
 - Per-org quotas apply (bundle size, versions per package, total bytes); a refusal is `413 quota_exceeded` with the limit.
-- To go public later: `PUT /api/v2/packages/<pkg>/visibility {"visibility": "public"}` as an org owner or admin. A registry admin reviews it first.
+- To go public later: `PUT /api/packages/<pkg>/visibility {"visibility": "public"}` as an org owner or admin. A registry admin reviews it first.
 - A Cloud token with the `publish` scope may also use [`upload-url`](#large-bundles) for a large bundle.
 
 See [docs/cloud-integration.md](docs/cloud-integration.md) for the details.
@@ -201,7 +201,7 @@ push to the default branch touching logic/Cargo.toml
       │
       ▼  read the crate's version + [package.metadata.calimero] package
       │
-      ▼  GET /api/v2/bundles/<package>/<version>
+      ▼  GET /api/bundles/<package>/<version>
       │     404 → publish        200 → already released, stop
       │     anything else → fail (never republish on a blind guess)
       │
@@ -280,7 +280,7 @@ jobs:
           # An unreachable registry must not read as "not published": that
           # would republish blind. Only a definite 404 means new.
           code=$(curl -s -o /dev/null -w '%{http_code}' --retry 3 --max-time 30 \
-            "$CALIMERO_REGISTRY_URL/api/v2/bundles/$PACKAGE/$VERSION" || echo "000")
+            "$CALIMERO_REGISTRY_URL/api/bundles/$PACKAGE/$VERSION" || echo "000")
           case "$code" in
             200) echo "publish=false" >> "$GITHUB_OUTPUT" ;;
             404) echo "publish=true" >> "$GITHUB_OUTPUT" ;;
@@ -318,7 +318,7 @@ jobs:
           # failure as an empty listing skips the one check this step exists
           # for, which is the same trap as the version probe above.
           if ! listing=$(curl -fsS --retry 3 --retry-delay 2 --max-time 30 \
-              "$CALIMERO_REGISTRY_URL/api/v2/bundles?package=$PACKAGE&fresh=1"); then
+              "$CALIMERO_REGISTRY_URL/api/bundles?package=$PACKAGE&fresh=1"); then
             echo "::error::could not reach the registry to verify the signer"
             exit 1
           fi
@@ -360,7 +360,7 @@ The apps repository's [`publish-component.yml`](https://github.com/calimero-netw
 
 ### The gate answers one question
 
-`GET /api/v2/bundles/<package>/<version>` asks whether **this exact version** exists, which is what makes the job idempotent across re-runs.
+`GET /api/bundles/<package>/<version>` asks whether **this exact version** exists, which is what makes the job idempotent across re-runs.
 It does not ask whether the version is newer than what is already out; both push endpoints do, and refuse a version that is not greater than the latest published (`400 version_not_allowed`, by semver precedence), so a reverted or badly merged `Cargo.toml` fails the publish instead of slotting below the latest.
 
 ### Why the registry decides, not git
@@ -420,11 +420,11 @@ The app's `calimero-sdk` is pinned separately, by the tag in the crate's `Cargo.
 
 ## What the registry checks
 
-`meroctl app publish` sends the signed manifest to `POST /api/v2/bundles/push` with `Authorization: Bearer <token>`.
+`meroctl app publish` sends the signed manifest to `POST /api/bundles/push` with `Authorization: Bearer <token>`.
 The whole `.mpk` rides along under a `_binary` field; `_`-prefixed keys are stripped before signature verification, so attaching it does not disturb what was signed.
 
 Vercel rejects request bodies over 4.5 MB, which a hex-encoded `.mpk` of about 2.2 MB or more exceeds.
-For those, `POST /api/v2/bundles/upload-url` (any signed-in account: 10 per hour, or 100 for bot, admin and staff accounts and Cloud tokens with the `publish` scope; the object may be up to 50 MiB) returns `{ object, url, method, headers, expiresAt }`.
+For those, `POST /api/bundles/upload-url` (any signed-in account: 10 per hour, or 100 for bot, admin and staff accounts and Cloud tokens with the `publish` scope; the object may be up to 50 MiB) returns `{ object, url, method, headers, expiresAt }`.
 `PUT` the raw `.mpk` to `url` with `headers` replayed verbatim before `expiresAt` (15 minutes), then push the manifest with `_upload: { object }` in place of `_binary`.
 Sending both is `400 invalid_upload`; an object from another account is refused the same way.
 The staging object is deleted after the push.
@@ -449,7 +449,7 @@ The staging object is deleted after the push.
     The registry would accept that publish; every node with the app installed would not see it.
     That is why the CI step above compares the signer directly and refuses a mismatch - deliberately stricter than the endpoint, because the endpoint's answer is not the one that matters on the other end.
 
-Both push endpoints also accept a version signed with another key when the publishing account is an **admin or owner** of the org linked to the package; the package's existing key set is kept as it was. The browser upload endpoint, `POST /api/v2/bundles/push-file`, applies the same checks.
+Both push endpoints also accept a version signed with another key when the publishing account is an **admin or owner** of the org linked to the package; the package's existing key set is kept as it was. The browser upload endpoint, `POST /api/bundles/push-file`, applies the same checks.
 
 ---
 
@@ -479,7 +479,7 @@ The same flow is available from the app page in the web UI, which hands you the 
 
 **`403 not_owner`**
 The signing key is not the one that published the package.
-Compare `meroctl app signer id your-key.json` against the package's `signerId` from `GET /api/v2/bundles?package=<package>`.
+Compare `meroctl app signer id your-key.json` against the package's `signerId` from `GET /api/bundles?package=<package>`.
 There is no way to transfer a package to a new key: a different key is a different application.
 
 **`400 dev_signing_key`**

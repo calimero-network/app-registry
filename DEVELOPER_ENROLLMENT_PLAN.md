@@ -79,7 +79,7 @@ interface EnrolledDeveloper {
 
 ```typescript
 // Developer generates API key during enrollment
-POST /api/v2/developers/enroll
+POST /api/developers/enroll
 {
   "pubkey": "ed25519:...",
   "display_name": "John Doe",
@@ -99,7 +99,7 @@ Response:
 
 ```typescript
 // Developer signs request with private key
-POST /api/v2/bundles/push
+POST /api/bundles/push
 Headers:
   X-Developer-Pubkey: ed25519:...
   X-Signature: <signature of request body>
@@ -111,7 +111,7 @@ Body:
 
 ```typescript
 // Developer authenticates, receives JWT
-POST /api/v2/auth/login
+POST /api/auth/login
 {
   "pubkey": "ed25519:...",
   "signature": "<signature of timestamp>"
@@ -129,7 +129,7 @@ Response:
 **V2 Bundle Push Endpoint:**
 
 ```typescript
-POST /api/v2/bundles/push
+POST /api/bundles/push
 Headers:
   Authorization: Bearer <api_key> | <jwt_token>
   OR
@@ -169,7 +169,7 @@ Validation:
 
 ### Phase 1: Developer Enrollment API
 
-- [ ] Create `/api/v2/developers/enroll` endpoint
+- [ ] Create `/api/developers/enroll` endpoint
 - [ ] Store enrolled developers in KV store
 - [ ] Email verification (optional)
 - [ ] Admin approval workflow
@@ -190,7 +190,7 @@ Validation:
 
 ### Phase 4: Bundle Push with Auth
 
-- [ ] Update `/api/v2/bundles/push` endpoint
+- [ ] Update `/api/bundles/push` endpoint
 - [ ] Add authentication middleware
 - [ ] Verify namespace ownership
 - [ ] Verify bundle signatures
@@ -208,32 +208,32 @@ Validation:
 ### Enrollment
 
 ```
-POST   /api/v2/developers/enroll          # Submit enrollment
-GET    /api/v2/developers/:pubkey         # Get developer profile
-PATCH  /api/v2/developers/:pubkey         # Update profile
+POST   /api/developers/enroll          # Submit enrollment
+GET    /api/developers/:pubkey         # Get developer profile
+PATCH  /api/developers/:pubkey         # Update profile
 ```
 
 ### Authentication
 
 ```
-POST   /api/v2/auth/login                 # Get JWT token (optional)
-POST   /api/v2/auth/refresh               # Refresh token (optional)
+POST   /api/auth/login                 # Get JWT token (optional)
+POST   /api/auth/refresh               # Refresh token (optional)
 ```
 
 ### Bundle Management
 
 ```
-POST   /api/v2/bundles/push               # Push bundle (requires auth)
-GET    /api/v2/bundles/:package/:version  # Get bundle info (public)
-DELETE /api/v2/bundles/:package/:version  # Delete bundle (requires auth)
+POST   /api/bundles/push               # Push bundle (requires auth)
+GET    /api/bundles/:package/:version  # Get bundle info (public)
+DELETE /api/bundles/:package/:version  # Delete bundle (requires auth)
 ```
 
 ### Namespace Management
 
 ```
-GET    /api/v2/namespaces                 # List available namespaces
-GET    /api/v2/namespaces/:namespace       # Get namespace owner
-POST   /api/v2/namespaces/:namespace/claim # Claim namespace (requires auth)
+GET    /api/namespaces                 # List available namespaces
+GET    /api/namespaces/:namespace       # Get namespace owner
+POST   /api/namespaces/:namespace/claim # Claim namespace (requires auth)
 ```
 
 ## Security Considerations

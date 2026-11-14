@@ -54,7 +54,7 @@ describe('Org auth — API token', () => {
 
     const authHeaders = { Authorization: `Bearer ${apiKey}` };
 
-    await fetch('https://example.com/api/v2/orgs', {
+    await fetch('https://example.com/api/orgs', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...authHeaders },
       body: JSON.stringify({ name: 'Test', slug: 'test' }),
@@ -83,7 +83,7 @@ describe('Org auth — API token', () => {
           }),
         status: 200,
       })
-      // Second call: /api/v2/orgs?member=alice@example.com
+      // Second call: /api/orgs?member=alice@example.com
       .mockResolvedValueOnce({
         text: async () =>
           JSON.stringify([{ id: 'org-1', name: 'My Org', slug: 'my-org' }]),
@@ -110,7 +110,7 @@ describe('Org auth — API token', () => {
 
     // Step 2: list orgs by email
     const orgsRes = await fetch(
-      `${base}/api/v2/orgs?member=${encodeURIComponent(myEmail!)}`,
+      `${base}/api/orgs?member=${encodeURIComponent(myEmail!)}`,
       {
         method: 'GET',
         headers: { 'Content-Type': 'application/json', ...authHeaders },
@@ -147,7 +147,7 @@ describe('Org auth — API token', () => {
     const authHeaders = { Authorization: `Bearer ${apiKey}` };
     const body = { username: 'bob', role: 'member' };
 
-    await fetch(`${base}/api/v2/orgs/my-org/members`, {
+    await fetch(`${base}/api/orgs/my-org/members`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...authHeaders },
       body: JSON.stringify(body),

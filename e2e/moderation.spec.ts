@@ -46,7 +46,7 @@ test.describe('the two badges', () => {
   test('a verified publisher does NOT make the package verified', async ({
     page,
   }) => {
-    await page.route('**/api/v2/bundles**', route =>
+    await page.route('**/api/bundles**', route =>
       route.fulfill({
         json: BUNDLES.map(b => ({
           ...b,
@@ -70,7 +70,7 @@ test.describe('the two badges', () => {
   test('a verified package by an unverified publisher shows the package mark', async ({
     page,
   }) => {
-    await page.route('**/api/v2/bundles**', route =>
+    await page.route('**/api/bundles**', route =>
       route.fulfill({
         json: BUNDLES.map(b => ({
           ...b,
@@ -230,7 +230,7 @@ test.describe('the preview editor', () => {
       username: 'calimero-network',
       email: 'owner@calimero.network',
     });
-    await page.route('**/api/v2/packages/*/assets', route => {
+    await page.route('**/api/packages/*/assets', route => {
       if (route.request().method() === 'GET') {
         return route.fulfill({ json: ASSETS });
       }
@@ -245,7 +245,7 @@ test.describe('the preview editor', () => {
     // request therefore silently reshuffles the rest, which is invisible
     // until someone looks at the card weeks later.
     let sent: { assets: { id: string }[] } | null = null;
-    await page.route('**/api/v2/packages/*/assets', route => {
+    await page.route('**/api/packages/*/assets', route => {
       if (route.request().method() === 'GET') {
         return route.fulfill({ json: ASSETS });
       }
@@ -264,7 +264,7 @@ test.describe('the preview editor', () => {
     // The PATCH rewrites the whole index; a request per character is a Redis
     // write per character.
     let calls = 0;
-    await page.route('**/api/v2/packages/*/assets', route => {
+    await page.route('**/api/packages/*/assets', route => {
       if (route.request().method() === 'GET') {
         return route.fulfill({ json: ASSETS });
       }
@@ -309,7 +309,7 @@ test.describe('the verified-only listing', () => {
   ];
 
   test.beforeEach(async ({ page }) => {
-    await page.route('**/api/v2/bundles**', route =>
+    await page.route('**/api/bundles**', route =>
       route.fulfill({ json: MIXED })
     );
   });

@@ -408,7 +408,7 @@ async function publishGate({
     plan.visibility = currentVisibility;
     if (req.value && req.value !== currentVisibility) {
       warnings.push(
-        `Visibility stays "${currentVisibility}": a publish does not change an existing package's visibility; use PUT /api/v2/packages/${pkg}/visibility.`
+        `Visibility stays "${currentVisibility}": a publish does not change an existing package's visibility; use PUT /api/packages/${pkg}/visibility.`
       );
     }
   };
