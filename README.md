@@ -16,28 +16,33 @@ Live at [apps.calimero.network](https://apps.calimero.network). It is also Calim
 
 ```
 app-registry/
+├── api/                  # the production API: Vercel functions (/api/v2/...)
+├── shared/               # code the functions and the backend share (sessions, orgs, storage env)
 ├── packages/
-│   ├── backend/          # Fastify API server (Redis storage)
+│   ├── backend/          # bundle validation, storage and policy; a Fastify server for local development
 │   ├── frontend/         # React + TypeScript web app
 │   └── cli/              # calimero-registry CLI
-├── scripts/              # Dev/test utility scripts
+├── scripts/              # maintenance and migration scripts
 └── .github/              # GitHub Actions workflows
 ```
 
-| Package                         | Description                                | Stack                    |
-| ------------------------------- | ------------------------------------------ | ------------------------ |
-| [backend](./packages/backend)   | API server, signature validation, Redis KV | Fastify, Node.js         |
-| [frontend](./packages/frontend) | Web UI - browse, upload, org management    | React, TypeScript, Vite  |
-| [cli](./packages/cli)           | Org management, metadata edits             | TypeScript, Commander.js |
+| Part                            | Description                                                             | Stack                    |
+| ------------------------------- | ----------------------------------------------------------------------- | ------------------------ |
+| [api](./api)                    | The production API, deployed as Vercel functions                        | Node.js, Vercel          |
+| [backend](./packages/backend)   | Signature validation, bundle storage, metadata policy; local dev server | Node.js, Fastify         |
+| [frontend](./packages/frontend) | Web UI: browse, upload, organizations, in-app docs                      | React, TypeScript, Vite  |
+| [cli](./packages/cli)           | Organization administration, metadata edits                             | TypeScript, Commander.js |
 
-Apps are built and signed with core's tools (`mero-app-build`, `mero-sign` and `scripts/pack-component.py`; see [Packaging & signing](https://calimero-network.github.io/core/build/packaging-signing/)). Nothing in this monorepo builds bundles.
+Storage: package records, organizations and sessions live in Redis; the `.mpk` files themselves live in a Google Cloud Storage bucket. [ENV_CONFIG.md](ENV_CONFIG.md) lists every variable.
+
+Apps are built, signed and published with core's `meroctl` (see [Publishing](#publish-workflow)). Nothing in this monorepo builds bundles.
 
 ---
 
 ## Quick start
 
 ```bash
-# Prerequisites: Node.js 18+, pnpm 8+
+# Prerequisites: Node.js 24+, pnpm 8 (the version in package.json's packageManager)
 
 git clone https://github.com/calimero-network/app-registry.git
 cd app-registry
@@ -46,8 +51,8 @@ pnpm build
 
 # Start backend + frontend together
 pnpm dev:all
-# Backend: http://localhost:3000
-# Frontend: http://localhost:5173
+# Backend: http://localhost:8080 (an in-memory store when REDIS_URL is unset)
+# Frontend: http://localhost:5173 (proxies /api to the backend)
 ```
 
 ---
@@ -71,21 +76,23 @@ The ABI travels inside the component (its `calimero:abi` section), which is what
 
 ### Publish workflow
 
+Install core's `meroctl` (`curl -fsSL https://raw.githubusercontent.com/calimero-network/core/master/scripts/install.sh | sh -s -- meroctl`), then:
+
 ```
-1. mero-sign generate-key --output key.json      # one-time; keep it out of git
+1. meroctl app signer new key.json                    # one-time; keep it out of git
 
-2. mero-app-build path/to/app --out app.wasm      # build the component
-   python3 -I scripts/pack-component.py --wasm app.wasm --package com.example.app \
-     --app-version 1.0.0 --key key.json --out dist/com.example.app-1.0.0.mpk
-   # → writes and signs manifest.json, packs the .mpk (run from a core checkout)
+2. meroctl app build path/to/app                      # build the component
+   meroctl app pack path/to/app --key key.json        # write and sign manifest.json, pack the .mpk
+   # → path/to/app/dist/<package>-<version>.mpk; package and version come from the crate's Cargo.toml
+   # → add --previous <last .mpk> to check the new ABI against the last release
 
-3. export CALIMERO_API_KEY=<token>               # Organizations page → CLI Access
-   calimero-registry bundle push dist/com.example.app-1.0.0.mpk --remote
+3. export CALIMERO_REGISTRY_API_KEY=<token>           # Organizations page → CLI Access
+   meroctl app publish path/to/app/dist/<package>-<version>.mpk
    # → registry validates the Ed25519 signature and the signer's ownership
    # → app visible in the UI
 ```
 
-Large bundles go through `POST /api/v2/bundles/upload-url` (the archive goes straight to storage), then `POST /api/v2/bundles/push` with the manifest; the [apps repository's `publish-bundle.sh`](https://github.com/calimero-network/apps/blob/master/scripts/publish-bundle.sh) does this. For CI, see [PUBLISHING.md](PUBLISHING.md).
+`meroctl app publish --org <org>` publishes as a Calimero Cloud organization instead; a Cloud package starts private unless you pass `--public`. A request body is capped at 4.5 MB and `meroctl app publish` sends the whole `.mpk` hex-encoded, so it handles bundles up to about 2.2 MB. Larger bundles go through `POST /api/v2/bundles/upload-url` (the archive goes straight to storage), then `POST /api/v2/bundles/push` with the manifest; the [apps repository's `publish-bundle.sh`](https://github.com/calimero-network/apps/blob/main/scripts/publish-bundle.sh) does this. For CI, see [PUBLISHING.md](PUBLISHING.md).
 
 ### Signature verification
 
@@ -113,9 +120,9 @@ There are two push endpoints, and they do not authorize the same way:
 
 Both also accept a version signed with another key when the publishing account is an **admin or owner** of the org linked to the package (plain members publish with a package key). Such a version does not change the package's key set: the keys allowed before it stay allowed after it, and the admin's own key is not added, so their access ends with their role.
 
-Both require a valid Ed25519 signature, and both refuse the well-known dev key. `push-file` additionally rejects a version that is not greater than the latest published one; `push` leaves version ordering to the caller, so a CI script asks the registry for the latest version first.
+Both require a valid Ed25519 signature, and both refuse the well-known dev key. Both also reject a version that is not greater than the latest published one (`400 version_not_allowed`), so a CI script asks the registry for the latest version first.
 
-The rest is common ground. Both push endpoints gate ownership behind `versions.length > 0`, so neither applies it - nor `push-file`'s increasing-version rule - to a package's first version. Deleting is a third endpoint again:
+The rest is common ground. Both push endpoints gate ownership behind `versions.length > 0`, so neither applies it - nor the increasing-version rule - to a package's first version. Deleting is a third endpoint again:
 
 | Scenario       | Endpoint                                     | Authorization                                                                  |
 | -------------- | -------------------------------------------- | ------------------------------------------------------------------------------ |
@@ -203,9 +210,9 @@ calimero-registry org packages unlink <org-id> com.my-org.app
 
 ## CLI reference
 
-Building and signing is core's `mero-app-build` and `mero-sign` ([Packaging & signing](https://calimero-network.github.io/core/build/packaging-signing/)).
+Building, signing and publishing is core's `meroctl` (`app build`, `app pack`, `app sign`, `app inspect`, `app publish`; [meroctl reference](https://calimero-network.github.io/core/operate/meroctl/)).
 
-`calimero-registry` covers what talks to the registry rather than to your app:
+`calimero-registry` covers administration of the registry itself:
 
 ```bash
 # Bundle commands
@@ -230,9 +237,14 @@ calimero-registry org packages unlink <org-id> <package>
 # Config
 calimero-registry config set registry-url <url>
 calimero-registry config set api-key   # paste the token when asked
+calimero-registry config get | list | reset
+
+# A local registry for development
+calimero-registry local start | stop | status | reset | seed | backup | restore
+calimero-registry health
 ```
 
-Environment variables: `CALIMERO_REGISTRY_URL`, `CALIMERO_API_KEY`.
+Environment variables: `CALIMERO_REGISTRY_URL`, `CALIMERO_API_KEY`. (`meroctl app publish` reads `CALIMERO_REGISTRY_URL` and `CALIMERO_REGISTRY_API_KEY`.)
 
 ---
 
@@ -245,11 +257,11 @@ pnpm dev:all          # start backend + frontend in parallel
 pnpm dev              # backend only
 pnpm dev:frontend     # frontend only
 pnpm test             # run all tests
-pnpm test:coverage    # with coverage report
+pnpm test:e2e         # Playwright end-to-end tests
 pnpm lint             # lint all packages
 pnpm lint:fix         # auto-fix lint issues
 pnpm format           # prettier format
-pnpm quality          # lint + test + format check
+pnpm quality          # format check + lint + type-check + test (what CI runs)
 pnpm quality:fix      # fix all quality issues
 ```
 
@@ -258,6 +270,7 @@ pnpm quality:fix      # fix all quality issues
 ```bash
 node scripts/create-mpk-bundle.js    # create a sample test bundle
 node scripts/cleanup-registry.js     # remove test data from a running registry
+node scripts/prune-old-versions.js   # delete versions beyond BUNDLE_KEEP_VERSIONS
 
 # Standalone signature verification (no server required)
 node packages/backend/scripts/verify-signature-standalone.js manifest.json
@@ -267,23 +280,19 @@ node packages/backend/scripts/verify-signature-standalone.js manifest.json
 
 ## Configuration
 
+Local development needs no configuration: without `REDIS_URL` the backend keeps everything in memory, on port 8080. The variables that matter elsewhere:
+
 ```bash
-# Backend (.env)
-NODE_ENV=development
-PORT=3000
-REDIS_URL=redis://localhost:6379
+PORT=8080                           # backend port
+REDIS_URL=redis://...               # package records, orgs, sessions (required in production)
+GCS_BUCKET=calimero-app-registry    # where .mpk files are stored
+GCS_CLIENT_EMAIL= / GCS_PRIVATE_KEY=  # the bucket's service account (or GOOGLE_APPLICATION_CREDENTIALS)
 CORS_ORIGIN=http://localhost:5173
 
-# Frontend (.env)
-VITE_API_URL=http://localhost:3000
+VITE_API_PROXY=http://localhost:8080  # frontend dev server: where /api goes
 ```
 
-Copy the example files:
-
-```bash
-cp packages/backend/.env.example  packages/backend/.env
-cp packages/frontend/.env.example packages/frontend/.env
-```
+Preview deployments read the `PREVIEW_`-prefixed form of each storage variable and refuse to touch production storage. [ENV_CONFIG.md](ENV_CONFIG.md) has the full list, including the Calimero Cloud settings.
 
 ---
 
@@ -291,9 +300,10 @@ cp packages/frontend/.env.example packages/frontend/.env
 
 ```bash
 pnpm test                          # all packages
-pnpm --filter registry-backend test
-pnpm --filter registry-frontend test
-pnpm test:coverage
+pnpm test:backend
+pnpm test:frontend
+pnpm test:cli
+pnpm test:e2e                      # Playwright
 ```
 
 ---
@@ -315,7 +325,7 @@ The registry frontend ships a built-in **Docs** page (`/docs`) covering:
 
 - [Calimero docs](https://calimero-network.github.io/core/)
 - [Publishing guide](PUBLISHING.md) - building, signing, and releasing from CI
-- [Packaging & signing](https://calimero-network.github.io/core/build/packaging-signing/) - building and signing an app with core's tools
+- [meroctl reference](https://calimero-network.github.io/core/operate/meroctl/) - building, signing and publishing an app
 - [GitHub](https://github.com/calimero-network/app-registry)
 - [Issues](https://github.com/calimero-network/app-registry/issues)
 - [Contributing](CONTRIBUTING.md)

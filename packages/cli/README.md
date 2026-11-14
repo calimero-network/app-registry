@@ -2,7 +2,7 @@
 
 Command-line access to the Calimero App Registry: organizations, bundle metadata, and a local registry for development.
 
-> **Building and publishing bundles is not this tool's job.** Use [`cargo mero`](https://github.com/calimero-network/core/tree/master/tools/cargo-mero) - `cargo mero bundle` to build and sign, `cargo mero publish` to upload. See [PUBLISHING.md](../../PUBLISHING.md).
+> **Building and publishing bundles is not this tool's job.** Use core's [`meroctl`](https://github.com/calimero-network/core): `meroctl app pack` to build and sign, `meroctl app publish` to upload. See [PUBLISHING.md](../../PUBLISHING.md).
 
 ## Install
 
@@ -34,7 +34,7 @@ calimero-registry config reset [--force]
 | `registry-url` | `CALIMERO_REGISTRY_URL` | `https://apps.calimero.network` |
 | `api-key`      | `CALIMERO_API_KEY`      | none                            |
 
-`registry-url` and `api-key` are the only keys. Get a token from the registry's Organizations page, under **CLI Access**; `cargo mero` reads the same two variables.
+`registry-url` and `api-key` are the only keys. Get a token from the registry's Organizations page, under **CLI Access**. `meroctl app publish` takes the same token but reads it from `CALIMERO_REGISTRY_API_KEY`, not `CALIMERO_API_KEY`; both read `CALIMERO_REGISTRY_URL`.
 
 ## Organizations
 
@@ -56,7 +56,7 @@ calimero-registry org packages link   <orgId> <package>
 calimero-registry org packages unlink <orgId> <package>
 ```
 
-Members are identified by email, so removing someone takes effect on their next request with no key rotation involved. Linking a package to an org lets any member publish new versions of it **through the browser upload**; a `cargo mero publish` still has to be signed by the key that owns the package. See the [ownership rules](../../README.md#ownership-and-publishing-rights).
+Members are identified by email, so removing someone takes effect on their next request with no key rotation involved. Linking a package to an org lets its **admins and owners** publish new versions signed with another key, through either push endpoint; a plain member still signs with the key that owns the package. See the [ownership rules](../../README.md#ownership-and-publishing-rights).
 
 ## Bundles
 
@@ -75,7 +75,7 @@ calimero-registry bundle get <package> <version> [--local]
 # push a pre-built .mpk
 calimero-registry bundle push <bundle-file> [--local | --remote]
 
-# assemble a bundle from a bare wasm (predates cargo mero)
+# assemble a bundle from a bare wasm (predates meroctl app pack)
 calimero-registry bundle create <wasm-file> [package] [version] \
   [-o <path>] [--name <name>] [--description <text>] [--author <author>] \
   [--frontend <url>] [--github <url>] [--docs <url>] [--abi <path>]
@@ -86,12 +86,12 @@ calimero-registry bundle create <wasm-file> [package] [version] \
 ```bash
 calimero-registry bundle edit com.example.my-app 1.2.4 --remote \
   --name "New Name" -o manifest.json     # 1. fetch with changes applied
-cargo mero sign manifest.json --key my-key.json   # 2. sign
+meroctl app sign manifest.json --key my-key.json  # 2. sign
 calimero-registry bundle edit com.example.my-app 1.2.4 --remote \
   --manifest manifest.json               # 3. PATCH back
 ```
 
-`bundle create` and `bundle push` predate `cargo mero` and know nothing about multi-service bundles, icons, or embedded ABIs. Use them only for a bundle built outside the Rust toolchain; anything built from a Calimero app crate should go through `cargo mero bundle` and `cargo mero publish`.
+`bundle create` and `bundle push` predate `meroctl` and know nothing about compute components, frontends, pipelines, or icons. Use them only for a bundle built outside the Rust toolchain; anything built from a Calimero app crate should go through `meroctl app pack` and `meroctl app publish`.
 
 ## Local registry
 
