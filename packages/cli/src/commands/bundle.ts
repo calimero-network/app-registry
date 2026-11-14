@@ -619,7 +619,7 @@ Note:
         console.log('');
         console.log('Next steps:');
         console.log(
-          `  1. Sign the manifest:  mero-sign sign ${path.join(outputDir, 'manifest.json')} --key key.json`
+          `  1. Sign the manifest:  meroctl app sign ${path.join(outputDir, 'manifest.json')} --key key.json`
         );
         console.log(
           `  2. Push the bundle:    calimero-registry bundle push ${outputDir} --remote`
@@ -955,7 +955,7 @@ Examples:
   # 1) Get current manifest, apply edits, write manifest.json and show sign instructions:
   $ calimero-registry bundle edit com.calimero.myapp 1.0.0 --remote --name "New Name" --description "New desc" -o manifest.json
 
-  # 2) After signing with mero-sign, PATCH the signed manifest:
+  # 2) After signing with meroctl app sign, PATCH the signed manifest:
   $ calimero-registry bundle edit com.calimero.myapp 1.0.0 --remote --manifest signed-manifest.json
 
   # 3) With custom registry URL:
@@ -1102,8 +1102,8 @@ Examples:
         console.log(`✅ Wrote modified manifest to: ${outputPath}`);
         console.log('');
         console.log('Next steps:');
-        console.log('  1. Sign the manifest with mero-sign:');
-        console.log(`     mero-sign sign ${outputPath} --key your-key.json`);
+        console.log('  1. Sign the manifest with meroctl:');
+        console.log(`     meroctl app sign ${outputPath} --key your-key.json`);
         console.log('  2. PATCH the signed manifest:');
         console.log(
           `     calimero-registry bundle edit '${pkg}' '${version}' --remote --manifest signed-manifest.json`

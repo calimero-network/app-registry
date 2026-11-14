@@ -16,7 +16,7 @@ import {
 const SECTIONS = [
   { id: 'introduction', label: 'Introduction' },
   { id: 'bundles', label: 'Bundles & Manifests' },
-  { id: 'cargo-mero', label: 'cargo mero' },
+  { id: 'meroctl', label: 'meroctl' },
   { id: 'signing', label: 'Signing & Identity' },
   { id: 'metadata', label: 'Required Metadata' },
   { id: 'publishing', label: 'Publishing' },
@@ -156,7 +156,7 @@ export default function DocsPage() {
   usePageMeta({
     title: 'Documentation',
     description:
-      'Build, sign and publish a Calimero application bundle with cargo mero — from an empty directory to a package installable from this registry.',
+      'Build, sign and publish a Calimero application bundle with meroctl — from an empty directory to a package installable from this registry.',
   });
 
   const [activeSection, setActiveSection] = useState('introduction');
@@ -309,10 +309,9 @@ export default function DocsPage() {
             <Diagram>{`
   Developer                        Registry                        Node
       │                               │                              │
-      │  cargo mero build             │                              │
-      │  cargo mero bundle --key ...  │  (compiles, signs, packs)    │
+      │  meroctl app pack --key ...   │  (builds, signs, packs)      │
       │                               │                              │
-      │──── cargo mero publish ──────▶│                              │
+      │──── meroctl app publish ─────▶│                              │
       │                               │  verify Ed25519 signature    │
       │                               │  check signer owns package   │
       │                               │  store manifest + binary     │
@@ -324,14 +323,14 @@ export default function DocsPage() {
 `}</Diagram>
             <P>
               Building and publishing an app is the job of one tool,{' '}
-              <Code>cargo mero</Code>. These are the pieces you will touch:
+              <Code>meroctl</Code>. These are the pieces you will touch:
             </P>
             <div className='grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2'>
               {[
                 {
                   icon: Terminal,
-                  title: 'cargo mero',
-                  desc: 'The app toolchain. Scaffolds, compiles to WASM, runs tests, signs and packs the .mpk, and publishes it here.',
+                  title: 'meroctl',
+                  desc: 'Core’s command line. Starts an app, builds it, runs its tests, signs and packs the .mpk, and publishes it here.',
                 },
                 {
                   icon: Package,
@@ -346,7 +345,7 @@ export default function DocsPage() {
                 {
                   icon: GitBranch,
                   title: 'calimero-registry CLI',
-                  desc: 'Organization administration and metadata edits from the terminal. Publishing lives in cargo mero.',
+                  desc: 'Organization administration and metadata edits from the terminal. Publishing lives in meroctl.',
                 },
               ].map(({ icon: Icon, title, desc }) => (
                 <div key={title} className='card p-4'>
@@ -372,13 +371,14 @@ export default function DocsPage() {
             </div>
             <Note>
               <strong>Coming from the old flow?</strong> Hand-rolled{' '}
-              <Code>build.sh</Code> scripts, standalone <Code>mero-sign</Code>,
-              and <Code>calimero-registry bundle create</Code> /{' '}
-              <Code>bundle push</Code> are all replaced by{' '}
-              <Code>cargo mero</Code>. Key generation and signing are still
-              available as <Code>cargo mero key</Code> and{' '}
-              <Code>cargo mero sign</Code>, so nothing you signed before stops
-              verifying.
+              <Code>build.sh</Code> scripts, <Code>cargo mero</Code>, standalone{' '}
+              <Code>mero-sign</Code>, and{' '}
+              <Code>calimero-registry bundle create</Code> /{' '}
+              <Code>bundle push</Code> are all replaced by <Code>meroctl</Code>{' '}
+              (1.0.0-rc.24 or later). Key generation and signing are{' '}
+              <Code>meroctl app signer</Code> and <Code>meroctl app sign</Code>,
+              and existing key files keep working, so nothing you signed before
+              stops verifying.
             </Note>
           </div>
         </section>
@@ -398,24 +398,20 @@ export default function DocsPage() {
 
             <SubHeading>Bundle layout</SubHeading>
             <P>
-              A single-service app puts the wasm at the archive root. A
-              workspace that ships several services puts each one under{' '}
-              <Code>services/</Code>:
+              <Code>meroctl app pack</Code> writes the app component at the
+              archive root, with its compute component, pipelines and frontend
+              when the app has them:
             </P>
-            <CodeBlock>{`single service                    multi-service workspace
-──────────────                    ───────────────────────
-bundle.mpk  (tar.gz)              bundle.mpk  (tar.gz)
-├── manifest.json                 ├── manifest.json
-├── app.wasm                      └── services/
-└── abi.json                          ├── registry.wasm
-                                      ├── registry-abi.json
-                                      ├── docs.wasm
-                                      └── docs-abi.json`}</CodeBlock>
+            <CodeBlock>{`bundle.mpk  (tar.gz)
+├── manifest.json        signed
+├── app.wasm             the app component
+├── compute.wasm         when the app has compute methods
+├── pipelines/*.yaml     any --pipeline files
+└── frontend/...         a static frontend, when the app ships one`}</CodeBlock>
             <P>
-              Every service carries its own ABI. The ABI is also embedded inside
-              the wasm itself, as the <Code>calimero_abi_v1</Code> custom
-              section, which is what the node reads when it plans a state
-              migration on upgrade.
+              Bundles published with older toolchains keep their own layout: a
+              root <Code>app.wasm</Code> beside an <Code>abi.json</Code>, or
+              several services under <Code>services/</Code>.
             </P>
 
             <SubHeading>Manifest structure</SubHeading>
@@ -469,9 +465,9 @@ bundle.mpk  (tar.gz)              bundle.mpk  (tar.gz)
   }
 }`}</CodeBlock>
             <P>
-              A multi-service bundle replaces the top-level <Code>wasm</Code>{' '}
-              and <Code>abi</Code> with a <Code>services</Code> array, one entry
-              per service:
+              An older multi-service bundle replaces the top-level{' '}
+              <Code>wasm</Code> and <Code>abi</Code> with a{' '}
+              <Code>services</Code> array, one entry per service:
             </P>
             <CodeBlock>{`"services": [
   {
@@ -499,20 +495,28 @@ bundle.mpk  (tar.gz)              bundle.mpk  (tar.gz)
             <SubHeading>Where the metadata comes from</SubHeading>
             <P>
               You do not hand-write <Code>manifest.json</Code>.{' '}
-              <Code>cargo mero bundle</Code> generates it from a{' '}
-              <Code>[package.metadata.calimero]</Code> table in your app&apos;s{' '}
-              <Code>Cargo.toml</Code> (or{' '}
-              <Code>[workspace.metadata.calimero]</Code> for a multi-service
-              workspace, which wins when both are present):
+              <Code>meroctl app pack</Code> generates it from the app
+              crate&apos;s <Code>Cargo.toml</Code>: its <Code>version</Code> and
+              a <Code>[package.metadata.calimero]</Code> table.
             </P>
-            <CodeBlock>{`[package.metadata.calimero]
+            <CodeBlock>{`[package]
+name = "my-app"
+version = "1.2.4"                       # the app version
+
+[package.metadata.calimero]
 package = "com.example.my-app"          # required, the app id
+min-runtime-version = "1.0.0"           # the oldest node release that runs it
+frontend-dir = "../app/dist"            # optional: a built frontend to ship
+
+# how the registry lists it (see Required Metadata)
 name = "My App"
-description = "A collaborative example app"
-icon = "assets/icon.png"                # embedded as a data: URI at bundle time
+description = "A short sentence that says what the app actually does."
+icon = "assets/icon.png"                # PNG, relative to the crate
+category = "productivity"
+tags = ["crdt", "offline"]
 license = "MIT"
-tags = ["social", "chat"]
-min-runtime-version = "0.7.0"
+
+slug = "my-app"                         # default: the package id
 frontend = "https://my-app.example.com"
 github = "https://github.com/example/my-app"`}</CodeBlock>
             <FieldList
@@ -523,20 +527,24 @@ github = "https://github.com/example/my-app"`}</CodeBlock>
                   'Reverse-domain app id. Required, no default. The first publish claims it.',
                 ],
                 [
-                  'icon',
-                  'Filesystem path to a PNG, resolved relative to the table that declares it. Required unless you pass --no-icon; icon = "default" selects the bundled Calimero mark.',
+                  'min-runtime-version',
+                  'The oldest node release that runs the app. Override with --min-runtime-version.',
                 ],
                 [
-                  'slug',
-                  'Deep-link handler slug (calimero://<slug>/...). Defaults to the package id.',
+                  'frontend-dir',
+                  'A built static frontend, relative to the crate, shipped as frontend/ and checked with the node’s rules. Override with --frontend, or leave it out with --no-frontend.',
                 ],
                 [
-                  'services',
-                  'Workspace table only. Maps each bundled service name to the crate that builds it.',
+                  'name, description, icon, category',
+                  'The listing metadata a new package needs. icon is read into a data: URI; tags, author, license and guide (a file whose text ships) are optional. Without a crate: --name, --description, --icon, --category.',
+                ],
+                [
+                  'slug, links',
+                  'slug is the deep-link handler (calimero://<slug>/...), defaulting to the package id. frontend, github and docs become links; frontend-aliases keeps an old frontend origin signing in.',
                 ],
                 [
                   'appVersion',
-                  'Not a metadata key. Defaults to the crate’s [package] version; override with --app-version or --bump.',
+                  'Not a metadata key. The crate’s [package] version as written; override with --app-version (needed when the crate inherits its version from the workspace).',
                 ],
               ]}
             />
@@ -553,117 +561,108 @@ github = "https://github.com/example/my-app"`}</CodeBlock>
         </section>
 
         {/* ══════════════════════════════════════════
-            CARGO MERO
+            MEROCTL
         ══════════════════════════════════════════ */}
         <section>
-          <SectionHeading id='cargo-mero'>cargo mero</SectionHeading>
+          <SectionHeading id='meroctl'>meroctl</SectionHeading>
           <div className='space-y-4'>
             <P>
-              <strong className='text-neutral-200'>cargo mero</strong> is the
-              toolchain for Calimero apps. It covers the whole path from an
-              empty directory to a published bundle, and replaces the
-              hand-written build and packaging scripts apps used to carry.
+              <strong className='text-neutral-200'>meroctl</strong> is
+              Calimero&apos;s one command line. Its <Code>app</Code> commands
+              cover the whole path from an empty directory to a published
+              bundle, and replace the hand-written build and packaging scripts
+              apps used to carry. They need 1.0.0-rc.24 or later.
             </P>
 
             <SubHeading>Installation</SubHeading>
             <P>
-              cargo mero lives in the{' '}
+              meroctl ships with every{' '}
               <a
-                href='https://github.com/calimero-network/core/tree/master/tools/cargo-mero'
+                href='https://github.com/calimero-network/core/releases'
                 target='_blank'
                 rel='noreferrer'
                 className='text-brand-600 transition-colors hover:text-brand-500'
               >
-                core repository
-              </a>
-              , alongside merod and meroctl. Install it{' '}
-              <strong className='text-neutral-200'>from a release tag</strong>,
-              not from the default branch:
-            </P>
-            <CodeBlock>{`# cargo mero is a cargo subcommand: install the binary, cargo finds it.
-# --tag, NOT the default branch: pin it to the SAME core release your app's
-# SDK is pinned to, or the bundler and the contract can disagree about the
-# manifest format.
-cargo install --locked --git https://github.com/calimero-network/core.git \\
-  --tag 0.11.0-rc.32 cargo-mero
-
-# the build step targets wasm32 (cargo mero build auto-installs it via rustup)
-rustup target add wasm32-unknown-unknown`}</CodeBlock>
-            <Note>
-              <Code>cargo mero --version</Code> reports <Code>0.1.0</Code>
-              regardless of the tag it was built from, so it cannot tell you
-              which release you have. Check with{' '}
-              <Code>cargo install --list</Code>, which records the tag.
-            </Note>
-            <P>
-              Prebuilt binaries are attached to each{' '}
-              <a
-                href='https://github.com/calimero-network/core/releases'
-                target='_blank'
-                rel='noopener noreferrer'
-                className='text-brand-600 hover:text-brand-500'
-              >
                 core release
               </a>
-              . CI should install a pinned one rather than build from git; see{' '}
+              , alongside merod, for Linux (x86_64, aarch64) and macOS
+              (aarch64). The install script checks the archive against the
+              release&apos;s <Code>SHA256SUMS</Code>:
+            </P>
+            <CodeBlock>{`# into ~/.local/bin (CALIMERO_INSTALL_DIR or --dir to change it)
+curl -fsSL https://raw.githubusercontent.com/calimero-network/core/master/scripts/install.sh | sh
+
+# a fixed release
+curl -fsSL https://raw.githubusercontent.com/calimero-network/core/master/scripts/install.sh \\
+  | sh -s -- --version 1.0.0-rc.24
+
+# apps build for wasm32-wasip2
+rustup target add wasm32-wasip2`}</CodeBlock>
+            <Note>
+              <Code>meroctl --version</Code> prints the release and the commit
+              it was built from. CI should install a pinned release; see{' '}
               <a href='#ci' className='text-brand-600 hover:text-brand-500'>
                 Publishing from CI
               </a>
               .
-            </P>
+            </Note>
 
             <SubHeading>The workflow</SubHeading>
             <P>
-              Five steps, start to finish. <Code>cargo mero guide</Code> prints
-              this same list at any time.
+              Five steps, start to finish. <Code>app new</Code> puts the app
+              crate in <Code>apps/&lt;template&gt;/logic</Code>; set your own{' '}
+              <Code>package</Code> in its <Code>Cargo.toml</Code> before you
+              publish.
             </P>
-            <CodeBlock>{`cargo mero new my-app        # 1. scaffold (state, events, logic, tests)
-cargo mero build             # 2. compile -> wasm-opt -> embed ABI (res/my_app.wasm)
-cargo mero test              # 3. run the node-free test suite
-cargo mero bundle --key k.json   # 4. build all services, write + sign manifest, pack .mpk
-cargo mero publish dist/com.example.my-app-1.0.0.mpk   # 5. push to the registry`}</CodeBlock>
+            <CodeBlock>{`meroctl app new my-app && cd my-app          # 1. start from the kv-store template
+meroctl app build apps/kv-store/logic        # 2. build the app component
+meroctl local test apps/kv-store/logic       # 3. run the app crate's tests
+meroctl app pack apps/kv-store/logic --key k.json   # 4. build, write + sign manifest, pack .mpk
+meroctl app publish apps/kv-store/logic/dist/<package>-<version>.mpk   # 5. push to the registry`}</CodeBlock>
             <FieldList
-              width='sm:w-24'
+              width='sm:w-28'
               rows={[
                 [
-                  'new',
-                  'Scaffolds a crate: Cargo.toml with the SDK pins and app id, a lib.rs with state, events, logic and a TestHost test, and a convergence test. No build.rs needed.',
+                  'app new',
+                  'Starts a project from a template in calimero-network/apps (default kv-store; --template picks another). The directory must not exist or be empty.',
                 ],
                 [
-                  'build',
-                  'Compiles to wasm32-unknown-unknown, size-optimizes with wasm-opt -Oz on release, and embeds the canonical ABI as the calimero_abi_v1 wasm section. Writes res/<name>.wasm, res/abi.json, res/state-schema.json.',
+                  'app build',
+                  'Builds the crate into a calimero:app component (wasm32-wasip2), and its compute component when it has compute methods.',
                 ],
                 [
-                  'test',
-                  'Runs the in-crate TestHost unit tests plus the convergence tests. No node and no network required.',
+                  'local test',
+                  'Runs cargo test in the app crate, its scenario harness included.',
                 ],
                 [
-                  'bundle',
-                  'Builds every service, writes manifest.json, signs it, and packs a tar.gz .mpk at dist/<package>-<appVersion>.mpk.',
+                  'app pack',
+                  'Builds the components, writes manifest.json, signs it, and packs a tar.gz .mpk at <crate>/dist/<package>-<appVersion>.mpk.',
                 ],
                 [
-                  'publish',
-                  'Uploads a signed .mpk to the registry. Needs CALIMERO_API_KEY.',
+                  'app publish',
+                  'Uploads a signed .mpk to the registry. Needs CALIMERO_REGISTRY_API_KEY or --api-key.',
                 ],
               ]}
             />
+            <P>
+              <Code>meroctl app inspect</Code> opens a bundle the way a node
+              does and prints its manifest and signer.
+            </P>
 
-            <SubHeading>Useful bundle flags</SubHeading>
-            <CodeBlock>{`--key <file>          sign with a production key (required to publish)
---dev                 sign with the well-known dev key (local only, registry refuses it)
---app-version <v>     override the version recorded in the manifest
---bump patch|minor|major   ask the registry for the highest published version and bump it
---package <id>        override the manifest package id
--o, --output <path>   override dist/<package>-<appVersion>.mpk
---no-abi              omit the ABI; the bundle cannot be migrated
---no-icon             ship without an icon (fine when links.frontend serves a PWA icon)
---print-output-path   print the built .mpk path as the last line, for scripts
---features "a b"      cargo feature flags, forwarded to the build and the ABI extraction`}</CodeBlock>
+            <SubHeading>Useful pack flags</SubHeading>
+            <CodeBlock>{`--key <file>              sign with a production key (required to publish)
+                          without it: the well-known development key, which the registry refuses
+--app-version <v>         override the crate's version
+--package <id>            override the package id
+--out <path>              override <crate>/dist/<package>-<appVersion>.mpk
+--previous <old.mpk>      report ABI changes against the last release first
+--wasm <f> --compute <f>  pack components you built yourself
+--frontend <dir>          ship a static web build as frontend/
+--outbound <url>          an https:// prefix the app's runs may call (repeatable)`}</CodeBlock>
             <Note>
-              <Code>--bump</Code> resolves the next version against{' '}
-              <strong>the registry</strong>, not your working tree, so it is
-              correct even after a revert or a squashed merge. It cannot be
-              combined with <Code>--app-version</Code>.
+              The version is the crate&apos;s or <Code>--app-version</Code>;
+              nothing asks the registry for the next one. The registry refuses a
+              version that is not greater than the latest published one.
             </Note>
           </div>
         </section>
@@ -691,22 +690,22 @@ cargo mero publish dist/com.example.my-app-1.0.0.mpk   # 5. push to the registry
               rows={[
                 [
                   '--dev',
-                  'A single well-known key baked into the tool, derived from a fixed seed, so every --dev bundle everywhere shares one signer. The analogue of Android’s debug.keystore: fine for local installs, proves nothing about provenance. The registry refuses it.',
+                  'The development key: a single well-known key baked into the tool, derived from a fixed seed, used when pack gets no --key and by app sign --dev, so every bundle signed with it shares one signer. The analogue of Android’s debug.keystore: fine for local installs, proves nothing about provenance. The registry refuses it.',
                 ],
                 [
                   '--key',
-                  'A private Ed25519 key only you hold. Required for anything published here. Generate with cargo mero key generate.',
+                  'A private Ed25519 key only you hold. Required for anything published here. Generate with meroctl app signer new.',
                 ],
               ]}
             />
 
             <SubHeading>Generating a key</SubHeading>
-            <CodeBlock>{`cargo mero key generate -o my-key.json
+            <CodeBlock>{`meroctl app signer new my-key.json
 # Generated new keypair: my-key.json
 #   signerId: did:key:z6MkrV2imerTHzYtPyb2groFVNJSokGX7rpxnuJj8DSEQDnH
 
 # inspect an existing key without signing anything
-cargo mero key derive-signer-id -k my-key.json`}</CodeBlock>
+meroctl app signer id my-key.json`}</CodeBlock>
             <P>
               The file holds the base64url-encoded private-key seed, the public
               key, and the derived <Code>signerId</Code>. The private key is a
@@ -778,8 +777,8 @@ cargo mero key derive-signer-id -k my-key.json`}</CodeBlock>
               "signature": "base64url-64-bytes"
             }`}</Diagram>
             <P>
-              <Code>cargo mero bundle</Code> does this as part of packaging.{' '}
-              <Code>cargo mero sign</Code> does it to an existing{' '}
+              <Code>meroctl app pack</Code> does this as part of packaging.{' '}
+              <Code>meroctl app sign</Code> does it to an existing{' '}
               <Code>manifest.json</Code> in place, which is what a metadata edit
               needs. The registry re-runs the exact same process on every
               upload; a mismatch returns <Code>400 invalid_signature</Code>.
@@ -798,7 +797,7 @@ cargo mero key derive-signer-id -k my-key.json`}</CodeBlock>
               incomplete one, the same way it refuses a version that is not
               greater than the last. The check runs server-side, so it applies
               identically whether you publish with{' '}
-              <Code>cargo mero publish</Code>, an API token, or the upload form
+              <Code>meroctl app publish</Code>, an API token, or the upload form
               on this site.
             </P>
 
@@ -816,7 +815,7 @@ cargo mero key derive-signer-id -k my-key.json`}</CodeBlock>
                 ],
                 [
                   'metadata.icon',
-                  'A square PNG, at least 512×512, inlined as a data URI. cargo mero produces this from the icon path in [package.metadata.calimero].',
+                  'A square PNG, at least 512×512, inlined as a data URI.',
                 ],
                 [
                   'metadata.category',
@@ -868,11 +867,12 @@ media          planning       security       utilities   developer-tools`}</Code
                  "utilities", "developer-tools"]
 }`}</CodeBlock>
 
-            <SubHeading>Declaring it in Cargo.toml</SubHeading>
+            <SubHeading>Where it comes from</SubHeading>
             <P>
-              All of it lives in <Code>[package.metadata.calimero]</Code> and
-              travels inside the signed bundle, so what the registry shows is
-              what the publisher signed:
+              The metadata travels inside the signed manifest, so what the
+              registry shows is what the publisher signed.{' '}
+              <Code>meroctl app pack</Code> writes it from the crate&apos;s{' '}
+              <Code>[package.metadata.calimero]</Code>:
             </P>
             <CodeBlock>{`[package.metadata.calimero]
 package = "com.example.my-app"
@@ -881,13 +881,13 @@ description = "A short sentence that says what the app actually does."
 icon = "app/public/icon-512.png"   # square PNG, >= 512x512
 category = "productivity"
 tags = ["crdt", "offline"]
-license = "MIT"
-frontend = "https://my-app.vercel.app"`}</CodeBlock>
+license = "MIT"`}</CodeBlock>
             <P>
-              <Code>icon = "default"</Code> is a placeholder, not an icon. It
-              resolves to a generic Calimero mark that is byte-identical for
-              every app that sets it, and the registry rejects it by content
-              hash — "the field is set" is not the check.
+              Without a crate, <Code>--name</Code>, <Code>--description</Code>,{' '}
+              <Code>--icon</Code> and <Code>--category</Code> set the same
+              fields. <Code>icon = "default"</Code>, the old placeholder, packs
+              no icon, and the registry rejects a generic placeholder mark by
+              content hash — "the field is set" is not the check.
             </P>
           </div>
         </section>
@@ -920,24 +920,30 @@ frontend = "https://my-app.vercel.app"`}</CodeBlock>
                   <>
                     Click "Generate token" and copy it. It is shown once. Export
                     it where you publish from:
-                    <CodeBlock>{`export CALIMERO_API_KEY=<token>`}</CodeBlock>
+                    <CodeBlock>{`export CALIMERO_REGISTRY_API_KEY=<token>   # meroctl app publish
+export CALIMERO_API_KEY=<token>            # calimero-registry`}</CodeBlock>
                   </>,
                 ],
               ]}
             />
 
             <SubHeading>Publishing from the terminal</SubHeading>
-            <CodeBlock>{`# 1. build and sign, taking the next patch version from the registry
-cargo mero bundle --key my-key.json --bump patch
-# → dist/com.example.my-app-1.2.4.mpk
+            <CodeBlock>{`# 1. build and sign; the version is the crate's
+meroctl app pack logic --key my-key.json
+# → logic/dist/com.example.my-app-1.2.4.mpk
 
 # 2. publish
-export CALIMERO_API_KEY=<token>
-cargo mero publish dist/com.example.my-app-1.2.4.mpk`}</CodeBlock>
+export CALIMERO_REGISTRY_API_KEY=<token>
+meroctl app publish logic/dist/com.example.my-app-1.2.4.mpk`}</CodeBlock>
             <P>
               The registry defaults to{' '}
               <Code>https://apps.calimero.network</Code>. Point at another one
-              with <Code>CALIMERO_REGISTRY_URL</Code>.
+              with <Code>CALIMERO_REGISTRY_URL</Code> or <Code>--registry</Code>
+              . A Calimero Cloud organization publishes with{' '}
+              <Code>--org &lt;org&gt;</Code> and its <Code>ck_live_</Code> API
+              key, which meroctl trades at the Cloud for a short publish token;
+              its new packages are private unless you pass <Code>--public</Code>
+              .
             </P>
 
             <SubHeading>What the registry checks</SubHeading>
@@ -958,7 +964,7 @@ cargo mero publish dist/com.example.my-app-1.2.4.mpk`}</CodeBlock>
                 ],
                 [
                   'owners[]',
-                  'A manifest can also list additional owner keys, and the endpoint honours them: a push signed by a listed key is accepted and the version is stored. What it produces is the catch - ApplicationId comes from package + signerId, so that version belongs to a different application, and no node with the original installed will see it. cargo mero never writes the field and no published manifest carries one. The CI step above compares the signer directly for this reason, refusing what the endpoint would take.',
+                  'A manifest can also list additional owner keys, and the endpoint honours them: a push signed by a listed key is accepted and the version is stored. What it produces is the catch - ApplicationId comes from package + signerId, so that version belongs to a different application, and no node with the original installed will see it. meroctl app pack never writes the field and no published manifest carries one. The CI step above compares the signer directly for this reason, refusing what the endpoint would take.',
                 ],
                 [
                   'Author',
@@ -980,10 +986,9 @@ cargo mero publish dist/com.example.my-app-1.2.4.mpk`}</CodeBlock>
             </P>
             <Note>
               <Upload className='inline w-3.5 h-3.5 text-brand-600 mr-1 -mt-0.5' />
-              The browser upload also refuses a version that is not greater than
-              the latest published one. <Code>cargo mero publish</Code> leaves
-              version ordering to you, so prefer <Code>--bump</Code> over
-              hand-picking a number.
+              The browser upload, like <Code>meroctl app publish</Code>, refuses
+              a version that is not greater than the latest published one (
+              <Code>400 version_not_allowed</Code>).
             </Note>
 
             <SubHeading>Editing published metadata</SubHeading>
@@ -996,7 +1001,7 @@ calimero-registry bundle edit com.example.my-app 1.2.4 --remote \\
   --name "New Name" --description "Updated description" -o manifest.json
 
 # 2. sign it
-cargo mero sign manifest.json --key my-key.json
+meroctl app sign manifest.json --key my-key.json
 
 # 3. PATCH it back
 calimero-registry bundle edit com.example.my-app 1.2.4 --remote \\
@@ -1049,19 +1054,12 @@ version=$(jq -r '
   | if length == 0 then "0.0.1" else (last | "\\(.[0]).\\(.[1]).\\(.[2]+1)") end
 ' <<<"$response")
 
-cargo mero bundle \
-  --manifest-path "logic/Cargo.toml" \
-  --key "$RUNNER_TEMP/mero-sign-key.json" \
-  --app-version "$version" \
-  --output "dist/$PACKAGE.mpk"
+meroctl app pack logic \\
+  --key "$RUNNER_TEMP/key.json" \\
+  --app-version "$version" \\
+  --out "dist/$PACKAGE.mpk"
 
-cargo mero publish "dist/$PACKAGE.mpk"`}</CodeBlock>
-            <Note>
-              Do not combine this with <Code>cargo mero publish --bump</Code>.
-              They are mutually exclusive, and <Code>--bump</Code> floors an
-              empty registry at <Code>0.1.0</Code> rather than{' '}
-              <Code>0.0.1</Code>.
-            </Note>
+meroctl app publish "dist/$PACKAGE.mpk"`}</CodeBlock>
 
             <SubHeading>Or own the version in Cargo.toml</SubHeading>
             <P>
@@ -1104,18 +1102,18 @@ cargo mero publish "dist/$PACKAGE.mpk"`}</CodeBlock>
             </P>
             <Diagram>{`  push to master touching logic/Cargo.toml
         │
-        ▼  read [workspace.package] version + the calimero package id
+        ▼  read the crate version + the calimero package id
         │
         ▼  GET /api/v2/bundles/<package>/<version>
         │     404 → publish        200 → already released, stop
         │     anything else → fail (never republish on a blind guess)
         │
-        ▼  install pinned cargo-mero, write the key from the secret
+        ▼  install pinned meroctl, write the key from the secret
         │
-        ▼  derive-signer-id  ==  the package's published signerId?
+        ▼  app signer id  ==  the package's published signerId?
         │     no → fail before signing anything
         │
-        ▼  cargo mero bundle --key ...   →   cargo mero publish`}</Diagram>
+        ▼  meroctl app pack --key ...   →   meroctl app publish`}</Diagram>
             <CodeBlock>{`name: Deploy Bundle
 
 on:
@@ -1124,7 +1122,7 @@ on:
     paths: ["logic/Cargo.toml"]     # the version lives here and nowhere else
   workflow_dispatch:
 
-# One registry for every step, and the same variable cargo mero reads.
+# One registry for every step, and the same variable meroctl reads.
 env:
   CALIMERO_REGISTRY_URL: https://apps.calimero.network
 
@@ -1150,22 +1148,14 @@ jobs:
         working-directory: logic
         run: |
           meta=$(cargo metadata --no-deps --format-version 1)
-          # The calimero table sits on the workspace for a multi-service
-          # bundle and on the package otherwise.
-          package=$(jq -er 'first((.metadata.calimero.package,
-            .packages[].metadata.calimero.package) | select(. != null))
-            // error("no calimero package id")' <<<"$meta")
-          # Only the crates the bundle ships: a workspace may also hold an
-          # xtask on its own version, which must not block a release.
-          version=$(jq -er '(.metadata.calimero.services // [] | map(.crate)) as $svc
-            | (if ($svc | length) > 0
-               then [.packages[] | select(.name as $n | $svc | index($n)) | .version]
-               elif ([.packages[] | select(.metadata.calimero != null)] | length) > 0
-                 then [.packages[] | select(.metadata.calimero != null) | .version]
-               elif (.packages | length) == 1 then [.packages[0].version]
-               else error("declare services[] so this job knows which crates ship") end)
-            | unique | if length == 1 then .[0]
-              else error("bundle crates disagree on version") end' <<<"$meta")
+          # The app crate is the one with [package.metadata.calimero]: a
+          # workspace may also hold an xtask on its own version, which must
+          # not decide a release. cargo metadata resolves an inherited version.
+          app=$(jq -ec '[.packages[] | select(.metadata.calimero.package != null)]
+            | if length == 1 then .[0]
+              else error("expected one crate with [package.metadata.calimero]") end' <<<"$meta")
+          package=$(jq -er '.metadata.calimero.package' <<<"$app")
+          version=$(jq -er '.version' <<<"$app")
 
           # Validate before either reaches a URL: an empty package would query
           # .../bundles//, and a 404 there reads as "not published".
@@ -1235,11 +1225,12 @@ jobs:
     # substituted before the shell sees it, so a crafted value would run.
     env:
       PACKAGE: \${{ needs.check.outputs.package }}
+      VERSION: \${{ needs.check.outputs.version }}
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-        with: { targets: wasm32-unknown-unknown }
-      - uses: ./.github/actions/setup-cargo-mero
+        with: { targets: wasm32-wasip2 }
+      - uses: ./.github/actions/setup-meroctl
 
       - name: Write signing key
         env:
@@ -1250,7 +1241,7 @@ jobs:
 
       - name: Verify the signer still matches the published package
         run: |
-          signer=$(cargo mero key derive-signer-id --key "$RUNNER_TEMP/key.json")
+          signer=$(meroctl app signer id "$RUNNER_TEMP/key.json")
 
           # Separate "could not ask" from "nothing published": reading the
           # failure as an empty listing skips this very check.
@@ -1269,50 +1260,42 @@ jobs:
           fi
 
       - name: Build & sign
-        id: build
-        working-directory: logic
-        # --print-output-path rather than rebuilding the versioned filename
-        # here, so it has one author and cannot drift out of step.
+        # The package and version the check job gated on, so the bundle
+        # cannot carry anything else; --out keeps the path in one place.
         run: |
-          mpk=$(cargo mero bundle --key "$RUNNER_TEMP/key.json" --print-output-path | tail -1)
-          echo "mpk=$mpk" >> "$GITHUB_OUTPUT"
+          meroctl app pack logic --key "$RUNNER_TEMP/key.json" \\
+            --package "$PACKAGE" --app-version "$VERSION" \\
+            --out "$RUNNER_TEMP/bundle.mpk"
 
       - name: Remove signing key
         if: always()
         run: rm -f "$RUNNER_TEMP/key.json"
 
-      - run: cargo mero publish "\${{ steps.build.outputs.mpk }}"
-        working-directory: logic
+      - run: meroctl app publish "$RUNNER_TEMP/bundle.mpk"
         env:
-          CALIMERO_API_KEY: \${{ secrets.CALIMERO_REGISTRY_API_KEY }}`}</CodeBlock>
+          CALIMERO_REGISTRY_API_KEY: \${{ secrets.CALIMERO_REGISTRY_API_KEY }}`}</CodeBlock>
 
             <SubHeading>The gate answers one question</SubHeading>
             <P>
               The probe asks whether <strong>this exact version</strong> exists,
               which is what makes the job idempotent across re-runs. It does not
-              ask whether the version is newer than what is already out, and
-              neither does the endpoint <Code>cargo mero publish</Code> uses.
-              Only the browser upload enforces that.
+              ask whether the version is newer than what is already out.
             </P>
             <P>
-              So a version that slots <em>below</em> the latest still publishes.
               Reverting <Code>1.2.0</Code> to <Code>1.1.0</Code>, or resolving a
               merge conflict the wrong way, produces a version the registry has
-              never seen: the probe returns 404 and the release goes out. It
-              sorts below the existing latest rather than replacing it, so
-              nothing breaks, but published versions are immutable and there is
-              no way to take it back.
+              never seen: the probe returns 404. The push endpoint{' '}
+              <Code>meroctl app publish</Code> uses refuses it (
+              <Code>400 version_not_allowed</Code>), but only after the job has
+              built and signed it.
             </P>
             <Note>
-              To close that, either use{' '}
-              <Code>cargo mero bundle --bump patch</Code>, which takes the next
-              version from the registry so an out-of-order one cannot be
-              constructed, or compare against the highest published version in
-              the <Code>check</Code> job - the listing is already sorted
-              newest-first by semver, so <Code>.[0].appVersion</Code> is the
-              value to beat. Not with <Code>sort -V</Code>, though: it orders{' '}
+              So the <Code>check</Code> job compares against the highest
+              published version too - the listing is already sorted newest-first
+              by semver, so <Code>.[0].appVersion</Code> is the value to beat.
+              Not with plain <Code>sort -V</Code>, though: it orders{' '}
               <Code>1.0.0-rc.1</Code> after <Code>1.0.0</Code>, the opposite of
-              semver.
+              semver, which is why the job decides that shape directly.
             </Note>
 
             <SubHeading>Why the registry decides, not git</SubHeading>
@@ -1327,35 +1310,40 @@ jobs:
 
             <SubHeading>Pin the toolchain</SubHeading>
             <P>
-              Install a released <Code>cargo-mero</Code> binary at a fixed
-              version with a checksum, rather than building from git. The tool
-              writes what goes inside the bundle, so letting it float means a
-              release can change shape without anything in your repository
-              changing.
+              Install a released <Code>meroctl</Code> at a fixed version with a
+              checksum. The tool writes what goes inside the bundle, so letting
+              it float means a release can change shape without anything in your
+              repository changing. The install script with{' '}
+              <Code>--version</Code> checks the release&apos;s{' '}
+              <Code>SHA256SUMS</Code>; pinning each archive&apos;s checksum in
+              your repository also catches an asset re-uploaded under the same
+              tag.
             </P>
-            <CodeBlock>{`RELEASE=0.11.0-rc.20
+            <CodeBlock>{`RELEASE=1.0.0-rc.24
 
-# Per-asset SHA-256, so a re-uploaded asset under the same tag cannot swap
-# the binary silently. Refresh these together with RELEASE.
-CHECKSUM_x86_64_unknown_linux_gnu=86e32bd1a7fd976dafaa8269dfdfe4e8d89b35f0a62f3a6f6d3c4a6387ec9331
-CHECKSUM_aarch64_apple_darwin=9c28ec40692669cbf2249c07afa824ab3296c720fb26670c90de2ca515261d86
+# Per-asset SHA-256, copied from the release's SHA256SUMS, so a re-uploaded
+# asset under the same tag cannot swap the binary silently. Refresh these
+# together with RELEASE.
+CHECKSUM_x86_64_unknown_linux_gnu=<sha256 of meroctl_x86_64-unknown-linux-gnu.tar.gz>
+CHECKSUM_aarch64_apple_darwin=<sha256 of meroctl_aarch64-apple-darwin.tar.gz>
 
 case "$(uname -s)/$(uname -m)" in
   Linux/x86_64) TARGET=x86_64-unknown-linux-gnu ;;
   Darwin/arm64) TARGET=aarch64-apple-darwin ;;
-  *) echo "no released cargo-mero for $(uname -s)/$(uname -m)" >&2; exit 1 ;;
+  *) echo "no meroctl checksum pinned for $(uname -s)/$(uname -m)" >&2; exit 1 ;;
 esac
 eval "EXPECTED=\\$CHECKSUM_\${TARGET//-/_}"
 
-url="https://github.com/calimero-network/core/releases/download/$RELEASE/cargo-mero_$TARGET.tar.gz"
-curl -fsSL "$url" -o cargo-mero.tar.gz
+url="https://github.com/calimero-network/core/releases/download/$RELEASE/meroctl_$TARGET.tar.gz"
+curl -fsSL "$url" -o meroctl.tar.gz
 
 # Verified before unpacking: a tarball that fails the check should never reach
 # PATH, let alone run. Without this the checksum above is decoration.
-echo "$EXPECTED  cargo-mero.tar.gz" | shasum -a 256 -c - \\
+echo "$EXPECTED  meroctl.tar.gz" | shasum -a 256 -c - \\
   || { echo "checksum mismatch for $url" >&2; exit 1; }
 
-tar -xzf cargo-mero.tar.gz -C "\${CARGO_HOME:-$HOME/.cargo}/bin"`}</CodeBlock>
+mkdir -p "$HOME/.local/bin"
+tar -xzf meroctl.tar.gz -C "$HOME/.local/bin" meroctl`}</CodeBlock>
             <Note>
               <Shield className='inline w-3.5 h-3.5 text-brand-600 mr-1 -mt-0.5' />
               Write the key to <Code>$RUNNER_TEMP</Code> under{' '}
@@ -1480,7 +1468,7 @@ tar -xzf cargo-mero.tar.gz -C "\${CARGO_HOME:-$HOME/.cargo}/bin"`}</CodeBlock>
             <P>
               <Code>calimero-registry</Code> covers what talks to the registry
               rather than to your app: organization administration and metadata
-              edits. Building and publishing bundles is <Code>cargo mero</Code>
+              edits. Building and publishing bundles is <Code>meroctl</Code>
               &apos;s job.
             </P>
 
@@ -1491,7 +1479,8 @@ tar -xzf cargo-mero.tar.gz -C "\${CARGO_HOME:-$HOME/.cargo}/bin"`}</CodeBlock>
 calimero-registry config set registry-url https://apps.calimero.network
 calimero-registry config set api-key   # paste the token when asked
 
-# or per-session, the same variables cargo mero reads
+# or per-session (meroctl app publish reads CALIMERO_REGISTRY_URL too,
+# but takes the token from CALIMERO_REGISTRY_API_KEY)
 export CALIMERO_REGISTRY_URL=https://apps.calimero.network
 export CALIMERO_API_KEY=<token>`}</CodeBlock>
 
@@ -1522,11 +1511,10 @@ calimero-registry bundle get <package> <version> --local`}</CodeBlock>
             <Note>
               <Key className='inline w-3.5 h-3.5 text-brand-600 mr-1 -mt-0.5' />
               <Code>bundle create</Code> and <Code>bundle push</Code> still
-              exist for bundles built outside the Rust toolchain, but they
-              predate <Code>cargo mero</Code> and do not know about services,
-              icons, or embedded ABIs. Use <Code>cargo mero bundle</Code> and{' '}
-              <Code>cargo mero publish</Code> for anything built from a Calimero
-              app crate.
+              exist for bundles built outside the Rust toolchain, but{' '}
+              <Code>meroctl app publish</Code> replaces their publish path. Use{' '}
+              <Code>meroctl app pack</Code> and <Code>meroctl app publish</Code>{' '}
+              for anything built from a Calimero app crate.
             </Note>
           </div>
         </section>
@@ -1545,7 +1533,11 @@ calimero-registry bundle get <package> <version> --local`}</CodeBlock>
               check runs whether the bundle came from this registry or a local
               file.
             </P>
-            <CodeBlock>{`meroctl app install --path dist/com.example.my-app-1.2.4.mpk`}</CodeBlock>
+            <CodeBlock>{`# a published release, from the node's registry
+meroctl app install com.example.my-app@1.2.4
+
+# a local file, on a development cluster only
+meroctl app install --path dist/com.example.my-app-1.2.4.mpk`}</CodeBlock>
             <P>
               <Code>meroctl</Code> and <Code>merod</Code> ship from the same{' '}
               <a
@@ -1555,12 +1547,13 @@ calimero-registry bundle get <package> <version> --local`}</CodeBlock>
                 className='text-brand-600 transition-colors hover:text-brand-500'
               >
                 core releases
-              </a>{' '}
-              as cargo mero — prebuilt binaries per platform, or via Homebrew.
-              Keep all three on the same release: they share the manifest
-              format, and a node older than the SDK an app was built against
-              installs the bundle happily and then fails at context creation
-              with <Code>link error: unknown import</Code>.
+              </a>
+              , and the install script installs either (
+              <Code>sh -s -- merod meroctl</Code>; merod is Linux only). Keep
+              them on the release your app&apos;s SDK targets: they share the
+              manifest format, and a node older than the SDK an app was built
+              against installs the bundle happily and then fails at context
+              creation with <Code>link error: unknown import</Code>.
             </P>
 
             <SubHeading>Verification process</SubHeading>

@@ -62,7 +62,7 @@ const POSTERS: Poster[] = [
     art: 'publish',
     eyebrow: 'Ship yours',
     title: 'Publish an app',
-    body: 'Build with cargo mero, sign the bundle, push it to the registry.',
+    body: 'Build with meroctl, sign the bundle, push it to the registry.',
     chips: ['Build', 'Sign', 'Push'],
     cta: 'How publishing works',
     href: '/docs',
