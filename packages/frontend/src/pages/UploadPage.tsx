@@ -232,7 +232,7 @@ export default function UploadPage() {
         >
           The documentation
         </Link>{' '}
-        walks through <code className='text-brand-600'>cargo mero</code> from an
+        walks through <code className='text-brand-600'>meroctl</code> from an
         empty directory to a signed bundle published here.
       </p>
     </div>

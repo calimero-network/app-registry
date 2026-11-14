@@ -124,7 +124,7 @@ export default function EditPackagePage() {
         <p className='text-[15px] text-neutral-400 font-light'>
           Change name, description, author, or links. After saving, you will
           download <code className='text-brand-600'>manifest.json</code>. Sign
-          it with mero-sign and run the CLI to publish the update.
+          it with meroctl app sign and run the CLI to publish the update.
         </p>
 
         <div>
@@ -198,10 +198,10 @@ export default function EditPackagePage() {
           </p>
           <p className='text-[14px] text-neutral-400 font-light'>Next steps:</p>
           <ol className='list-decimal list-inside space-y-2 text-[14px] text-neutral-300 font-mono bg-ink/[0.03] rounded-lg p-4'>
-            <li>Sign the file with mero-sign:</li>
+            <li>Sign the file with meroctl:</li>
           </ol>
           <pre className='text-[12.5px] text-neutral-400 bg-neutral-950 rounded-md p-3 overflow-x-auto border border-line'>
-            {`mero-sign sign manifest.json --key your-key.json`}
+            {`meroctl app sign manifest.json --key your-key.json`}
           </pre>
           <ol
             start={2}
