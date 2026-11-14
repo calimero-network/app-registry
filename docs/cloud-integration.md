@@ -3,29 +3,28 @@
 app-registry is the single package registry for Calimero Cloud. Cloud orgs
 publish **private** packages into it; Cloud clusters install them; everyone
 else keeps using it exactly as before. This document is the contract between
-app-registry and the Cloud manager (**mdma**, `manager/app/v2/app_registry.py`,
-`registry_jwt.py`, `V2.md` "Registry"). Both sides implement what is written
+app-registry and the Cloud manager. Both sides implement what is written
 here; change it here first.
 
 ## Parties
 
-| Party                 | Talks to app-registry with                                                                                    |
-| --------------------- | ------------------------------------------------------------------------------------------------------------- |
-| Developer console     | mdma, which calls app-registry with a Cloud JWT                                                               |
-| CI / `cargo mero`     | a Cloud JWT minted by mdma from an org API key (`POST {MDMA}/api/v2/registry/token`)                          |
-| Calimero node (merod) | one `GET /artifacts/...`, basic auth from the userinfo of `--registry-url`, no redirects                      |
-| app-registry          | mdma's `/internal/registry/authorize` (per private download) and `/internal/registry/published` (per publish) |
+| Party                            | Talks to app-registry with                                                                                                 |
+| -------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Developer console                | the Cloud manager, which calls app-registry with a Cloud JWT                                                               |
+| CI / `meroctl app publish --org` | a Cloud JWT minted by the Cloud manager from an org API key (`POST {CLOUD_MANAGER}/api/v2/registry/token`)                 |
+| Calimero node (merod)            | one `GET /artifacts/...`, basic auth from the userinfo of `--registry-url`, no redirects                                   |
+| app-registry                     | the Cloud manager's `/internal/registry/authorize` (per private download) and `/internal/registry/published` (per publish) |
 
 Registry accounts (Google session, `Authorization: Bearer <API token>`) keep
 working unchanged.
 
-## 1. Cloud JWTs (mdma -> app-registry)
+## 1. Cloud JWTs (the Cloud manager -> app-registry)
 
 `Authorization: Bearer <jwt>`.
 
 - Header: `{"alg": "EdDSA" | "RS256", "kid": "..."}`. No other algorithm is
   accepted.
-- Keys: `GET {MDMA}/.well-known/jwks.json`, configured as `CLOUD_JWKS_URL`.
+- Keys: `GET {CLOUD_MANAGER}/.well-known/jwks.json`, configured as `CLOUD_JWKS_URL`.
   Fetched lazily and cached 10 minutes per function instance; an unknown `kid`
   triggers a refetch (at most every 30 s), so key rotation needs no registry
   deploy. Publish the new key in the JWKS before signing with it.
@@ -33,7 +32,7 @@ working unchanged.
 
   | Claim           | Required | Meaning                                                                                                         |
   | --------------- | -------- | --------------------------------------------------------------------------------------------------------------- |
-  | `iss`           | yes      | must equal `CLOUD_ISSUER` (mdma default `cloud.calimero.network`)                                               |
+  | `iss`           | yes      | must equal `CLOUD_ISSUER` (the Cloud manager's default `cloud.calimero.network`)                                |
   | `aud`           | yes      | must contain `CLOUD_AUDIENCE` (default `registry`)                                                              |
   | `sub`           | yes      | developer id                                                                                                    |
   | `email`         | no       | developer email; the identity recorded as owner/actor. Without it, `sub` if it contains `@`, else `cloud:<sub>` |
@@ -41,7 +40,7 @@ working unchanged.
   | `org_slug`      | no       | display only; used to name the registry org on first use                                                        |
   | `role`          | no       | `owner` \| `admin` \| `developer` (anything else = plain member)                                                |
   | `scope`         | yes      | `publish` or `read` (space-separated list or array accepted). `publish` implies `read`.                         |
-  | `iat`, `exp`    | yes      | `exp - iat` must be <= `CLOUD_JWT_MAX_TTL_SECONDS` (default 3600; mdma uses 600)                                |
+  | `iat`, `exp`    | yes      | `exp - iat` must be <= `CLOUD_JWT_MAX_TTL_SECONDS` (default 3600; the Cloud manager uses 600)                   |
   | `nbf`           | no       | honoured; 30 s clock tolerance on all time claims                                                               |
   | `jti`           | no       | not tracked (tokens are short-lived)                                                                            |
   | `via`, `key_id` | no       | `via: "api_key"` marks a token minted from an org API key; recorded in the audit log and the publish webhook    |
@@ -133,7 +132,9 @@ Vercel caps a function's **request** body at 4.5 MB, so `push` with
 Anything larger must use `POST /api/bundles/upload-url` (signed PUT
 straight to GCS, up to 50 MiB) and then `push` with
 `_upload: {object}`. Cloud publish tokens may use `upload-url`.
-mdma's console upload uses `push-file` up to 4 MB and `upload-url` + `push`
+`meroctl app publish` (core) always sends `_binary`, so a larger bundle is
+published with `upload-url` + `push` directly (see [PUBLISHING.md](../PUBLISHING.md#large-bundles)).
+The Cloud manager's console upload uses `push-file` up to 4 MB and `upload-url` + `push`
 above that (it refuses anything over 50 MiB before calling the registry).
 
 ## 4. Visibility changes
@@ -163,21 +164,21 @@ it, and site admins. This applies to the listing, `?package&version`,
 Caching: public responses are unchanged (`s-maxage=30`). Any response that
 contains a private package is `Cache-Control: private, no-store`. The edge
 cache keys on the URL only, so an authenticated caller must use a URL no
-anonymous visitor uses: `?fresh=1` (what mdma's listing sends) or
+anonymous visitor uses: `?fresh=1` (what the Cloud manager's listing sends) or
 `?include_private=1`; both are answered `no-store`. Listing entries of
 private packages carry `"visibility": "private"`.
 
-## 6. Downloads and `POST /internal/registry/authorize` (app-registry -> mdma)
+## 6. Downloads and `POST /internal/registry/authorize` (app-registry -> the Cloud manager)
 
 `GET /artifacts/{pkg}/{ver}/{pkg}-{ver}.mpk` (also `/api/artifacts/...`):
 
 - Public package: open, as before.
 - Private package, one of:
   - `Authorization: Basic base64(cluster_user:token)` (from the userinfo of
-    the cluster's `--registry-url`). app-registry asks mdma:
+    the cluster's `--registry-url`). app-registry asks the Cloud manager:
 
     ```
-    POST {CLOUD_AUTHORIZE_URL}            # {MDMA}/internal/registry/authorize
+    POST {CLOUD_AUTHORIZE_URL}            # {CLOUD_MANAGER}/internal/registry/authorize
     Content-Type: application/json
     X-Registry-Timestamp: <unix seconds>
     X-Registry-Signature: sha256=<hex HMAC-SHA256(CLOUD_AUTHORIZE_HMAC_SECRET, "<ts>.<raw body>")>
@@ -185,10 +186,10 @@ private packages carry `"visibility": "private"`.
     {"cluster_user": "...", "token": "...", "package": "...", "version": "...", "org": "<owning Cloud org id>"}
     ```
 
-    mdma answers `200 {"allowed": bool, "org_id": string|null}` and rejects a
+    The Cloud manager answers `200 {"allowed": bool, "org_id": string|null}` and rejects a
     bad/missing signature or a timestamp more than 5 minutes off with 401.
     The download is served iff `allowed === true` **and** `org_id` equals
-    the package's owning Cloud org (the registry checks this itself; mdma
+    the package's owning Cloud org (the registry checks this itself; the Cloud manager
     also checks `org` agrees).
 
   - `Authorization: Bearer <Cloud JWT>` with `read` for the owning org
@@ -196,7 +197,7 @@ private packages carry `"visibility": "private"`.
     who may read it.
 - Not allowed: `404 {"error":"artifact_not_found"}`, byte-identical to a
   package that does not exist (core reads 404 as "not published").
-- mdma unreachable, timeout (`CLOUD_AUTHORIZE_TIMEOUT_MS`, default 3000),
+- The Cloud manager unreachable, timeout (`CLOUD_AUTHORIZE_TIMEOUT_MS`, default 3000),
   non-200 or malformed answer: `503 authorize_unavailable` with
   `Retry-After: 5` — fail closed, never cached.
 - Answers are cached per function instance, keyed by a hash of
@@ -206,11 +207,11 @@ private packages carry `"visibility": "private"`.
 - Single GET, no redirect: the registry never redirects (core refuses
   redirects), it streams the bytes itself (section 9).
 
-## 7. `POST /internal/registry/published` (app-registry -> mdma)
+## 7. `POST /internal/registry/published` (app-registry -> the Cloud manager)
 
 After every successful publish of a package whose org is Cloud-linked —
-whether through mdma or straight from CI with an API-key JWT — app-registry
-notifies mdma so it can record versions it did not upload itself:
+whether through the Cloud manager or straight from CI with an API-key JWT — app-registry
+notifies the Cloud manager so it can record versions it did not upload itself:
 
 ```
 POST {CLOUD_PUBLISHED_URL}   # default: CLOUD_AUTHORIZE_URL with /authorize -> /published
@@ -230,8 +231,8 @@ X-Registry-Timestamp / X-Registry-Signature   # same scheme and secret as author
 }
 ```
 
-mdma answers 2xx. Delivery is best effort: awaited with a 2 s timeout, never
-fails the publish, not retried. mdma must treat it as idempotent and, to
+The Cloud manager answers 2xx. Delivery is best effort: awaited with a 2 s timeout, never
+fails the publish, not retried. The Cloud manager must treat it as idempotent and, to
 recover a missed notification, can always reconcile from
 `GET /api/bundles?fresh=1` and the org audit log.
 
@@ -300,21 +301,21 @@ append is logged, the action stands).
 
 ## 10. Environment
 
-| Variable                                                                                              | Purpose                                                                                                     |
-| ----------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| `CLOUD_JWKS_URL`                                                                                      | `{MDMA}/.well-known/jwks.json`. With `CLOUD_ISSUER` unset or this unset, Cloud JWTs are not accepted at all |
-| `CLOUD_ISSUER`                                                                                        | expected `iss` (mdma default `cloud.calimero.network`)                                                      |
-| `CLOUD_AUDIENCE`                                                                                      | expected `aud` (default `registry`)                                                                         |
-| `CLOUD_JWT_MAX_TTL_SECONDS`                                                                           | max `exp - iat` (default 3600)                                                                              |
-| `CLOUD_AUTHORIZE_URL`                                                                                 | `{MDMA}/internal/registry/authorize`                                                                        |
-| `CLOUD_AUTHORIZE_HMAC_SECRET`                                                                         | shared secret for authorize and published (= mdma's `MDMA_REGISTRY_AUTHORIZE_HMAC_SECRET`)                  |
-| `CLOUD_AUTHORIZE_TIMEOUT_MS`                                                                          | authorize timeout (default 3000)                                                                            |
-| `CLOUD_PUBLISHED_URL`                                                                                 | override for the publish webhook URL                                                                        |
-| `CLOUD_QUOTA_MAX_BUNDLE_BYTES`, `CLOUD_QUOTA_MAX_VERSIONS_PER_PACKAGE`, `CLOUD_QUOTA_MAX_TOTAL_BYTES` | quota defaults                                                                                              |
+| Variable                                                                                              | Purpose                                                                                                              |
+| ----------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `CLOUD_JWKS_URL`                                                                                      | `{CLOUD_MANAGER}/.well-known/jwks.json`. With `CLOUD_ISSUER` unset or this unset, Cloud JWTs are not accepted at all |
+| `CLOUD_ISSUER`                                                                                        | expected `iss` (the Cloud manager's default `cloud.calimero.network`)                                                |
+| `CLOUD_AUDIENCE`                                                                                      | expected `aud` (default `registry`)                                                                                  |
+| `CLOUD_JWT_MAX_TTL_SECONDS`                                                                           | max `exp - iat` (default 3600)                                                                                       |
+| `CLOUD_AUTHORIZE_URL`                                                                                 | `{CLOUD_MANAGER}/internal/registry/authorize`                                                                        |
+| `CLOUD_AUTHORIZE_HMAC_SECRET`                                                                         | shared secret for authorize and published (= the matching secret configured on the Cloud manager)                    |
+| `CLOUD_AUTHORIZE_TIMEOUT_MS`                                                                          | authorize timeout (default 3000)                                                                                     |
+| `CLOUD_PUBLISHED_URL`                                                                                 | override for the publish webhook URL                                                                                 |
+| `CLOUD_QUOTA_MAX_BUNDLE_BYTES`, `CLOUD_QUOTA_MAX_VERSIONS_PER_PACKAGE`, `CLOUD_QUOTA_MAX_TOTAL_BYTES` | quota defaults                                                                                                       |
 
 Like the storage variables, non-production deployments read the `PREVIEW_`
 form (`PREVIEW_CLOUD_JWKS_URL`, …), so a preview can never trust production's
-mdma or secret.
+Cloud manager or secret.
 
 ## 11. Rollout
 
