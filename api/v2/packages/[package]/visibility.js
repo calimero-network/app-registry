@@ -34,6 +34,10 @@ const {
   publicRecord,
 } = require('#api-lib/package-records');
 const { appendAudit } = require('#api-lib/org-audit');
+const {
+  validateBundleMetadata,
+  CATEGORIES,
+} = require('@calimero-network/registry-backend/src/lib/metadata-policy');
 
 let storage;
 const getStorage = () => (storage ??= new BundleStorageKV());
@@ -86,6 +90,18 @@ module.exports = async function handler(req, res) {
         error: 'invalid_visibility',
         message: 'visibility must be "public" or "private"',
       });
+    }
+
+    if (to === 'public') {
+      const policy = validateBundleMetadata(latest, { isNewPackage: true });
+      if (policy.errors.length > 0) {
+        return res.status(400).json({
+          error: 'metadata_incomplete',
+          message: `A public package needs the registry's listing metadata; publish a version with it first:\n  - ${policy.errors.join('\n  - ')}`,
+          problems: policy.errors,
+          categories: CATEGORIES,
+        });
+      }
     }
 
     const siteAdmin = !user.cloud && !!(await isAdmin(user.email));

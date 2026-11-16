@@ -351,6 +351,12 @@ function requestedVisibility(manifest, headers) {
   return { value };
 }
 
+/** What a new package's visibility will be, as `publishGate` settles it, without writing anything. */
+function newPackageVisibility(user, manifest, headers) {
+  const req = requestedVisibility(manifest, headers);
+  return req.value || (user?.cloud ? 'private' : 'public');
+}
+
 const refusal = (status, error, message, extra = {}) => ({
   refusal: { status, body: { error, message, ...extra } },
 });
@@ -761,6 +767,7 @@ module.exports = {
   orgStoredBytes,
   quotaRefusal,
   requestedVisibility,
+  newPackageVisibility,
   publishGate,
   commitPublish,
   finishPublish,

@@ -84,7 +84,11 @@ jest.mock('../../../api/lib/user-storage', () => mockUserStorage());
 jest.mock('../src/lib/user-storage', () => mockUserStorage());
 
 const { TEST_ICON } = require('./helpers/publishable');
-const { generateKeypair, signBundle } = require('./helpers/ed25519-helper');
+const {
+  generateKeypair,
+  signBundle,
+  signComputeBundle,
+} = require('./helpers/ed25519-helper');
 
 const ISSUER = 'https://cloud.calimero.network';
 const ORG_A = 'org_acme';
@@ -1079,5 +1083,59 @@ describe('audit log', () => {
       query: { orgId: ORG_A },
     });
     expect(other.statusCode).toBe(403);
+  });
+});
+
+describe('a private compute-only package needs no listing metadata', () => {
+  // A pipeline package as `meroctl app pack --compute --pipeline` packs it: no app WASM, no listing.
+  const computeOnly = (pkg, version) => ({
+    version: '1.0',
+    package: pkg,
+    appVersion: version,
+  });
+  const push = async (manifest, extra = {}, sign = signComputeBundle) =>
+    call(pushHandler, {
+      method: 'POST',
+      headers: bearer(await mint()),
+      body: { ...(await sign(manifest, keysA)), ...extra },
+    });
+
+  test('published private without a name, description, icon or category', async () => {
+    const res = await push(computeOnly('com.acme.reports', '1.0.0'));
+    expect(res.statusCode).toBe(201);
+    expect(res.body.visibility).toBe('private');
+  });
+
+  test('published public, it still needs them', async () => {
+    const res = await push(computeOnly('com.acme.reports', '1.0.0'), {
+      _visibility: 'public',
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.body.error).toBe('metadata_incomplete');
+  });
+
+  test('an app package published private still needs them', async () => {
+    const app = {
+      ...manifestFor('com.acme.web', '1.0.0'),
+      metadata: undefined,
+    };
+    const res = await push(app, {}, signBundle);
+    expect(res.statusCode).toBe(400);
+    expect(res.body.error).toBe('metadata_incomplete');
+  });
+
+  test('making it public asks for them, and queues nothing until they are there', async () => {
+    await push(computeOnly('com.acme.reports', '1.0.0'));
+    const res = await call(visibilityHandler, {
+      method: 'PUT',
+      headers: bearer(await mint({ role: 'admin' })),
+      query: { package: 'com.acme.reports' },
+      body: { visibility: 'public' },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.body.error).toBe('metadata_incomplete');
+    expect(
+      JSON.parse(mockKv.store.get('pkg:com.acme.reports')).visibility_request
+    ).toBeUndefined();
   });
 });

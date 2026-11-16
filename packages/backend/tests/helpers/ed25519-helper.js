@@ -88,10 +88,48 @@ async function signBundle(manifest, keys) {
   }
 }
 
+/** Signs a compute-only package (a compute component and one pipeline, no app WASM), as `signBundle` does. */
+async function signComputeBundle(manifest, keys) {
+  const files = {
+    'compute.wasm': crypto.randomBytes(64),
+    'pipelines/fanout.yaml': Buffer.from('kind: Pipeline\nname: fanout\n'),
+  };
+  const artifact = name => ({
+    path: name,
+    hash: crypto.createHash('sha256').update(files[name]).digest('hex'),
+    size: files[name].length,
+  });
+  const signed = await signManifest(
+    {
+      ...manifest,
+      compute: artifact('compute.wasm'),
+      pipelines: [artifact('pipelines/fanout.yaml')],
+    },
+    keys
+  );
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mpk-helper-'));
+  try {
+    fs.mkdirSync(path.join(dir, 'pipelines'));
+    fs.writeFileSync(path.join(dir, 'manifest.json'), JSON.stringify(signed));
+    for (const [name, body] of Object.entries(files)) {
+      fs.writeFileSync(path.join(dir, name), body);
+    }
+    const out = path.join(dir, 'bundle.mpk');
+    tar.c({ gzip: true, file: out, cwd: dir, sync: true }, [
+      'manifest.json',
+      ...Object.keys(files),
+    ]);
+    return { ...signed, _binary: fs.readFileSync(out).toString('hex') };
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+}
+
 module.exports = {
   didKey,
   generateKeypair,
   signManifest,
   signBundle,
+  signComputeBundle,
   signingPayload,
 };
