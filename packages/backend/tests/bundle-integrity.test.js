@@ -262,6 +262,38 @@ describe('verifyBundleBinary', () => {
     );
   });
 
+  test('a compute-only package verifies its compute component and pipelines', async () => {
+    const compute = Buffer.from('compute component');
+    const pipeline = Buffer.from('kind: Pipeline\nname: fanout\n');
+    const art = (path, data) => ({
+      path,
+      hash: sha256(data),
+      size: data.length,
+    });
+    const signed = await signManifest(
+      {
+        version: '1.0',
+        package: 'com.acme.reports',
+        appVersion: '1.0.0',
+        compute: art('compute.wasm', compute),
+        pipelines: [art('pipelines/fanout.yaml', pipeline)],
+      },
+      keys
+    );
+    const files = {
+      'manifest.json': JSON.stringify(signed),
+      'compute.wasm': compute,
+      'pipelines/fanout.yaml': pipeline,
+    };
+    await expect(verifyBundleBinary(signed, pack(files))).resolves.toBeTruthy();
+    await expect(
+      verifyBundleBinary(
+        signed,
+        pack({ ...files, 'pipelines/fanout.yaml': Buffer.from('tampered') })
+      )
+    ).rejects.toThrow(/pipeline .*does not match its signed sha256/);
+  });
+
   test('refuses an archive whose manifest.json was rewritten', async () => {
     const { manifest, files } = await signedBundle(keys);
     const wasm = crypto.randomBytes(256);

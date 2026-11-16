@@ -188,14 +188,23 @@ function referencedArtifacts(manifest) {
       size: art.size,
     });
   };
+  // A compute component is a wasm too: a compute-only package ships it in place of an app wasm.
+  const addCompute = (prefix, part) => {
+    add(`${prefix}compute wasm`, part?.compute);
+    if (Array.isArray(part?.pipelines)) {
+      for (const p of part.pipelines) add(`${prefix}pipeline`, p);
+    }
+  };
   add('wasm', manifest.wasm);
   add('abi', manifest.abi);
+  addCompute('', manifest);
   if (Array.isArray(manifest.services)) {
     for (const svc of manifest.services) {
       // A hostile name must not throw from inside a template literal.
       const name = typeof svc?.name === 'string' ? svc.name : '?';
       add(`service "${name}" wasm`, svc?.wasm);
       add(`service "${name}" abi`, svc?.abi);
+      addCompute(`service "${name}" `, svc);
     }
   }
   const frontendFiles = manifest.frontend?.files;

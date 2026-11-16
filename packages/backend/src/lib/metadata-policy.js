@@ -419,6 +419,13 @@ function linkProblems(links, frontendAliases) {
  *   `errors` block the publish; `warnings` are returned alongside a successful
  *   one so an existing package learns what it still owes.
  */
+/** A package that ships only a compute component and pipelines: code a cluster runs, never a listed app. */
+function isComputeOnly(manifest) {
+  return (
+    !!manifest?.compute && !manifest.wasm && !(manifest.services || []).length
+  );
+}
+
 function validateBundleMetadata(manifest, { isNewPackage } = {}) {
   const problems = [];
   const metadata = manifest?.metadata || {};
@@ -555,6 +562,7 @@ module.exports = {
   reservedPackagePrefix,
   isStaffEmail,
   resolveCategory,
+  isComputeOnly,
   iconProblems,
   pngDimensions,
   decodeDataUri,

@@ -52,6 +52,7 @@ github = "https://github.com/example/my-app"
 `frontend` is where clients open your app, and a node's sign-in page hands login tokens only to its origin. When the app moves domain, list the old address in `frontend-aliases = ["https://old.example.com"]`: clients still open only `frontend`, but a login from the old origin keeps working while nodes and launchers still open it. Drop the alias in a later version once nothing does. Each entry must be an http(s) URL; the registry refuses anything else.
 
 The registry refuses a **new** package (`400 metadata_incomplete`) without `name` (at most 64 characters), `description` (20 to 4000), `icon` (a square PNG, at least 512x512, at most 512 KiB) and a `category` from its list (`games`, `productivity`, `communication`, `social`, `art-design`, `media`, `planning`, `security`, `utilities`, `developer-tools`). For a package that already exists these are warnings.
+A private compute-only package (a `compute` component and `pipelines`, no app `wasm`) is never listed, so it needs none of them; making it public (`PUT /api/v2/packages/{package}/visibility`) answers `400 metadata_incomplete` until its latest version carries them.
 
 The app version is not a metadata key.
 It is the crate's `[package] version`, or `--app-version`. A version inherited from a workspace (`version.workspace = true`) is not read: pass `--app-version`.

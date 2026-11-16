@@ -14,6 +14,7 @@ const {
 } = require('@calimero-network/registry-backend/src/lib/bundle-storage-kv');
 const {
   validateBundleMetadata,
+  isComputeOnly,
   isValidPackageName,
   isValidPackageVersion,
   reservedPackagePrefix,
@@ -54,6 +55,7 @@ const {
   finishPublish,
   manifestDigest,
   bundleDigest,
+  newPackageVisibility,
 } = require('#api-lib/package-records');
 const { getUserByEmail } = require('#api-lib/user-storage');
 const { isBot, isAdmin } = require('#api-lib/admin-storage');
@@ -344,8 +346,12 @@ module.exports = async function handler(req, res) {
     // Metadata policy. THIS IS THE PRODUCTION PATH: Vercel serves these
     // functions, not packages/backend/src/server.js, so a check that exists
     // only in the Fastify server does not run for any real publish.
+    // A private compute-only package is never listed, so it needs no listing metadata; going public asks for it.
+    const unlisted =
+      isComputeOnly(bundleManifest) &&
+      newPackageVisibility(user, bundleManifest, req.headers) === 'private';
     const policy = validateBundleMetadata(bundleManifest, {
-      isNewPackage: versions.length === 0,
+      isNewPackage: versions.length === 0 && !unlisted,
     });
     if (policy.errors.length > 0) {
       return res.status(400).json({
