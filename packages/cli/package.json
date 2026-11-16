@@ -35,7 +35,7 @@
     "@fastify/cors": "^11.4.2",
     "axios": "^1.19.0",
     "chalk": "^6.0.1",
-    "commander": "^15.0.0",
+    "commander": "^15.1.0",
     "fastify": "^5.12.8",
     "ora": "^9.4.1",
     "table": "^6.10.1",
