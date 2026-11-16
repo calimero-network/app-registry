@@ -1,7 +1,7 @@
 /**
  * Shared post-processing for the bundle listing endpoints.
  *
- * GET /api/v2/bundles is implemented twice — once as a Vercel function
+ * GET /api/bundles is implemented twice — once as a Vercel function
  * (api/v2/bundles/index.js, the deployed one) and once on the Fastify server
  * (packages/backend/src/server.js, used for Docker/self-hosted). Those copies
  * had already drifted into two separate serial Redis loops, which is how the

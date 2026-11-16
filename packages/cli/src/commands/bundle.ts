@@ -986,7 +986,7 @@ Examples:
         RemoteConfig.assertApiKeyTransport(registryUrl, apiKey);
 
         const baseUrl = registryUrl.replace(/\/$/, '');
-        const bundleUrl = `${baseUrl}/api/v2/bundles/${encodeURIComponent(pkg)}/${encodeURIComponent(version)}`;
+        const bundleUrl = `${baseUrl}/api/bundles/${encodeURIComponent(pkg)}/${encodeURIComponent(version)}`;
 
         const headers: Record<string, string> = {
           'Content-Type': 'application/json',
@@ -1172,7 +1172,7 @@ async function pushToRemote(
     }
 
     // 5. POST to remote registry
-    const apiUrl = `${registryUrl.replace(/\/$/, '')}/api/v2/bundles/push`;
+    const apiUrl = `${registryUrl.replace(/\/$/, '')}/api/bundles/push`;
     console.log(`   POST ${apiUrl}`);
 
     const controller = new AbortController();
@@ -1239,7 +1239,7 @@ async function verifyRemotePush(
   try {
     console.log('🔍 Verifying upload to remote registry...');
 
-    const verifyUrl = `${registryUrl.replace(/\/$/, '')}/api/v2/bundles/${packageName}/${version}`;
+    const verifyUrl = `${registryUrl.replace(/\/$/, '')}/api/bundles/${packageName}/${version}`;
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout

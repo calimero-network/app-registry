@@ -1,6 +1,6 @@
 /**
- * PATCH  /api/v2/orgs/:orgId/members/:member — update role (owner only)
- * DELETE /api/v2/orgs/:orgId/members/:member — remove member (admin/owner, or self-leave)
+ * PATCH  /api/orgs/:orgId/members/:member — update role (owner only)
+ * DELETE /api/orgs/:orgId/members/:member — remove member (admin/owner, or self-leave)
  *
  * Note: Vercel names the URL param 'pubkey' due to the filename, but it holds a username or an email.
  */

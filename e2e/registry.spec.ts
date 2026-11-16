@@ -725,12 +725,12 @@ test.describe('explore card width', () => {
 
 test.describe('live app preview', () => {
   test.beforeEach(async ({ page }) => {
-    // The shared stub answers `/v2/bundles` with every bundle whatever the
+    // The shared stub answers `/bundles` with every bundle whatever the
     // query, which is fine for the listing but wrong for a detail page: it
     // would render whichever bundle happens to be first, not mero-chat. This
     // route honours `?package=`. Registered after the shared one, and
     // Playwright matches in reverse, so it wins.
-    await page.route('**/api/v2/bundles**', route => {
+    await page.route('**/api/bundles**', route => {
       const pkg = new URL(route.request().url()).searchParams.get('package');
       route.fulfill({
         json: pkg ? BUNDLES.filter(b => b.package === pkg) : BUNDLES,

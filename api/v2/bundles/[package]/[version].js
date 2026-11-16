@@ -1,7 +1,7 @@
 /**
  * V2 Bundle Manifest API
- * GET /api/v2/bundles/:package/:version
- * PATCH /api/v2/bundles/:package/:version - edit metadata (body = full manifest;
+ * GET /api/bundles/:package/:version
+ * PATCH /api/bundles/:package/:version - edit metadata (body = full manifest;
  *   requires a logged-in user who can manage the package, plus a valid
  *   signature from one of the version's owner keys)
  */

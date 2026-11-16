@@ -100,7 +100,7 @@ test('the live preview says what it does without a hover', async ({ page }) => {
   // ⚠️ THERE IS NO HOVER ON A PHONE. The tile is a frame of someone else's
   // app with `pointer-events: none` over it, so a hover-only label left it as
   // a picture with nothing to say it opens anything.
-  await page.route('**/api/v2/bundles**', route => {
+  await page.route('**/api/bundles**', route => {
     const pkg = new URL(route.request().url()).searchParams.get('package');
     route.fulfill({
       json: pkg ? BUNDLES.filter(b => b.package === pkg) : BUNDLES,

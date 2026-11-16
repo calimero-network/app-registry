@@ -29,6 +29,11 @@ const {
   linkProblems,
 } = require('./lib/metadata-policy');
 const { kv } = require('./lib/kv-client');
+const {
+  toServingUrl,
+  isDeprecatedPath,
+  DEPRECATION_HEADER,
+} = require('./lib/api-alias');
 const { countDownload } = require('./lib/download-count');
 const { lockedFieldChanges } = require('./lib/manifest-lock');
 const {
@@ -62,6 +67,18 @@ async function buildServer() {
     logger: {
       level: process.env.LOG_LEVEL || 'info',
     },
+    // `/api/<ns>/...` is the canonical spelling and `/api/v2/<ns>/...` the
+    // deprecated one; the routes below are registered under `v2`, as the
+    // Vercel functions are filed. See lib/api-alias.js.
+    rewriteUrl: req => toServingUrl(req.url),
+  });
+
+  // Tell callers of the deprecated `/api/v2/...` spelling that it is one.
+  server.addHook('onSend', async (request, reply, payload) => {
+    if (isDeprecatedPath(request.originalUrl)) {
+      reply.header('Deprecation', DEPRECATION_HEADER);
+    }
+    return payload;
   });
 
   // Register cookie (required for auth session and OAuth state)
@@ -832,7 +849,7 @@ async function buildServer() {
         body: {
           error: 'missing_binary',
           message:
-            'Missing _binary: send the whole .mpk as hex in `_binary` (cargo mero publish does this), or upload it to /api/v2/bundles/push-file.',
+            'Missing _binary: send the whole .mpk as hex in `_binary` (cargo mero publish does this), or upload it to /api/bundles/push-file.',
         },
       };
     }

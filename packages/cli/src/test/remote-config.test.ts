@@ -209,7 +209,7 @@ describe('API key transport in commands', () => {
     ).rejects.toThrow(/process\.exit\(1\)/);
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     expect(String(fetchSpy.mock.calls[0][0])).toMatch(
-      /^http:\/\/localhost:8082\/api\/v2\/bundles\//
+      /^http:\/\/localhost:8082\/api\/bundles\//
     );
   });
 

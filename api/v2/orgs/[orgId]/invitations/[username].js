@@ -1,5 +1,5 @@
 /**
- * DELETE /api/v2/orgs/:orgId/invitations/:username — revoke a pending invitation (admin/owner)
+ * DELETE /api/orgs/:orgId/invitations/:username — revoke a pending invitation (admin/owner)
  */
 
 const { getOrg } = require('#api-lib/org-storage');

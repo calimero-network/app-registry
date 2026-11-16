@@ -29,7 +29,7 @@ const TRACKS = 'min-[1100px]:grid-cols-2';
  * intact when you press Back from an app page. The old Apps page kept its
  * search in `useState` and lost it on every navigation.
  *
- * Filtering happens in memory over one fetch. `GET /api/v2/bundles` is cached
+ * Filtering happens in memory over one fetch. `GET /api/bundles` is cached
  * at the edge and nothing can purge it, so a request per keystroke would add
  * latency without being able to return anything different.
  */

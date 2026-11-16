@@ -6,7 +6,7 @@
  * Actions: 'approve' | 'decline' | 'verify' | 'unverify' | 'delete_version'.
  *
  * 'approve' / 'decline' also settle a pending private -> public visibility
- * request (PUT /api/v2/packages/:pkg/visibility), which is how such a request
+ * request (PUT /api/packages/:pkg/visibility), which is how such a request
  * goes through the same review queue as assets.
  *
  * ⚠️ `verify`/`unverify` ARE KEPT, AND THEY ARE NOT ALIASES. Approval is a

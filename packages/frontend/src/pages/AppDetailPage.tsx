@@ -123,7 +123,7 @@ export default function AppDetailPage() {
   const { data: allBundles = [], isLoading } = useQuery({
     queryKey: ['app-bundles', appId],
     queryFn: async () => {
-      const response = await api.get('/v2/bundles', {
+      const response = await api.get('/bundles', {
         params: { package: appId, all_versions: 'true' },
       });
       return (Array.isArray(response.data) ? response.data : []) as V2Bundle[];

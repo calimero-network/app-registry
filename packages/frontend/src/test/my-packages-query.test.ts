@@ -44,9 +44,7 @@ describe('getMyPackages', () => {
   it('asks for the signed-in account and the public username, never an email', async () => {
     const result = await getMyPackages({ username: 'carol' });
 
-    const params = calls
-      .filter(c => c.url === '/v2/bundles')
-      .map(c => c.params);
+    const params = calls.filter(c => c.url === '/bundles').map(c => c.params);
     expect(params).toEqual([{ mine: '1' }, { author: 'carol' }]);
     expect(result.map(app => app.id)).toEqual(['com.a', 'com.b']);
   });
@@ -54,9 +52,7 @@ describe('getMyPackages', () => {
   it('still lists the account’s packages when it has no username', async () => {
     const result = await getMyPackages({ username: null });
 
-    const params = calls
-      .filter(c => c.url === '/v2/bundles')
-      .map(c => c.params);
+    const params = calls.filter(c => c.url === '/bundles').map(c => c.params);
     expect(params).toEqual([{ mine: '1' }]);
     expect(result).toHaveLength(1);
   });

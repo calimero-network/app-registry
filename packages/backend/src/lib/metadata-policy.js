@@ -17,8 +17,8 @@
  * production registry with no icon, no slug, `minRuntimeVersion: 0.1.0`, and
  * `verified: true`.
  *
- * ONE VALIDATOR, THREE UPLOAD PATHS. The CLI (`/api/v2/bundles/push`), an API
- * key (same route) and the web upload form (`/api/v2/bundles/push-file`) all
+ * ONE VALIDATOR, THREE UPLOAD PATHS. The CLI (`/api/bundles/push`), an API
+ * key (same route) and the web upload form (`/api/bundles/push-file`) all
  * funnel through `processPushBody` in server.js. Validating there — beside the
  * existing version check — is what makes the three paths agree. Do not add a
  * second copy of these rules to the frontend: the upload page renders whatever

@@ -10,7 +10,7 @@ import { Search } from 'lucide-react';
  * an app and came back, and a URL is the only form of a search you can share
  * or reload into.
  *
- * It does NOT query the server per keystroke. `GET /api/v2/bundles` is cached
+ * It does NOT query the server per keystroke. `GET /api/bundles` is cached
  * at the edge and nothing can purge it, so Explore fetches the list once and
  * filters it in memory; a request per keystroke would buy nothing and hammer
  * a cache that cannot answer differently.

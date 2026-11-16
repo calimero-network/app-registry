@@ -102,7 +102,7 @@ describe('Bundle Push - Remote', () => {
   describe('HTTP Request', () => {
     it('should POST to correct endpoint', async () => {
       const registryUrl = 'https://apps.calimero.network';
-      const apiUrl = `${registryUrl}/api/v2/bundles/push`;
+      const apiUrl = `${registryUrl}/api/bundles/push`;
 
       vi.mocked(global.fetch).mockResolvedValue({
         status: 201,
@@ -235,7 +235,7 @@ describe('Bundle Push - Remote', () => {
       const registryUrl = 'https://apps.calimero.network';
       const packageName = 'com.calimero.test';
       const version = '1.0.0';
-      const verifyUrl = `${registryUrl}/api/v2/bundles/${packageName}/${version}`;
+      const verifyUrl = `${registryUrl}/api/bundles/${packageName}/${version}`;
 
       vi.mocked(global.fetch).mockResolvedValue({
         status: 200,
@@ -279,17 +279,17 @@ describe('Bundle Push - Remote', () => {
 
     it('should construct API endpoint correctly', () => {
       const registryUrl = 'https://apps.calimero.network';
-      const apiUrl = `${registryUrl.replace(/\/$/, '')}/api/v2/bundles/push`;
-      expect(apiUrl).toBe('https://apps.calimero.network/api/v2/bundles/push');
+      const apiUrl = `${registryUrl.replace(/\/$/, '')}/api/bundles/push`;
+      expect(apiUrl).toBe('https://apps.calimero.network/api/bundles/push');
     });
 
     it('should construct verification endpoint correctly', () => {
       const registryUrl = 'https://apps.calimero.network';
       const packageName = 'com.calimero.test';
       const version = '1.0.0';
-      const verifyUrl = `${registryUrl.replace(/\/$/, '')}/api/v2/bundles/${packageName}/${version}`;
+      const verifyUrl = `${registryUrl.replace(/\/$/, '')}/api/bundles/${packageName}/${version}`;
       expect(verifyUrl).toBe(
-        'https://apps.calimero.network/api/v2/bundles/com.calimero.test/1.0.0'
+        'https://apps.calimero.network/api/bundles/com.calimero.test/1.0.0'
       );
     });
   });

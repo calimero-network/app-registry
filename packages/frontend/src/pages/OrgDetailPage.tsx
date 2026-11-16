@@ -297,7 +297,7 @@ export default function OrgDetailPage() {
     setPackageNameError(null);
     linkPackageMutation.reset();
     try {
-      const res = await api.get('/v2/bundles', {
+      const res = await api.get('/bundles', {
         params: { package: sanitizeText(newPackageName.trim()) },
       });
       const bundles = Array.isArray(res.data) ? res.data : [];

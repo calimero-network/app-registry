@@ -1,6 +1,6 @@
 /**
  * Record a download (public endpoint).
- * POST /api/v2/downloads/record
+ * POST /api/downloads/record
  * Body: { "package": "com.example.app", "version": "1.0.0" } (version optional)
  *
  * Increments Redis: downloads:total, downloads:<package>

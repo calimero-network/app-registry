@@ -1,5 +1,5 @@
 /**
- * DELETE /api/v2/packages/:package/assets/:assetId
+ * DELETE /api/packages/:package/assets/:assetId
  *
  * Removes the GCS object and then the index entry — in that order. Dropping
  * the index first orphans the bytes, which is exactly the leak package delete

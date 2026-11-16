@@ -20,7 +20,7 @@ VERCEL=1                    # Set automatically by Vercel (enables Redis)
 GCS_BUCKET=calimero-app-registry  # Bucket name (required to read/write binaries)
 GCS_PREFIX=bundles                # Object key prefix (default: bundles)
 BUNDLE_KEEP_VERSIONS=5            # Versions kept per package; older ones are deleted on publish (0 = keep all)
-# Direct uploads (POST /api/v2/bundles/upload-url) stage .mpk files under uploads/ in the
+# Direct uploads (POST /api/bundles/upload-url) stage .mpk files under uploads/ in the
 # same bucket via signed URLs. CLI/CI uploads need no bucket CORS. Optionally add a lifecycle
 # rule deleting objects under uploads/ after 1 day to sweep abandoned uploads.
 GCS_PROJECT_ID=                   # GCP project id (optional if inferable from creds)

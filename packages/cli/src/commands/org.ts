@@ -122,7 +122,7 @@ export const orgCommand = new Command('org')
           process.exit(1);
         }
 
-        const apiUrl = `${base}/api/v2/orgs?member=${encodeURIComponent(myEmail)}`;
+        const apiUrl = `${base}/api/orgs?member=${encodeURIComponent(myEmail)}`;
         try {
           const { data, status } = await fetchJson<
             Array<{ id: string; name: string; slug: string }>
@@ -148,7 +148,7 @@ export const orgCommand = new Command('org')
           const memberResults = await Promise.all(
             orgs.map(o =>
               fetchJson<{ members: Array<{ email: string; role: string }> }>(
-                `${base}/api/v2/orgs/${encodeURIComponent(o.id)}/members`,
+                `${base}/api/orgs/${encodeURIComponent(o.id)}/members`,
                 { method: 'GET', headers: authHeaders, timeout }
               ).catch(() => ({ data: { members: [] }, status: 0 }))
             )
@@ -181,7 +181,7 @@ export const orgCommand = new Command('org')
           const spinner = ora('Creating organization...').start();
           try {
             const authHeaders = getAuthHeaders(url);
-            const pathname = '/api/v2/orgs';
+            const pathname = '/api/orgs';
             const body = {
               name: options.name.trim(),
               slug: options.slug.trim().toLowerCase(),
@@ -221,7 +221,7 @@ export const orgCommand = new Command('org')
       .action(async (orgId: string, _options, command: Command) => {
         const { url, timeout } = getGlobalOpts(command);
         const base = url.replace(/\/$/, '');
-        const pathname = `/api/v2/orgs/${encodeURIComponent(orgId)}`;
+        const pathname = `/api/orgs/${encodeURIComponent(orgId)}`;
         const spinner = ora('Fetching organization...').start();
         try {
           const { data, status } = await fetchJson<
@@ -261,7 +261,7 @@ export const orgCommand = new Command('org')
           const spinner = ora('Updating organization...').start();
           try {
             const authHeaders = getAuthHeaders(url);
-            const pathname = `/api/v2/orgs/${encodeURIComponent(orgId)}`;
+            const pathname = `/api/orgs/${encodeURIComponent(orgId)}`;
             const body: Record<string, unknown> = {};
             if (options.name !== undefined) body.name = options.name;
             if (options.metadata !== undefined) {
@@ -332,7 +332,7 @@ export const orgCommand = new Command('org')
           const spinner = ora('Deleting organization...').start();
           try {
             const authHeaders = getAuthHeaders(url);
-            const pathname = `/api/v2/orgs/${encodeURIComponent(orgId)}`;
+            const pathname = `/api/orgs/${encodeURIComponent(orgId)}`;
             const base = url.replace(/\/$/, '');
             const { data, status } = await fetchJson(`${base}${pathname}`, {
               method: 'DELETE',
@@ -367,7 +367,7 @@ export const orgCommand = new Command('org')
           .action(async (orgId: string, _options, command: Command) => {
             const { url, timeout } = getGlobalOpts(command);
             const base = url.replace(/\/$/, '');
-            const pathname = `/api/v2/orgs/${encodeURIComponent(orgId)}/members`;
+            const pathname = `/api/orgs/${encodeURIComponent(orgId)}/members`;
             const spinner = ora('Fetching members...').start();
             try {
               const { data, status } = await fetchJson<{
@@ -411,7 +411,7 @@ export const orgCommand = new Command('org')
               const spinner = ora('Inviting member...').start();
               try {
                 const authHeaders = getAuthHeaders(url);
-                const pathname = `/api/v2/orgs/${encodeURIComponent(orgId)}/members`;
+                const pathname = `/api/orgs/${encodeURIComponent(orgId)}/members`;
                 const body = {
                   username: username.trim().replace(/^@+/, ''),
                   role: options.role === 'admin' ? 'admin' : 'member',
@@ -463,7 +463,7 @@ export const orgCommand = new Command('org')
               const spinner = ora('Updating member role...').start();
               try {
                 const authHeaders = getAuthHeaders(url);
-                const pathname = `/api/v2/orgs/${encodeURIComponent(orgId)}/members/${encodeURIComponent(email.trim())}`;
+                const pathname = `/api/orgs/${encodeURIComponent(orgId)}/members/${encodeURIComponent(email.trim())}`;
                 const body = { role };
                 const base = url.replace(/\/$/, '');
                 const { data, status } = await fetchJson(`${base}${pathname}`, {
@@ -506,7 +506,7 @@ export const orgCommand = new Command('org')
               const spinner = ora('Removing member...').start();
               try {
                 const authHeaders = getAuthHeaders(url);
-                const pathname = `/api/v2/orgs/${encodeURIComponent(orgId)}/members/${encodeURIComponent(email.trim())}`;
+                const pathname = `/api/orgs/${encodeURIComponent(orgId)}/members/${encodeURIComponent(email.trim())}`;
                 const base = url.replace(/\/$/, '');
                 const { data, status } = await fetchJson(`${base}${pathname}`, {
                   method: 'DELETE',
@@ -546,7 +546,7 @@ export const orgCommand = new Command('org')
               const spinner = ora('Linking package...').start();
               try {
                 const authHeaders = getAuthHeaders(url);
-                const pathname = `/api/v2/orgs/${encodeURIComponent(orgId)}/packages`;
+                const pathname = `/api/orgs/${encodeURIComponent(orgId)}/packages`;
                 const body = { package: pkg.trim() };
                 const base = url.replace(/\/$/, '');
                 const { data, status } = await fetchJson(`${base}${pathname}`, {
@@ -584,7 +584,7 @@ export const orgCommand = new Command('org')
               const spinner = ora('Unlinking package...').start();
               try {
                 const authHeaders = getAuthHeaders(url);
-                const pathname = `/api/v2/orgs/${encodeURIComponent(orgId)}/packages/${encodeURIComponent(pkg.trim())}`;
+                const pathname = `/api/orgs/${encodeURIComponent(orgId)}/packages/${encodeURIComponent(pkg.trim())}`;
                 const base = url.replace(/\/$/, '');
                 const { data, status } = await fetchJson(`${base}${pathname}`, {
                   method: 'DELETE',

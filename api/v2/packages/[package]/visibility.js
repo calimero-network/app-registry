@@ -1,8 +1,8 @@
 /**
  * Package visibility.
  *
- *   GET /api/v2/packages/:package/visibility
- *   PUT /api/v2/packages/:package/visibility   { "visibility": "public" | "private" }
+ *   GET /api/packages/:package/visibility
+ *   PUT /api/packages/:package/visibility   { "visibility": "public" | "private" }
  *
  * Who: anyone who may manage the package — a Cloud token with the `publish`
  * scope whose role is `owner`/`admin` of the package's Cloud org, or a

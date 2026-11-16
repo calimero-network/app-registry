@@ -26,7 +26,7 @@ This document describes the End-to-End (E2E) tests that demonstrate the complete
 
 ### `v2-e2e-api-flow.test.js`
 
-**Purpose:** Publishes through the real `POST /api/v2/bundles/push` handler with a real Ed25519 signature (`tests/helpers/ed25519-helper.js` signs the way cargo-mero does), so signature verification is exercised rather than mocked.
+**Purpose:** Publishes through the real `POST /api/bundles/push` handler with a real Ed25519 signature (`tests/helpers/ed25519-helper.js` signs the way cargo-mero does), so signature verification is exercised rather than mocked.
 
 **Test Coverage:**
 
@@ -49,7 +49,7 @@ pnpm test tests/v2-e2e
 Currently, developer registration is a placeholder. In the future, this will involve:
 
 ```javascript
-POST /api/v2/developers/enroll
+POST /api/developers/enroll
 {
   "pubkey": "ed25519:...",
   "display_name": "Test Developer",
@@ -120,7 +120,7 @@ Bundles can be uploaded with or without signatures.
 Uploaded bundles can be retrieved via:
 
 ```javascript
-GET /api/v2/bundles/:package/:version
+GET /api/bundles/:package/:version
 ```
 
 Returns the complete bundle manifest including metadata, interfaces, links, and signature.

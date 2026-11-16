@@ -1,6 +1,6 @@
 /**
- * GET  /api/v2/orgs/:orgId/packages — list packages linked to org (public)
- * POST /api/v2/orgs/:orgId/packages — link package to org (admin/owner; must own the package)
+ * GET  /api/orgs/:orgId/packages — list packages linked to org (public)
+ * POST /api/orgs/:orgId/packages — link package to org (admin/owner; must own the package)
  */
 
 const {

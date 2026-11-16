@@ -1,9 +1,9 @@
 /**
  * Package assets — list, upload, reorder.
  *
- *   GET    /api/v2/packages/:package/assets   list (moderation-gated)
- *   POST   /api/v2/packages/:package/assets   upload one file (owner/org admin)
- *   PATCH  /api/v2/packages/:package/assets   reorder / re-caption
+ *   GET    /api/packages/:package/assets   list (moderation-gated)
+ *   POST   /api/packages/:package/assets   upload one file (owner/org admin)
+ *   PATCH  /api/packages/:package/assets   reorder / re-caption
  *
  * Assets are registry-side state, NOT part of the signed bundle — that is the
  * only way a publisher can change them without republishing. See
@@ -45,7 +45,7 @@ async function latestManifest(pkg) {
 
 /** Assets are never handed out as bucket URLs — always proxied. See asset-visibility.js. */
 const publicShape = (pkg, a) => {
-  const base = `/api/v2/packages/${encodeURIComponent(pkg)}/assets/${a.id}/raw`;
+  const base = `/api/packages/${encodeURIComponent(pkg)}/assets/${a.id}/raw`;
   return {
     id: a.id,
     kind: a.kind,

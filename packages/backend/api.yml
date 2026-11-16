@@ -1,8 +1,13 @@
 openapi: 3.0.0
 info:
-  title: Calimero Registry V2 API
+  title: Calimero Registry API
   description: >
-    V2 Bundle API for Calimero Registry (MPK format).
+    Bundle API for Calimero Registry (MPK format).
+
+
+    The paths below are canonical. Every `/api/{bundles,downloads,invitations,orgs,packages}/...`
+    path is also served at `/api/v2/...`, a deprecated alias kept for clients
+    already deployed; responses to it carry a `Deprecation` header.
 
 
     Two kinds of caller authenticate: registry accounts (Google session
@@ -39,7 +44,7 @@ paths:
                   status:
                     type: string
                     example: ok
-  /api/v2/bundles:
+  /api/bundles:
     get:
       summary: List all bundles
       description: >
@@ -114,7 +119,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-  /api/v2/bundles/push:
+  /api/bundles/push:
     post:
       summary: Push a new bundle
       description: >
@@ -123,7 +128,7 @@ paths:
         first publish claims an unclaimed namespace), package ownership, the
         pinned signer, and per-org quotas. The request body carries at most
         ~4.5 MB (`_binary` hex at most ~2.2 MB); larger bundles go through
-        `POST /api/v2/bundles/upload-url` and are pushed with
+        `POST /api/bundles/upload-url` and are pushed with
         `_upload: { object }` instead of `_binary`.
       security:
         - cloudJwt: []
@@ -170,11 +175,11 @@ paths:
                 $ref: '#/components/schemas/Error'
         '413':
           $ref: '#/components/responses/TooLarge'
-  /api/v2/bundles/push-file:
+  /api/bundles/push-file:
     post:
       summary: Push a new bundle as a multipart .mpk upload
       description: >
-        Same checks and responses as `POST /api/v2/bundles/push`, with the
+        Same checks and responses as `POST /api/bundles/push`, with the
         `.mpk` in the multipart field `bundle` (at most ~4.5 MB request body).
         `_visibility` is not available here; use `X-Registry-Visibility`.
       security:
@@ -222,7 +227,7 @@ paths:
                 $ref: '#/components/schemas/Error'
         '413':
           $ref: '#/components/responses/TooLarge'
-  /api/v2/bundles/upload-url:
+  /api/bundles/upload-url:
     post:
       summary: Get a signed URL to upload a bundle straight to storage
       description: >
@@ -283,7 +288,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-  /api/v2/bundles/{package}/{version}:
+  /api/bundles/{package}/{version}:
     get:
       summary: Get specific bundle
       description: >
@@ -322,7 +327,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-  /api/v2/packages/{package}/visibility:
+  /api/packages/{package}/visibility:
     parameters:
       - name: package
         in: path
@@ -434,7 +439,7 @@ paths:
                 $ref: '#/components/schemas/Error'
         '404':
           $ref: '#/components/responses/PackageNotFound'
-  /api/v2/orgs/{orgId}/audit:
+  /api/orgs/{orgId}/audit:
     get:
       summary: Read an org's audit log
       description: >

@@ -1,12 +1,12 @@
 /**
- * GET /api/v2/packages/:package — everything a client needs about one
+ * GET /api/packages/:package — everything a client needs about one
  * package, in one request.
  *
  * `{ package, metadata, assets, bundle, review }`.
  *
  * This exists because `admin-dashboard` and `calimero-desktop` both want
  * metadata + pictures + the installable bundle, and the only way to get that
- * today is `/api/v2/bundles?package=…` followed by a second call per package
+ * today is `/api/bundles?package=…` followed by a second call per package
  * for its assets. That N+1 would be written twice, in two products, against a
  * registry that proxies every read.
  *
@@ -110,7 +110,7 @@ module.exports = async function handler(req, res) {
           order: a.order,
           // Always an API path. A bucket URL would outlive every check that
           // gates it, and object names are guessable.
-          url: `/api/v2/packages/${encodeURIComponent(pkg)}/assets/${a.id}/raw`,
+          url: `/api/packages/${encodeURIComponent(pkg)}/assets/${a.id}/raw`,
         }))
       : [];
 

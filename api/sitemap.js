@@ -7,7 +7,7 @@
  * routes and go stale the first time somebody pushes a bundle.
  *
  * ⚠️ WHAT GOES IN IS EXACTLY WHAT BROWSE SHOWS. The entries come from the same
- * `listBundleManifests` + `buildBundleListing` pair behind GET /api/v2/bundles,
+ * `listBundleManifests` + `buildBundleListing` pair behind GET /api/bundles,
  * so a package is listed here if and only if it is already publicly reachable
  * through Explore — yanked versions are excluded by the same default. Deriving
  * the list any other way is how a sitemap ends up advertising something the
