@@ -829,7 +829,7 @@ async function buildServer() {
         body: {
           error: 'missing_binary',
           message:
-            'Missing _binary: send the whole .mpk as hex in `_binary` (cargo mero publish does this), or upload it to /api/bundles/push-file.',
+            'Missing _binary: send the whole .mpk as hex in `_binary` (`meroctl app publish` does this), or upload it to /api/bundles/push-file.',
         },
       };
     }

@@ -1,7 +1,7 @@
 /**
  * `buildInfo` passthrough.
  *
- * WHAT buildInfo IS. `cargo mero bundle` stamps the manifest with which node
+ * WHAT buildInfo IS. `meroctl app pack` stamps the manifest with which node
  * release the WASM was compiled against, derived from the resolved
  * `calimero-sdk` dependency. It is a sibling of `metadata` (like `handlers`),
  * deliberately: nesting it inside `metadata` would move every app's raw-wasm
