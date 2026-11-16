@@ -29,11 +29,6 @@ const {
   linkProblems,
 } = require('./lib/metadata-policy');
 const { kv } = require('./lib/kv-client');
-const {
-  toServingUrl,
-  isDeprecatedPath,
-  DEPRECATION_HEADER,
-} = require('./lib/api-alias');
 const { countDownload } = require('./lib/download-count');
 const { lockedFieldChanges } = require('./lib/manifest-lock');
 const {
@@ -67,18 +62,6 @@ async function buildServer() {
     logger: {
       level: process.env.LOG_LEVEL || 'info',
     },
-    // `/api/<ns>/...` is the canonical spelling and `/api/v2/<ns>/...` the
-    // deprecated one; the routes below are registered under `v2`, as the
-    // Vercel functions are filed. See lib/api-alias.js.
-    rewriteUrl: req => toServingUrl(req.url),
-  });
-
-  // Tell callers of the deprecated `/api/v2/...` spelling that it is one.
-  server.addHook('onSend', async (request, reply, payload) => {
-    if (isDeprecatedPath(request.originalUrl)) {
-      reply.header('Deprecation', DEPRECATION_HEADER);
-    }
-    return payload;
   });
 
   // Register cookie (required for auth session and OAuth state)
@@ -355,23 +338,20 @@ async function buildServer() {
   // V2 Bundle API endpoints
 
   // Handle OPTIONS requests for CORS preflight
-  server.options('/api/v2/bundles', async (request, reply) => {
+  server.options('/api/bundles', async (request, reply) => {
     return reply.code(200).send();
   });
 
-  server.options('/api/v2/bundles/:package', async (request, reply) => {
+  server.options('/api/bundles/:package', async (request, reply) => {
     return reply.code(200).send();
   });
 
-  server.options(
-    '/api/v2/bundles/:package/:version',
-    async (request, reply) => {
-      return reply.code(200).send();
-    }
-  );
+  server.options('/api/bundles/:package/:version', async (request, reply) => {
+    return reply.code(200).send();
+  });
 
-  // GET /api/v2/bundles - List all bundles
-  server.get('/api/v2/bundles', async (request, reply) => {
+  // GET /api/bundles - List all bundles
+  server.get('/api/bundles', async (request, reply) => {
     try {
       const {
         package: pkg,
@@ -383,7 +363,7 @@ async function buildServer() {
       } = request.query || {};
 
       // If specific package and version requested, return single bundle
-      // (Same semantics as GET /api/v2/bundles/:package/:version - also increment download count)
+      // (Same semantics as GET /api/bundles/:package/:version - also increment download count)
       if (pkg && version) {
         const bundle = await bundleStorage.getBundleManifest(pkg, version);
         if (!bundle) {
@@ -403,7 +383,7 @@ async function buildServer() {
       }
 
       // Query semantics are kept identical to the deployed Vercel copy
-      // (api/v2/bundles/index.js) — see tests/bundle-listing-parity.test.js.
+      // (api/bundles/index.js) — see tests/bundle-listing-parity.test.js.
       // This server used to treat any `?package=X` as "all versions" and never
       // resolved yank flags, which broke clients that point at a self-hosted
       // registry: the desktop app renders one card per returned bundle, so a
@@ -467,8 +447,8 @@ async function buildServer() {
     }
   });
 
-  // GET /api/v2/bundles/:package/:version - Get specific bundle
-  server.get('/api/v2/bundles/:package/:version', async (request, reply) => {
+  // GET /api/bundles/:package/:version - Get specific bundle
+  server.get('/api/bundles/:package/:version', async (request, reply) => {
     try {
       const { package: pkg, version } = request.params;
 
@@ -507,8 +487,8 @@ async function buildServer() {
     }
   });
 
-  // PATCH /api/v2/bundles/:package/:version - Update bundle metadata (name, description, links, etc.)
-  server.patch('/api/v2/bundles/:package/:version', async (request, reply) => {
+  // PATCH /api/bundles/:package/:version - Update bundle metadata (name, description, links, etc.)
+  server.patch('/api/bundles/:package/:version', async (request, reply) => {
     try {
       const { package: pkg, version } = request.params;
 
@@ -740,8 +720,8 @@ async function buildServer() {
     isAdmin,
   });
 
-  // DELETE /api/v2/bundles/:package/:version - Delete a specific version
-  server.delete('/api/v2/bundles/:package/:version', async (request, reply) => {
+  // DELETE /api/bundles/:package/:version - Delete a specific version
+  server.delete('/api/bundles/:package/:version', async (request, reply) => {
     try {
       const { package: pkg, version } = request.params;
 
@@ -780,8 +760,8 @@ async function buildServer() {
     }
   });
 
-  // DELETE /api/v2/bundles/:package - Delete an entire package (all versions)
-  server.delete('/api/v2/bundles/:package', async (request, reply) => {
+  // DELETE /api/bundles/:package - Delete an entire package (all versions)
+  server.delete('/api/bundles/:package', async (request, reply) => {
     try {
       const { package: pkg } = request.params;
 
@@ -1118,7 +1098,7 @@ async function buildServer() {
     return null;
   }
 
-  // POST /api/v2/bundles/push - Push a new bundle (used by CLI)
+  // POST /api/bundles/push - Push a new bundle (used by CLI)
   const pushBundleHandler = async (request, reply) => {
     try {
       const authUser = await resolveAuthUser(request);
@@ -1147,13 +1127,13 @@ async function buildServer() {
     }
   };
 
-  server.post('/api/v2/bundles/push', pushBundleHandler);
-  server.options('/api/v2/bundles/push', async (_req, reply) =>
+  server.post('/api/bundles/push', pushBundleHandler);
+  server.options('/api/bundles/push', async (_req, reply) =>
     reply.code(200).send()
   );
 
-  // POST /api/v2/bundles/push-file - Push a bundle from .mpk file (used by frontend)
-  server.post('/api/v2/bundles/push-file', async (request, reply) => {
+  // POST /api/bundles/push-file - Push a bundle from .mpk file (used by frontend)
+  server.post('/api/bundles/push-file', async (request, reply) => {
     server.log.info('[push-file] Request received');
     let tempDir;
     try {

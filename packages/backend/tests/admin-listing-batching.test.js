@@ -120,7 +120,7 @@ process.env.GCS_BUCKET = 'test-bucket';
 const queueHandler = require('../../../api/admin/review-queue');
 const adminUsersHandler = require('../../../api/admin/users/index');
 const adminPackagesHandler = require('../../../api/admin/packages/index');
-const membersHandler = require('../../../api/v2/orgs/[orgId]/members/index');
+const membersHandler = require('../../../api/orgs/[orgId]/members/index');
 
 function makeRes() {
   return {

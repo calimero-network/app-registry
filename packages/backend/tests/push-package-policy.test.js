@@ -47,7 +47,7 @@ jest.mock('../../../api/lib/auth-helpers', () => {
   return { ...actual, resolveUser: async () => mockCurrentUser };
 });
 
-const pushHandler = require('../../../api/v2/bundles/push');
+const pushHandler = require('../../../api/bundles/push');
 const { TEST_ICON } = require('./helpers/publishable');
 
 function makeManifest(overrides = {}) {

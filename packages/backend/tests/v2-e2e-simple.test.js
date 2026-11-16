@@ -57,7 +57,7 @@ describe('E2E: Developer Registration → Namespace Claim → Bundle Upload', ()
   describe('Step 1: Developer Registration', () => {
     test('developer should register (placeholder - unauthenticated for now)', () => {
       // TODO: When authentication is implemented:
-      // POST /api/v2/developers/enroll
+      // POST /api/developers/enroll
       // {
       //   "pubkey": "ed25519:...",
       //   "display_name": "Test Developer",

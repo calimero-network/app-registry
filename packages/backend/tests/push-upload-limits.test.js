@@ -21,8 +21,8 @@ jest.mock('../../../api/lib/auth-helpers', () => ({
   LOGIN_REQUIRED: { error: 'unauthorized', message: 'Login required' },
 }));
 
-const pushHandler = require('../../../api/v2/bundles/push');
-const pushFileHandler = require('../../../api/v2/bundles/push-file');
+const pushHandler = require('../../../api/bundles/push');
+const pushFileHandler = require('../../../api/bundles/push-file');
 const { parseMultipart, MAX_BUNDLE_BYTES } = pushFileHandler;
 
 function makeRes() {

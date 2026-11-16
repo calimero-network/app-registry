@@ -1,5 +1,5 @@
 /**
- * PATCH /api/v2/bundles/:pkg/:version edits metadata. It used to pass the raw
+ * PATCH /api/bundles/:pkg/:version edits metadata. It used to pass the raw
  * body to storeBundleManifest(body, true) — `_binary` included — so a replayed
  * signed manifest could overwrite the stored .mpk and answer 200. Top-level
  * `_` keys are outside the signature: PATCH must drop every one of them and
@@ -42,7 +42,7 @@ jest.mock('../../../api/lib/auth-helpers', () => ({
 }));
 
 const blob = require('../src/lib/blob-store');
-const handler = require('../../../api/v2/bundles/[package]/[version]');
+const handler = require('../../../api/bundles/[package]/[version]');
 
 const stored = {
   version: '1.0',

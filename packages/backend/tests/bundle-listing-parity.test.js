@@ -1,8 +1,8 @@
 /**
  * Bundle Listing Endpoint Parity Tests
  *
- * GET /api/v2/bundles exists twice: as the deployed Vercel function
- * (api/v2/bundles/index.js) and on the Fastify server
+ * GET /api/bundles exists twice: as the deployed Vercel function
+ * (api/bundles/index.js) and on the Fastify server
  * (packages/backend/src/server.js) for Docker/self-hosted. This file drives
  * BOTH real endpoints with the same queries and records exactly where they
  * agree and where they do not.
@@ -81,9 +81,9 @@ jest.mock('redis', () => ({
 }));
 process.env.REDIS_URL = 'redis://bundle-listing-parity-test';
 
-const vercelHandler = require('../../../api/v2/bundles/index');
-const detailHandler = require('../../../api/v2/bundles/[package]/[version]');
-const packageDetailHandler = require('../../../api/v2/packages/[package]/index');
+const vercelHandler = require('../../../api/bundles/index');
+const detailHandler = require('../../../api/bundles/[package]/[version]');
+const packageDetailHandler = require('../../../api/packages/[package]/index');
 const { buildServer } = require('../src/server');
 
 const PKG = 'com.example.app';
@@ -192,7 +192,7 @@ beforeEach(() => seed());
 async function callFastify(qs) {
   const response = await server.inject({
     method: 'GET',
-    url: `/api/v2/bundles${qs}`,
+    url: `/api/bundles${qs}`,
   });
   return {
     statusCode: response.statusCode,
@@ -470,7 +470,7 @@ describe('a yanked version is never presented as latest', () => {
 
     const fastifyDetail = await server.inject({
       method: 'GET',
-      url: `/api/v2/bundles/${PKG}/1.10.0`,
+      url: `/api/bundles/${PKG}/1.10.0`,
     });
     expect(fastifyDetail.statusCode).toBe(200);
     expect(JSON.parse(fastifyDetail.payload).yanked).toBe(true);

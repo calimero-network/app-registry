@@ -57,8 +57,8 @@ jest.mock('../../../api/lib/kv-client', () => ({
 const apiUserStorage = require('../../../api/lib/user-storage');
 const devUserStorage = require('../src/lib/user-storage');
 const usernameHandler = require('../../../api/auth/username');
-const orgsHandler = require('../../../api/v2/orgs/index');
-const orgHandler = require('../../../api/v2/orgs/[orgId]');
+const orgsHandler = require('../../../api/orgs/index');
+const orgHandler = require('../../../api/orgs/[orgId]');
 const { buildServer } = require('../src/server');
 const {
   validateOrgMetadata,
@@ -257,11 +257,11 @@ const runtimes = {
       callVercel(orgHandler, { method: 'DELETE', email, query: { orgId } }),
   },
   fastify: {
-    create: (email, body) => fastify('POST', '/api/v2/orgs', email, body),
+    create: (email, body) => fastify('POST', '/api/orgs', email, body),
     patch: (email, orgId, body) =>
-      fastify('PATCH', `/api/v2/orgs/${orgId}`, email, body),
-    get: orgId => fastify('GET', `/api/v2/orgs/${orgId}`),
-    del: (email, orgId) => fastify('DELETE', `/api/v2/orgs/${orgId}`, email),
+      fastify('PATCH', `/api/orgs/${orgId}`, email, body),
+    get: orgId => fastify('GET', `/api/orgs/${orgId}`),
+    del: (email, orgId) => fastify('DELETE', `/api/orgs/${orgId}`, email),
   },
 };
 

@@ -73,7 +73,7 @@ jest.mock('../../../api/lib/auth-helpers', () => ({
   resolveUser: async () => null,
 }));
 
-const listHandler = require('../../../api/v2/bundles/index');
+const listHandler = require('../../../api/bundles/index');
 
 const PACKAGE_COUNT = 25;
 
@@ -134,7 +134,7 @@ function makeReqRes(query = {}) {
   return [{ method: 'GET', query, headers: {} }, res];
 }
 
-describe('GET /api/v2/bundles critical path', () => {
+describe('GET /api/bundles critical path', () => {
   beforeEach(() => {
     rounds = 0;
     seedRegistry();

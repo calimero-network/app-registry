@@ -63,12 +63,12 @@ jest.mock('../../../api/lib/kv-client', () => ({
   isProduction: false,
 }));
 
-const membersHandler = require('../../../api/v2/orgs/[orgId]/members/index');
-const memberHandler = require('../../../api/v2/orgs/[orgId]/members/[pubkey]');
-const orgInvitesHandler = require('../../../api/v2/orgs/[orgId]/invitations/index');
-const revokeHandler = require('../../../api/v2/orgs/[orgId]/invitations/[username]');
-const myInvitesHandler = require('../../../api/v2/invitations/index');
-const respondHandler = require('../../../api/v2/invitations/[orgId]/[action]');
+const membersHandler = require('../../../api/orgs/[orgId]/members/index');
+const memberHandler = require('../../../api/orgs/[orgId]/members/[pubkey]');
+const orgInvitesHandler = require('../../../api/orgs/[orgId]/invitations/index');
+const revokeHandler = require('../../../api/orgs/[orgId]/invitations/[username]');
+const myInvitesHandler = require('../../../api/invitations/index');
+const respondHandler = require('../../../api/invitations/[orgId]/[action]');
 const { deleteOrg } = require('../../../api/lib/org-storage');
 const {
   createOrgInvitations,
@@ -362,25 +362,21 @@ describe('Fastify server parity', () => {
     });
 
   test('invite, list, accept', async () => {
-    const r = await inject('POST', `/api/v2/orgs/${ORG}/members`, ADMIN, {
+    const r = await inject('POST', `/api/orgs/${ORG}/members`, ADMIN, {
       username: 'alice',
     });
     expect(r.statusCode).toBe(202);
     expect(isMember(ALICE.email)).toBe(false);
 
-    const pending = await inject(
-      'GET',
-      `/api/v2/orgs/${ORG}/invitations`,
-      ADMIN
-    );
+    const pending = await inject('GET', `/api/orgs/${ORG}/invitations`, ADMIN);
     expect(JSON.parse(pending.payload).invitations).toHaveLength(1);
 
-    const mine = await inject('GET', '/api/v2/invitations', ALICE);
+    const mine = await inject('GET', '/api/invitations', ALICE);
     expect(JSON.parse(mine.payload).invitations).toHaveLength(1);
 
     const accepted = await inject(
       'POST',
-      `/api/v2/invitations/${ORG}/accept`,
+      `/api/invitations/${ORG}/accept`,
       ALICE
     );
     expect(accepted.statusCode).toBe(204);
@@ -388,25 +384,25 @@ describe('Fastify server parity', () => {
   });
 
   test('members see only their own email', async () => {
-    const r = await inject('GET', `/api/v2/orgs/${ORG}/members`, ADMIN);
+    const r = await inject('GET', `/api/orgs/${ORG}/members`, ADMIN);
     const withEmail = JSON.parse(r.payload).members.filter(m => 'email' in m);
     expect(withEmail.map(m => m.email)).toEqual([ADMIN.email]);
   });
 
   test('revoke and remove by username', async () => {
-    await inject('POST', `/api/v2/orgs/${ORG}/members`, ADMIN, {
+    await inject('POST', `/api/orgs/${ORG}/members`, ADMIN, {
       username: 'alice',
     });
     const revoked = await inject(
       'DELETE',
-      `/api/v2/orgs/${ORG}/invitations/alice`,
+      `/api/orgs/${ORG}/invitations/alice`,
       ADMIN
     );
     expect(revoked.statusCode).toBe(204);
 
     const removed = await inject(
       'DELETE',
-      `/api/v2/orgs/${ORG}/members/admin1`,
+      `/api/orgs/${ORG}/members/admin1`,
       OWNER
     );
     expect(removed.statusCode).toBe(204);

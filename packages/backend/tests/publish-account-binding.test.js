@@ -77,8 +77,8 @@ jest.mock('../../../api/lib/auth-helpers', () => {
 
 const { TEST_ICON } = require('./helpers/publishable');
 const { generateKeypair, signBundle } = require('./helpers/ed25519-helper');
-const pushHandler = require('../../../api/v2/bundles/push');
-const pushFileHandler = require('../../../api/v2/bundles/push-file');
+const pushHandler = require('../../../api/bundles/push');
+const pushFileHandler = require('../../../api/bundles/push-file');
 const orgs = require('../../../api/lib/org-storage');
 const devOrgs = require('../src/lib/org-storage');
 

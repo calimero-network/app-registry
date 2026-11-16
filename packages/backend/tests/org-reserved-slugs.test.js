@@ -1,6 +1,6 @@
 /**
  * Org slugs naming Calimero are admin-only, in both runtimes: the Vercel
- * function (api/v2/orgs/index.js) and the Fastify server for self-hosting.
+ * function (api/orgs/index.js) and the Fastify server for self-hosting.
  */
 
 const store = new Map();
@@ -44,7 +44,7 @@ jest.mock('../../../api/lib/kv-client', () => ({
 
 const { seedProfile } = require('./helpers/profile');
 
-const vercelHandler = require('../../../api/v2/orgs/index');
+const vercelHandler = require('../../../api/orgs/index');
 const { buildServer } = require('../src/server');
 const { isReservedOrgSlug } = require('../../../shared/org-slugs');
 const { createPackageReview } = require('../../../shared/package-review');
@@ -111,7 +111,7 @@ beforeEach(() => seed());
 async function createViaFastify(token, slug) {
   const response = await server.inject({
     method: 'POST',
-    url: '/api/v2/orgs',
+    url: '/api/orgs',
     headers: { authorization: `Bearer ${token}` },
     payload: { name: 'Some Org', slug },
   });
@@ -121,7 +121,7 @@ async function createViaFastify(token, slug) {
 describe.each([
   ['vercel', createViaVercel],
   ['fastify', createViaFastify],
-])('%s: POST /api/v2/orgs', (_runtime, create) => {
+])('%s: POST /api/orgs', (_runtime, create) => {
   it.each(['calimero', 'calimero-apps', 'thecalimero', 'Calimero'])(
     'refuses %s to a non-admin',
     async slug => {

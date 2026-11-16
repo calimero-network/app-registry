@@ -58,10 +58,10 @@ jest.mock('../../../api/lib/kv-client', () => ({
   isProduction: false,
 }));
 
-const orgsIndex = require('../../../api/v2/orgs/index');
-const orgHandler = require('../../../api/v2/orgs/[orgId]');
-const membersIndex = require('../../../api/v2/orgs/[orgId]/members/index');
-const myInvitations = require('../../../api/v2/invitations/index');
+const orgsIndex = require('../../../api/orgs/index');
+const orgHandler = require('../../../api/orgs/[orgId]');
+const membersIndex = require('../../../api/orgs/[orgId]/members/index');
+const myInvitations = require('../../../api/invitations/index');
 const { buildServer } = require('../src/server');
 const {
   isReservedOrgName,
@@ -175,9 +175,9 @@ async function inject(method, url, actor, payload) {
 }
 
 const fastify = {
-  create: (actor, body) => inject('POST', '/api/v2/orgs', actor, body),
+  create: (actor, body) => inject('POST', '/api/orgs', actor, body),
   patch: (actor, orgId, body) =>
-    inject('PATCH', `/api/v2/orgs/${orgId}`, actor, body),
+    inject('PATCH', `/api/orgs/${orgId}`, actor, body),
 };
 
 describe.each([

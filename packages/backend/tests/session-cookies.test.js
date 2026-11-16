@@ -36,11 +36,7 @@ describe('refresh cookie path', () => {
   });
 
   it('is not attached to ordinary API traffic', () => {
-    for (const p of [
-      '/api/v2/bundles',
-      '/api/v2/orgs/x/members',
-      '/api/stats',
-    ]) {
+    for (const p of ['/api/bundles', '/api/orgs/x/members', '/api/stats']) {
       expect(pathMatches(p, REFRESH_COOKIE_PATH)).toBe(false);
     }
   });

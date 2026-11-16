@@ -15,7 +15,7 @@ jest.mock('../../../api/lib/auth-helpers', () => ({
 
 const { kv: backendKv } = require('../src/lib/kv-client');
 const { kv: apiKv } = require('../../../api/lib/kv-client');
-const detailHandler = require('../../../api/v2/bundles/[package]/[version]');
+const detailHandler = require('../../../api/bundles/[package]/[version]');
 
 function makeRes() {
   return {

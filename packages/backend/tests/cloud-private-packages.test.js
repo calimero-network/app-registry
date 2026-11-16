@@ -27,7 +27,7 @@ jest.mock('../../../api/lib/kv-client', () => ({
   isProduction: false,
 }));
 
-// api/v2/bundles/[package]/[version].js opens its own Redis client for GET
+// api/bundles/[package]/[version].js opens its own Redis client for GET
 // (an empty Map unless REDIS_URL is set); route it to the same store.
 jest.mock('redis', () => ({
   createClient: () => ({
@@ -233,20 +233,20 @@ afterAll(async () => {
 
 const auth = require('../../../api/lib/auth-helpers');
 const { _clearAuthorizeCache } = require('../../../api/lib/cloud-authorize');
-const pushHandler = require('../../../api/v2/bundles/push');
-const pushFileHandler = require('../../../api/v2/bundles/push-file');
+const pushHandler = require('../../../api/bundles/push');
+const pushFileHandler = require('../../../api/bundles/push-file');
 const {
   manifestDigest,
   MANIFEST_SIGNING_DOMAIN,
 } = require('../../../api/lib/package-records');
 const verifyLib = require('../../../api/lib/verify');
-const listHandler = require('../../../api/v2/bundles/index');
-const versionHandler = require('../../../api/v2/bundles/[package]/[version]');
-const packageHandler = require('../../../api/v2/packages/[package]/index');
-const visibilityHandler = require('../../../api/v2/packages/[package]/visibility');
-const yankHandler = require('../../../api/v2/bundles/[package]/[version]/yank');
-const deleteHandler = require('../../../api/v2/bundles/[package]');
-const auditHandler = require('../../../api/v2/orgs/[orgId]/audit');
+const listHandler = require('../../../api/bundles/index');
+const versionHandler = require('../../../api/bundles/[package]/[version]');
+const packageHandler = require('../../../api/packages/[package]/index');
+const visibilityHandler = require('../../../api/packages/[package]/visibility');
+const yankHandler = require('../../../api/bundles/[package]/[version]/yank');
+const deleteHandler = require('../../../api/bundles/[package]');
+const auditHandler = require('../../../api/orgs/[orgId]/audit');
 const adminPackageHandler = require('../../../api/admin/packages/[packageName]');
 const reviewQueueHandler = require('../../../api/admin/review-queue');
 const { apiTokens } = require('../../../api/lib/api-token-storage');

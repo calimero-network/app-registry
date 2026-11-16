@@ -4,7 +4,7 @@
  * The pages worth indexing on this site are the app pages, and there is no
  * build-time list of them — they are whatever has been published. So the
  * sitemap is a function, and what it must never do is disagree with browse:
- * a package appears here if and only if GET /api/v2/bundles would list it.
+ * a package appears here if and only if GET /api/bundles would list it.
  *
  * Everything runs against the same in-memory Redis stand-in the other read
  * endpoint tests use, so it stays in the default `pnpm test` run.

@@ -77,7 +77,7 @@ jest.mock('../../../api/lib/auth-helpers', () => {
   return { ...actual, requireAuth: async () => mockCurrentUser };
 });
 
-const deleteHandler = require('../../../api/v2/bundles/[package]');
+const deleteHandler = require('../../../api/bundles/[package]');
 
 const PKG = 'com.acme.widget';
 const ORG_ID = 'acme';
@@ -192,7 +192,7 @@ describe('manifestOwnedByUser', () => {
   });
 });
 
-describe('DELETE /api/v2/bundles/:package', () => {
+describe('DELETE /api/bundles/:package', () => {
   function callDelete(user) {
     mockCurrentUser = user;
     const res = {

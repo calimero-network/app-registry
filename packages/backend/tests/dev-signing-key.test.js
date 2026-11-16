@@ -72,9 +72,9 @@ const {
   isDevSigningKey,
   devSigningKeyRefusal,
 } = require('../src/lib/dev-signing-key');
-const pushHandler = require('../../../api/v2/bundles/push');
-const pushFileHandler = require('../../../api/v2/bundles/push-file');
-const versionHandler = require('../../../api/v2/bundles/[package]/[version]');
+const pushHandler = require('../../../api/bundles/push');
+const pushFileHandler = require('../../../api/bundles/push-file');
+const versionHandler = require('../../../api/bundles/[package]/[version]');
 
 const DEV_SEED = Buffer.from([
   0x8c, 0xb7, 0xae, 0x25, 0x1b, 0x4d, 0xa5, 0x5a, 0xec, 0xc3, 0x87, 0x5f, 0x4c,
@@ -309,7 +309,7 @@ describe('push-file.js', () => {
   });
 });
 
-describe('PATCH /api/v2/bundles/:package/:version', () => {
+describe('PATCH /api/bundles/:package/:version', () => {
   async function patch(body) {
     const res = makeRes();
     await versionHandler(
@@ -340,9 +340,9 @@ describe('every write path refuses the development key', () => {
   const ROOT = path.resolve(__dirname, '../../..');
 
   test.each([
-    'api/v2/bundles/push.js',
-    'api/v2/bundles/push-file.js',
-    'api/v2/bundles/[package]/[version].js',
+    'api/bundles/push.js',
+    'api/bundles/push-file.js',
+    'api/bundles/[package]/[version].js',
     'packages/backend/src/server.js',
   ])('%s calls devSigningKeyRefusal', rel => {
     const src = fs.readFileSync(path.join(ROOT, rel), 'utf8');

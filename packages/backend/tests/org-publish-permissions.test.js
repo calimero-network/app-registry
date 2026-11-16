@@ -105,7 +105,7 @@ jest.mock('../../../api/lib/user-storage', () => ({
 }));
 
 const { TEST_ICON } = require('./helpers/publishable');
-const pushHandler = require('../../../api/v2/bundles/push');
+const pushHandler = require('../../../api/bundles/push');
 const orgs = require('../../../api/lib/org-storage');
 const devOrgs = require('../src/lib/org-storage');
 const { getOwnerKeys, isAllowedOwner } = require('../../../api/lib/verify');

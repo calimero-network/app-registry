@@ -58,7 +58,7 @@ jest.mock('../../../api/lib/verify', () => ({
   normalizeSignature: jest.fn(sig => sig || null),
 }));
 
-const pushHandler = require('../../../api/v2/bundles/push');
+const pushHandler = require('../../../api/bundles/push');
 const { TEST_ICON } = require('./helpers/publishable');
 
 const BOT = 'bot-merostudio@calimero.network';

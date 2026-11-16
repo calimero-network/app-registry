@@ -90,8 +90,8 @@ jest.mock('../../../api/lib/user-storage', () => {
   };
 });
 
-const pushHandler = require('../../../api/v2/bundles/push');
-const deleteHandler = require('../../../api/v2/bundles/[package]');
+const pushHandler = require('../../../api/bundles/push');
+const deleteHandler = require('../../../api/bundles/[package]');
 const { canManagePackage } = jest.requireActual(
   '../../../api/lib/auth-helpers'
 );
@@ -337,8 +337,8 @@ describe('every publish path shares the owner stamping', () => {
   const ROOT = path.resolve(__dirname, '../../..');
 
   test.each([
-    'api/v2/bundles/push.js',
-    'api/v2/bundles/push-file.js',
+    'api/bundles/push.js',
+    'api/bundles/push-file.js',
     'packages/backend/src/server.js',
   ])('%s stamps ownership via stampOwnerEmail', rel => {
     const src = fs.readFileSync(path.join(ROOT, rel), 'utf8');

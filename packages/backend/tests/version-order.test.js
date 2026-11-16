@@ -31,7 +31,7 @@ describe('versionOrderRefusal', () => {
 describe('every publish route shares the version ordering check', () => {
   const ROOT = path.resolve(__dirname, '../../..');
 
-  test.each(['api/v2/bundles/push.js', 'api/v2/bundles/push-file.js'])(
+  test.each(['api/bundles/push.js', 'api/bundles/push-file.js'])(
     '%s calls versionOrderRefusal',
     rel => {
       const src = fs.readFileSync(path.join(ROOT, rel), 'utf8');

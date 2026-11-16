@@ -1,6 +1,6 @@
 /**
- * GET /api/v2/orgs/:orgId/members exists twice: as the deployed Vercel function
- * (api/v2/orgs/[orgId]/members/index.js) and on the Fastify server for
+ * GET /api/orgs/:orgId/members exists twice: as the deployed Vercel function
+ * (api/orgs/[orgId]/members/index.js) and on the Fastify server for
  * Docker/self-hosted. The org UI hides the remove-member risk behind the isBot
  * flag, so both must report it or self-hosted admins lose the warning.
  */
@@ -42,7 +42,7 @@ jest.mock('../../../api/lib/kv-client', () => ({
 
 const { seedProfile } = require('./helpers/profile');
 
-const vercelHandler = require('../../../api/v2/orgs/[orgId]/members/index');
+const vercelHandler = require('../../../api/orgs/[orgId]/members/index');
 const { buildServer } = require('../src/server');
 
 const ORG_ID = 'acme';
@@ -114,7 +114,7 @@ beforeEach(() => seed());
 async function callFastify() {
   const response = await server.inject({
     method: 'GET',
-    url: `/api/v2/orgs/${ORG_ID}/members`,
+    url: `/api/orgs/${ORG_ID}/members`,
     headers: { authorization: 'Bearer tok-human' },
   });
   return JSON.parse(response.payload);
