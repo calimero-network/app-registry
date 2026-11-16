@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { nodeBuildLabel } from '@/lib/utils';
 
 /**
- * `nodeBuildLabel` turns a bundle's `buildInfo` — stamped by `cargo mero
- * bundle` from the resolved `calimero-sdk` dependency — into the string the
+ * `nodeBuildLabel` turns a bundle's `buildInfo` — stamped by `meroctl app
+ * pack` from the resolved `calimero-sdk` dependency — into the string the
  * app page shows beside the bundle version, or `null` when the bundle does not
  * say which node it was built against.
  *

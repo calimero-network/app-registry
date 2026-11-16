@@ -96,7 +96,7 @@ export interface BundleManifest {
   handlers?: { slug?: string };
   /**
    * Which node release the WASM was compiled against, derived by
-   * `cargo mero bundle` from the resolved `calimero-sdk` dependency.
+   * `meroctl app pack` from the resolved `calimero-sdk` dependency.
    *
    * Distinct from `minRuntimeVersion`, which is hand-declared and states a
    * floor. Absent on bundles built before cargo-mero began stamping it.
@@ -110,7 +110,7 @@ export interface BundleManifest {
    * Other URLs the frontend is served at, besides `links.frontend` (e.g. the
    * domain an app moved away from). Never opened; a node's sign-in page also
    * trusts a login callback to their origins. A sibling of `links`, written by
-   * `cargo mero bundle` from `frontend-aliases`.
+   * `meroctl app pack` from `frontend-aliases`.
    */
   frontendAliases?: string[];
   /** DID of the signer — part of the signed payload, must be forwarded as-is. */

@@ -53,7 +53,7 @@ function devSigningKeyRefusal(manifest) {
     body: {
       error: 'dev_signing_key',
       message:
-        'This bundle is signed with, or lists as an owner, the shared development key from `--dev`, whose private key is public. Sign it with your own key: `cargo mero bundle --key <key-file>`.',
+        'This bundle is signed with, or lists as an owner, the shared development key from `--dev`, whose private key is public. Sign it with your own key: `meroctl app pack --key <key-file>`.',
     },
   };
 }

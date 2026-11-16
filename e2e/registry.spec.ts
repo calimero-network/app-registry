@@ -925,7 +925,7 @@ test.describe('the upload page', () => {
   }) => {
     // ⚠️ THE WALKTHROUGH THAT WAS HERE CONTRADICTED THE DOCS. It taught
     // `mero-sign` and `calimero-registry bundle create` / `bundle push` — a
-    // flow the docs page states outright is replaced by `cargo mero`. Two
+    // flow the docs page states outright is replaced by `meroctl`. Two
     // sets of instructions where one is wrong is worse than one set, and the
     // docs already cover every command it mentioned.
     await page.goto('/upload');

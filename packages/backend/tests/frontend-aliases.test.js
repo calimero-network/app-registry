@@ -1,7 +1,7 @@
 /**
  * `frontendAliases`: the other URLs an app's frontend is served at.
  *
- * `cargo mero bundle` writes `frontend-aliases` from an app's Cargo.toml into
+ * `meroctl app pack` writes `frontend-aliases` from an app's Cargo.toml into
  * the manifest's top-level `frontendAliases`. A node's sign-in page trusts a
  * login callback to any of their origins, next to `links.frontend`'s, so an app
  * that moved domain keeps signing in from wherever it is still opened at the

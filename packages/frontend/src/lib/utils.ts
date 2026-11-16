@@ -160,7 +160,7 @@ export function fallbackHue(seed: string): number {
 }
 
 /**
- * Build provenance stamped into a bundle manifest by `cargo mero bundle`.
+ * Build provenance stamped into a bundle manifest by `meroctl app pack`.
  * Every field is optional: it is derived from however the app's `calimero-sdk`
  * dependency happened to resolve, and not every resolution names a release.
  */

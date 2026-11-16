@@ -255,6 +255,8 @@ describe('push.js', () => {
     expect(res.statusCode).toBe(400);
     expect(res.body.error).toBe('dev_signing_key');
     expect(res.body.message).toMatch(/--key/);
+    // The command that makes such a package now; `cargo mero` is gone.
+    expect(res.body.message).toContain('`meroctl app pack --key <key-file>`');
     expect(store.has(`bundle:${PKG}/1.0.0`)).toBe(false);
   });
 
