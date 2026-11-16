@@ -77,7 +77,7 @@ describe('vercel.json CORS', () => {
   });
 
   test('it does NOT blanket-cache the API', () => {
-    // Caching is opt-in per handler (see api/v2/bundles/index.js). A
+    // Caching is opt-in per handler (see api/bundles/index.js). A
     // Cache-Control here would also cache /api/auth/me and the admin routes,
     // which would serve one user's session data to the next.
     expect(headerValue(apiHeaderRule, 'Cache-Control')).toBeUndefined();
@@ -93,7 +93,7 @@ describe('vercel.json routing', () => {
     // to the SPA shell and returning HTML to JSON clients. Anchored, because
     // Vercel matches source patterns against the whole path.
     const spaRegex = new RegExp(`^${catchAll.source}$`);
-    expect(spaRegex.test('/api/v2/bundles')).toBe(false);
+    expect(spaRegex.test('/api/bundles')).toBe(false);
     expect(spaRegex.test('/artifacts/pkg/1.0.0/app.wasm')).toBe(false);
     expect(spaRegex.test('/developers')).toBe(true);
   });

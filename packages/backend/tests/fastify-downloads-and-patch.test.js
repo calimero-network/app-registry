@@ -102,28 +102,28 @@ const count = () => Number(store.get(`downloads:${PKG}`) || 0);
 
 describe('download counting', () => {
   test('the same IP reading a manifest twice counts once', async () => {
-    await get(`/api/v2/bundles/${PKG}/1.0.0`, '203.0.113.5');
-    await get(`/api/v2/bundles/${PKG}/1.0.0`, '203.0.113.5');
+    await get(`/api/bundles/${PKG}/1.0.0`, '203.0.113.5');
+    await get(`/api/bundles/${PKG}/1.0.0`, '203.0.113.5');
     expect(count()).toBe(1);
     expect(Number(store.get('downloads:total'))).toBe(1);
   });
 
   test('the list route with package and version counts once per client', async () => {
-    const url = `/api/v2/bundles?package=${PKG}&version=1.0.0`;
+    const url = `/api/bundles?package=${PKG}&version=1.0.0`;
     await get(url, '203.0.113.5');
     await get(url, '203.0.113.5');
     expect(count()).toBe(1);
   });
 
   test('two addresses in one IPv6 /64 count once', async () => {
-    await get(`/api/v2/bundles/${PKG}/1.0.0`, '2001:db8:1:2::1');
-    await get(`/api/v2/bundles/${PKG}/1.0.0`, '2001:db8:1:2:ffff::9');
+    await get(`/api/bundles/${PKG}/1.0.0`, '2001:db8:1:2::1');
+    await get(`/api/bundles/${PKG}/1.0.0`, '2001:db8:1:2:ffff::9');
     expect(count()).toBe(1);
   });
 
   test('different clients are counted separately', async () => {
-    await get(`/api/v2/bundles/${PKG}/1.0.0`, '203.0.113.5');
-    await get(`/api/v2/bundles/${PKG}/1.0.0`, '203.0.113.6');
+    await get(`/api/bundles/${PKG}/1.0.0`, '203.0.113.5');
+    await get(`/api/bundles/${PKG}/1.0.0`, '203.0.113.6');
     expect(count()).toBe(2);
   });
 
@@ -141,7 +141,7 @@ describe('download counting', () => {
   });
 
   test('a manifest read then an artifact read counts once', async () => {
-    await get(`/api/v2/bundles/${PKG}/1.0.0`, '203.0.113.5');
+    await get(`/api/bundles/${PKG}/1.0.0`, '203.0.113.5');
     await get(`/artifacts/${PKG}/1.0.0/app.mpk`, '203.0.113.5');
     expect(count()).toBe(1);
   });
@@ -151,7 +151,7 @@ describe('PATCH locked fields', () => {
   const patch = overrides =>
     server.inject({
       method: 'PATCH',
-      url: `/api/v2/bundles/${PKG}/1.0.0`,
+      url: `/api/bundles/${PKG}/1.0.0`,
       headers: {
         cookie: `app_registry_session=${jwt.sign(
           { sub: 'u1', email: EMAIL, name: EMAIL },

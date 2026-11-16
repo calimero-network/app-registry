@@ -2,11 +2,11 @@
  * Privacy regression tests: account email addresses must not leak through the
  * public read/publish API.
  *
- *   1. GET /api/v2/orgs/:orgId/members hides `email` from a stranger, shows a
+ *   1. GET /api/orgs/:orgId/members hides `email` from a stranger, shows a
  *      member only their own, and shows all of them to a site admin.
- *   2. GET /api/v2/bundles/:package/:version strips internal `_`-prefixed
+ *   2. GET /api/bundles/:package/:version strips internal `_`-prefixed
  *      metadata (notably `metadata._ownerEmail`).
- *   3. POST /api/v2/bundles/push never stores an email as the public `author`.
+ *   3. POST /api/bundles/push never stores an email as the public `author`.
  *
  * Everything runs against an in-memory Redis stand-in, so it stays in the
  * default `pnpm test` run.
@@ -87,9 +87,9 @@ jest.mock('../../../api/lib/verify', () => ({
 
 const { seedProfile } = require('./helpers/profile');
 
-const membersHandler = require('../../../api/v2/orgs/[orgId]/members/index');
-const detailHandler = require('../../../api/v2/bundles/[package]/[version]');
-const pushHandler = require('../../../api/v2/bundles/push');
+const membersHandler = require('../../../api/orgs/[orgId]/members/index');
+const detailHandler = require('../../../api/bundles/[package]/[version]');
+const pushHandler = require('../../../api/bundles/push');
 const { TEST_ICON } = require('./helpers/publishable');
 
 function makeRes() {
@@ -119,7 +119,7 @@ beforeEach(() => {
   hashes.clear();
 });
 
-describe('GET /api/v2/orgs/:orgId/members email exposure', () => {
+describe('GET /api/orgs/:orgId/members email exposure', () => {
   const ORG_ID = 'acme';
   const OWNER = 'owner@acme.io';
   const MEMBER = 'member@acme.io';
@@ -194,7 +194,7 @@ describe('GET /api/v2/orgs/:orgId/members email exposure', () => {
   });
 });
 
-describe('GET /api/v2/bundles/:package/:version does not leak _ownerEmail', () => {
+describe('GET /api/bundles/:package/:version does not leak _ownerEmail', () => {
   const PKG = 'com.example.app';
   const VERSION = '1.0.0';
 
@@ -237,7 +237,7 @@ describe('GET /api/v2/bundles/:package/:version does not leak _ownerEmail', () =
   });
 });
 
-describe('POST /api/v2/bundles/push never stores an email as author', () => {
+describe('POST /api/bundles/push never stores an email as author', () => {
   const PKG = 'com.example.new';
   const VERSION = '1.0.0';
   const EMAIL = 'nousername@example.com';

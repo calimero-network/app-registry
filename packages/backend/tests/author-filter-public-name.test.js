@@ -47,7 +47,7 @@ jest.mock('../src/lib/user-storage', () => ({
 const SESSION_SECRET = 'author-filter-test-secret';
 process.env.SESSION_SECRET = SESSION_SECRET;
 
-const listHandler = require('../../../api/v2/bundles/index');
+const listHandler = require('../../../api/bundles/index');
 const { buildServer } = require('../src/server');
 
 function put(pkg, metadata) {
@@ -133,7 +133,7 @@ beforeEach(seed);
 async function fastify(query, headers = {}) {
   const res = await server.inject({
     method: 'GET',
-    url: `/api/v2/bundles?${new URLSearchParams(query)}`,
+    url: `/api/bundles?${new URLSearchParams(query)}`,
     headers,
   });
   return {
@@ -146,7 +146,7 @@ async function fastify(query, headers = {}) {
 describe.each([
   ['vercel', vercel],
   ['fastify', fastify],
-])('GET /api/v2/bundles author and mine filters (%s)', (_name, call) => {
+])('GET /api/bundles author and mine filters (%s)', (_name, call) => {
   test('an owner email does not match the author filter', async () => {
     const res = await call({ author: 'bob.private@gmail.com' });
 

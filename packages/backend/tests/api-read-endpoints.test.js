@@ -50,10 +50,10 @@ jest.mock('../../../api/lib/kv-client', () => ({
 
 const healthzHandler = require('../../../api/healthz');
 const statsHandler = require('../../../api/stats');
-const recordHandler = require('../../../api/v2/downloads/record');
-const listHandler = require('../../../api/v2/bundles/index');
-const orgHandler = require('../../../api/v2/orgs/[orgId]');
-const packageHandler = require('../../../api/v2/packages/[package]/index');
+const recordHandler = require('../../../api/downloads/record');
+const listHandler = require('../../../api/bundles/index');
+const orgHandler = require('../../../api/orgs/[orgId]');
+const packageHandler = require('../../../api/packages/[package]/index');
 
 function makeRes() {
   return {
@@ -147,7 +147,7 @@ describe('GET /api/stats', () => {
   });
 });
 
-describe('POST /api/v2/downloads/record', () => {
+describe('POST /api/downloads/record', () => {
   const ONE = { 'com.a.one': { '1.0.0': { author: 'alice', pubkey: 'pk' } } };
 
   function record(body, headers = {}) {
@@ -338,7 +338,7 @@ describe('server errors do not expose internals', () => {
     }
   }
 
-  test('GET /api/v2/orgs/:orgId', async () => {
+  test('GET /api/orgs/:orgId', async () => {
     const res = await failingGet(orgHandler, { orgId: 'foo:members' });
     expect(res.statusCode).toBe(500);
     expect(res.body).toEqual({
@@ -347,7 +347,7 @@ describe('server errors do not expose internals', () => {
     });
   });
 
-  test('GET /api/v2/packages/:package', async () => {
+  test('GET /api/packages/:package', async () => {
     seed({ 'com.a.one': { '1.0.0': { author: 'alice', pubkey: 'pk' } } });
     const res = await failingGet(packageHandler, { package: 'com.a.one' });
     expect(res.statusCode).toBe(500);

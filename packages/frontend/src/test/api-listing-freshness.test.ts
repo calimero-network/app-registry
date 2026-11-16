@@ -110,14 +110,6 @@ describe('a mutation opens the window', () => {
     });
   });
 
-  it('covers the deprecated /v2 spelling of the same endpoints', async () => {
-    await api.delete('/v2/bundles/com.example.app');
-    await api.get('/v2/bundles');
-
-    const legacy = calls.filter(c => c.url === '/v2/bundles');
-    expect(legacy[0]?.params).toMatchObject({ fresh: '1' });
-  });
-
   it('covers a reload, not just the navigation after the delete', async () => {
     await api.delete('/bundles/com.example.app');
 

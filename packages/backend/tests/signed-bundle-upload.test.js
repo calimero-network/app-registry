@@ -77,8 +77,8 @@ jest.mock('@google-cloud/storage', () => ({
 }));
 
 const { MAX_BUNDLE_BYTES } = require('../src/lib/blob-store');
-const uploadUrlHandler = require('../../../api/v2/bundles/upload-url');
-const pushHandler = require('../../../api/v2/bundles/push');
+const uploadUrlHandler = require('../../../api/bundles/upload-url');
+const pushHandler = require('../../../api/bundles/push');
 const { kv: apiKv } = require('../../../api/lib/kv-client');
 const { TEST_ICON } = require('./helpers/publishable');
 
@@ -139,7 +139,7 @@ beforeEach(async () => {
   mockKv.sIsMember.mockResolvedValue(false);
 });
 
-describe('POST /api/v2/bundles/upload-url', () => {
+describe('POST /api/bundles/upload-url', () => {
   const call = async () => {
     const res = makeRes();
     await uploadUrlHandler({ method: 'POST', headers: {} }, res);

@@ -1,5 +1,5 @@
 /**
- * PATCH /api/v2/bundles/:pkg/:version edits a published version's metadata.
+ * PATCH /api/bundles/:pkg/:version edits a published version's metadata.
  *
  * A valid owner signature is not enough on its own: every signed manifest of a
  * version stays valid, so an older one could be sent again to put back
@@ -55,7 +55,7 @@ jest.mock('../../../api/lib/auth-helpers', () => {
   };
 });
 
-const handler = require('../../../api/v2/bundles/[package]/[version]');
+const handler = require('../../../api/bundles/[package]/[version]');
 const { linkProblems, safeLinks } = require('../src/lib/metadata-policy');
 const { createBundleSanitizers } = require('../src/lib/bundle-sanitize');
 
@@ -134,7 +134,7 @@ beforeEach(() => {
   mockCurrentUser = null;
 });
 
-describe('PATCH /api/v2/bundles/:pkg/:version — who may edit', () => {
+describe('PATCH /api/bundles/:pkg/:version — who may edit', () => {
   test('a signed manifest with no login is refused with 401', async () => {
     const r = await patch(null, edit());
     expect(r.status).toHaveBeenCalledWith(401);
@@ -166,7 +166,7 @@ describe('PATCH /api/v2/bundles/:pkg/:version — who may edit', () => {
   });
 });
 
-describe('PATCH /api/v2/bundles/:pkg/:version — what may change', () => {
+describe('PATCH /api/bundles/:pkg/:version — what may change', () => {
   test('adding an owner key is refused', async () => {
     const r = await patch(
       AUTHOR,

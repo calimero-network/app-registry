@@ -147,10 +147,10 @@ const {
 } = require('@calimero-network/registry-shared/package-review');
 const { TEST_ICON } = require('./helpers/publishable');
 
-const pushHandler = require('../../../api/v2/bundles/push');
+const pushHandler = require('../../../api/bundles/push');
 const adminPkgHandler = require('../../../api/admin/packages/[packageName]');
-const userDeleteHandler = require('../../../api/v2/bundles/[package]');
-const assetsHandler = require('../../../api/v2/packages/[package]/assets/index');
+const userDeleteHandler = require('../../../api/bundles/[package]');
+const assetsHandler = require('../../../api/packages/[package]/assets/index');
 
 const PKG = 'com.example.widget';
 const ORG_ID = 'acme';

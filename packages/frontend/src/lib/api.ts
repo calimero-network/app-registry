@@ -28,7 +28,7 @@ export const api = axios.create({
 
 // GET /api/bundles is cached at the edge and nothing can purge it (Vercel
 // offers no purge API outside Next.js), so a listing can lag the registry by
-// the length of that cache window — see api/v2/bundles/index.js. Fine for
+// the length of that cache window — see api/bundles/index.js. Fine for
 // browsing, wrong for whoever just changed something: delete a package, get
 // dropped on /apps, and seeing it still listed reads as a delete that failed.
 //
@@ -48,8 +48,7 @@ function isCachedListingRead(config: {
   const path = String(config.url || '')
     .split('?')[0]
     .replace(/\/+$/, '');
-  // The deprecated `/v2/bundles` spelling is the same cached endpoint.
-  return /^\/?(v2\/)?bundles$/.test(path);
+  return /^\/?bundles$/.test(path);
 }
 
 /** Anything that changes what a listing should say: push, yank, delete, verify. */
@@ -62,8 +61,7 @@ function isListingMutation(config?: {
     return false;
   const path = String(config?.url || '');
   return (
-    /^\/?(v2\/)?bundles(\/|$)/.test(path) ||
-    /^\/?admin\/packages(\/|$)/.test(path)
+    /^\/?bundles(\/|$)/.test(path) || /^\/?admin\/packages(\/|$)/.test(path)
   );
 }
 

@@ -8,7 +8,7 @@
  * `src/server.js`, which hand-writes each route. Every endpoint added to
  * `api/` since that split simply did not exist locally — the asset endpoints
  * shipped months ago, and a browser pointed at the dev server answered
- * `404 Route GET:/api/v2/packages/<pkg>/assets not found` for every package
+ * `404 Route GET:/api/packages/<pkg>/assets not found` for every package
  * on every page. Nothing failed loudly enough to notice: the frontend treats
  * a failed asset read as "no preview".
  *
@@ -76,55 +76,51 @@ const ROUTES = [
   // Assets — the endpoints that were missing entirely.
   [
     'get',
-    '/api/v2/packages/:package/assets',
-    '../../../../api/v2/packages/[package]/assets/index',
+    '/api/packages/:package/assets',
+    '../../../../api/packages/[package]/assets/index',
   ],
   [
     'post',
-    '/api/v2/packages/:package/assets',
-    '../../../../api/v2/packages/[package]/assets/index',
+    '/api/packages/:package/assets',
+    '../../../../api/packages/[package]/assets/index',
   ],
   [
     'patch',
-    '/api/v2/packages/:package/assets',
-    '../../../../api/v2/packages/[package]/assets/index',
+    '/api/packages/:package/assets',
+    '../../../../api/packages/[package]/assets/index',
   ],
   [
     'get',
-    '/api/v2/packages/:package/assets/:assetId',
-    '../../../../api/v2/packages/[package]/assets/[assetId]/index',
+    '/api/packages/:package/assets/:assetId',
+    '../../../../api/packages/[package]/assets/[assetId]/index',
   ],
   [
     'delete',
-    '/api/v2/packages/:package/assets/:assetId',
-    '../../../../api/v2/packages/[package]/assets/[assetId]/index',
+    '/api/packages/:package/assets/:assetId',
+    '../../../../api/packages/[package]/assets/[assetId]/index',
   ],
   [
     'get',
-    '/api/v2/packages/:package/assets/:assetId/raw',
-    '../../../../api/v2/packages/[package]/assets/[assetId]/raw',
+    '/api/packages/:package/assets/:assetId/raw',
+    '../../../../api/packages/[package]/assets/[assetId]/raw',
   ],
 
   // The composite read, and the moderation queue.
-  [
-    'get',
-    '/api/v2/packages/:package',
-    '../../../../api/v2/packages/[package]/index',
-  ],
+  ['get', '/api/packages/:package', '../../../../api/packages/[package]/index'],
   ['get', '/api/admin/review-queue', '../../../../api/admin/review-queue'],
 
   // Cloud private packages: visibility and the per-org audit log.
   [
     'get',
-    '/api/v2/packages/:package/visibility',
-    '../../../../api/v2/packages/[package]/visibility',
+    '/api/packages/:package/visibility',
+    '../../../../api/packages/[package]/visibility',
   ],
   [
     'put',
-    '/api/v2/packages/:package/visibility',
-    '../../../../api/v2/packages/[package]/visibility',
+    '/api/packages/:package/visibility',
+    '../../../../api/packages/[package]/visibility',
   ],
-  ['get', '/api/v2/orgs/:orgId/audit', '../../../../api/v2/orgs/[orgId]/audit'],
+  ['get', '/api/orgs/:orgId/audit', '../../../../api/orgs/[orgId]/audit'],
 ];
 
 module.exports = async function serverlessMount(server) {
@@ -133,7 +129,7 @@ module.exports = async function serverlessMount(server) {
     server[method](path, adapt(handler));
   }
   // Preflight for the asset paths, which the browser sends before an upload.
-  server.options('/api/v2/packages/:package/assets', async (_req, reply) =>
+  server.options('/api/packages/:package/assets', async (_req, reply) =>
     reply.code(200).send()
   );
 };

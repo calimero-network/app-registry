@@ -45,8 +45,8 @@ jest.mock('../src/lib/blob-store', () => ({
   deleteBinary: jest.fn(async () => {}),
 }));
 
-const pushHandler = require('../../../api/v2/bundles/push');
-const listHandler = require('../../../api/v2/bundles/index');
+const pushHandler = require('../../../api/bundles/push');
+const listHandler = require('../../../api/bundles/index');
 const { generateKeypair, signBundle } = require('./helpers/ed25519-helper');
 const { TEST_ICON } = require('./helpers/publishable');
 const { seedProfile } = require('./helpers/profile');

@@ -28,7 +28,7 @@ jest.mock('../../../api/lib/auth-helpers', () => ({
   resolveUser: async () => mockUser,
 }));
 
-const listHandler = require('../../../api/v2/bundles/index');
+const listHandler = require('../../../api/bundles/index');
 const statsHandler = require('../../../api/stats');
 
 function manifest(pkg, version) {
@@ -92,7 +92,7 @@ async function list(query = {}) {
 
 const commandsFor = name => calls.filter(([cmd]) => cmd === name);
 
-describe('GET /api/v2/bundles storage reads', () => {
+describe('GET /api/bundles storage reads', () => {
   beforeEach(() => {
     mockUser = null;
   });
@@ -185,7 +185,7 @@ describe('GET /api/v2/bundles storage reads', () => {
   });
 });
 
-describe('GET /api/v2/bundles fresh reads', () => {
+describe('GET /api/bundles fresh reads', () => {
   beforeEach(() => {
     mockUser = null;
     seed(5, 2);

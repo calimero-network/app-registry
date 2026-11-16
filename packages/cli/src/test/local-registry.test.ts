@@ -254,31 +254,32 @@ describe('Local Registry', () => {
         expect(res.statusCode).toBe(200);
       });
 
-      it('serves the bundle API at /api and at the deprecated /api/v2', async () => {
+      it('serves the bundle API at /api only, not at the removed /api/v2', async () => {
         const app = server['server'];
         const headers = { host: `127.0.0.1:${port}` };
         await server.seed();
 
-        for (const url of ['/api/bundles', '/api/v2/bundles']) {
-          const res = await app.inject({ method: 'GET', url, headers });
-          expect(res.statusCode).toBe(200);
-          expect(JSON.parse(res.payload)).toHaveLength(1);
-        }
+        const list = await app.inject({
+          method: 'GET',
+          url: '/api/bundles',
+          headers,
+        });
+        expect(list.statusCode).toBe(200);
+        expect(JSON.parse(list.payload)).toHaveLength(1);
 
         const [bundle] = server['dataStore'].getAllBundles();
         const rest = `bundles/${bundle.package}/${bundle.appVersion}`;
-        const canonical = await app.inject({
+        const one = await app.inject({
           method: 'GET',
           url: `/api/${rest}`,
           headers,
         });
-        const legacy = await app.inject({
-          method: 'GET',
-          url: `/api/v2/${rest}`,
-          headers,
-        });
-        expect(canonical.statusCode).toBe(200);
-        expect(legacy.payload).toBe(canonical.payload);
+        expect(one.statusCode).toBe(200);
+
+        for (const url of ['/api/v2/bundles', `/api/v2/${rest}`]) {
+          const res = await app.inject({ method: 'GET', url, headers });
+          expect(res.statusCode).toBe(404);
+        }
       });
 
       it('does not expose backup/restore/reset over GET', async () => {

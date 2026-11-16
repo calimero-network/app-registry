@@ -82,9 +82,9 @@ jest.mock('@google-cloud/storage', () => ({
 
 process.env.GCS_BUCKET = 'test-bucket';
 
-const assetsHandler = require('../../../api/v2/packages/[package]/assets/index');
-const rawHandler = require('../../../api/v2/packages/[package]/assets/[assetId]/raw');
-const packageHandler = require('../../../api/v2/packages/[package]/index');
+const assetsHandler = require('../../../api/packages/[package]/assets/index');
+const rawHandler = require('../../../api/packages/[package]/assets/[assetId]/raw');
+const packageHandler = require('../../../api/packages/[package]/index');
 const adminPkgHandler = require('../../../api/admin/packages/[packageName]');
 const queueHandler = require('../../../api/admin/review-queue');
 const review = require('../src/lib/package-review');
@@ -436,7 +436,7 @@ describe('the review queue', () => {
   });
 });
 
-describe('GET /api/v2/packages/:package — the composite read', () => {
+describe('GET /api/packages/:package — the composite read', () => {
   test('carries metadata, the bundle and the versions', async () => {
     const res = makeRes();
     await packageHandler(req('GET', { query: { package: PKG } }), res);

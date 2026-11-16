@@ -23,13 +23,13 @@ afterAll(async () => {
 describe('routes that exist only as serverless handlers', () => {
   // ⚠️ THE TWO RUNTIMES HAD DRIFTED COMPLETELY. Production runs the handlers
   // under `api/`; dev hand-wrote its own routes and simply did not have these,
-  // so a browser on localhost got `404 Route GET:/api/v2/packages/<pkg>/assets
+  // so a browser on localhost got `404 Route GET:/api/packages/<pkg>/assets
   // not found` for every package on every page — and the frontend reports a
   // failed asset read as "no preview", so nothing looked broken.
   test('the asset listing is mounted', async () => {
     const res = await server.inject({
       method: 'GET',
-      url: '/api/v2/packages/com.example.nothing/assets',
+      url: '/api/packages/com.example.nothing/assets',
     });
     // ⚠️ 404 IS NOT ENOUGH TO TELL THESE APART. The handler answers 404 for a
     // package that does not exist, and Fastify answers 404 for a route it does
@@ -43,7 +43,7 @@ describe('routes that exist only as serverless handlers', () => {
   test('the composite package read is mounted', async () => {
     const res = await server.inject({
       method: 'GET',
-      url: '/api/v2/packages/com.example.nothing',
+      url: '/api/packages/com.example.nothing',
     });
     // 404 from the HANDLER (no such package) is fine; what must not happen is
     // Fastify answering "no such route".
@@ -144,13 +144,13 @@ describe('the auth rate limiter', () => {
   });
 });
 
-describe('PATCH /api/v2/bundles/:package/:version', () => {
+describe('PATCH /api/bundles/:package/:version', () => {
   // Same rule as the serverless handler: a signature alone does not
   // authorise a metadata edit, a logged-in account is required first.
   test('answers 401 without a login', async () => {
     const res = await server.inject({
       method: 'PATCH',
-      url: '/api/v2/bundles/com.example.nothing/1.0.0',
+      url: '/api/bundles/com.example.nothing/1.0.0',
       headers: { 'content-type': 'application/json' },
       payload: JSON.stringify({
         package: 'com.example.nothing',

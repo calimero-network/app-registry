@@ -11,7 +11,7 @@ here; change it here first.
 | Party                            | Talks to app-registry with                                                                                                 |
 | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
 | Developer console                | the Cloud manager, which calls app-registry with a Cloud JWT                                                               |
-| CI / `meroctl app publish --org` | a Cloud JWT minted by the Cloud manager from an org API key (`POST {CLOUD_MANAGER}/api/v2/registry/token`)                 |
+| CI / `meroctl app publish --org` | a Cloud JWT minted by the Cloud manager from an org API key (`POST {CLOUD_MANAGER}/api/registry/token`)                    |
 | Calimero node (merod)            | one `GET /artifacts/...`, basic auth from the userinfo of `--registry-url`, no redirects                                   |
 | app-registry                     | the Cloud manager's `/internal/registry/authorize` (per private download) and `/internal/registry/published` (per publish) |
 

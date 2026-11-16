@@ -54,9 +54,9 @@ jest.mock('../../../api/lib/kv-client', () => ({
 const SESSION_SECRET = 'test-session-secret';
 process.env.SESSION_SECRET = SESSION_SECRET;
 
-const orgsHandler = require('../../../api/v2/orgs/index');
-const pushHandler = require('../../../api/v2/bundles/push');
-const pushFileHandler = require('../../../api/v2/bundles/push-file');
+const orgsHandler = require('../../../api/orgs/index');
+const pushHandler = require('../../../api/bundles/push');
+const pushFileHandler = require('../../../api/bundles/push-file');
 const createTokenHandler = require('../../../api/auth/token');
 const revokeTokenHandler = require('../../../api/auth/token/[tokenId]');
 const logoutHandler = require('../../../api/auth/logout');

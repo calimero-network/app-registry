@@ -111,14 +111,13 @@ A node runs the same check again before it installs a bundle.
 
 ### API paths
 
-The HTTP API is unversioned: `/api/bundles`, `/api/orgs`, `/api/packages`,
-`/api/invitations` and `/api/downloads` are the canonical paths. Every one of
-them is also served under `/api/v2/...`, a **deprecated alias** kept for clients
-already in the field (released `meroctl`, the desktop app, Cloud's registry
-sync). Responses to an `/api/v2/...` request carry a `Deprecation` header; new
-code should use the unversioned paths. The handlers live under `api/v2/` and
-`vercel.json` rewrites the unversioned paths onto them (the Fastify dev server
-does the same, see `packages/backend/src/lib/api-alias.js`).
+The HTTP API is at `/api`: `/api/bundles`, `/api/orgs`, `/api/packages`,
+`/api/invitations`, `/api/downloads`, `/api/auth`, `/api/admin` and the rest.
+There is no version segment. `/api/v2/...` was removed on 2026-11-16 and now
+answers `404`; clients that still call it (`meroctl` before 1.0.0-rc.25, older
+desktop builds) have to be upgraded. The Vercel functions live under `api/` at
+the same paths they serve, and the Fastify dev server registers the same
+paths (`tests/api-paths.test.js` holds both to that).
 
 ## Ownership and publishing rights
 

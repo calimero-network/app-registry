@@ -91,10 +91,10 @@ jest.mock('../src/lib/bundle-storage-kv', () => ({
   },
 }));
 
-const packagesHandler = require('../../../api/v2/orgs/[orgId]/packages/index');
-const unlinkHandler = require('../../../api/v2/orgs/[orgId]/packages/[packageName]');
-const memberHandler = require('../../../api/v2/orgs/[orgId]/members/[pubkey]');
-const orgHandler = require('../../../api/v2/orgs/[orgId]');
+const packagesHandler = require('../../../api/orgs/[orgId]/packages/index');
+const unlinkHandler = require('../../../api/orgs/[orgId]/packages/[packageName]');
+const memberHandler = require('../../../api/orgs/[orgId]/members/[pubkey]');
+const orgHandler = require('../../../api/orgs/[orgId]');
 const orgStorage = require('../../../api/lib/org-storage');
 const backendOrgStorage = require('../src/lib/org-storage');
 

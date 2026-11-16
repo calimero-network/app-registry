@@ -1,6 +1,6 @@
 /**
  * Regression tests for three organization authorization gaps in the deployed
- * Vercel functions (api/v2/orgs/...). Each maps to a concrete privilege
+ * Vercel functions (api/orgs/...). Each maps to a concrete privilege
  * escalation the handlers previously allowed:
  *
  *  1. RE-LINK — linking a package already linked to another org moves the
@@ -86,8 +86,8 @@ jest.mock('../src/lib/bundle-storage-kv', () => ({
 
 const { seedProfile } = require('./helpers/profile');
 
-const packagesHandler = require('../../../api/v2/orgs/[orgId]/packages/index');
-const memberHandler = require('../../../api/v2/orgs/[orgId]/members/[pubkey]');
+const packagesHandler = require('../../../api/orgs/[orgId]/packages/index');
+const memberHandler = require('../../../api/orgs/[orgId]/members/[pubkey]');
 
 const PKG = 'com.acme.widget';
 

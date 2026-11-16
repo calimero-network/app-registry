@@ -209,9 +209,9 @@ const SLUG_REGEX = /^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$/;
 const MAX_SLUG_LENGTH = 64;
 
 async function orgRoutes(server) {
-  // GET /api/v2/orgs?member=<email> — list orgs the member belongs to (auth: self or admin)
-  // GET /api/v2/orgs?package=<name>  — get single org that owns a package (no auth)
-  server.get('/api/v2/orgs', async (request, reply) => {
+  // GET /api/orgs?member=<email> — list orgs the member belongs to (auth: self or admin)
+  // GET /api/orgs?package=<name>  — get single org that owns a package (no auth)
+  server.get('/api/orgs', async (request, reply) => {
     const pkg = request.query?.package;
     if (pkg && typeof pkg === 'string') {
       const orgId = await getPkg2Org(pkg.trim());
@@ -249,8 +249,8 @@ async function orgRoutes(server) {
     return reply.send(orgs);
   });
 
-  // POST /api/v2/orgs — create org (session or token; creator becomes first admin)
-  server.post('/api/v2/orgs', async (request, reply) => {
+  // POST /api/orgs — create org (session or token; creator becomes first admin)
+  server.post('/api/orgs', async (request, reply) => {
     const user = await requireAuth(request, reply);
     if (!user) return;
     const { name, slug } = request.body || {};
@@ -302,7 +302,7 @@ async function orgRoutes(server) {
       });
     }
     const orgId = slugNorm;
-    // Reserve the slug atomically (mirrors api/v2/orgs/index.js).
+    // Reserve the slug atomically (mirrors api/orgs/index.js).
     const reserved = await kv.setNX(`org:by_slug:${slugNorm}`, orgId);
     if (!reserved || (await getOrg(orgId))) {
       return reply.code(409).send({
@@ -325,8 +325,8 @@ async function orgRoutes(server) {
     return reply.code(201).send(org);
   });
 
-  // GET /api/v2/orgs/:orgId — get org (public)
-  server.get('/api/v2/orgs/:orgId', async (request, reply) => {
+  // GET /api/orgs/:orgId — get org (public)
+  server.get('/api/orgs/:orgId', async (request, reply) => {
     const org = await getOrg(request.params.orgId);
     if (!org) {
       return reply.code(404).send({
@@ -337,8 +337,8 @@ async function orgRoutes(server) {
     return org;
   });
 
-  // PATCH /api/v2/orgs/:orgId — update org (admin or owner)
-  server.patch('/api/v2/orgs/:orgId', async (request, reply) => {
+  // PATCH /api/orgs/:orgId — update org (admin or owner)
+  server.patch('/api/orgs/:orgId', async (request, reply) => {
     const { orgId } = request.params;
     const org = await getOrg(orgId);
     if (!org) {
@@ -389,8 +389,8 @@ async function orgRoutes(server) {
     return reply.send(updated);
   });
 
-  // DELETE /api/v2/orgs/:orgId — delete org and all its data (owner only)
-  server.delete('/api/v2/orgs/:orgId', async (request, reply) => {
+  // DELETE /api/orgs/:orgId — delete org and all its data (owner only)
+  server.delete('/api/orgs/:orgId', async (request, reply) => {
     const { orgId } = request.params;
     const org = await getOrg(orgId);
     if (!org) {
@@ -406,8 +406,8 @@ async function orgRoutes(server) {
     return reply.code(204).send();
   });
 
-  // POST /api/v2/orgs/:orgId/members — invite a member by username
-  server.post('/api/v2/orgs/:orgId/members', async (request, reply) => {
+  // POST /api/orgs/:orgId/members — invite a member by username
+  server.post('/api/orgs/:orgId/members', async (request, reply) => {
     const { orgId } = request.params;
     const org = await getOrg(orgId);
     if (!org) {
@@ -445,8 +445,8 @@ async function orgRoutes(server) {
     return reply.code(status).send(body);
   });
 
-  // GET /api/v2/orgs/:orgId/invitations — pending invitations (admin/owner)
-  server.get('/api/v2/orgs/:orgId/invitations', async (request, reply) => {
+  // GET /api/orgs/:orgId/invitations — pending invitations (admin/owner)
+  server.get('/api/orgs/:orgId/invitations', async (request, reply) => {
     const { orgId } = request.params;
     if (!(await getOrg(orgId))) {
       return reply.code(404).send({
@@ -460,9 +460,9 @@ async function orgRoutes(server) {
     return reply.code(status).send(body);
   });
 
-  // DELETE /api/v2/orgs/:orgId/invitations/:username — revoke (admin/owner)
+  // DELETE /api/orgs/:orgId/invitations/:username — revoke (admin/owner)
   server.delete(
-    '/api/v2/orgs/:orgId/invitations/:username',
+    '/api/orgs/:orgId/invitations/:username',
     async (request, reply) => {
       const { orgId, username } = request.params;
       if (!(await getOrg(orgId))) {
@@ -478,16 +478,16 @@ async function orgRoutes(server) {
     }
   );
 
-  // GET /api/v2/invitations — the caller's pending invitations
-  server.get('/api/v2/invitations', async (request, reply) => {
+  // GET /api/invitations — the caller's pending invitations
+  server.get('/api/invitations', async (request, reply) => {
     const user = await requireAuth(request, reply);
     if (!user) return;
     const { status, body } = await invitationFlow.listMine(user.email);
     return reply.code(status).send(body);
   });
 
-  // POST /api/v2/invitations/:orgId/:action — accept or decline
-  server.post('/api/v2/invitations/:orgId/:action', async (request, reply) => {
+  // POST /api/invitations/:orgId/:action — accept or decline
+  server.post('/api/invitations/:orgId/:action', async (request, reply) => {
     const { orgId, action } = request.params;
     const user = await requireAuth(request, reply);
     if (!user) return;
@@ -499,8 +499,8 @@ async function orgRoutes(server) {
     return reply.code(status).send(body);
   });
 
-  // PATCH /api/v2/orgs/:orgId/members/:email — update member role (owner only; promote/demote admin/member)
-  server.patch('/api/v2/orgs/:orgId/members/:email', async (request, reply) => {
+  // PATCH /api/orgs/:orgId/members/:email — update member role (owner only; promote/demote admin/member)
+  server.patch('/api/orgs/:orgId/members/:email', async (request, reply) => {
     const { orgId, email: memberParam } = request.params;
     const org = await getOrg(orgId);
     if (!org) {
@@ -553,75 +553,72 @@ async function orgRoutes(server) {
     return reply.code(204).send();
   });
 
-  // DELETE /api/v2/orgs/:orgId/members/:email — remove member (admin/owner, or self-leave)
-  server.delete(
-    '/api/v2/orgs/:orgId/members/:email',
-    async (request, reply) => {
-      const { orgId, email: memberParam } = request.params;
-      const org = await getOrg(orgId);
-      if (!org) {
-        return reply.code(404).send({
-          error: 'not_found',
-          message: 'Organization not found',
-        });
-      }
-      const memberEmail = await resolveMemberEmail(
-        getUserByUsername,
-        memberParam
-      );
-      if (!memberEmail) {
-        return reply.code(404).send({
-          error: 'not_found',
-          message: 'User is not a member of this organization',
-        });
-      }
-      const user = await requireAuth(request, reply);
-      if (!user) return;
-      const isSelf = user.email.toLowerCase() === memberEmail.toLowerCase();
-      let callerRole = null;
-      if (!isSelf) {
-        callerRole = await getOrgMemberRole(orgId, user.email);
-        if (callerRole !== 'admin' && callerRole !== 'owner') {
-          return reply.code(403).send({
-            error: 'forbidden',
-            message:
-              'Only an organization admin or owner can remove other members',
-          });
-        }
-      }
-      const targetRole = await getOrgMemberRole(orgId, memberEmail);
-      // SECURITY: an admin removing a privileged member could evict the org's
-      // owners (or fellow admins) and seize control — the last-owner guard alone
-      // does not stop it. Only an owner may remove an owner or admin; admins are
-      // limited to plain members. Self-removal stays allowed (last-owner guard
-      // below still applies).
-      if (
-        !isSelf &&
-        (targetRole === 'owner' || targetRole === 'admin') &&
-        callerRole !== 'owner'
-      ) {
+  // DELETE /api/orgs/:orgId/members/:email — remove member (admin/owner, or self-leave)
+  server.delete('/api/orgs/:orgId/members/:email', async (request, reply) => {
+    const { orgId, email: memberParam } = request.params;
+    const org = await getOrg(orgId);
+    if (!org) {
+      return reply.code(404).send({
+        error: 'not_found',
+        message: 'Organization not found',
+      });
+    }
+    const memberEmail = await resolveMemberEmail(
+      getUserByUsername,
+      memberParam
+    );
+    if (!memberEmail) {
+      return reply.code(404).send({
+        error: 'not_found',
+        message: 'User is not a member of this organization',
+      });
+    }
+    const user = await requireAuth(request, reply);
+    if (!user) return;
+    const isSelf = user.email.toLowerCase() === memberEmail.toLowerCase();
+    let callerRole = null;
+    if (!isSelf) {
+      callerRole = await getOrgMemberRole(orgId, user.email);
+      if (callerRole !== 'admin' && callerRole !== 'owner') {
         return reply.code(403).send({
           error: 'forbidden',
-          message: 'Only an organization owner can remove an owner or admin',
+          message:
+            'Only an organization admin or owner can remove other members',
         });
       }
-      if (targetRole === 'owner') {
-        const ownerCount = await countOrgOwners(orgId);
-        if (ownerCount <= 1) {
-          return reply.code(409).send({
-            error: 'last_owner',
-            message:
-              'Cannot remove the last owner. Promote another member to owner first.',
-          });
-        }
-      }
-      await removeOrgMember(orgId, memberEmail);
-      return reply.code(204).send();
     }
-  );
+    const targetRole = await getOrgMemberRole(orgId, memberEmail);
+    // SECURITY: an admin removing a privileged member could evict the org's
+    // owners (or fellow admins) and seize control — the last-owner guard alone
+    // does not stop it. Only an owner may remove an owner or admin; admins are
+    // limited to plain members. Self-removal stays allowed (last-owner guard
+    // below still applies).
+    if (
+      !isSelf &&
+      (targetRole === 'owner' || targetRole === 'admin') &&
+      callerRole !== 'owner'
+    ) {
+      return reply.code(403).send({
+        error: 'forbidden',
+        message: 'Only an organization owner can remove an owner or admin',
+      });
+    }
+    if (targetRole === 'owner') {
+      const ownerCount = await countOrgOwners(orgId);
+      if (ownerCount <= 1) {
+        return reply.code(409).send({
+          error: 'last_owner',
+          message:
+            'Cannot remove the last owner. Promote another member to owner first.',
+        });
+      }
+    }
+    await removeOrgMember(orgId, memberEmail);
+    return reply.code(204).send();
+  });
 
-  // POST /api/v2/orgs/:orgId/packages — link package to org (admin or owner; must own the package)
-  server.post('/api/v2/orgs/:orgId/packages', async (request, reply) => {
+  // POST /api/orgs/:orgId/packages — link package to org (admin or owner; must own the package)
+  server.post('/api/orgs/:orgId/packages', async (request, reply) => {
     const { orgId } = request.params;
     const org = await getOrg(orgId);
     if (!org) {
@@ -688,9 +685,9 @@ async function orgRoutes(server) {
     return reply.code(204).send();
   });
 
-  // DELETE /api/v2/orgs/:orgId/packages/:package — unlink package (admin or owner)
+  // DELETE /api/orgs/:orgId/packages/:package — unlink package (admin or owner)
   server.delete(
-    '/api/v2/orgs/:orgId/packages/:package',
+    '/api/orgs/:orgId/packages/:package',
     async (request, reply) => {
       const { orgId, package: pkg } = request.params;
       const org = await getOrg(orgId);
@@ -714,8 +711,8 @@ async function orgRoutes(server) {
     }
   );
 
-  // GET /api/v2/orgs/:orgId/packages — list packages linked to org (public)
-  server.get('/api/v2/orgs/:orgId/packages', async (request, reply) => {
+  // GET /api/orgs/:orgId/packages — list packages linked to org (public)
+  server.get('/api/orgs/:orgId/packages', async (request, reply) => {
     const { orgId } = request.params;
     const org = await getOrg(orgId);
     if (!org) {
@@ -728,8 +725,8 @@ async function orgRoutes(server) {
     return reply.send({ packages });
   });
 
-  // GET /api/v2/orgs/:orgId/members — list members (username + role, public; emails only to their owner or a site admin)
-  server.get('/api/v2/orgs/:orgId/members', async (request, reply) => {
+  // GET /api/orgs/:orgId/members — list members (username + role, public; emails only to their owner or a site admin)
+  server.get('/api/orgs/:orgId/members', async (request, reply) => {
     const { orgId } = request.params;
     const org = await getOrg(orgId);
     if (!org) {

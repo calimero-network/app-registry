@@ -1,7 +1,7 @@
 /**
  * Bundle Listing Batching Tests
  *
- * GET /api/v2/bundles used to await twice per package inside a `for` loop, so a
+ * GET /api/bundles used to await twice per package inside a `for` loop, so a
  * 50-package registry cost 101 serialised Redis round trips (~9.6s against a
  * cross-region Redis). These tests pin the property that actually matters: the
  * number of *sequential* round trips must not grow with the number of packages.
@@ -50,7 +50,7 @@ jest.mock('../../../api/lib/auth-helpers', () => ({
   resolveUser: async () => mockUser,
 }));
 
-const listHandler = require('../../../api/v2/bundles/index');
+const listHandler = require('../../../api/bundles/index');
 
 function manifest(pkg, version, extra = {}) {
   return JSON.stringify({
@@ -106,7 +106,7 @@ function makeReqRes(query = {}) {
   return [{ method: 'GET', query, headers: {} }, res];
 }
 
-describe('GET /api/v2/bundles batching', () => {
+describe('GET /api/bundles batching', () => {
   beforeEach(() => {
     waves = 0;
     inFlight = 0;
@@ -180,7 +180,7 @@ describe('GET /api/v2/bundles batching', () => {
   });
 });
 
-describe('GET /api/v2/bundles caching', () => {
+describe('GET /api/bundles caching', () => {
   beforeEach(() => {
     waves = 0;
     inFlight = 0;

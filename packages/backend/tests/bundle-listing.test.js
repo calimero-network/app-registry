@@ -2,7 +2,7 @@
  * Shared Bundle Listing Tests
  *
  * buildBundleListing is the single post-processing path behind both copies of
- * GET /api/v2/bundles (the deployed Vercel function and the Fastify server).
+ * GET /api/bundles (the deployed Vercel function and the Fastify server).
  * Those copies previously each had their own filter/sanitize/count/sort block
  * and had already drifted apart, so this is the seam worth pinning directly.
  */

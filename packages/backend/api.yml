@@ -5,9 +5,8 @@ info:
     Bundle API for Calimero Registry (MPK format).
 
 
-    The paths below are canonical. Every `/api/{bundles,downloads,invitations,orgs,packages}/...`
-    path is also served at `/api/v2/...`, a deprecated alias kept for clients
-    already deployed; responses to it carry a `Deprecation` header.
+    The API has no version segment. The `/api/v2/...` paths were removed on
+    2026-11-16 and answer 404.
 
 
     Two kinds of caller authenticate: registry accounts (Google session

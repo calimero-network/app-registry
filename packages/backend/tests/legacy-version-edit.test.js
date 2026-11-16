@@ -45,7 +45,7 @@ jest.mock('../../../api/lib/auth-helpers', () => {
   };
 });
 
-const handler = require('../../../api/v2/bundles/[package]/[version]');
+const handler = require('../../../api/bundles/[package]/[version]');
 const {
   didKey,
   generateKeypair,

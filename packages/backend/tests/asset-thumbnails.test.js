@@ -116,8 +116,8 @@ jest.mock('../../../api/lib/admin-storage', () => ({
   getAdminVerified: async () => false,
 }));
 
-const assetsHandler = require('../../../api/v2/packages/[package]/assets/index');
-const rawHandler = require('../../../api/v2/packages/[package]/assets/[assetId]/raw');
+const assetsHandler = require('../../../api/packages/[package]/assets/index');
+const rawHandler = require('../../../api/packages/[package]/assets/[assetId]/raw');
 const review = require('../src/lib/package-review');
 const { listAssets } = require('../src/lib/asset-store');
 
