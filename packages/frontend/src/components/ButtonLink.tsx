@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Button } from '@calimero-network/mero-ui';
+import { Button } from '@calimero-network/mero-design';
 import { ReactNode } from 'react';
 
 export interface ButtonLinkProps {
