@@ -17,9 +17,9 @@
     "test:coverage": "vitest --coverage"
   },
   "dependencies": {
-    "@calimero-network/mero-design": "^1.0.0-rc.32",
-    "@calimero-network/mero-icons": "^1.0.0-rc.32",
-    "@calimero-network/mero-tokens": "^1.0.0-rc.32",
+    "@calimero-network/mero-design": "^1.0.0-rc.33",
+    "@calimero-network/mero-icons": "^1.0.0-rc.33",
+    "@calimero-network/mero-tokens": "^1.0.0-rc.33",
     "@noble/ed25519": "^3.2.0",
     "@tanstack/react-query": "^5.104.0",
     "axios": "^1.19.0",
