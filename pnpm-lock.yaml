@@ -268,11 +268,11 @@ importers:
   packages/frontend:
     dependencies:
       '@calimero-network/mero-icons':
-        specifier: ^0.0.6
-        version: 0.0.6(react@19.3.1)
+        specifier: ^1.0.0-rc.32
+        version: 1.0.0-rc.32(react@19.3.1)
       '@calimero-network/mero-tokens':
-        specifier: ^0.0.5
-        version: 0.0.5
+        specifier: ^1.0.0-rc.32
+        version: 1.0.0-rc.32
       '@calimero-network/mero-ui':
         specifier: ^1.5.1
         version: 1.5.1(@floating-ui/dom@1.8.0)(@tiptap/core@3.34.0)(@tiptap/pm@3.34.0)(@types/react-dom@19.3.0)(@types/react@19.3.0)(react-dom@19.3.1)(react@19.3.1)
@@ -867,8 +867,16 @@ packages:
       react: 19.3.1
     dev: false
 
-  /@calimero-network/mero-tokens@0.0.5:
-    resolution: {integrity: sha512-kHR3lyI0e0Cd9EQLAGkv3++jbuuQ0lIRujGaukHSFyMTsywQxi0zAt7eJ0FtBK72A8ZiliWDI+wpoRXWDwFttw==}
+  /@calimero-network/mero-icons@1.0.0-rc.32(react@19.3.1):
+    resolution: {integrity: sha512-sxijVaJVG4UL+E8W7EoO6cMCzTDRiR3cknr24sr6H5/YjcKKijc0NcEsdga/r0Z9bhoBkdHs/0wGTYsvBDeHqg==}
+    peerDependencies:
+      react: ^18.3.1
+    dependencies:
+      react: 19.3.1
+    dev: false
+
+  /@calimero-network/mero-tokens@1.0.0-rc.32:
+    resolution: {integrity: sha512-liOPj6TYPoDm09AAQk41Fln51JzYk3eNCpXSFHUNOugXPCpyHzUDWTIDHOTaBQPZWEWZSkHRETzh/JCU3+jerg==}
     dev: false
 
   /@calimero-network/mero-ui@1.5.1(@floating-ui/dom@1.8.0)(@tiptap/core@3.34.0)(@tiptap/pm@3.34.0)(@types/react-dom@19.3.0)(@types/react@19.3.0)(react-dom@19.3.1)(react@19.3.1):
