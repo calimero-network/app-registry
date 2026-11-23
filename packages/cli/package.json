@@ -39,7 +39,7 @@
     "fastify": "^5.12.8",
     "ora": "^10.0.0",
     "table": "^6.10.1",
-    "tar": "^7.5.22"
+    "tar": "^7.5.23"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
