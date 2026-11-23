@@ -183,8 +183,17 @@ private packages carry `"visibility": "private"`.
     X-Registry-Timestamp: <unix seconds>
     X-Registry-Signature: sha256=<hex HMAC-SHA256(CLOUD_AUTHORIZE_HMAC_SECRET, "<ts>.<raw body>")>
 
-    {"cluster_user": "...", "token": "...", "package": "...", "version": "...", "org": "<owning Cloud org id>"}
+    {"cluster_user": "...", "token": "...", "package": "...", "version": "...", "org": "<owning Cloud org id>", "account": "<installing account id>"}
     ```
+
+    `account` is optional: the account on the cluster that is installing, taken from
+    the node's `x-calimero-install-account` request header and forwarded as is.
+    It is absent when the node does not send the header (for example a re-fetch of a
+    release it already installed), and the Cloud manager then decides per cluster as before.
+    When present, the Cloud manager decides per account.
+    The registry accepts the header only as one value of at most 128 characters
+    matching `^[A-Za-z0-9_-]+$`; anything else is a `404`, never a per-cluster answer.
+    The header is read only on the basic-auth path.
 
     The Cloud manager answers `200 {"allowed": bool, "org_id": string|null}` and rejects a
     bad/missing signature or a timestamp more than 5 minutes off with 401.
@@ -201,7 +210,7 @@ private packages carry `"visibility": "private"`.
   non-200 or malformed answer: `503 authorize_unavailable` with
   `Retry-After: 5` — fail closed, never cached.
 - Answers are cached per function instance, keyed by a hash of
-  (cluster_user, token, package, version, org): allowed 60 s, denied 10 s.
+  (cluster_user, token, package, version, org, account): allowed 60 s, denied 10 s.
   Revoking a cluster credential therefore takes up to 60 s to bite.
 - Private downloads are `Cache-Control: private, no-store`, `Vary: Authorization`.
 - Single GET, no redirect: the registry never redirects (core refuses

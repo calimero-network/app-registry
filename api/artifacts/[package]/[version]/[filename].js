@@ -43,6 +43,8 @@ const {
   AuthorizeUnavailableError,
 } = require('#api-lib/cloud-authorize');
 
+const INSTALL_ACCOUNT_RE = /^[A-Za-z0-9_-]{1,128}$/; // cluster account ids
+
 // Singleton storage instance
 let storage;
 
@@ -82,12 +84,18 @@ async function mayDownloadPrivate(req, pkg, version, record) {
     if (!record?.org_id) return false;
     const org = await getOrg(record.org_id);
     if (!org?.cloud_org_id) return false;
+    // A malformed header is a denial, never a fall back to the per-cluster answer.
+    const account = req.headers?.['x-calimero-install-account'];
+    if (account !== undefined && !INSTALL_ACCOUNT_RE.test(account)) {
+      return false;
+    }
     const answer = await authorizeDownload({
       clusterUser: basic.user,
       token: basic.pass,
       pkg,
       version,
       org: org.cloud_org_id,
+      account,
     });
     // mdma vouches for the credential and names the cluster's org; the
     // registry decides whether that org owns this package.

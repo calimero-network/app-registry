@@ -10,7 +10,7 @@
  *   POST CLOUD_AUTHORIZE_URL
  *   X-Registry-Timestamp: <unix seconds>
  *   X-Registry-Signature: sha256=<hex HMAC-SHA256(secret, "<ts>.<raw body>")>
- *   { "cluster_user", "token", "package", "version", "org" }
+ *   { "cluster_user", "token", "package", "version", "org", "account"? }
  *   -> 200 { "allowed": boolean, "org_id": string | null }
  *
  * The full contract is docs/cloud-integration.md.
@@ -93,10 +93,12 @@ function parseBasicAuth(header) {
   return { user: decode(user), pass: decode(pass) };
 }
 
-function cacheKey(clusterUser, token, pkg, version, org) {
+function cacheKey(clusterUser, token, pkg, version, org, account) {
   return crypto
     .createHash('sha256')
-    .update([clusterUser, token, pkg, version, org || ''].join('\0'))
+    .update(
+      [clusterUser, token, pkg, version, org || '', account || ''].join('\0')
+    )
     .digest('hex');
 }
 
@@ -126,13 +128,13 @@ function cacheSet(key, value, ttl, now) {
  *   error, non-200 or a malformed answer. Callers fail closed.
  */
 async function authorizeDownload(
-  { clusterUser, token, pkg, version, org = null },
+  { clusterUser, token, pkg, version, org = null, account = null },
   { fetchImpl = globalThis.fetch, now = Date.now } = {}
 ) {
   const config = authorizeConfig();
   if (!config) throw new AuthorizeUnavailableError('authorize not configured');
 
-  const key = cacheKey(clusterUser, token, pkg, version, org);
+  const key = cacheKey(clusterUser, token, pkg, version, org, account);
   const cached = cacheGet(key, now());
   if (cached) return { ...cached, cached: true };
 
@@ -143,6 +145,8 @@ async function authorizeDownload(
     version,
     // The owning Cloud org the registry has recorded; mdma checks it agrees.
     ...(org ? { org } : {}),
+    // The installing cluster account, when the node names one.
+    ...(account ? { account } : {}),
   });
   const timestamp = String(Math.floor(now() / 1000));
   const controller = new AbortController();
