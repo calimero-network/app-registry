@@ -268,14 +268,14 @@ importers:
   packages/frontend:
     dependencies:
       '@calimero-network/mero-design':
-        specifier: ^1.0.0-rc.32
-        version: 1.0.0-rc.32(@floating-ui/dom@1.8.0)(@tiptap/core@3.34.0)(@tiptap/pm@3.34.0)(@types/react-dom@19.3.0)(@types/react@19.3.0)(react-dom@19.3.1)(react@19.3.1)
+        specifier: ^1.0.0-rc.35
+        version: 1.0.0-rc.35(@floating-ui/dom@1.8.0)(@tiptap/core@3.34.0)(@tiptap/pm@3.34.0)(@types/react-dom@19.3.0)(@types/react@19.3.0)(react-dom@19.3.1)(react@19.3.1)
       '@calimero-network/mero-icons':
-        specifier: ^1.0.0-rc.32
-        version: 1.0.0-rc.32(react@19.3.1)
+        specifier: ^1.0.0-rc.35
+        version: 1.0.0-rc.35(react@19.3.1)
       '@calimero-network/mero-tokens':
-        specifier: ^1.0.0-rc.32
-        version: 1.0.0-rc.32
+        specifier: ^1.0.0-rc.35
+        version: 1.0.0-rc.35
       '@noble/ed25519':
         specifier: ^3.2.0
         version: 3.2.0
@@ -859,13 +859,13 @@ packages:
       css-tree: 3.2.1
     dev: true
 
-  /@calimero-network/mero-design@1.0.0-rc.32(@floating-ui/dom@1.8.0)(@tiptap/core@3.34.0)(@tiptap/pm@3.34.0)(@types/react-dom@19.3.0)(@types/react@19.3.0)(react-dom@19.3.1)(react@19.3.1):
-    resolution: {integrity: sha512-b+CCzrIRl076VcazlD2GANP5eOSooBh6jXIYsOPaQC0h9cIm+WculFZyG3ci29O+9/N7KPvf6MlC20eeNSy84w==}
+  /@calimero-network/mero-design@1.0.0-rc.35(@floating-ui/dom@1.8.0)(@tiptap/core@3.34.0)(@tiptap/pm@3.34.0)(@types/react-dom@19.3.0)(@types/react@19.3.0)(react-dom@19.3.1)(react@19.3.1):
+    resolution: {integrity: sha512-CXde44+W5pKckHIV9a4ZCAmr8n/YZsgJ3fYLDcd4FPtArqQUNew0xh5cuHD5hgQ5ZMIk/8JVg6/wdyc8jwULGQ==}
     peerDependencies:
       react: '>=19.0.0'
       react-dom: '>=19.0.0'
     dependencies:
-      '@calimero-network/mero-icons': 1.0.0-rc.32(react@19.3.1)
+      '@calimero-network/mero-icons': 1.0.0-rc.35(react@19.3.1)
       '@tiptap/extension-color': 3.14.0(@tiptap/extension-text-style@3.14.0)
       '@tiptap/extension-link': 3.14.0(@tiptap/core@3.34.0)(@tiptap/pm@3.34.0)
       '@tiptap/extension-text-align': 3.14.0(@tiptap/core@3.34.0)
@@ -884,16 +884,16 @@ packages:
       - '@types/react-dom'
     dev: false
 
-  /@calimero-network/mero-icons@1.0.0-rc.32(react@19.3.1):
-    resolution: {integrity: sha512-sxijVaJVG4UL+E8W7EoO6cMCzTDRiR3cknr24sr6H5/YjcKKijc0NcEsdga/r0Z9bhoBkdHs/0wGTYsvBDeHqg==}
+  /@calimero-network/mero-icons@1.0.0-rc.35(react@19.3.1):
+    resolution: {integrity: sha512-KfmQhCidLHR2tkl17EKVRK9Fs+ywgcAjZbP21flZhitZKeNhR07NQBukBPPqHz8pVwlGVWr3UEKj+DWtzxJcmw==}
     peerDependencies:
       react: ^18.3.1
     dependencies:
       react: 19.3.1
     dev: false
 
-  /@calimero-network/mero-tokens@1.0.0-rc.32:
-    resolution: {integrity: sha512-liOPj6TYPoDm09AAQk41Fln51JzYk3eNCpXSFHUNOugXPCpyHzUDWTIDHOTaBQPZWEWZSkHRETzh/JCU3+jerg==}
+  /@calimero-network/mero-tokens@1.0.0-rc.35:
+    resolution: {integrity: sha512-spdSwnNqRhqnYoPhKtCB1NN98BGq3z0Jmg2/6+ahlUrsbp/6kB/rL0r6G2I99yrSgqt0D76GOHvPPxpLUkIbFg==}
     dev: false
 
   /@chainsafe/is-ip@2.1.0:
