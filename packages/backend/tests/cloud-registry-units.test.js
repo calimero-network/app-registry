@@ -122,6 +122,18 @@ describe('authorizeDownload', () => {
     expect(init.redirect).toBe('error');
   });
 
+  test('fields that join to the same bytes do not share a cache entry', async () => {
+    const allow = answering(200, { allowed: true, org_id: 'o' });
+    const one = { ...args, clusterUser: 'a', token: 'b\0c' };
+    const other = { ...args, clusterUser: 'a\0b', token: 'c' };
+    await authorizeDownload(one, { fetchImpl: allow, now: () => now });
+    const out = await authorizeDownload(other, {
+      fetchImpl: allow,
+      now: () => now,
+    });
+    expect(out.cached).toBe(false);
+  });
+
   test('caches an allow for 60 s and a deny for 10 s', async () => {
     const allow = answering(200, { allowed: true, org_id: 'o' });
     await authorizeDownload(args, { fetchImpl: allow, now: () => now });

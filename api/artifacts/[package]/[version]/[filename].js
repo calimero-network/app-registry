@@ -86,7 +86,10 @@ async function mayDownloadPrivate(req, pkg, version, record) {
     if (!org?.cloud_org_id) return false;
     // A malformed header is a denial, never a fall back to the per-cluster answer.
     const account = req.headers?.['x-calimero-install-account'];
-    if (account !== undefined && !INSTALL_ACCOUNT_RE.test(account)) {
+    if (
+      account !== undefined &&
+      (typeof account !== 'string' || !INSTALL_ACCOUNT_RE.test(account))
+    ) {
       return false;
     }
     const answer = await authorizeDownload({

@@ -97,7 +97,14 @@ function cacheKey(clusterUser, token, pkg, version, org, account) {
   return crypto
     .createHash('sha256')
     .update(
-      [clusterUser, token, pkg, version, org || '', account || ''].join('\0')
+      JSON.stringify([
+        clusterUser,
+        token,
+        pkg,
+        version,
+        org || '',
+        account || '',
+      ])
     )
     .digest('hex');
 }

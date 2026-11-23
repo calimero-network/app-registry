@@ -189,7 +189,7 @@ private packages carry `"visibility": "private"`.
     `account` is optional: the account on the cluster that is installing, taken from
     the node's `x-calimero-install-account` request header and forwarded as is.
     It is absent when the node does not send the header (for example a re-fetch of a
-    release it already installed), and the Cloud manager then decides per cluster as before.
+    release it already installed), and the Cloud manager then allows only a release it already allowed an account on that cluster.
     When present, the Cloud manager decides per account.
     The registry accepts the header only as one value of at most 128 characters
     matching `^[A-Za-z0-9_-]+$`; anything else is a `404`, never a per-cluster answer.

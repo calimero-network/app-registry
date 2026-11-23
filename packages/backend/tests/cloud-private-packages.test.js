@@ -1027,6 +1027,27 @@ describe('node downloads (HTTP, basic auth via userinfo)', () => {
       expect(mdma.calls).toBe(0);
     });
 
+    // Called in process: over HTTP, Node hands the handler one string.
+    test('a header that is not one string is a 404 and mdma is not asked', async () => {
+      const handler = require('../../../api/artifacts/[package]/[version]/[filename]');
+      const basic = Buffer.from(`${cluster.user}:${cluster.pass}`).toString(
+        'base64'
+      );
+      const res = await call(handler, {
+        headers: {
+          authorization: `Basic ${basic}`,
+          'x-calimero-install-account': [ACCOUNT_A],
+        },
+        query: {
+          package: 'com.acme.secret',
+          version: '1.0.0',
+          filename: 'com.acme.secret-1.0.0.mpk',
+        },
+      });
+      expect(res.statusCode).toBe(404);
+      expect(mdma.calls).toBe(0);
+    });
+
     test('is ignored on a Bearer request', async () => {
       const res = await download('com.acme.secret', '1.0.0', {
         headers: {
