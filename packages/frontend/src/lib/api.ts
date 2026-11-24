@@ -269,6 +269,7 @@ export const toAppSummary = (bundle: any): AppSummary => {
     downloads: bundle.downloads || 0,
     verified,
     publisherVerified,
+    visibility: bundle.visibility === 'private' ? 'private' : undefined,
     icon: bundle.metadata?.icon || undefined,
     description: bundle.metadata?.description || undefined,
     tags,
@@ -441,6 +442,18 @@ export const getBundleManifestRaw = async (
 ): Promise<Record<string, any>> => {
   const response = await api.get(`/bundles/${packageName}/${version}`);
   return response.data;
+};
+
+/** The visibility a private package has asked for (`public`), when its request awaits review. */
+export const getPendingVisibility = async (
+  packageName: string
+): Promise<string | null> => {
+  const { data } = await api.get(
+    `/packages/${encodeURIComponent(packageName)}/visibility`
+  );
+  return typeof data?.pending_visibility === 'string'
+    ? data.pending_visibility
+    : null;
 };
 
 /** Yank (or unyank) a specific version of a package. Requires login as the package author. */

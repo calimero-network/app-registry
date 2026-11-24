@@ -27,12 +27,14 @@ import {
   yankBundleVersion,
   getOrgByPackage,
   getOrgMembers,
+  getPendingVisibility,
 } from '@/lib/api';
 import { GithubIcon } from '@/components/BrandIcons';
 import { useAuth } from '@/contexts/AuthContext';
 import { AppIcon } from '@/components/AppIcon';
 import { AppPreview } from '@/components/AppPreview';
 import { OpenAppTile } from '@/components/OpenAppTile';
+import { VisibilityTag } from '@/components/VisibilityTag';
 import { CATEGORIES } from '@/types/api';
 import {
   formatBytes,
@@ -51,6 +53,7 @@ interface V2Bundle {
   /** The person: a verified account or a calimero.network address. */
   publisherVerified?: boolean;
   yanked?: boolean;
+  visibility?: 'private' | 'public';
   metadata?: {
     name?: string;
     description?: string;
@@ -129,6 +132,13 @@ export default function AppDetailPage() {
       return (Array.isArray(response.data) ? response.data : []) as V2Bundle[];
     },
     enabled: !!appId,
+  });
+
+  const { data: pendingVisibility = null } = useQuery({
+    queryKey: ['package-visibility', appId],
+    queryFn: () => getPendingVisibility(appId),
+    enabled: !!appId && !!user && allBundles[0]?.visibility === 'private',
+    retry: false,
   });
 
   const deleteVersionMutation = useMutation({
@@ -320,6 +330,10 @@ export default function AppDetailPage() {
             <span className='pill bg-brand-600/10 font-mono text-brand-600'>
               v{bundle.appVersion}
             </span>
+            <VisibilityTag
+              visibility={bundle.visibility}
+              pendingPublic={!!pendingVisibility}
+            />
             {canEdit && (
               <Link
                 to={`/apps/${appId}/${bundle.appVersion}/edit`}
@@ -364,6 +378,12 @@ export default function AppDetailPage() {
             )}
             <span>{(bundle.downloads ?? 0).toLocaleString()} downloads</span>
           </div>
+
+          {bundle.visibility === 'private' && canManagePackage && (
+            <p className='mt-3 text-[14.5px] text-neutral-400'>
+              Only clusters of this package&apos;s organization can install it.
+            </p>
+          )}
 
           {meta?.description && (
             <p className='mt-3 max-w-2xl text-[15px] font-light leading-relaxed text-neutral-400'>

@@ -3,6 +3,7 @@ import { getMyPackages } from '@/lib/api';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Package, Upload, ArrowRight } from 'lucide-react';
+import { VisibilityTag } from '@/components/VisibilityTag';
 
 export default function MyPackagesPage() {
   const { user } = useAuth();
@@ -94,13 +95,14 @@ export default function MyPackagesPage() {
                 >
                   <div className='flex items-center gap-3'>
                     <Package className='w-4 h-4 text-neutral-500' />
-                    <div>
+                    <div className='flex flex-wrap items-center gap-x-2 gap-y-1'>
                       <span className='text-neutral-200 font-medium'>
                         {pkg.alias || pkg.package_name}
                       </span>
-                      <span className='text-neutral-500 text-sm ml-2'>
+                      <span className='text-neutral-500 text-sm'>
                         {pkg.latest_version}
                       </span>
+                      <VisibilityTag visibility={pkg.visibility} />
                     </div>
                   </div>
                   <ArrowRight className='w-4 h-4 text-neutral-500' />

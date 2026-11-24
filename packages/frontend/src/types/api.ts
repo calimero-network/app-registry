@@ -30,6 +30,8 @@ export interface AppSummary {
   verified?: boolean;
   /** The person who published it: a verified account, or a calimero.network address. */
   publisherVerified?: boolean;
+  /** Set only for a private package the viewer may see. */
+  visibility?: 'private';
   /**
    * `metadata.icon` — a `data:image/png;base64,...` URI, the same field
    * tauri-app reads for launcher icons. Absent on bundles published before an
