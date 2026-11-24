@@ -222,6 +222,8 @@ private packages carry `"visibility": "private"`.
   (cluster_user, token, package, version, org, account): allowed 60 s, denied 10 s.
   Revoking a cluster credential therefore takes up to 60 s to bite.
 - Private downloads are `Cache-Control: private, no-store`, `Vary: Authorization`.
+  So is every 404 of this route, so the headers do not tell a hidden package
+  from a missing one.
 - Single GET, no redirect: the registry never redirects (core refuses
   redirects), it streams the bytes itself (section 9).
 

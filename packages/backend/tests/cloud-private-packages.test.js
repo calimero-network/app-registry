@@ -920,6 +920,30 @@ describe('node downloads (HTTP, basic auth via userinfo)', () => {
     );
   });
 
+  test.each([
+    ['an unknown version', '9.9.9', undefined],
+    ['a known version', '1.0.0', undefined],
+    [
+      'a known version, wrong cluster',
+      '1.0.0',
+      { user: 'cluster-b', pass: 'tok-b' },
+    ],
+  ])(
+    'a refusal for %s carries the headers of a missing package',
+    async (_what, version, creds) => {
+      const hidden = await download('com.acme.secret', version, creds);
+      const absent = await download('com.acme.nothing', version);
+      expect(hidden.status).toBe(absent.status);
+      expect(hidden.body.toString()).toBe(
+        absent.body.toString().replace('nothing', 'secret')
+      );
+      for (const h of ['cache-control', 'vary', 'content-type']) {
+        expect(hidden.headers[h]).toBe(absent.headers[h]);
+      }
+      expect(absent.headers['cache-control']).toBe('private, no-store');
+    }
+  );
+
   test("the org's cluster credential downloads it; the answer is cached", async () => {
     const res = await download('com.acme.secret', '1.0.0', {
       user: 'cluster-a',

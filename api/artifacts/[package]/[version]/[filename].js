@@ -201,11 +201,16 @@ module.exports = async function handler(req, res) {
     });
   }
 
-  const notFound = () =>
-    res.status(404).json({
+  // Every 404 carries the headers a private refusal does, so they cannot tell
+  // a hidden package from a missing one.
+  const notFound = () => {
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.setHeader('Vary', 'Authorization');
+    return res.status(404).json({
       error: 'artifact_not_found',
       message: `${pkg}@${version} not found`,
     });
+  };
 
   // The refusal. `asked` is Cloud's reason when it was already asked; else a
   // cluster with a well-formed account is asked, with no org, so the answer
