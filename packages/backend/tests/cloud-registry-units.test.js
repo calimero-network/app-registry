@@ -97,10 +97,30 @@ describe('authorizeDownload', () => {
   const answering = (status, body) =>
     jest.fn(async () => ({ status, json: async () => body }));
 
+  test("returns Cloud's reason field as is, and null when it is not a string", async () => {
+    const refused = answering(200, { allowed: false, reason: 'not_a_member' });
+    const out = await authorizeDownload(args, {
+      fetchImpl: refused,
+      now: () => now,
+    });
+    expect(out.reason).toBe('not_a_member');
+    const odd = answering(200, { allowed: false, reason: { x: 1 } });
+    const other = { ...args, pkg: 'com.acme.other' };
+    expect(
+      (await authorizeDownload(other, { fetchImpl: odd, now: () => now }))
+        .reason
+    ).toBeNull();
+  });
+
   test('signs the exact body with the shared secret', async () => {
     const fetchImpl = answering(200, { allowed: true, org_id: 'org_acme' });
     const out = await authorizeDownload(args, { fetchImpl, now: () => now });
-    expect(out).toEqual({ allowed: true, orgId: 'org_acme', cached: false });
+    expect(out).toEqual({
+      allowed: true,
+      orgId: 'org_acme',
+      reason: null,
+      cached: false,
+    });
     const [url, init] = fetchImpl.mock.calls[0];
     expect(url).toBe(process.env.CLOUD_AUTHORIZE_URL);
     expect(JSON.parse(init.body)).toEqual({
@@ -120,6 +140,18 @@ describe('authorizeDownload', () => {
     expect(init.headers['X-Registry-Signature']).toBe(`sha256=${mac}`);
     expect(signRequest(SECRET, ts, init.body)).toBe(`sha256=${mac}`);
     expect(init.redirect).toBe('error');
+  });
+
+  test('fields that join to the same bytes do not share a cache entry', async () => {
+    const allow = answering(200, { allowed: true, org_id: 'o' });
+    const one = { ...args, clusterUser: 'a', token: 'b\0c' };
+    const other = { ...args, clusterUser: 'a\0b', token: 'c' };
+    await authorizeDownload(one, { fetchImpl: allow, now: () => now });
+    const out = await authorizeDownload(other, {
+      fetchImpl: allow,
+      now: () => now,
+    });
+    expect(out.cached).toBe(false);
   });
 
   test('caches an allow for 60 s and a deny for 10 s', async () => {
