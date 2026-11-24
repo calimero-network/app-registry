@@ -11,7 +11,7 @@
  *   X-Registry-Timestamp: <unix seconds>
  *   X-Registry-Signature: sha256=<hex HMAC-SHA256(secret, "<ts>.<raw body>")>
  *   { "cluster_user", "token", "package", "version", "org", "account"? }
- *   -> 200 { "allowed": boolean, "org_id": string | null }
+ *   -> 200 { "allowed": boolean, "org_id": string | null, "reason"?: string | null }
  *
  * The full contract is docs/cloud-integration.md.
  *
@@ -130,7 +130,7 @@ function cacheSet(key, value, ttl, now) {
 /**
  * Ask mdma whether a cluster credential may download `pkg@version`.
  *
- * @returns {Promise<{allowed: boolean, orgId: string|null, cached: boolean}>}
+ * @returns {Promise<{allowed: boolean, orgId: string|null, reason: string|null, cached: boolean}>}
  * @throws {AuthorizeUnavailableError} when not configured, on timeout, network
  *   error, non-200 or a malformed answer. Callers fail closed.
  */
@@ -196,6 +196,7 @@ async function authorizeDownload(
   const value = {
     allowed: data.allowed,
     orgId: typeof data.org_id === 'string' && data.org_id ? data.org_id : null,
+    reason: typeof data.reason === 'string' && data.reason ? data.reason : null,
   };
   cacheSet(
     key,

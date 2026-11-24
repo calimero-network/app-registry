@@ -112,6 +112,7 @@ const mdma = {
   orgs: [],
   bodies: [],
   deniedAccounts: new Set(),
+  unlinkedAccounts: new Set(),
 };
 // cluster credentials the stand-in Cloud manager knows: user -> {token, org}
 const CLUSTERS = {
@@ -200,10 +201,22 @@ beforeAll(async () => {
       const allowed =
         !!cluster &&
         cluster.token === body.token &&
-        !mdma.deniedAccounts.has(body.account);
+        !mdma.deniedAccounts.has(body.account) &&
+        !mdma.unlinkedAccounts.has(body.account);
+      const reason = allowed
+        ? null
+        : !cluster || cluster.token !== body.token
+          ? 'bad_credential'
+          : mdma.unlinkedAccounts.has(body.account)
+            ? 'account_not_linked'
+            : 'not_a_member';
       res.setHeader('Content-Type', 'application/json');
       res.end(
-        JSON.stringify({ allowed, org_id: allowed ? cluster.org : null })
+        JSON.stringify({
+          allowed,
+          org_id: allowed ? cluster.org : null,
+          reason,
+        })
       );
     });
   });
@@ -400,6 +413,7 @@ beforeEach(async () => {
     orgs: [],
     bodies: [],
     deniedAccounts: new Set(),
+    unlinkedAccounts: new Set(),
   });
   delete process.env.CLOUD_QUOTA_MAX_VERSIONS_PER_PACKAGE;
   delete process.env.CLOUD_QUOTA_MAX_BUNDLE_BYTES;
@@ -1046,6 +1060,81 @@ describe('node downloads (HTTP, basic auth via userinfo)', () => {
       });
       expect(res.statusCode).toBe(404);
       expect(mdma.calls).toBe(0);
+    });
+
+    describe('an account that is not linked to a Cloud developer', () => {
+      const NOT_LINKED = {
+        error: 'account_not_linked',
+        message:
+          'This node account is not linked to a Calimero Cloud developer. Link it in Calimero Cloud, then install again.',
+      };
+      beforeEach(() => mdma.unlinkedAccounts.add(ACCOUNT_B));
+
+      test.each([
+        ['a package that does not exist', 'com.acme.nothing'],
+        ['a private package', 'com.acme.secret'],
+      ])('is told to link it, for %s', async (_what, pkg) => {
+        const res = await download(pkg, '1.0.0', as(ACCOUNT_B));
+        expect(res.status).toBe(403);
+        expect(JSON.parse(res.body)).toEqual(NOT_LINKED);
+        expect(res.headers['cache-control']).toBe('private, no-store');
+      });
+
+      test('is told so for a missing version of a public package', async () => {
+        const res = await download('org.example.open', '9.9.9', as(ACCOUNT_B));
+        expect(res.status).toBe(403);
+      });
+
+      test('asks Cloud once for a private package, and caches the answer', async () => {
+        await download('com.acme.secret', '1.0.0', as(ACCOUNT_B));
+        await download('com.acme.secret', '1.0.0', as(ACCOUNT_B));
+        expect(mdma.calls).toBe(1);
+      });
+
+      test('a linked non-member gets the 404 a missing package gets', async () => {
+        mdma.deniedAccounts.add(ACCOUNT_A);
+        const denied = await download(
+          'com.acme.secret',
+          '1.0.0',
+          as(ACCOUNT_A)
+        );
+        const absent = await download(
+          'com.acme.nothing',
+          '1.0.0',
+          as(ACCOUNT_A)
+        );
+        expect(denied.status).toBe(404);
+        expect(JSON.parse(denied.body)).toEqual(
+          JSON.parse(absent.body.toString().replace('nothing', 'secret'))
+        );
+      });
+
+      test('without the header a missing package is a 404 and Cloud is not asked', async () => {
+        const res = await download('com.acme.nothing', '1.0.0', cluster);
+        expect(res.status).toBe(404);
+        expect(mdma.calls).toBe(0);
+      });
+
+      test('a malformed header on a missing package is a 404 and Cloud is not asked', async () => {
+        const res = await download('com.acme.nothing', '1.0.0', as('a b'));
+        expect(res.status).toBe(404);
+        expect(mdma.calls).toBe(0);
+      });
+
+      test('a credential Cloud refuses learns nothing about the account', async () => {
+        const res = await download('com.acme.nothing', '1.0.0', {
+          user: 'cluster-a',
+          pass: 'wrong',
+          headers: { 'x-calimero-install-account': ACCOUNT_B },
+        });
+        expect(res.status).toBe(404);
+      });
+
+      test('Cloud unreachable: a missing package stays a 404', async () => {
+        mdma.down = true;
+        const res = await download('com.acme.nothing', '1.0.0', as(ACCOUNT_B));
+        expect(res.status).toBe(404);
+      });
     });
 
     test('is ignored on a Bearer request', async () => {

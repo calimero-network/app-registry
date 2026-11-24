@@ -13,7 +13,10 @@
  *     authorize endpoint accepts for the package's Cloud org;
  *   - `Authorization: Bearer <Cloud JWT>` with the `read` scope for that org;
  *   - a registry session/API token of someone who may read the package.
- * Anything else gets the same 404 as a package that does not exist.
+ * Anything else gets the same 404 as a package that does not exist, except
+ * that a valid cluster credential with an `x-calimero-install-account` the
+ * Cloud manager reports as `account_not_linked` gets a 403 saying so, for any
+ * package name, so the answer reveals nothing about which packages exist.
  *
  * ⚠️ STREAMED, NOT BUFFERED. The .mpk is piped from GCS to the response with
  * a Content-Length from the object's metadata. It used to be downloaded
@@ -72,25 +75,43 @@ function stripInternalMetadata(manifest) {
   return { ...manifest, metadata };
 }
 
+const NOT_LINKED = {
+  error: 'account_not_linked',
+  message:
+    'This node account is not linked to a Calimero Cloud developer. Link it in Calimero Cloud, then install again.',
+};
+
+/** The cluster credential and a well-formed install account, if the request has both. */
+function clusterAccount(req) {
+  const basic = parseBasicAuth(req.headers?.authorization);
+  const account = req.headers?.['x-calimero-install-account'];
+  return basic &&
+    typeof account === 'string' &&
+    INSTALL_ACCOUNT_RE.test(account)
+    ? { basic, account }
+    : null;
+}
+
 /**
- * May this request download private package `pkg@version`?
- * @returns {Promise<boolean>} throws AuthorizeUnavailableError when the Cloud
- *   manager cannot be asked.
+ * May this request download private package `pkg@version`? `reason` is the
+ * Cloud manager's, when it was asked.
+ * @returns {Promise<{allowed: boolean, reason?: string|null}>} throws
+ *   AuthorizeUnavailableError when the Cloud manager cannot be asked.
  */
 async function mayDownloadPrivate(req, pkg, version, record) {
   const header = req.headers?.authorization;
   const basic = parseBasicAuth(header);
   if (basic) {
-    if (!record?.org_id) return false;
+    if (!record?.org_id) return { allowed: false };
     const org = await getOrg(record.org_id);
-    if (!org?.cloud_org_id) return false;
+    if (!org?.cloud_org_id) return { allowed: false };
     // A malformed header is a denial, never a fall back to the per-cluster answer.
     const account = req.headers?.['x-calimero-install-account'];
     if (
       account !== undefined &&
       (typeof account !== 'string' || !INSTALL_ACCOUNT_RE.test(account))
     ) {
-      return false;
+      return { allowed: false };
     }
     const answer = await authorizeDownload({
       clusterUser: basic.user,
@@ -102,10 +123,13 @@ async function mayDownloadPrivate(req, pkg, version, record) {
     });
     // mdma vouches for the credential and names the cluster's org; the
     // registry decides whether that org owns this package.
-    return answer.allowed && answer.orgId === org.cloud_org_id;
+    return {
+      allowed: answer.allowed && answer.orgId === org.cloud_org_id,
+      reason: answer.reason,
+    };
   }
   const user = await resolveUser(req, { allowCloud: true }).catch(() => null);
-  return canReadPrivate(user, record);
+  return { allowed: await canReadPrivate(user, record) };
 }
 
 /** Pipe `stream` into `res`, resolving when the response has finished. */
@@ -183,6 +207,34 @@ module.exports = async function handler(req, res) {
       message: `${pkg}@${version} not found`,
     });
 
+  // The refusal. `asked` is Cloud's reason when it was already asked; else a
+  // cluster with a well-formed account is asked, with no org, so the answer
+  // does not depend on the package.
+  const refuse = async asked => {
+    let reason = asked;
+    const who = clusterAccount(req);
+    if (reason === undefined && who) {
+      try {
+        ({ reason } = await authorizeDownload({
+          clusterUser: who.basic.user,
+          token: who.basic.pass,
+          pkg,
+          version,
+          account: who.account,
+        }));
+      } catch (err) {
+        if (!(err instanceof AuthorizeUnavailableError)) throw err;
+        console.error('artifact authorize unavailable:', err.message);
+      }
+    }
+    if (who && reason === NOT_LINKED.error) {
+      res.setHeader('Cache-Control', 'private, no-store');
+      res.setHeader('Vary', 'Authorization');
+      return res.status(403).json(NOT_LINKED);
+    }
+    return notFound();
+  };
+
   try {
     const record = await getPackageRecord(pkg);
     const isPrivate = visibilityOf(record) === 'private';
@@ -190,9 +242,9 @@ module.exports = async function handler(req, res) {
       // Never let a shared cache keep a private package, nor serve it back.
       res.setHeader('Cache-Control', 'private, no-store');
       res.setHeader('Vary', 'Authorization');
-      let allowed;
+      let answer;
       try {
-        allowed = await mayDownloadPrivate(req, pkg, version, record);
+        answer = await mayDownloadPrivate(req, pkg, version, record);
       } catch (err) {
         if (!(err instanceof AuthorizeUnavailableError)) throw err;
         console.error('artifact authorize unavailable:', err.message);
@@ -202,12 +254,12 @@ module.exports = async function handler(req, res) {
           message: 'Download authorization is temporarily unavailable',
         });
       }
-      if (!allowed) return notFound();
+      if (!answer.allowed) return refuse(answer.reason);
     }
 
     const store = getStorage();
     const manifest = await store.getBundleManifest(pkg, version);
-    if (!manifest) return notFound();
+    if (!manifest) return refuse();
 
     // Expose min_runtime_version for runtime compatibility (Rust expects this)
     const minRuntimeVersionHeader = minRuntimeVersionOf(manifest);

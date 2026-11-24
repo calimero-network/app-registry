@@ -97,10 +97,30 @@ describe('authorizeDownload', () => {
   const answering = (status, body) =>
     jest.fn(async () => ({ status, json: async () => body }));
 
+  test("returns Cloud's reason field as is, and null when it is not a string", async () => {
+    const refused = answering(200, { allowed: false, reason: 'not_a_member' });
+    const out = await authorizeDownload(args, {
+      fetchImpl: refused,
+      now: () => now,
+    });
+    expect(out.reason).toBe('not_a_member');
+    const odd = answering(200, { allowed: false, reason: { x: 1 } });
+    const other = { ...args, pkg: 'com.acme.other' };
+    expect(
+      (await authorizeDownload(other, { fetchImpl: odd, now: () => now }))
+        .reason
+    ).toBeNull();
+  });
+
   test('signs the exact body with the shared secret', async () => {
     const fetchImpl = answering(200, { allowed: true, org_id: 'org_acme' });
     const out = await authorizeDownload(args, { fetchImpl, now: () => now });
-    expect(out).toEqual({ allowed: true, orgId: 'org_acme', cached: false });
+    expect(out).toEqual({
+      allowed: true,
+      orgId: 'org_acme',
+      reason: null,
+      cached: false,
+    });
     const [url, init] = fetchImpl.mock.calls[0];
     expect(url).toBe(process.env.CLOUD_AUTHORIZE_URL);
     expect(JSON.parse(init.body)).toEqual({
