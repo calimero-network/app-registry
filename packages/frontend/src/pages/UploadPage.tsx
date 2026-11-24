@@ -133,6 +133,18 @@ export default function UploadPage() {
           publish to the registry. Your session (if logged in) will be used as
           the package author.
         </p>
+        <p className='text-[14px] text-neutral-500 font-light mb-4'>
+          For an organization: uploads here are public. Private packages are
+          published from Calimero Cloud (the console&apos;s upload) or with{' '}
+          <code className='text-brand-600'>meroctl app publish --org</code>{' '}
+          &lt;org&gt;.{' '}
+          <Link
+            to='/docs#publishing'
+            className='text-brand-600 hover:text-brand-500 transition-colors'
+          >
+            Publishing docs
+          </Link>
+        </p>
         {user ? (
           <>
             <div className='flex flex-wrap items-center gap-3'>
