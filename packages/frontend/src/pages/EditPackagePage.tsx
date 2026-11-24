@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { ArrowLeft, Download, Terminal } from 'lucide-react';
 import { getBundleManifestRaw } from '@/lib/api';
+import { VisibilityTag } from '@/components/VisibilityTag';
 
 export default function EditPackagePage() {
   const { appId = '', version = '' } = useParams<{
@@ -118,6 +119,11 @@ export default function EditPackagePage() {
         <p className='text-[14px] text-neutral-500 font-mono mt-1'>
           {appId} @ v{version}
         </p>
+        {manifest.visibility === 'private' && (
+          <div className='mt-2 flex flex-wrap items-center gap-1.5'>
+            <VisibilityTag visibility='private' />
+          </div>
+        )}
       </div>
 
       <form onSubmit={handleSubmit} className='card p-5 space-y-4'>
