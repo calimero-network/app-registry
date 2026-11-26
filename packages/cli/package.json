@@ -33,7 +33,7 @@
   },
   "dependencies": {
     "@fastify/cors": "^11.4.2",
-    "axios": "^1.19.0",
+    "axios": "^1.21.1",
     "chalk": "^6.0.1",
     "commander": "^15.1.0",
     "fastify": "^5.12.8",
